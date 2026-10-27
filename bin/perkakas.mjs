@@ -2,11 +2,13 @@
 // Perkakas resmi RudisOne (daftar: perkakas.json; aturan: sdlc.md › Perkakas resmi). Memastikan skill
 // rudis-monorepo dan pustaka rudis-modules ada dan mutakhir di device ini, tanpa pernah menimpa
 // pekerjaan pengguna di repo sumbernya. Dipanggil COO di awal setiap /rudisone dan oleh install.sh.
-// Pemakaian: bin/perkakas.sh [siapkan|cek|versi|proyek <folder>] [--segera] [--paksa]
+// Pemakaian: bin/perkakas.sh [siapkan|cek|versi|proyek <folder>|pastikan <skill>|skill] [--segera] [--paksa]
 //   siapkan  (default) clone bila belum ada · pull --ff-only bila bersih · pasang ulang skill bila beda dari paketnya
 //   cek      laporkan keadaan tanpa mengubah apa pun (git fetch tetap jalan)
 //   versi    satu baris untuk kolom "Perkakas" register tugas, mis. rudis@b444853 lib@43e552f
 //   proyek   jenis <folder>: rudis-pustaka · rudis-deploy · lain
+//   pastikan skill luar <skill> tersedia; bila belum, dipasang dari sumber resminya (exit 0 · 1 · 2 alternatif · 3)
+//   skill    keadaan semua skill luar (perkakas.json › skill_luar) tanpa memasang apa pun
 //   --segera abaikan jeda 30 menit antar-fetch · --paksa jangan menunda walau ada tugas Engineering berjalan
 // Exit: 0 siap · 1 perlu perhatian (kerja tetap lanjut dengan versi yang ada) · 3 argumen salah
 import { spawnSync } from "node:child_process";
@@ -16,6 +18,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { bacaRegister } from "../kantor/server.mjs";
+import { laporan as laporanSkillLuar, pastikan } from "./skill-luar.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const MANIFEST = process.env.RUDISONE_PERKAKAS_MANIFEST || path.join(ROOT, "perkakas.json");
@@ -158,14 +161,24 @@ function siapkan(t, { ubah, segera, paksa, sibuk, state }) {
 function main(argv) {
   const opsi = argv.filter((a) => a.startsWith("--"));
   const [aksi = "siapkan", arg] = argv.filter((a) => !a.startsWith("--"));
-  const daftar = JSON.parse(fs.readFileSync(MANIFEST, "utf8")).perkakas;
+  const manifest = JSON.parse(fs.readFileSync(MANIFEST, "utf8"));
+  const daftar = manifest.perkakas, skillLuar = manifest.skill_luar ?? [];
 
   if (aksi === "versi") { console.log(daftar.map(versi).join(" ")); return 0; }
   if (aksi === "proyek") {
     if (!arg) { console.error("Pemakaian: bin/perkakas.sh proyek <folder>"); return 3; }
     console.log(jenisProyek(path.resolve(rumah(arg)))); return 0;
   }
-  if (aksi !== "siapkan" && aksi !== "cek") { console.error(fs.readFileSync(fileURLToPath(import.meta.url), "utf8").split("\n").slice(4, 11).map((l) => l.replace(/^\/\/ ?/, "")).join("\n")); return 3; }
+  if (aksi === "pastikan") {
+    if (!arg) { console.error("Pemakaian: bin/perkakas.sh pastikan <skill>"); return 3; }
+    return pastikan(skillLuar, arg);
+  }
+  if (aksi === "skill") {
+    console.log("Skill luar RudisOne");
+    for (const [tingkat, teksBaris] of laporanSkillLuar(skillLuar)) console.log(`  [${tingkat}]   ${teksBaris}`);
+    return 0;
+  }
+  if (aksi !== "siapkan" && aksi !== "cek") { console.error(fs.readFileSync(fileURLToPath(import.meta.url), "utf8").split("\n").slice(4, 13).map((l) => l.replace(/^\/\/ ?/, "")).join("\n")); return 3; }
 
   let teks = "";
   try { teks = fs.readFileSync(REGISTER, "utf8"); } catch { /* belum ada register tugas */ }
@@ -182,6 +195,8 @@ function main(argv) {
       console.log(`  [${tingkat}]   ${teksBaris}`);
     }
   }
+  // Skill luar hanya dilaporkan: dipasang saat dibutuhkan (`pastikan`), bukan di setiap /rudisone.
+  for (const [tingkat, teksBaris] of laporanSkillLuar(skillLuar)) console.log(`  [${tingkat}]   ${teksBaris}`);
   tulisState(state);
   const v = daftar.map(versi).join(" ");
   console.log(perhatian ? `Perkakas: ${perhatian} perlu perhatian — kerja tetap lanjut dengan ${v}` : `Perkakas: siap — ${v}`);

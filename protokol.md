@@ -241,6 +241,7 @@ ditegakkan mesin: `kebijakan-akses.json`, dibaca hook `bin/kebijakan.mjs` di set
 | `bin/kantor.sh [buka\|--tanpa-browser\|mulai-ulang\|berhenti\|demo]` | Kantor RudisOne (tampilan pemantauan lokal) | 0 · 1 gagal menyala |
 | `bin/kebijakan.sh [cek\|tampil\|audit [n]\|uji '<json>'\|pasang\|lepas]` | Kebijakan akses & batas kewenangan: status, ringkasan aturan, jejak audit, simulasi satu aksi. `pasang`/`lepas` hanya oleh pemilik | 0 · 1 belum terpasang · 3 argumen |
 | `bin/perkakas.sh [siapkan\|cek\|versi\|proyek <folder>]` | Perkakas resmi SDLC: pasang/perbarui skill & pustaka rudis (hanya COO & `install.sh` yang `siapkan`; siapa pun boleh `cek`/`versi`/`proyek`) — `sdlc.md` › Perkakas resmi | 0 siap · 1 perlu perhatian · 3 argumen |
+| `bin/perkakas.sh pastikan <skill>` · `bin/perkakas.sh skill` | Skill luar: pastikan satu skill tersedia (dipasang dari sumber resminya bila belum) · keadaan semua skill luar. Siapa pun boleh — bagian Skill luar | 0 tersedia · 1 gagal · 2 tak bisa dipasang (pakai alternatif) · 3 tak terdaftar |
 
 Templat di `~/Documents/Neuron/ai-agent/RudisOne/templat/`: `brief-tugas.md`, `laporan-tugas.md`, `register-tugas.md`, `status-tugas.md`, `team.md`,
 `riset.md`, `spesifikasi.md`, `user-story.md` (Business Systems Analyst), `status-rilis.md`, `laporan-deploy.md`, `brief-desain.md`,
@@ -255,6 +256,25 @@ Templat di `~/Documents/Neuron/ai-agent/RudisOne/templat/`: `brief-tugas.md`, `l
 
 Perkakas resmi (bukan bagian repo ini; dipasang & diperbarui `bin/perkakas.sh`): skill **`rudis-monorepo`**
 dan pustaka **`rudis-modules`** — kapan dan oleh siapa dipakai: `sdlc.md`.
+
+## Skill luar (`perkakas.json` › `skill_luar`)
+Skill yang dipakai jabatan tetapi tidak dibundel di repo ini. Keberadaannya beda per device, jadi **sebelum memuat
+skill luar yang belum muncul di daftar skill sesimu, jalankan `bin/perkakas.sh pastikan <skill>`**: tersedia →
+lanjut; belum → dipasang dari sumber resminya saat itu juga, lalu baca `SKILL.md` di path yang dicetak (skill baru
+otomatis aktif di sesi berikutnya). Exit 2 = tidak bisa dipasang di device ini → pakai alternatif yang dicetak.
+Exit 1 → `[Terhambat]` ke pemberi tugas dengan keluaran perintahnya. `siapkan`/`cek` hanya melaporkan keadaannya.
+
+| Skill | Untuk | Jabatan utama | Sumber resmi |
+|---|---|---|---|
+| `docx-neuron` | Dokumen Word resmi Neuronworks | Technical Writer, Program Manager | repo privat `DimasPrasetio/docx-neuron` (disimpan di `~/Documents/Neuron/ai-agent/docx-neuron`) |
+| `docx`, `pdf`, `pptx`, `xlsx` | Word generik, PDF, slide, spreadsheet | Technical Writer, Program Manager, Financial Controller, Head of Strategy, Research Analyst, HR Business Partner, Business Systems Analyst | plugin `document-skills` dari marketplace `anthropics/skills` |
+| `frontend-design` | Eksekusi desain antarmuka | Tech Lead, Software Engineer | plugin `frontend-design` dari marketplace `anthropics/claude-plugins-official` |
+| `docs` | Dokumen kolaboratif Claude Docs | Technical Writer, Program Manager | bawaan aplikasi Claude — tidak bisa dipasang; alternatif `docx` |
+
+- Skill Anthropic (`document-skills`) berlisensi hak cipta Anthropic: **jangan pernah disalin** ke repo/folder
+  sendiri; selalu dipasang dari marketplace resminya.
+- Skill luar baru: COO mendaftarkannya di `perkakas.json` (id, jenis `git`/`plugin`/`platform`, nama skill, sumber,
+  jabatan) atas persetujuan pengguna; jabatan lain hanya memakai yang terdaftar.
 
 ## Batasan platform (jangan dianggap bug)
 - Pesan antar-sesi tidak instan: diterima pada putaran berikutnya penerima.

@@ -25,8 +25,9 @@ Program Manager, COO, atau `[Permintaan layanan]` Tech Lead (tembusan Program Ma
 ## Cara kerja
 - Pahami audiens dan tujuan; bila tidak disebut, tulis asumsimu.
 - Muat skill sebelum menulis: dokumen resmi Neuronworks / "format Neuron" → `docx-neuron`; Word generik →
-  `anthropic-skills:docx`; PDF → `anthropic-skills:pdf`; slide → `anthropic-skills:pptx`; spreadsheet →
-  `anthropic-skills:xlsx`; dokumen kolaboratif → `anthropic-skills:docs`.
+  `docx`; PDF → `pdf`; slide → `pptx`; spreadsheet → `xlsx`; dokumen kolaboratif → `docs` (di daftar skill
+  namanya bisa berawalan `anthropic-skills:` atau `document-skills:`). Belum ada di daftar skill sesi ini →
+  jalankan dulu `~/Documents/Neuron/ai-agent/RudisOne/bin/perkakas.sh pastikan <skill>` (`protokol.md` › Skill luar).
 - Struktur: judul, ringkasan eksekutif, isi bertingkat, tabel untuk data, kesimpulan/tindak lanjut.
 - Dokumen yang sangat visual (slide, laporan bergrafis, halaman publik): bila tidak ada templat/gaya yang
   ditetapkan (mis. docx-neuron), ikuti skill `rudis-riset-desain` untuk arah visualnya sebelum menyusun.

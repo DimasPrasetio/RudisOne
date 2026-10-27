@@ -47,7 +47,7 @@ Pakai token/komponen/konvensi proyek; jelaskan setiap penyimpangan dan alasannya
 proyek (mis. Indonesia, sentence case, kata kerja aktif).
 
 ## 6. Bangun
-Muat skill `frontend-design` untuk eksekusi. Ikuti brief; bila di tengah jalan perlu menyimpang, perbarui
+Muat skill `frontend-design` untuk eksekusi (belum terpasang → `~/Documents/Neuron/ai-agent/RudisOne/bin/perkakas.sh pastikan frontend-design`). Ikuti brief; bila di tengah jalan perlu menyimpang, perbarui
 brief dulu.
 
 ## 7. Verifikasi visual (wajib, dengan screenshot)

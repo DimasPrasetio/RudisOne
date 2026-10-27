@@ -19,5 +19,82 @@
       "lokal": "~/Documents/Neuron/ai-agent/rudis-modules",
       "hooks": ".githooks"
     }
+  ],
+  "skill_luar": [
+    {
+      "id": "docx-neuron",
+      "jenis": "git",
+      "skill": [
+        "docx-neuron"
+      ],
+      "untuk": "Dokumen Word resmi Neuronworks (desain & logo Neuron)",
+      "dipakai_oleh": [
+        "technical-writer",
+        "program-manager"
+      ],
+      "repo": "https://github.com/DimasPrasetio/docx-neuron.git",
+      "lokal": "~/Documents/Neuron/ai-agent/docx-neuron",
+      "pasang": "scripts/sync.sh",
+      "prasyarat": "scripts/setup.sh",
+      "lisensi": "Proprietary Neuronworks — repo privat"
+    },
+    {
+      "id": "document-skills",
+      "jenis": "plugin",
+      "skill": [
+        "docx",
+        "pdf",
+        "pptx",
+        "xlsx"
+      ],
+      "untuk": "Word generik, PDF, slide PowerPoint, spreadsheet Excel",
+      "dipakai_oleh": [
+        "technical-writer",
+        "program-manager",
+        "financial-controller",
+        "head-of-strategy",
+        "research-analyst",
+        "hr-business-partner",
+        "business-systems-analyst"
+      ],
+      "marketplace": {
+        "nama": "anthropic-agent-skills",
+        "sumber": "anthropics/skills"
+      },
+      "plugin": "document-skills@anthropic-agent-skills",
+      "lisensi": "Anthropic (hak cipta dilindungi) — jangan disalin ke repo sendiri; selalu pasang dari marketplace resmi"
+    },
+    {
+      "id": "frontend-design",
+      "jenis": "plugin",
+      "skill": [
+        "frontend-design"
+      ],
+      "untuk": "Eksekusi desain antarmuka (dipakai bersama rudis-riset-desain)",
+      "dipakai_oleh": [
+        "tech-lead",
+        "software-engineer"
+      ],
+      "marketplace": {
+        "nama": "claude-plugins-official",
+        "sumber": "anthropics/claude-plugins-official"
+      },
+      "plugin": "frontend-design@claude-plugins-official",
+      "lisensi": "Apache-2.0"
+    },
+    {
+      "id": "claude-docs",
+      "jenis": "platform",
+      "skill": [
+        "docs"
+      ],
+      "untuk": "Dokumen kolaboratif Claude Docs",
+      "dipakai_oleh": [
+        "technical-writer",
+        "program-manager"
+      ],
+      "catatan": "bawaan aplikasi Claude (konektor Claude Docs), tidak bisa dipasang lewat CLI",
+      "alternatif": "docx"
+    }
   ]
 }

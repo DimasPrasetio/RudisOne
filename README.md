@@ -58,6 +58,7 @@ ruang/<id-peran>/.claude/     ruang tiap agent ("agent": "<id-peran>", peran = s
 protokol.md                rantai komando, format pesan, aturan anggota tim & subagent
 raci.md                    matriks RASCI + wewenang per peran
 sdlc.md                    membangun software: fase, gerbang, perkakas resmi (daftar mesin: perkakas.json)
+perkakas.json              perkakas resmi SDLC + skill luar (docx-neuron, document-skills, frontend-design, docs) dan sumber resminya
 infra.md                   prosedur server, app, domain, alur deploy — generik, tanpa fakta server
 konfigurasi/               per device: server.json (server, aplikasi, DNS; git-ignored) + server.contoh.json
 penyedia.md                registri kemampuan & penyedia (DNS, repo, server) + alur konfigurasi server
@@ -117,7 +118,9 @@ Brief desain & sumber risetnya: `kantor/DESAIN.md`.
   Desktop — hanya sesi RudisOne (folder repo ini, worktree `r<n>-…`, `/rudisone`, atau pembuka "… di RudisOne"); server hanya listen di 127.0.0.1, menolak permintaan dengan header `Host` selain
   127.0.0.1/localhost (perlindungan DNS rebinding), dan hanya meneruskan metadata aktivitas (nama alat, deskripsi
   perintah, nama file) — bukan isi file, pesan, atau output.
-- Uji: `node --test kantor/ bin/` (Kantor + perkakas + kebijakan + konfigurasi).
+- Skill luar (docx-neuron, docx/pdf/pptx/xlsx, frontend-design) tidak dibundel: dipasang dari sumber resminya saat
+  pertama dibutuhkan lewat `bin/perkakas.sh pastikan <skill>`; keadaannya `bin/perkakas.sh skill` (`protokol.md` › Skill luar).
+- Uji: `node --test kantor/ bin/` (Kantor + perkakas + skill luar + kebijakan + konfigurasi).
 
 ## Memperbarui
 Ubah peran/catatan → commit → push dari satu device; device lain cukup `git pull`. Peran ditautkan lewat

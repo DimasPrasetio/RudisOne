@@ -179,6 +179,11 @@ function klasifikasiSegmen(seg, K) {
   if (pk && K.perkakas_baca[pk] && (prog.startsWith("bin/") || prog.startsWith("./bin/") || rumah(prog).startsWith(path.join(ROOT, "bin")))) {
     return { jenis: "infra", aksi: [{ kemampuan: K.perkakas_baca[pk], jenjang: 1, aksi: `perkakas ${pk}`, perkakas: pk, args: w.slice(1) }] };
   }
+  // subperintah perkakas yang boleh untuk jabatan tertentu (mis. perkakas.sh pastikan <skill>)
+  const sub = pk && K.perkakas_perintah?.[pk]?.[w[1]];
+  if (sub && (prog.startsWith("bin/") || prog.startsWith("./bin/") || rumah(prog).startsWith(path.join(ROOT, "bin")))) {
+    return { jenis: "infra", aksi: [{ kemampuan: sub, jenjang: 1, aksi: `perkakas ${pk} ${w.slice(1, 3).join(" ")}`, perkakas: pk, args: w.slice(1) }] };
+  }
   const cli = Object.entries(K.penyedia).find(([, p]) => p.jenis === "cli" && p.perintah === nama);
   if (cli) {
     const [id, p] = cli;

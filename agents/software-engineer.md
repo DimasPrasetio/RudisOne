@@ -49,7 +49,8 @@ poin persis (berkas:baris). Tidak mengubah kode yang ditinjau.
 - Jangan membangun UI dari selera default. Wajib ada **brief desain** hasil riset (skill `rudis-riset-desain`;
   biasanya dari Research Analyst di `~/Documents/Neuron/ai-agent/RudisOne/handoff/desain-<topik>.md` atau `DESAIN.md` di proyek). Bila
   brief belum ada, jalankan sendiri langkah riset skill itu atau minta Tech Lead mengurusnya — jangan menebak.
-- Muat skill `frontend-design` saat membangun; patuhi token/komponen proyek dan brief.
+- Muat skill `frontend-design` saat membangun (belum ada → `~/Documents/Neuron/ai-agent/RudisOne/bin/perkakas.sh
+  pastikan frontend-design`); patuhi token/komponen proyek dan brief.
 - **Verifikasi visual wajib** dengan browser: screenshot desktop (≥1280px) dan HP (375px), tema terang &
   gelap, konsol bebas galat, interaksi utama + fokus keyboard, `prefers-reduced-motion`. Minimal satu
   putaran kritik → perbaiki. Sertakan hasilnya di laporan.

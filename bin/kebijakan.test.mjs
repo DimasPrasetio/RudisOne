@@ -74,6 +74,20 @@ test("jenjang 1: baca server oleh System Administrator diizinkan", () => {
   assert.equal(kep(bash(SA, "ssh vps-uji \"mysql -u ro app_uji_db -e 'SELECT COUNT(*) FROM users'\"")), "allow");
 });
 
+test("perkakas_perintah: subperintah perkakas yang didelegasikan pemilik", () => {
+  const TW = path.join(ROOT, "ruang", "technical-writer");
+  // Tanpa aturan di kebijakan: alur izin biasa (selalu ditanya Claude Code).
+  assert.equal(kep(bash(TW, `${ROOT}/bin/perkakas.sh pastikan docx-neuron`)), K.perkakas_perintah?.perkakas?.pastikan ? "allow" : null);
+  // Dengan aturan (contoh yang bisa disetujui pemilik): semua jabatan boleh pastikan/skill tanpa bertanya.
+  const K2 = { ...K, perkakas_perintah: { perkakas: { pastikan: "skill-luar", skill: "skill-luar" } },
+    kemampuan: { ...K.kemampuan, "skill-luar": { nama: "Skill luar", akses: Object.keys(K.jabatan) } } };
+  const kep2 = (i) => putuskan(i, K2).keputusan;
+  assert.equal(kep2(bash(TW, `${ROOT}/bin/perkakas.sh pastikan docx-neuron`)), "allow");
+  assert.equal(kep2(bash(SA, "bin/perkakas.sh skill")), "allow");
+  assert.equal(kep2(bash(TW, `${ROOT}/bin/perkakas.sh siapkan`)), null);   // subperintah lain tidak ikut didelegasikan
+  assert.equal(kep2(bash("/x/lain/bin", "/x/lain/bin/perkakas.sh pastikan docx")), null);   // perkakas sistem lain tidak dikenali
+});
+
 test("jenjang 3: ubah server, sudo, rahasia, perintah tak dikenal selalu ditanya", () => {
   for (const c of ["ssh vps-uji 'docker restart app-uji-app'", "ssh vps-uji 'sudo systemctl reload nginx'",
     "ssh vps-uji 'cat ~/app-uji/.env'", "ssh vps-uji 'echo x > /tmp/a'", "ssh vps-uji", "scp a.sql vps-uji:~/",
