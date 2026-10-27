@@ -88,6 +88,15 @@ test("perkakas_perintah: subperintah perkakas yang didelegasikan pemilik", () =>
   assert.equal(kep2(bash("/x/lain/bin", "/x/lain/bin/perkakas.sh pastikan docx")), null);   // perkakas sistem lain tidak dikenali
 });
 
+test("kebijakan asli: skill luar boleh dicek & dipasang setiap jabatan (disetujui pemilik 2026-10-27)", () => {
+  assert.deepEqual([...K.kemampuan["skill-luar"].akses].sort(), Object.keys(K.jabatan).sort());
+  for (const j of Object.keys(K.jabatan).filter((x) => !["tech-lead", "business-systems-analyst", "software-engineer"].includes(x))) {
+    assert.equal(kep(bash(j === "coo" ? COO : path.join(ROOT, "ruang", j), `${ROOT}/bin/perkakas.sh pastikan docx`)), "allow", j);
+  }
+  assert.equal(kep(bash("/x/toko/.claude/worktrees/r1-se1-toko", `${ROOT}/bin/perkakas.sh pastikan frontend-design`)), "allow");
+  assert.equal(kep(bash(path.join(ROOT, "ruang", "technical-writer"), `${ROOT}/bin/perkakas.sh siapkan`)), null);
+});
+
 test("jenjang 3: ubah server, sudo, rahasia, perintah tak dikenal selalu ditanya", () => {
   for (const c of ["ssh vps-uji 'docker restart app-uji-app'", "ssh vps-uji 'sudo systemctl reload nginx'",
     "ssh vps-uji 'cat ~/app-uji/.env'", "ssh vps-uji 'echo x > /tmp/a'", "ssh vps-uji", "scp a.sql vps-uji:~/",

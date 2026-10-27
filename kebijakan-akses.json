@@ -1,7 +1,7 @@
 {
   "versi": 1,
   "keterangan": "Kebijakan akses & batas kewenangan RudisOne — aturan GENERIK yang dibaca hook bin/kebijakan.mjs. Fakta per device (host ssh, aplikasi deploy, MCP DNS) TIDAK ada di sini: dibaca dari konfigurasi/server.json (bin/konfig.sh), diisi atas persetujuan pengguna. Ringkasan untuk manusia: bin/kebijakan.sh tampil. Prinsip & cara mengubah: protokol.md › Aset, akses & batas kewenangan. Mengubah file ini = mengubah delegasi kewenangan: hanya atas keputusan pemilik (pengguna), kutipannya dicatat di commit.",
-  "disetujui": "pengguna: jenjang 2 = deploy app terdaftar, tambah subdomain DNS, buat repo GitHub privat; berlaku hanya di sesi RudisOne; akses per jabatan.",
+  "disetujui": "pengguna: jenjang 2 = deploy app terdaftar, tambah subdomain DNS, buat repo GitHub privat; berlaku hanya di sesi RudisOne; akses per jabatan. Skill luar terdaftar (perkakas.json › skill_luar): semua jabatan boleh perkakas.sh pastikan/skill tanpa bertanya — pengguna 2026-10-27: \"Ya, saya setujui: tambahkan aturan di kebijakan-akses.json agar semua jabatan boleh menjalankan perkakas.sh pastikan/skill tanpa bertanya.\"",
 
   "jabatan": {
     "coo": { "nama": "COO" },
@@ -24,7 +24,8 @@
     "server": { "nama": "Server deploy", "akses": ["head-of-it-operations", "system-administrator"] },
     "data-produksi": { "nama": "Database production", "akses": ["head-of-it-operations", "system-administrator"] },
     "rilis": { "nama": "Status CI & image rilis", "akses": ["coo", "tech-lead", "head-of-it-operations", "system-administrator"] },
-    "repo": { "nama": "Repositori kode", "akses": ["coo", "tech-lead", "software-engineer", "business-systems-analyst", "program-manager", "technical-writer", "head-of-it-operations", "system-administrator"] }
+    "repo": { "nama": "Repositori kode", "akses": ["coo", "tech-lead", "software-engineer", "business-systems-analyst", "program-manager", "technical-writer", "head-of-it-operations", "system-administrator"] },
+    "skill-luar": { "nama": "Skill luar terdaftar (cek & pasang dari sumber resmi)", "akses": ["coo", "head-of-strategy", "financial-controller", "research-analyst", "hr-business-partner", "tech-lead", "business-systems-analyst", "software-engineer", "program-manager", "technical-writer", "head-of-it-operations", "system-administrator"] }
   },
 
   "jenjang2": {
@@ -86,6 +87,9 @@
     "server-cek": "server",
     "pasca-deploy": "server",
     "rilis-cek": "rilis"
+  },
+  "perkakas_perintah": {
+    "perkakas": { "pastikan": "skill-luar", "skill": "skill-luar" }
   },
 
   "ssh_baca": [
