@@ -1,0 +1,1498 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kantor RudisOne</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,650&family=Geist:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* Token sesuai kantor/DESAIN.md (v2 + tambahan v4) */
+  :root {
+    --latar: #e8edf2; --permukaan: #ffffff; --lantai: #f4f6f8; --ubin: #e1e7ed; --lorong: #eceff3; --partisi: #c9d3dd;
+    --sisi-a: #d4dce4; --sisi-b: #bfc9d3; --tinta: #1d2833; --redup: #5e6e7e; --garis: #d5dde5;
+    --kulit: #efd3bf; --meja-atas: #ece2d6; --meja-a: #d6c5b1; --meja-b: #c0ab94;
+    --kayu: #d9bb93; --kayu-garis: #c9a47a; --meja-pimpinan: #8a5f3e; --meja-pimpinan-a: #6f4a2f; --meja-pimpinan-b: #5c3d27;
+    --layar-mati: #3a4652; --kursi: #7f8e9d; --kursi-gelap: #66757f; --celana: #3c4a58;
+    --sofa: #6f93ad; --sofa-gelap: #5a7d96; --sofa-sisi: #4e6f87; --karpet: #eadfcd; --karpet-garis: #dccbb0;
+    --bar: #6f5b4b; --bar-atas: #d6c2aa; --mesin: #59636d; --kaca: #9cc3dd; --daun: #4f9d69; --daun-2: #3f8a5a; --pot: #c49a76;
+    --bekerja: #1f9d6a; --berpikir: #3b7bd8; --menunggu: #d9930b; --santai: #8a97a6; --galat: #d64545;
+    --bayang-perabot: rgba(30, 45, 60, .10); --cahaya: rgba(255, 250, 230, .55); --zona-opasitas: .10;
+    --karpet-lorong: #dfe5ec; --kusen: #b9a58e; --keset: #8d7a66; --jas: #2f3a46; --kemeja: #f4f4f1; --mata: #2a2a2e; --pipi: rgba(232, 120, 110, .35);
+    --z-pimpinan: #c9a47a; --z-eng: #7c5cd6; --z-ops: #475bd1; --z-pmo: #e08a2e; --z-staf: #1fa3ae; --z-lounge: #d39a5b;
+    --judul: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+    --teks: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --latar: #0e151d; --permukaan: #141e28; --lantai: #18222d; --ubin: #202c39; --lorong: #1c2733; --partisi: #2e3e4e;
+      --sisi-a: #1d2935; --sisi-b: #16202a; --tinta: #e4ebf2; --redup: #8fa0b1; --garis: #243241;
+      --kulit: #e3c3ac; --meja-atas: #4a3f35; --meja-a: #3b322a; --meja-b: #2f2821;
+      --kayu: #5a4632; --kayu-garis: #4c3a29; --meja-pimpinan: #6b4a31; --meja-pimpinan-a: #553a26; --meja-pimpinan-b: #47301f;
+      --layar-mati: #0b1118; --kursi: #4c5b69; --kursi-gelap: #3d4955; --celana: #263241;
+      --sofa: #3e5a70; --sofa-gelap: #334c5f; --sofa-sisi: #2a3f50; --karpet: #2c2721; --karpet-garis: #3a332a;
+      --bar: #3a3029; --bar-atas: #5a4a3c; --mesin: #3d454d; --kaca: #3c6684; --daun: #3f8a5a; --daun-2: #33734b; --pot: #7a5a42;
+      --bekerja: #34c38a; --berpikir: #5b97ef; --menunggu: #f0aa2a; --santai: #7d8b99; --galat: #ef6461;
+      --bayang-perabot: rgba(0, 0, 0, .28); --cahaya: rgba(150, 190, 255, .07); --zona-opasitas: .17;
+      --karpet-lorong: #243140; --kusen: #4a3d30; --keset: #3a3026; --jas: #1c242d; --kemeja: #d9dde2; --mata: #1a1a1d; --pipi: rgba(232, 120, 110, .25);
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--latar); color: var(--tinta); font-family: var(--teks); font-size: 15px; line-height: 1.45; }
+  button { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--berpikir); outline-offset: 2px; }
+  .sr { position: absolute; left: -9999px; }
+
+  .atas { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 18px; padding: 22px 24px 6px; max-width: 1760px; margin: 0 auto; }
+  .atas h1 { font-family: var(--judul); font-weight: 650; font-size: 30px; letter-spacing: -0.4px; margin: 0; }
+  .atas .jam { font-variant-numeric: tabular-nums; color: var(--redup); font-size: 16px; }
+  .koneksi { margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--redup); }
+  .koneksi .titik { width: 8px; height: 8px; border-radius: 50%; background: var(--bekerja); }
+  .koneksi.basi .titik { background: var(--menunggu); }
+  .koneksi.putus .titik { background: var(--galat); }
+  .koneksi.putus { color: var(--galat); }
+
+  .tata {
+    display: grid; gap: 18px; padding: 12px 24px 28px; max-width: 1760px; margin: 0 auto;
+    grid-template-columns: minmax(0, 1fr) 340px;
+    grid-template-areas: "denah samping" "linimasa samping";
+    grid-template-rows: auto 1fr;
+    align-items: start;
+  }
+  .tata > * { min-width: 0; }   /* isi lebar (linimasa, denah) menggulir di kartunya, tidak melebarkan halaman */
+  .kartu { background: var(--permukaan); border-radius: 14px; box-shadow: 0 1px 0 var(--garis), 0 8px 24px rgba(16, 32, 48, .06); }
+  .denah { grid-area: denah; padding: 6px 6px 0; overflow: hidden; }
+  .denah-gulir { overflow-x: auto; }
+  .denah svg { display: block; width: 100%; min-width: 760px; height: auto; }
+  .legenda { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; padding: 6px 16px 14px; font-size: 13px; color: var(--redup); }
+  .legenda span { display: inline-flex; align-items: center; gap: 6px; }
+  .legenda .kendali { margin-left: auto; display: inline-flex; gap: 4px; }
+  .legenda .kendali button { background: none; border: 1px solid var(--garis); border-radius: 8px; padding: 3px 10px; font-size: 13px; color: var(--tinta); cursor: pointer; min-width: 32px; }
+  .legenda .kendali button:hover { background: color-mix(in srgb, var(--tinta) 5%, transparent); }
+  .legenda .kendali button:disabled { opacity: .4; cursor: default; }
+  #denah.bisa-geser { cursor: grab; touch-action: none; } #denah.digeser { cursor: grabbing; }
+  .legenda .jeda { background: none; border: 1px solid var(--garis); border-radius: 8px; padding: 3px 10px; font-size: 13px; color: var(--tinta); cursor: pointer; }
+  .legenda .jeda:hover { background: color-mix(in srgb, var(--tinta) 5%, transparent); }
+  .simbol { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; color: #fff;
+    font-size: 11px; font-weight: 600; line-height: 1; flex: none; }
+  .simbol.bekerja { background: var(--bekerja); } .simbol.berpikir { background: var(--berpikir); }
+  .simbol.menunggu { background: var(--menunggu); } .simbol.santai { background: var(--santai); }
+  .simbol.absen { background: transparent; border: 1.5px dashed var(--santai); color: var(--santai); }
+
+  .samping { grid-area: samping; display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+  .samping section, .linimasa { padding: 16px 16px 14px; }
+  h2 { font-family: var(--judul); font-weight: 650; font-size: 18px; letter-spacing: -0.2px; margin: 0 0 10px; }
+
+  .perhatian { border: 1.5px solid var(--menunggu); }
+  .perhatian ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .perhatian li { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; align-items: center; }
+  .perhatian .sesi { grid-column: 2; color: var(--redup); font-size: 13px; }
+
+  .tim { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; }
+  .tim .kelompok { display: flex; align-items: center; gap: 8px; margin: 10px 0 2px; font: 600 13px var(--judul); color: var(--redup); }
+  .tim .kelompok:first-child { margin-top: 0; }
+  .tim .kelompok i { width: 10px; height: 10px; border-radius: 3px; background: var(--warna); }
+  .tim > li > button { width: 100%; text-align: left; background: none; border: 0; border-radius: 10px; padding: 6px 8px;
+    display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 0 12px; align-items: center; cursor: pointer; }
+  .tim > li > button:hover { background: color-mix(in srgb, var(--tinta) 5%, transparent); }
+  .tim > li > button[aria-expanded="true"] { background: color-mix(in srgb, var(--warna) 12%, transparent); }
+  .avatar { position: relative; width: 34px; height: 34px; border-radius: 50%; background: var(--warna); color: #fff;
+    display: grid; place-items: center; font-family: var(--judul); font-weight: 650; font-size: 12.5px; }
+  li.absen .avatar { background: transparent; border: 1.5px dashed var(--santai); color: var(--redup); }
+  .avatar .simbol { position: absolute; right: -4px; bottom: -4px; width: 17px; height: 17px; font-size: 10px; box-shadow: 0 0 0 2px var(--permukaan); }
+  .tim .nama { font-weight: 600; }
+  .tim .nama small { font-weight: 500; color: var(--redup); font-size: 12px; margin-left: 4px; }
+  .tim .keadaan { grid-column: 2; font-size: 13.5px; color: var(--redup); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tim .keadaan b { font-weight: 500; color: var(--tinta); }
+  li.menunggu .keadaan b { color: var(--menunggu); }
+  .tim .waktu { grid-row: 1 / span 2; grid-column: 3; font-size: 12.5px; color: var(--redup); font-variant-numeric: tabular-nums; }
+  .rincian { margin: 2px 8px 10px 54px; font-size: 13.5px; color: var(--redup); }
+  .rincian h3 { font-size: 12.5px; font-weight: 600; color: var(--tinta); margin: 10px 0 4px; }
+  .rincian ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+  .rincian .lokasi { overflow-wrap: anywhere; }
+
+  .hitung { font: 500 13px var(--teks); color: var(--redup); margin-left: 4px; }
+  .tugas { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; max-height: 300px; overflow: auto; }
+  .tugas li { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 1px 10px; padding: 7px 0; border-top: 1px solid var(--garis); }
+  .tugas li:first-child { border-top: 0; }
+  .tugas li.sorot { background: color-mix(in srgb, var(--berpikir) 10%, transparent); border-radius: 10px; padding-left: 8px; padding-right: 8px; box-shadow: inset 3px 0 0 var(--berpikir); }
+  .tugas .st { grid-row: 1 / span 2; align-self: start; margin-top: 2px; font: 600 11.5px var(--teks); padding: 2px 8px; border-radius: 999px;
+    background: color-mix(in srgb, var(--warna) 16%, transparent); color: color-mix(in srgb, var(--warna) 75%, var(--tinta)); white-space: nowrap; }
+  .tugas .judul { font-weight: 600; font-size: 14px; overflow-wrap: anywhere; }
+  .tugas .judul.segera::before { content: "Segera · "; color: var(--galat); }
+  .tugas .meta { font-size: 12.5px; color: var(--redup); overflow-wrap: anywhere; }
+  .aktivitas { list-style: none; margin: 0; padding: 0; max-height: 360px; overflow: auto; }
+  .aktivitas li { display: grid; grid-template-columns: 46px 10px minmax(0, 1fr); gap: 8px; padding: 6px 0; border-top: 1px solid var(--garis); font-size: 14px; }
+  .aktivitas li:first-child { border-top: 0; }
+  .aktivitas time { color: var(--redup); font-variant-numeric: tabular-nums; }
+  .aktivitas .titik { width: 8px; height: 8px; border-radius: 50%; background: var(--warna); margin-top: 7px; }
+  .aktivitas .rinci { color: var(--redup); overflow-wrap: anywhere; }
+  .kosong { color: var(--redup); font-size: 14px; margin: 0; }
+
+  .linimasa { grid-area: linimasa; }
+  .linimasa .kepala { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; }
+  .linimasa .skala { font-size: 12.5px; color: var(--redup); }
+  .jalur-wrap { overflow-x: auto; }
+  .jalur { display: grid; grid-template-columns: 150px minmax(480px, 1fr); gap: 5px 12px; align-items: center; }
+  .jalur .label { font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sel { display: grid; grid-template-columns: repeat(60, 1fr); gap: 2px; height: 13px; }
+  .sel i { border-radius: 2px; background: color-mix(in srgb, var(--tinta) 7%, transparent); }
+  .sel i[data-n="1"] { background: color-mix(in srgb, var(--warna) 45%, transparent); }
+  .sel i[data-n="2"] { background: color-mix(in srgb, var(--warna) 72%, transparent); }
+  .sel i[data-n="3"] { background: var(--warna); }
+  .catatan { grid-column: 1 / -1; font-size: 13px; color: var(--redup); margin: 0; }
+
+  /* ---------- denah ---------- */
+  .lantai-atas { fill: var(--lantai); } .lantai-sisi-a { fill: var(--sisi-a); } .lantai-sisi-b { fill: var(--sisi-b); }
+  .ubin { stroke: var(--ubin); stroke-width: .8; }
+  .lorong { fill: var(--lorong); }
+  .zona { fill: var(--warna); opacity: var(--zona-opasitas); }
+  .bayang-perabot { fill: var(--bayang-perabot); }
+  .cahaya { fill: var(--cahaya); }
+  .karpet-lorong { fill: var(--karpet-lorong); }
+  .kusen { fill: var(--kusen); } .kenop { fill: #e2c27a; } .tanda-keluar { fill: #2fa86b; } .keset { fill: var(--keset); }
+  .jendela-bingkai { fill: var(--partisi); }
+  .kayu { fill: var(--kayu); } .kayu-garis { stroke: var(--kayu-garis); stroke-width: .8; }
+  .dinding-muka { fill: var(--sisi-a); } .dinding-atas { fill: var(--partisi); } .dinding-tepi { fill: var(--sisi-b); }
+  .jendela { fill: color-mix(in srgb, var(--kaca) 45%, var(--lantai)); }
+  .pintu { fill: color-mix(in srgb, var(--meja-b) 80%, var(--tinta)); }
+  .partisi-a { fill: var(--partisi); } .partisi-b { fill: var(--sisi-b); } .partisi-atas { fill: color-mix(in srgb, var(--partisi) 70%, var(--lantai)); }
+  .kaca-a, .kaca-b, .kaca-atas { fill: var(--kaca); opacity: .38; }
+  .m-atas { fill: var(--meja-atas); } .m-a { fill: var(--meja-a); } .m-b { fill: var(--meja-b); }
+  .mp-atas { fill: var(--meja-pimpinan); } .mp-a { fill: var(--meja-pimpinan-a); } .mp-b { fill: var(--meja-pimpinan-b); }
+  .kursi { fill: var(--kursi); } .kursi-gelap { fill: var(--kursi-gelap); }
+  .layar { fill: var(--layar-mati); transition: fill .4s; }
+  .meja.bekerja .layar { fill: color-mix(in srgb, var(--warna) 65%, #ffffff); }
+  .meja.berpikir .layar, .meja.menunggu .layar { fill: color-mix(in srgb, var(--warna) 35%, var(--layar-mati)); }
+  .meja { cursor: pointer; outline: none; }
+  .meja .sorot { fill: var(--warna); opacity: 0; transition: opacity .2s; }
+  .meja:hover .sorot, .meja:focus-visible .sorot { opacity: .16; }
+  .meja.dipilih .sorot { opacity: .26; }
+  .rak { fill: #2b3640; } .led { fill: var(--bekerja); }
+  .papan { fill: color-mix(in srgb, var(--permukaan) 88%, var(--partisi)); stroke: var(--partisi); }
+  .buku-a { fill: #d9534f; } .buku-b { fill: #3d7bd9; } .buku-c { fill: #c9a227; } .buku-d { fill: #3e9e5c; }
+  .daun { fill: var(--daun); } .daun-2 { fill: var(--daun-2); } .pot { fill: var(--pot); }
+  .karpet { fill: var(--karpet); } .karpet-tepi { fill: none; stroke: var(--karpet-garis); stroke-width: 2; }
+  .sofa-a { fill: var(--sofa); } .sofa-b { fill: var(--sofa-gelap); } .sofa-c { fill: var(--sofa-sisi); }
+  .bar-a { fill: var(--bar); } .bar-atas { fill: var(--bar-atas); } .mesin { fill: var(--mesin); }
+  .cangkir { fill: #f4f1ec; stroke: #a99a8a; stroke-width: .8; }
+  .kertas-meja { fill: #fbfbf8; }
+  .papan-zona rect { fill: var(--permukaan); stroke: color-mix(in srgb, var(--warna) 60%, var(--garis)); stroke-width: 1.3; }
+  .papan-zona .tanda { fill: var(--warna); }
+  .papan-zona { pointer-events: none; }
+  .papan-zona.redup { opacity: .55; }
+  .jalur [hidden] { display: none; }
+  .papan-zona rect { filter: drop-shadow(0 1px 2px rgba(10, 20, 30, .14)); }
+  .papan-zona .judul-zona { font: 650 14px var(--judul); fill: var(--tinta); }
+  .papan-zona .sub-zona { font: 500 11.5px var(--teks); fill: var(--redup); }
+
+  .tag { pointer-events: none; }
+  .tag-latar { fill: var(--permukaan); stroke: color-mix(in srgb, var(--warna) 55%, var(--garis)); stroke-width: 1.2;
+    filter: drop-shadow(0 1px 1.5px rgba(10, 20, 30, .18)); }
+  .tag.dipilih .tag-latar { stroke: var(--warna); stroke-width: 2; }
+  .tag.absen { opacity: .55; } .tag.santai { opacity: .72; }
+  .nama-meja { font: 650 12px var(--judul); fill: var(--tinta); text-anchor: middle; }
+  .aksi-meja { font: 500 11px var(--teks); fill: var(--redup); text-anchor: middle; }
+  .tag.menunggu .aksi-meja { fill: var(--menunggu); }
+  .tag.bekerja .aksi-meja { fill: var(--bekerja); }
+
+  /* ---------- karakter ---------- */
+  .orang { pointer-events: none; }
+  .orang .bayang { fill: rgba(20, 30, 40, .16); }
+  .orang .tubuh { fill: var(--warna); } .orang .kepala { fill: var(--kulit); } .orang .rambut { fill: var(--rambut); }
+  .orang .lengan { fill: color-mix(in srgb, var(--warna) 85%, #000); } .orang .kaki { fill: var(--celana); }
+  .orang .rambut-belakang, .orang .kepala-belakang { fill: var(--rambut); display: none; }
+  .orang .kepala-belakang { fill: var(--kulit); }
+  .orang.membelakang .rambut-belakang, .orang.membelakang .kepala-belakang { display: inline; }
+  .orang.membelakang .depan { display: none; }
+  .orang .mata { fill: var(--mata); } .orang .pipi { fill: var(--pipi); }
+  .orang .jas { fill: var(--jas); } .orang .kemeja { fill: var(--kemeja); } .orang .dasi { fill: var(--warna); }
+  .orang .dasi-gelap { fill: #2a3340; } .orang .tali { fill: none; stroke: var(--kemeja); stroke-width: .9; }
+  .orang .kartu-id { fill: var(--kemeja); stroke: #9aa7b3; stroke-width: .4; }
+  .orang .tudung { fill: color-mix(in srgb, var(--warna) 70%, #000); }
+  .orang .kacamata { fill: color-mix(in srgb, #ffffff 35%, transparent); stroke: #222831; stroke-width: .8; }
+  .orang .headset { fill: none; stroke: #2b333b; stroke-width: 1.3; stroke-linecap: round; } .orang .headset-isi { fill: #2b333b; }
+  .orang .topi { fill: color-mix(in srgb, var(--warna) 75%, #000); }
+  /* status: lencana bersimbol untuk semua; cincin lantai hanya untuk "menunggu Anda" (mengurangi penanda ganda) */
+  .orang .cincin { fill: none; stroke-width: 2.2; display: none; }
+  .orang.asisten .tubuh { opacity: .85; }
+  .orang.menunggu .cincin { display: inline; stroke: var(--menunggu); }
+  .lencana circle { stroke: var(--permukaan); stroke-width: 2; }
+  .orang.bekerja .lencana circle { fill: var(--bekerja); } .orang.berpikir .lencana circle { fill: var(--berpikir); }
+  .orang.menunggu .lencana circle { fill: var(--menunggu); } .orang.santai .lencana { display: none; }
+  .lencana text { fill: #fff; font: 600 10px var(--teks); text-anchor: middle; dominant-baseline: central; }
+  .label-orang { font: 600 10.5px var(--teks); fill: var(--tinta); text-anchor: middle; paint-order: stroke; stroke: var(--permukaan); stroke-width: 3px; stroke-linejoin: round; }
+  .kertas { fill: #fff; stroke: #b9c4ce; stroke-width: .8; }
+  .ucapan { pointer-events: none; }
+  .ucapan rect, .ucapan .ekor { fill: var(--permukaan); filter: drop-shadow(0 1px 1.5px rgba(10, 20, 30, .22)); }
+  .ucapan rect { stroke: var(--garis); stroke-width: 1; }
+  .ucapan.panggil rect { stroke: var(--warna); stroke-width: 1.8; }
+  .ucapan text { font: 600 11px var(--teks); fill: var(--tinta); text-anchor: middle; dominant-baseline: central; }
+  .berkas { fill: #fff; stroke: var(--warna); stroke-width: 1.2; }
+
+  @media (max-width: 1180px) {
+    .tata { grid-template-columns: 1fr; grid-template-areas: "denah" "samping" "linimasa"; grid-template-rows: auto; padding: 10px 14px 24px; }
+    .atas { padding: 18px 16px 4px; }
+    .koneksi { margin-left: 0; width: 100%; }
+    .atas h1 { font-size: 26px; }
+  }
+</style>
+</head>
+<body>
+<header class="atas">
+  <h1>Kantor RudisOne</h1>
+  <span class="jam" id="jam"></span>
+  <span class="koneksi" id="koneksi" role="status"><span class="titik"></span><span id="koneksi-teks">Menghubungkan…</span></span>
+</header>
+
+<main class="tata">
+  <section class="denah kartu" aria-labelledby="judul-denah">
+    <h2 id="judul-denah" class="sr">Denah kantor</h2>
+    <div class="denah-gulir"><svg id="denah" role="group" aria-label="Denah kantor RudisOne"></svg></div>
+    <div class="legenda">
+      <span aria-hidden="true"><i class="simbol bekerja">▶</i>Bekerja</span>
+      <span aria-hidden="true"><i class="simbol berpikir">…</i>Berpikir</span>
+      <span aria-hidden="true"><i class="simbol menunggu">!</i>Menunggu Anda</span>
+      <span aria-hidden="true"><i class="simbol santai">–</i>Santai (lounge)</span>
+      <span aria-hidden="true"><i class="simbol absen"></i>Belum masuk</span>
+      <span class="kendali" role="group" aria-label="Perbesar denah">
+        <button type="button" id="zoom-kecil" aria-label="Perkecil denah">−</button>
+        <button type="button" id="zoom-besar" aria-label="Perbesar denah">+</button>
+        <button type="button" id="zoom-pas">Seluruh denah</button>
+      </span>
+      <button type="button" class="jeda" id="jeda" aria-pressed="false">Jeda gerak</button>
+    </div>
+  </section>
+
+  <div class="samping">
+    <section class="kartu perhatian" id="perhatian" hidden aria-labelledby="judul-perhatian">
+      <h2 id="judul-perhatian">Perlu perhatian Anda</h2>
+      <ul id="daftar-perhatian"></ul>
+    </section>
+    <section class="kartu" aria-labelledby="judul-tugas">
+      <h2 id="judul-tugas">Tugas berjalan <span class="hitung" id="hitung-tugas"></span></h2>
+      <ul class="tugas" id="tugas"></ul>
+    </section>
+    <section class="kartu" aria-labelledby="judul-tim">
+      <h2 id="judul-tim">Tim per divisi</h2>
+      <ul class="tim" id="tim"></ul>
+    </section>
+    <section class="kartu" aria-labelledby="judul-aktivitas">
+      <h2 id="judul-aktivitas">Aktivitas terbaru</h2>
+      <ol class="aktivitas" id="aktivitas"></ol>
+    </section>
+  </div>
+
+  <section class="kartu linimasa" aria-labelledby="judul-linimasa">
+    <div class="kepala"><h2 id="judul-linimasa">Linimasa 60 menit</h2><span class="skala">aktivitas per menit · kiri 60 menit lalu, kanan sekarang</span></div>
+    <div class="jalur-wrap"><div class="jalur" id="jalur"></div></div>
+  </section>
+
+  <p class="catatan">Data dibaca dari sesi Claude di laptop ini dan tidak dikirim ke mana pun. Gerak karakter menggambarkan kejadian nyata: atasan memanggil dari mejanya dan bawahan datang ke kursi tamu untuk menerima tugas, laporan dibawa naik ke atasan, dan yang sedang santai ngopi di lounge.</p>
+</main>
+
+<script>
+"use strict";
+// ================= data tim (kursi organisasi v4) =================
+const NOMOR_TIM = [1, 2, 3];
+const kursiTim = (peran, n) => `${peran} · Tim ${n}`;
+const DIVISI = [
+  { id: "pimpinan", nama: "Ruang Pimpinan", sub: "COO", warna: "var(--z-pimpinan)", titik: "#c9a47a" },
+  { id: "corp", nama: "Corporate Strategy", sub: "Strategy · Finance · Research · HR", warna: "var(--z-staf)", titik: "#1fa3ae" },
+  ...NOMOR_TIM.map((n) => ({ id: `tim${n}`, nama: `Engineering · Tim ${n}`, sub: "Belum ada proyek", warna: "var(--z-eng)", titik: "#7c5cd6", tim: n })),
+  { id: "bersama", nama: "Layanan bersama", sub: "Program Manager · Technical Writer", warna: "var(--z-pmo)", titik: "#e08a2e" },
+  { id: "ops", nama: "IT Operations", sub: "IT Ops · SysAdmin", warna: "var(--z-ops)", titik: "#475bd1" },
+];
+const CHIEF = "COO";
+const TIM = {
+  "COO":                  { warna: "#b8892b", rambut: "#3b2a22", inisial: "CO", pendek: "COO", peran: "Chief Operating Officer", divisi: "pimpinan", gaya: "samping", aksesori: "jas" },
+  "Head of Strategy":     { warna: "#b07a1f", rambut: "#2d1d14", inisial: "HS", pendek: "Strategy", peran: "Pimpinan Corporate Strategy", divisi: "corp", atasan: CHIEF, gaya: "samping", aksesori: "kacamata" },
+  "Financial Controller": { warna: "#3e9e5c", rambut: "#222222", inisial: "FC", pendek: "Finance", peran: "Financial Controller", divisi: "corp", atasan: CHIEF, gaya: "cepak", aksesori: "dasi" },
+  "Research Analyst":     { warna: "#1fa3ae", rambut: "#2d1d14", inisial: "RA", pendek: "Research", peran: "Research Analyst", divisi: "corp", atasan: CHIEF, gaya: "keriting", aksesori: "kacamata" },
+  "HR Business Partner":  { warna: "#d35f9a", rambut: "#4a2a1c", inisial: "HR", pendek: "HRBP", peran: "HR Business Partner", divisi: "corp", atasan: CHIEF, gaya: "panjang", aksesori: "lanyard" },
+};
+for (const n of NOMOR_TIM) {
+  const rambut = [["#20202a", "#141414", "#1b1b22", "#5a3a22"], ["#5a3a22", "#2d1d14", "#3b2a22", "#1b1b22"], ["#3b2a22", "#4a2a1c", "#141414", "#2d1d14"]][n - 1];
+  Object.assign(TIM, {
+    [kursiTim("Tech Lead", n)]:                { warna: "#5b3fb8", rambut: rambut[0], inisial: "TL", pendek: `Lead T${n}`, peran: "Tech Lead (Senior Engineer)", divisi: `tim${n}`, atasan: CHIEF, gaya: ["cepak", "samping", "keriting"][n - 1], aksesori: "kacamata" },
+    [kursiTim("Business Systems Analyst", n)]: { warna: "#3d7bd9", rambut: rambut[1], inisial: "BS", pendek: `BSA T${n}`, peran: "Business Systems Analyst", divisi: `tim${n}`, atasan: kursiTim("Tech Lead", n), gaya: ["samping", "panjang", "kuncir"][n - 1], aksesori: ["kacamata", "lanyard", "kacamata"][n - 1] },
+    [kursiTim("Software Engineer #1", n)]:     { warna: "#7c5cd6", rambut: rambut[2], inisial: "E1", pendek: `SE1 T${n}`, peran: "Software Engineer", divisi: `tim${n}`, atasan: kursiTim("Tech Lead", n), gaya: ["keriting", "cepak", "samping"][n - 1], aksesori: "hoodie" },
+    [kursiTim("Software Engineer #2", n)]:     { warna: "#9a7be6", rambut: rambut[3], inisial: "E2", pendek: `SE2 T${n}`, peran: "Software Engineer (bila fitur bisa dipecah)", divisi: `tim${n}`, atasan: kursiTim("Tech Lead", n), gaya: ["kuncir", "keriting", "botak"][n - 1], aksesori: n === 3 ? "topi" : "hoodie" },
+  });
+}
+Object.assign(TIM, {
+  "Program Manager":       { warna: "#e08a2e", rambut: "#5a3a22", inisial: "PM", pendek: "PM", peran: "Program Manager (lintas proyek)", divisi: "bersama", atasan: CHIEF, gaya: "kuncir", aksesori: "lanyard" },
+  "Technical Writer":      { warna: "#c9a227", rambut: "#6a4a2a", inisial: "TW", pendek: "TW", peran: "Technical Writer", divisi: "bersama", atasan: "Program Manager", gaya: "panjang", aksesori: "kacamata" },
+  "Head of IT Operations": { warna: "#475bd1", rambut: "#2a2a33", inisial: "IO", pendek: "IT Ops", peran: "Pimpinan IT Operations", divisi: "ops", atasan: CHIEF, gaya: "cepak", aksesori: "headset" },
+  "System Administrator":  { warna: "#d9534f", rambut: "#1f1a18", inisial: "SA", pendek: "SysAdmin", peran: "System Administrator", divisi: "ops", atasan: "Head of IT Operations", gaya: "botak", aksesori: "topi" },
+});
+const URUT = Object.keys(TIM);
+const SIMBOL = { bekerja: "▶", berpikir: "…", menunggu: "!", santai: "–", absen: "" };
+const LABEL_STATUS = { bekerja: "Bekerja", berpikir: "Berpikir", menunggu: "Menunggu Anda", santai: "Santai", absen: "Belum masuk" };
+const NS = "http://www.w3.org/2000/svg";
+let HEMAT_GERAK = matchMedia("(prefers-reduced-motion: reduce)").matches;
+try { if (localStorage.getItem("kantor-jeda") === "1") HEMAT_GERAK = true; } catch { /* penyimpanan tidak tersedia */ }
+
+/** true bila `a` atasan (langsung atau tidak langsung) dari `b`. */
+function atasanDari(a, b) {
+  for (let x = TIM[b]?.atasan; x; x = TIM[x]?.atasan) if (x === a) return true;
+  return false;
+}
+
+// ================= util =================
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const potong = (s, n) => (s && s.length > n ? `${s.slice(0, n - 1)}…` : s ?? "");
+const fmtJam = (ts) => new Intl.DateTimeFormat("id-ID", { timeZone: "Asia/Jakarta", hour: "2-digit", minute: "2-digit" }).format(ts);
+const acak = (a, b) => a + Math.random() * (b - a);
+const pilihAcak = (xs) => xs[Math.floor(Math.random() * xs.length)];
+function lalu(ts) {
+  if (!ts) return "";
+  const d = Math.max(0, (Date.now() - ts) / 1000);
+  if (d < 60) return "baru saja";
+  if (d < 3600) return `${Math.floor(d / 60)} mnt lalu`;
+  return `${Math.floor(d / 3600)} jam lalu`;
+}
+function el(tag, attrs = {}, induk) {
+  const e = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  if (induk) induk.append(e);
+  return e;
+}
+
+// ================= proyeksi isometrik =================
+const U = 20;
+const iso = (x, y, z = 0) => [(x - y) * U, (x + y) * U * 0.5 - z * U];
+const titik = (...p) => p.map((q) => iso(...q).map((v) => v.toFixed(1)).join(",")).join(" ");
+const poli = (induk, kelas, ...p) => el("polygon", { class: kelas, points: titik(...p) }, induk);
+function balok(induk, x, y, w, d, h, kelas = ["m-atas", "m-a", "m-b"], z0 = 0) {
+  const g = el("g", {}, induk);
+  poli(g, kelas[1], [x, y + d, z0], [x + w, y + d, z0], [x + w, y + d, z0 + h], [x, y + d, z0 + h]);
+  poli(g, kelas[2], [x + w, y, z0], [x + w, y + d, z0], [x + w, y + d, z0 + h], [x + w, y, z0 + h]);
+  poli(g, kelas[0], [x, y, z0 + h], [x + w, y, z0 + h], [x + w, y + d, z0 + h], [x, y + d, z0 + h]);
+  return g;
+}
+
+// ================= lantai & lapisan =================
+// Lantai 40×21: baris belakang (y 0–7.75) Ruang Pimpinan | Engineering Tim 1 | Tim 2 | Tim 3; lorong utama
+// (y 8–10) dengan pintu masuk di dinding kiri; baris depan (y 10.25–21) Corporate Strategy | Layanan bersama |
+// IT Operations | Lounge.
+const NX = 40, NY = 21, TINGGI_DINDING = 2.6;
+const svg = document.getElementById("denah");
+// Kotak dasar = seluruh lantai + dinding; zoom memperkecil kotak di sekitar titik pusat (bisa digeser).
+const DASAR = (() => {
+  const atas = iso(0, 0, 3.4)[1] - 6, kiri = iso(0, NY)[0] - 10, kanan = iso(NX, 0)[0] + 10, bawah = iso(NX, NY)[1] + 16;
+  return { x: kiri, y: atas, w: kanan - kiri, h: bawah - atas };
+})();
+const tampilan = { zoom: 1, cx: DASAR.x + DASAR.w / 2, cy: DASAR.y + DASAR.h / 2 };
+function aturViewBox() {
+  const w = DASAR.w / tampilan.zoom, h = DASAR.h / tampilan.zoom;
+  tampilan.cx = Math.min(DASAR.x + DASAR.w - w / 2, Math.max(DASAR.x + w / 2, tampilan.cx));
+  tampilan.cy = Math.min(DASAR.y + DASAR.h - h / 2, Math.max(DASAR.y + h / 2, tampilan.cy));
+  svg.setAttribute("viewBox", `${(tampilan.cx - w / 2).toFixed(1)} ${(tampilan.cy - h / 2).toFixed(1)} ${w.toFixed(1)} ${h.toFixed(1)}`);
+  svg.classList.toggle("bisa-geser", tampilan.zoom > 1);
+}
+aturViewBox();
+// lapisan: lantai → bayangan & cahaya → perabot+orang (diurutkan) → papan nama & label meja → gelembung & berkas
+const lapisDasar = el("g", {}, svg), lapisBayang = el("g", {}, svg), lapisIsi = el("g", {}, svg),
+  lapisAtas = el("g", {}, svg), lapisUcap = el("g", {}, svg);
+
+// ================= grid jalan (sel 0,5 unit) =================
+const RES = 2, GX = NX * RES, GY = NY * RES;
+const blok = new Uint8Array(GX * GY);
+/** Tandai persegi (unit lantai) tidak bisa dilalui; sel yang beririsan ikut terblokir. */
+function halang(x0, y0, x1, y1) {
+  for (let j = Math.max(0, Math.floor(y0 * RES)); j < Math.min(GY, Math.ceil(y1 * RES)); j++)
+    for (let i = Math.max(0, Math.floor(x0 * RES)); i < Math.min(GX, Math.ceil(x1 * RES)); i++) blok[j * GX + i] = 1;
+}
+const PERABOT = [];   // {g, d} — diurutkan dengan orang berdasar kedalaman x+y (painter's algorithm)
+/** Perabot di lapisan isi. `d` = kunci kedalaman (bawaan: titik tengah); `lewat` = boleh dilalui (kursi). */
+function perabot(x, y, w, dd, gambar, { d = x + w / 2 + y + dd / 2, lewat = false, bayang = true } = {}) {
+  if (bayang) poli(lapisBayang, "bayang-perabot", [x + 0.1, y + 0.1], [x + w + 0.28, y + 0.1], [x + w + 0.28, y + dd + 0.28], [x + 0.1, y + dd + 0.28]);
+  const g = el("g", {}, lapisIsi);
+  gambar(g);
+  PERABOT.push({ g, d });
+  if (!lewat) halang(x, y, x + w, y + dd);
+  return g;
+}
+function tanaman(x, y, besar = 1) {
+  perabot(x, y, 0.6, 0.6, (g) => {
+    balok(g, x, y, 0.6, 0.6, 0.45, ["pot", "pot", "pot"]);
+    const [a, b] = iso(x + 0.3, y + 0.3, 0.9 + 0.25 * besar);
+    el("circle", { class: "daun-2", cx: a + 3, cy: b + 3, r: 8 * besar }, g);
+    el("circle", { class: "daun", cx: a - 2, cy: b - 2, r: 9 * besar }, g);
+  });
+}
+/** Partisi rendah/kaca; halangan selalu satu sel di sisi yang disebut. */
+function partisiX(y0, y1, x0, x1, kaca = false) {   // sejajar sumbu x (garis y tetap: y0..y1 tebal)
+  const k = kaca ? ["kaca-atas", "kaca-a", "kaca-b"] : ["partisi-atas", "partisi-a", "partisi-b"];
+  perabot(x0, y0, x1 - x0, y1 - y0, (g) => balok(g, x0, y0, x1 - x0, y1 - y0, kaca ? 1.25 : 0.5, k), { d: x0 + y0 });
+}
+function partisiY(x0, x1, y0, y1, kaca = false) {   // sejajar sumbu y
+  const k = kaca ? ["kaca-atas", "kaca-a", "kaca-b"] : ["partisi-atas", "partisi-a", "partisi-b"];
+  perabot(x0, y0, x1 - x0, y1 - y0, (g) => balok(g, x0, y0, x1 - x0, y1 - y0, kaca ? 1.25 : 0.5, k), { d: x0 + y0 });
+}
+
+const OX_TIM = { 1: 8.25, 2: 18.75, 3: 29.25 };   // tepi kiri pod tiap tim (lebar 10,5)
+const ZONA = {
+  pimpinan: [0, 0, 8.25, 7.75], tim1: [8.25, 0, 18.75, 7.75], tim2: [18.75, 0, 29.25, 7.75], tim3: [29.25, 0, 40, 7.75],
+  corp: [0, 10.25, 11.25, 21], bersama: [11.25, 10.25, 17.25, 21], ops: [17.25, 10.25, 25.75, 21], lounge: [25.75, 10.25, 40, 21],
+};
+const PINTU = [0.6, 9.0];
+
+function bangunLantai() {
+  const g = lapisDasar;
+  poli(g, "lantai-sisi-a", [0, NY, 0], [NX, NY, 0], [NX, NY, -0.45], [0, NY, -0.45]);
+  poli(g, "lantai-sisi-b", [NX, 0, 0], [NX, NY, 0], [NX, NY, -0.45], [NX, 0, -0.45]);
+  poli(g, "lantai-atas", [0, 0], [NX, 0], [NX, NY], [0, NY]);
+  const ubin = el("g", { class: "ubin" }, g);
+  for (let i = 1; i < NX; i++) { const [a, b] = [iso(i, 0), iso(i, NY)]; el("line", { x1: a[0], y1: a[1], x2: b[0], y2: b[1] }, ubin); }
+  for (let j = 1; j < NY; j++) { const [a, b] = [iso(0, j), iso(NX, j)]; el("line", { x1: a[0], y1: a[1], x2: b[0], y2: b[1] }, ubin); }
+  poli(g, "lorong", [0, 7.75], [NX, 7.75], [NX, 10.25], [0, 10.25]);
+  // zona: tint warna divisi; Ruang Pimpinan berlantai kayu; lounge berlantai hangat
+  for (const dv of DIVISI) {
+    const [x0, y0, x1, y1] = ZONA[dv.id];
+    if (dv.id === "pimpinan") {
+      poli(g, "kayu", [x0, y0], [x1, y0], [x1, y1], [x0, y1]);
+      const garis = el("g", { class: "kayu-garis" }, g);
+      for (let y = y0 + 0.5; y < y1; y += 0.5) { const [a, b] = [iso(x0, y), iso(x1, y)]; el("line", { x1: a[0], y1: a[1], x2: b[0], y2: b[1] }, garis); }
+    } else el("polygon", { class: "zona", style: `--warna:${dv.warna}`, points: titik([x0, y0], [x1, y0], [x1, y1], [x0, y1]) }, g);
+  }
+  { const [x0, y0, x1, y1] = ZONA.lounge;
+    el("polygon", { class: "zona", style: "--warna:var(--z-lounge)", points: titik([x0, y0], [x1, y0], [x1, y1], [x0, y1]) }, g); }
+  // dinding belakang (y=0) dan kiri (x=0), jendela, pintu masuk
+  poli(g, "dinding-muka", [0, 0, 0], [NX, 0, 0], [NX, 0, TINGGI_DINDING], [0, 0, TINGGI_DINDING]);
+  poli(g, "dinding-muka", [0, 0, 0], [0, NY, 0], [0, NY, TINGGI_DINDING], [0, 0, TINGGI_DINDING]);
+  poli(g, "dinding-atas", [0, 0, TINGGI_DINDING], [NX, 0, TINGGI_DINDING], [NX, -0.25, TINGGI_DINDING], [-0.25, -0.25, TINGGI_DINDING], [-0.25, NY, TINGGI_DINDING], [0, NY, TINGGI_DINDING]);
+  poli(g, "dinding-tepi", [NX, 0, 0], [NX, -0.25, 0], [NX, -0.25, TINGGI_DINDING], [NX, 0, TINGGI_DINDING]);
+  for (const [a, b] of [[2.2, 5.4], ...NOMOR_TIM.map((n) => [OX_TIM[n] + 6.6, OX_TIM[n] + 9.6])]) {
+    poli(g, "jendela", [a, 0, 0.95], [b, 0, 0.95], [b, 0, 2.15], [a, 0, 2.15]);
+    poli(g, "jendela-bingkai", [(a + b) / 2 - 0.04, 0, 0.95], [(a + b) / 2 + 0.04, 0, 0.95], [(a + b) / 2 + 0.04, 0, 2.15], [(a + b) / 2 - 0.04, 0, 2.15]);
+    poli(lapisBayang, "cahaya", [a + 0.3, 0.3], [b + 0.3, 0.3], [b + 1.7, 3.3], [a + 1.7, 3.3]);       // cahaya jendela jatuh ke lantai
+  }
+  for (const [a, b] of [[1.0, 4.6], [17.0, 20.0]]) {
+    poli(g, "jendela", [0, a, 0.95], [0, b, 0.95], [0, b, 2.15], [0, a, 2.15]);
+    poli(lapisBayang, "cahaya", [0.3, a + 0.3], [0.3, b + 0.3], [3.0, b + 1.5], [3.0, a + 1.5]);
+  }
+  // lorong: karpet panjang; pintu masuk: kusen, keset, tanda keluar
+  poli(g, "karpet-lorong", [0.9, 8.55], [NX - 0.6, 8.55], [NX - 0.6, 9.45], [0.9, 9.45]);
+  poli(g, "kusen", [0, PINTU[1] - 0.9, 0], [0, PINTU[1] + 0.9, 0], [0, PINTU[1] + 0.9, 2.15], [0, PINTU[1] - 0.9, 2.15]);
+  poli(g, "pintu", [0, PINTU[1] - 0.75, 0], [0, PINTU[1] + 0.75, 0], [0, PINTU[1] + 0.75, 2.0], [0, PINTU[1] - 0.75, 2.0]);
+  poli(g, "kenop", [0, PINTU[1] + 0.45, 0.95], [0, PINTU[1] + 0.6, 0.95], [0, PINTU[1] + 0.6, 1.05], [0, PINTU[1] + 0.45, 1.05]);
+  poli(g, "tanda-keluar", [0, PINTU[1] - 0.35, 2.28], [0, PINTU[1] + 0.35, 2.28], [0, PINTU[1] + 0.35, 2.52], [0, PINTU[1] - 0.35, 2.52]);
+  poli(g, "keset", [0.3, PINTU[1] - 0.7], [1.3, PINTU[1] - 0.7], [1.3, PINTU[1] + 0.7], [0.3, PINTU[1] + 0.7]);
+  // tepi luar tidak bisa dilalui
+  halang(0, 0, NX, 0.25); halang(0, 0, 0.25, NY);
+}
+
+/** Papan nama divisi: di dinding (zona belakang) atau di lantai depan (zona depan). */
+function papanZona(dv, [x, y, z]) {
+  const [sx, sy] = iso(x, y, z);
+  const g = el("g", { class: "papan-zona", style: `--warna:${dv.warna}` }, lapisAtas);
+  const r = el("rect", { rx: 9, x: sx - 13, y: sy - 17, height: 38 }, g);
+  el("rect", { class: "tanda", x: sx - 5, y: sy - 10, width: 9, height: 9, rx: 2.5 }, g);
+  const t1 = el("text", { class: "judul-zona", x: sx + 9, y: sy - 1 }, g); t1.textContent = dv.nama;
+  const t2 = el("text", { class: "sub-zona", x: sx + 9, y: sy + 13 }, g); t2.textContent = dv.sub ?? "";
+  const ukur = () => r.setAttribute("width", Math.max(t1.getComputedTextLength(), t2.getComputedTextLength()) + 32);
+  ukur(); document.fonts?.ready.then(ukur);
+  return { t1, t2, ukur, g };
+}
+
+// ================= kursi, meja, dan titik =================
+// duduk = titik kaki saat duduk; tamu = titik bawahan saat dipanggil/melapor (duduk di kursi tamu bila `kursi`).
+const KURSI = {
+  "COO":                   { duduk: [4.0, 1.45], pimpinan: true, tamu: [[3.25, 4.45, true], [4.75, 4.45, true]] },
+  "Head of Strategy":      { duduk: [5.6, 11.55], pimpinan: true, tamu: [[5.0, 14.1], [6.2, 14.1]] },
+  "Financial Controller":  { duduk: [2.0, 17.55] },
+  "Research Analyst":      { duduk: [5.6, 17.55] },
+  "HR Business Partner":   { duduk: [9.2, 17.55] },
+  "Program Manager":       { duduk: [14.25, 11.55], pimpinan: true, tamu: [[13.65, 14.1], [14.85, 14.1]] },
+  "Technical Writer":      { duduk: [14.25, 17.55] },
+  "Head of IT Operations": { duduk: [21.5, 11.55], pimpinan: true, tamu: [[20.9, 14.1], [22.1, 14.1]] },
+  "System Administrator":  { duduk: [19.4, 17.55] },
+};
+for (const n of NOMOR_TIM) {
+  const ox = OX_TIM[n];
+  KURSI[kursiTim("Tech Lead", n)] = { duduk: [ox + 5.25, 1.3], pimpinan: true, tamu: [[ox + 4.65, 3.85], [ox + 5.85, 3.85]] };
+  KURSI[kursiTim("Business Systems Analyst", n)] = { duduk: [ox + 1.75, 6.3] };
+  KURSI[kursiTim("Software Engineer #1", n)] = { duduk: [ox + 3.95, 6.3] };
+  KURSI[kursiTim("Software Engineer #2", n)] = { duduk: [ox + 8.75, 6.3] };
+}
+const MEJA = {};   // nama → {g, tag, latarTag, aksiT, namaT, tengahX, atasY}
+const TEMPAT = []; // titik santai di lounge: {x, y, jenis: bar|sofa|meja, hadap: [dx, dy], dipakai}
+
+function pilihHandler(g, nama) {
+  const pilihIni = () => { if (!baruDigeser) pilih(dipilih === nama ? null : nama); };
+  g.addEventListener("click", pilihIni);
+  g.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pilihIni(); } });
+}
+function tagMeja(nama, [x, y]) {
+  const t = TIM[nama], [fx, fy] = iso(x, y);
+  const tag = el("g", { class: "tag absen", style: `--warna:${t.warna}` }, lapisAtas);
+  const latarTag = el("rect", { class: "tag-latar", rx: 8 }, tag);
+  const namaT = el("text", { class: "nama-meja", x: fx, y: fy + 25 }, tag); namaT.textContent = t.pendek;
+  const aksiT = el("text", { class: "aksi-meja", x: fx, y: fy + 39 }, tag);
+  return { tag, latarTag, aksiT, namaT, tengahX: fx, atasY: fy + 12 };
+}
+/** Meja anggota: monitor menghadap kursi (dan pengamat), kursi tanpa sandaran agar orang tetap terlihat. */
+function mejaAnggota(nama) {
+  const [sx, sy] = KURSI[nama].duduk, t = TIM[nama];
+  const mx = sx - 0.95, my = sy - 1.75;
+  const g = perabot(mx, my, 1.9, 0.9, (g) => {
+    g.setAttribute("class", "meja absen"); g.setAttribute("tabindex", "0"); g.setAttribute("role", "button");
+    g.setAttribute("data-agen", nama); g.style.setProperty("--warna", t.warna);
+    poli(g, "sorot", [mx - 0.15, my - 0.15], [mx + 2.05, my - 0.15], [mx + 2.05, sy + 0.45], [mx - 0.15, sy + 0.45]);
+    balok(g, mx, my, 1.9, 0.9, 0.72);
+    balok(g, sx - 0.5, my + 0.18, 1.0, 0.1, 0.62, ["m-b", "layar", "m-b"], 0.72);
+    balok(g, sx + 0.55, my + 0.45, 0.28, 0.2, 0.04, ["kertas-meja", "kertas-meja", "kertas-meja"], 0.72);
+  });
+  perabot(sx - 0.33, sy - 0.33, 0.66, 0.6, (g) => balok(g, sx - 0.33, sy - 0.33, 0.66, 0.6, 0.42, ["kursi", "kursi-gelap", "kursi-gelap"]), { lewat: true, d: sx + sy - 0.05 });
+  MEJA[nama] = { g, ...tagMeja(nama, [sx, sy]) };
+  pilihHandler(g, nama);
+}
+/** Meja pimpinan/leader: menghadap ruangan; kursi bersandaran tinggi di belakang; kursi tamu (COO) di depan. */
+function mejaPimpinan(nama, lebar = 2.8, besar = false) {
+  const k = KURSI[nama], [sx, sy] = k.duduk, t = TIM[nama];
+  const mx = sx - lebar / 2, my = sy + 0.65, kelas = besar ? ["mp-atas", "mp-a", "mp-b"] : ["m-atas", "m-a", "m-b"];
+  perabot(sx - 0.45, sy - 0.75, 0.9, 0.3, (g) => balok(g, sx - 0.45, sy - 0.75, 0.9, 0.3, besar ? 1.55 : 1.3, ["kursi", "kursi-gelap", "kursi-gelap"]), { d: sx + sy - 0.7 });
+  perabot(sx - 0.4, sy - 0.45, 0.8, 0.7, (g) => balok(g, sx - 0.4, sy - 0.45, 0.8, 0.7, 0.45, ["kursi", "kursi-gelap", "kursi-gelap"]), { lewat: true, d: sx + sy - 0.1 });
+  const g = perabot(mx, my, lebar, 1.05, (g) => {
+    g.setAttribute("class", "meja absen"); g.setAttribute("tabindex", "0"); g.setAttribute("role", "button");
+    g.setAttribute("data-agen", nama); g.style.setProperty("--warna", t.warna);
+    poli(g, "sorot", [mx - 0.2, sy - 0.9], [mx + lebar + 0.2, sy - 0.9], [mx + lebar + 0.2, my + 1.3], [mx - 0.2, my + 1.3]);
+    balok(g, mx, my, lebar, 1.05, 0.76, kelas);
+    // monitor menghadap pimpinan (pengamat melihat bagian belakang) + layar kecil di sisi
+    balok(g, sx - 0.55, my + 0.15, 1.1, 0.1, 0.62, ["m-b", "m-b", "layar"], 0.76);
+    balok(g, mx + 0.25, my + 0.35, 0.5, 0.35, 0.05, ["kertas-meja", "kertas-meja", "kertas-meja"], 0.76);
+    if (besar) balok(g, mx + lebar - 0.6, my + 0.3, 0.3, 0.3, 0.18, ["cangkir", "cangkir", "cangkir"], 0.76);
+  });
+  for (const [tx, ty, duduk] of k.tamu) if (duduk)
+    perabot(tx - 0.32, ty - 0.2, 0.64, 0.62, (g) => {
+      balok(g, tx - 0.32, ty - 0.2, 0.64, 0.62, 0.42, ["sofa-a", "sofa-b", "sofa-c"]);
+      balok(g, tx - 0.32, ty + 0.3, 0.64, 0.12, 0.95, ["sofa-a", "sofa-b", "sofa-c"]);   // sandaran (membelakangi pengamat)
+    }, { lewat: true, d: tx + ty + 0.05 });
+  MEJA[nama] = { g, ...tagMeja(nama, [sx, sy]) };
+  pilihHandler(g, nama);
+}
+
+function bangunRuangPimpinan() {
+  poli(lapisDasar, "karpet", [1.3, 0.9], [6.7, 0.9], [6.7, 5.6], [1.3, 5.6]);
+  poli(lapisDasar, "karpet-tepi", [1.5, 1.1], [6.5, 1.1], [6.5, 5.4], [1.5, 5.4]);
+  mejaPimpinan(CHIEF, 3.2, true);
+  // rak buku di dinding kiri, kursi baca, tanaman
+  perabot(0.3, 0.6, 0.5, 2.6, (g) => {
+    balok(g, 0.3, 0.6, 0.5, 2.6, 1.9, ["mp-atas", "mp-a", "mp-b"]);
+    ["buku-a", "buku-b", "buku-c", "buku-d", "buku-b", "buku-a"].forEach((k, i) => {
+      const yy = 0.8 + (i % 3) * 0.75, z = i < 3 ? 0.35 : 1.15;
+      poli(g, k, [0.8, yy, z], [0.8, yy + 0.55, z], [0.8, yy + 0.55, z + 0.55], [0.8, yy, z + 0.55]);
+    });
+  });
+  perabot(6.4, 1.2, 1.1, 1.0, (g) => { balok(g, 6.4, 1.2, 1.1, 1.0, 0.45, ["sofa-a", "sofa-b", "sofa-c"]); balok(g, 7.2, 1.2, 0.3, 1.0, 1.0, ["sofa-a", "sofa-b", "sofa-c"]); });
+  tanaman(0.45, 4.2, 1.1); tanaman(7.1, 0.4, 1.1);
+  partisiY(8.1, 8.4, 0.25, 7.9, true);                       // kaca ke Engineering
+  partisiX(7.6, 7.9, 0.25, 6.0, true); partisiX(7.6, 7.9, 7.5, 8.1, true);   // kaca ke lorong, pintu x 6–7,5
+}
+/** Satu pod tim engineering (lebar 10,5): meja Tech Lead menghadap tim, tiga meja anggota, papan tulis. */
+function bangunTim(n) {
+  const ox = OX_TIM[n];
+  poli(lapisDasar, "papan", [ox + 0.8, 0.02, 0.9], [ox + 3.6, 0.02, 0.9], [ox + 3.6, 0.02, 1.9], [ox + 0.8, 0.02, 1.9]);   // papan tulis
+  for (const [a, b, c] of [[1.1, 2.1, 1.6], [2.3, 3.3, 1.4], [1.2, 2.7, 1.2]])
+    el("line", { x1: iso(ox + a, 0.02, c)[0], y1: iso(ox + a, 0.02, c)[1], x2: iso(ox + b, 0.02, c)[0], y2: iso(ox + b, 0.02, c)[1], stroke: "#7c5cd6", "stroke-width": 1.4 }, lapisDasar);
+  mejaPimpinan(kursiTim("Tech Lead", n), 2.6);
+  mejaBantuan(`tim${n}`, ox + 7.4, 1.35, 2.0, [[ox + 7.9, 2.45], [ox + 8.9, 2.45]], [0, -1]);
+  for (const peran of ["Business Systems Analyst", "Software Engineer #1", "Software Engineer #2"]) mejaAnggota(kursiTim(peran, n));
+  tanaman(ox + 9.75, 0.4);
+  if (n > 1) partisiY(ox - 0.15, ox + 0.15, 0.25, 7.9);                    // sekat rendah antar-tim
+  partisiX(7.6, 7.9, ox + (n === 1 ? 0.15 : 0.15), ox + 5.5); partisiX(7.6, 7.9, ox + 7.0, Math.min(NX, ox + 10.5) - (n === 3 ? 0 : 0.15));   // pintu x+5,5–7
+}
+function bangunCorporate() {
+  poli(lapisDasar, "papan", [0.02, 11.6, 0.9], [0.02, 15.0, 0.9], [0.02, 15.0, 2.2], [0.02, 11.6, 2.2]);   // papan strategi
+  ["#1fa3ae", "#3e9e5c", "#b07a1f"].forEach((c, k) => { for (let i = 0; i < 3 - (k === 2); i++) {
+    const y0 = 11.85 + k * 1.1, z0 = 1.85 - i * 0.32;
+    el("polygon", { fill: c, opacity: .75, points: titik([0.01, y0, z0], [0.01, y0 + 0.7, z0], [0.01, y0 + 0.7, z0 - 0.22], [0.01, y0, z0 - 0.22]) }, lapisDasar);
+  } });
+  mejaPimpinan("Head of Strategy", 2.6);
+  for (const n of ["Financial Controller", "Research Analyst", "HR Business Partner"]) mejaAnggota(n);
+  mejaBantuan("umum", 3.5, 19.4, 5.0, [[4.1, 18.9], [5.3, 18.9], [6.5, 18.9], [7.7, 18.9]], [0, 1]);
+  perabot(0.3, 19.2, 1.4, 0.6, (g) => {   // rak buku riset & arsip keuangan
+    balok(g, 0.3, 19.2, 1.4, 0.6, 1.5, ["m-atas", "m-a", "m-b"]);
+    ["buku-b", "buku-c", "buku-a"].forEach((k, i) => poli(g, k, [0.45 + i * 0.4, 19.8, 0.35], [0.75 + i * 0.4, 19.8, 0.35], [0.75 + i * 0.4, 19.8, 0.9], [0.45 + i * 0.4, 19.8, 0.9]));
+  });
+  tanaman(10.4, 20.0); tanaman(0.45, 15.7);
+  partisiX(10.1, 10.4, 0.25, 8.0); partisiX(10.1, 10.4, 9.5, 11.1);       // pintu x 8–9,5
+  partisiY(11.1, 11.4, 10.1, NY);
+}
+function bangunBersama() {
+  mejaPimpinan("Program Manager", 2.6);
+  mejaAnggota("Technical Writer");
+  perabot(11.7, 19.6, 1.6, 0.5, (g) => balok(g, 11.7, 19.6, 1.6, 0.5, 1.1, ["m-atas", "m-a", "m-b"]));   // lemari arsip proyek
+  tanaman(16.4, 20.0);
+  partisiX(10.1, 10.4, 11.4, 15.5); partisiX(10.1, 10.4, 17.0, 17.1);      // pintu x 15,5–17
+  partisiY(17.1, 17.4, 10.1, NY);
+}
+function bangunOperations() {
+  // panel layar pemantauan berdiri di belakang meja Head of IT Operations
+  perabot(17.8, 10.6, 1.9, 0.3, (g) => {
+    balok(g, 17.8, 10.6, 1.9, 0.3, 1.95, ["rak", "rak", "rak"]);
+    poli(g, "layar", [17.9, 10.91, 0.9], [19.6, 10.91, 0.9], [19.6, 10.91, 1.85], [17.9, 10.91, 1.85]);
+    const garis = [0, 1, 2, 3, 4, 5].map((i) => iso(18.0 + i * 0.3, 10.92, 1.1 + ((i * 7) % 5) * 0.14).join(",")).join(" ");
+    el("polyline", { points: garis, fill: "none", stroke: "#34c38a", "stroke-width": 1.3 }, g);
+  });
+  mejaPimpinan("Head of IT Operations", 2.6);
+  mejaAnggota("System Administrator");
+  for (const y of [15.6, 16.9]) perabot(23.6, y, 1.4, 1.0, (g) => {
+    balok(g, 23.6, y, 1.4, 1.0, 2.2, ["rak", "rak", "rak"]);
+    for (let i = 0; i < 6; i++) { const [a, b] = iso(23.65, y + 1.0, 0.3 + i * 0.32); el("rect", { class: "led", x: a + 2, y: b - 1, width: 3, height: 2, rx: 1 }, g); }
+  });
+  tanaman(17.8, 20.0);
+  partisiX(10.1, 10.4, 19.8, 23.5); partisiX(10.1, 10.4, 25.0, 25.55);     // pintu x 23,5–25
+}
+function bangunLounge() {
+  const [x0] = ZONA.lounge;
+  // pembatas tanaman dari area kerja; pembatas rendah ke lorong (bukaan lebar x 27–34)
+  perabot(x0 - 0.2, 10.5, 0.5, NY - 10.8, (g) => {
+    balok(g, x0 - 0.2, 10.5, 0.5, NY - 10.8, 0.55, ["pot", "pot", "pot"]);
+    for (let y = 11; y < NY - 0.4; y += 1.05) { const [a, b] = iso(x0 + 0.05, y, 0.75); el("circle", { class: y % 2 < 1 ? "daun" : "daun-2", cx: a, cy: b, r: 7.5 }, g); }
+  }, { d: x0 + 10.5 });
+  partisiX(10.1, 10.4, x0 + 0.3, 27.0); partisiX(10.1, 10.4, 34.0, NX);
+  // bar kopi + kulkas di ujungnya
+  perabot(35.3, 10.8, 4.3, 0.9, (g) => {
+    balok(g, 35.3, 10.8, 4.3, 0.9, 0.95, ["bar-atas", "bar-a", "bar-a"]);
+    balok(g, 35.7, 10.9, 0.65, 0.5, 0.55, ["mesin", "mesin", "mesin"], 0.95);
+    balok(g, 36.6, 10.95, 0.5, 0.45, 0.42, ["mesin", "mesin", "mesin"], 0.95);
+    for (const cx of [37.7, 38.1, 38.5]) balok(g, cx, 11.2, 0.18, 0.18, 0.18, ["cangkir", "cangkir", "cangkir"], 0.95);
+  }, { d: 35.3 + 10.8 });
+  perabot(34.45, 10.6, 0.7, 0.8, (g) => balok(g, 34.45, 10.6, 0.7, 0.8, 1.7, ["papan", "m-a", "m-b"]));   // kulkas
+  // karpet + sofa L (dipecah per dudukan) + pouf + meja kopi
+  poli(lapisDasar, "karpet", [26.9, 12.2], [34.4, 12.2], [34.4, 18.9], [26.9, 18.9]);
+  poli(lapisDasar, "karpet-tepi", [27.15, 12.45], [34.15, 12.45], [34.15, 18.65], [27.15, 18.65]);
+  const sofa = ["sofa-a", "sofa-b", "sofa-c"];
+  perabot(27.62, 12.55, 0.28, 0.95, (g) => balok(g, 27.62, 12.55, 0.28, 0.95, 0.65, sofa));
+  for (let k = 0; k < 4; k++) {
+    const x = 27.9 + k * 1.3;
+    perabot(x, 12.55, 1.3, 0.95, (g) => { balok(g, x, 12.55, 1.3, 0.3, 1.0, sofa); balok(g, x, 12.85, 1.3, 0.65, 0.45, sofa); }, { d: x + 0.65 + 12.9 });
+  }
+  perabot(33.1, 12.55, 0.28, 0.95, (g) => balok(g, 33.1, 12.55, 0.28, 0.95, 0.65, sofa));
+  for (let k = 0; k < 3; k++) {
+    const y = 14.3 + k * 1.05;
+    perabot(26.9, y, 0.95, 1.05, (g) => { balok(g, 26.9, y, 0.3, 1.05, 1.0, sofa); balok(g, 27.2, y, 0.65, 1.05, 0.45, sofa); }, { d: 27.38 + y + 0.52 });
+  }
+  perabot(26.9, 17.45, 0.95, 0.28, (g) => balok(g, 26.9, 17.45, 0.95, 0.28, 0.65, sofa));
+  perabot(29.3, 14.9, 2.6, 1.3, (g) => {
+    balok(g, 29.3, 14.9, 2.6, 1.3, 0.4, ["bar-atas", "bar-a", "bar-a"]);
+    balok(g, 30.0, 15.3, 0.2, 0.2, 0.15, ["cangkir", "cangkir", "cangkir"], 0.4);
+    balok(g, 30.9, 15.5, 0.6, 0.4, 0.04, ["kertas-meja", "kertas-meja", "kertas-meja"], 0.4);
+  });
+  for (const y of [14.7, 16.3]) perabot(32.7, y - 0.3, 0.7, 0.7, (g) => balok(g, 32.7, y - 0.3, 0.7, 0.7, 0.42, sofa), { lewat: true, d: 33.05 + y - 0.1 });
+  // meja bundar + dua kursi; bangku dekat jendela depan
+  perabot(35.6, 16.3, 1.2, 1.2, (g) => {
+    const [a, b] = iso(36.2, 16.9, 0.75); el("ellipse", { class: "bar-atas", cx: a, cy: b, rx: 17, ry: 8.5 }, g);
+    balok(g, 36.12, 16.82, 0.16, 0.16, 0.75, ["bar-a", "bar-a", "bar-a"]);
+  });
+  for (const [x, y] of [[35.15, 17.55], [37.25, 17.0]])
+    perabot(x - 0.28, y - 0.28, 0.56, 0.56, (g) => balok(g, x - 0.28, y - 0.28, 0.56, 0.56, 0.42, ["kursi", "kursi-gelap", "kursi-gelap"]), { lewat: true, d: x + y - 0.05 });
+  perabot(36.0, 19.3, 3.4, 0.5, (g) => balok(g, 36.0, 19.3, 3.4, 0.5, 0.42, ["bar-atas", "bar-a", "bar-a"]), { lewat: true, d: 36.0 + 19.3 });
+  tanaman(39.3, 14.4, 1.2); tanaman(34.7, 20.2, 0.9);
+  // titik santai
+  const t = (x, y, jenis, hadap) => TEMPAT.push({ x, y, jenis, hadap, dipakai: null });
+  for (const x of [35.9, 37.4, 38.9]) t(x, 12.25, "bar", [0, -1]);
+  for (let k = 0; k < 4; k++) t(28.55 + k * 1.3, 13.35, "sofa", [0, 1]);
+  for (const y of [15.0, 16.4]) t(27.75, y, "sofa", [1, 0]);
+  for (const y of [14.7, 16.3]) t(33.05, y, "pouf", [-1, 0]);
+  t(35.15, 17.55, "meja", [1, -1]); t(37.25, 17.0, "meja", [-1, 0]);
+  for (const x of [36.6, 37.7, 38.8]) t(x, 19.55, "bangku", [0, 1]);
+  for (const [x, hx] of [[27.4, 1], [28.5, -1], [29.6, -1], [26.9, 1]]) t(x, 19.35, "berdiri", [hx, 0]);   // ngobrol berdiri sambil ngopi
+}
+
+/** Meja berdiri untuk asisten (subagent): titiknya dipesan satu asisten per titik. */
+const MEJA_BANTU = {};   // kelompok → [{x, y, hadap, dipakai}]
+function mejaBantuan(kelompok, x, y, w, titik2, hadap) {
+  perabot(x, y, w, 0.6, (g) => {
+    balok(g, x, y, w, 0.6, 0.95, ["bar-atas", "bar-a", "bar-a"]);
+    for (let i = 0; i < titik2.length; i++) balok(g, x + 0.3 + i * (w - 0.6) / Math.max(1, titik2.length - 1) - 0.2, y + 0.15, 0.4, 0.06, 0.32, ["m-b", "layar", "m-b"], 0.95);
+  });
+  MEJA_BANTU[kelompok] = titik2.map(([tx, ty]) => ({ x: tx, y: ty, hadap, dipakai: null }));
+}
+
+// ================= pencarian jalur (A* di grid, 4 arah, penalti belok) =================
+const sel = (x, y) => [Math.min(GX - 1, Math.max(0, Math.floor(x * RES))), Math.min(GY - 1, Math.max(0, Math.floor(y * RES)))];
+const pusat = (i, j) => [(i + 0.5) / RES, (j + 0.5) / RES];
+function selBebas(x, y) {
+  const [i0, j0] = sel(x, y);
+  if (!blok[j0 * GX + i0]) return [i0, j0];
+  for (let r = 1; r < 8; r++) for (let dj = -r; dj <= r; dj++) for (let di = -r; di <= r; di++) {
+    if (Math.max(Math.abs(di), Math.abs(dj)) !== r) continue;
+    const i = i0 + di, j = j0 + dj;
+    if (i >= 0 && j >= 0 && i < GX && j < GY && !blok[j * GX + i]) return [i, j];
+  }
+  return [i0, j0];
+}
+const ARAH = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+/** Rute dari titik ke titik: titik sudut saja (lintasan sejajar sumbu isometrik), diakhiri titik tujuan persis. */
+function cariJalur([x0, y0], [x1, y1]) {
+  const [si, sj] = selBebas(x0, y0), [ti, tj] = selBebas(x1, y1);
+  const N = GX * GY * 4, g = new Float32Array(N).fill(Infinity), asal = new Int32Array(N).fill(-1), tutup = new Uint8Array(N);
+  const heap = [];
+  const dorong = (s, f) => { heap.push([f, s]); let k = heap.length - 1; while (k) { const p = (k - 1) >> 1; if (heap[p][0] <= heap[k][0]) break; [heap[p], heap[k]] = [heap[k], heap[p]]; k = p; } };
+  const ambil = () => { const top = heap[0], last = heap.pop(); if (heap.length) { heap[0] = last; let k = 0; for (;;) { const a = 2 * k + 1, b = a + 1; let m = k; if (a < heap.length && heap[a][0] < heap[m][0]) m = a; if (b < heap.length && heap[b][0] < heap[m][0]) m = b; if (m === k) break; [heap[m], heap[k]] = [heap[k], heap[m]]; k = m; } } return top; };
+  const h = (i, j) => (Math.abs(i - ti) + Math.abs(j - tj)) / RES;
+  for (let a = 0; a < 4; a++) { const s = (sj * GX + si) * 4 + a; g[s] = 0; dorong(s, h(si, sj)); }
+  let akhir = -1;
+  while (heap.length) {
+    const [, s] = ambil();
+    if (tutup[s]) continue;
+    tutup[s] = 1;
+    const c = s >> 2, a = s & 3, i = c % GX, j = (c / GX) | 0;
+    if (i === ti && j === tj) { akhir = s; break; }
+    for (let b = 0; b < 4; b++) {
+      const ni = i + ARAH[b][0], nj = j + ARAH[b][1];
+      if (ni < 0 || nj < 0 || ni >= GX || nj >= GY || blok[nj * GX + ni]) continue;
+      const ns = (nj * GX + ni) * 4 + b, ng = g[s] + 1 / RES + (b !== a ? 0.4 : 0);
+      if (ng < g[ns]) { g[ns] = ng; asal[ns] = s; dorong(ns, ng + h(ni, nj)); }
+    }
+  }
+  if (akhir < 0) return [[x1, y1]];
+  const sel2 = [];
+  for (let s = akhir; s >= 0; s = asal[s]) sel2.unshift(s);
+  const titik2 = [];
+  for (let k = 1; k < sel2.length; k++) {           // simpan titik di tiap belokan
+    const belok = k === sel2.length - 1 || (sel2[k] & 3) !== (sel2[k + 1] & 3);
+    if (belok) { const c = sel2[k] >> 2; titik2.push(pusat(c % GX, (c / GX) | 0)); }
+  }
+  titik2.push([x1, y1]);
+  return titik2;
+}
+
+// ================= karakter =================
+const ORANG = {};
+function bangunOrang(nama) { ORANG[nama] = buatOrang(nama, TIM[nama]); }
+/** Satu karakter (anggota tetap atau asisten). `t` = data tampilan: warna, rambut, pendek, gaya, aksesori. */
+function buatOrang(nama, t, skala = 1.2) {
+  const g = el("g", { class: "orang santai", style: `--warna:${t.warna};--rambut:${t.rambut}` }, lapisIsi);
+  el("ellipse", { class: "cincin", cx: 0, cy: 0, rx: 14, ry: 7 }, g);
+  el("ellipse", { class: "bayang", cx: 0, cy: 0, rx: 8.5, ry: 3.4 }, g);
+  const badan = el("g", {}, g);
+  const kakiKi = el("rect", { class: "kaki", x: -5, y: -10, width: 4, height: 10, rx: 2 }, badan);
+  const kakiKa = el("rect", { class: "kaki", x: 1, y: -10, width: 4, height: 10, rx: 2 }, badan);
+  const atas = el("g", {}, badan);
+  const lenganBelakang = el("rect", { class: "lengan", x: -1.75, y: 0, width: 3.5, height: 11, rx: 1.75 }, atas);
+  gambarSosok(atas, t);
+  const lenganDepan = el("rect", { class: "lengan", x: -1.75, y: 0, width: 3.5, height: 11, rx: 1.75 }, atas);
+  const barang = el("g", {}, atas);
+  const label = el("text", { class: "label-orang", x: 0, y: 16 }, lapisAtas); label.textContent = t.pendek;   // di atas orang & perabot lain
+  const lencana = el("g", { class: "lencana" }, g);
+  el("circle", { cx: 11, cy: -45, r: 7.5 }, lencana);
+  const simbol = el("text", { x: 11, y: -44.5 }, lencana);
+  // gelembung ucapan di lapisan teratas (tidak tertutup papan nama/perabot), mengikuti posisi orang
+  const ucapan = el("g", { class: "ucapan", visibility: "hidden", style: `--warna:${t.warna}` }, lapisUcap);
+  const ucapanLatar = el("rect", { rx: 8, height: 18 }, ucapan);
+  el("path", { class: "ekor", d: "M-4.5 -51.5 L0 -45.5 L4.5 -51.5 Z" }, ucapan);
+  const ucapanTeks = el("text", { x: 0, y: -60.5 }, ucapan);
+  const o = {
+    nama, g, badan, atas, kakiKi, kakiKa, lenganBelakang, lenganDepan, barang, label, simbol, ucapan, ucapanLatar, ucapanTeks,
+    x: PINTU[0], y: PINTU[1], rute: [], kunci: null, hadap: 1, membelakang: false, arahDiam: null,
+    kecepatan: acak(2.5, 2.9), tampak: false, status: "absen", ikon: null, skrip: [], tunggu: 0, pose: "berdiri",
+    bawa: null, tempat: null, tamu: null, jeda: acak(10, 20), ngopiSampai: 0, sudahNgopi: false, ucapSampai: 0,
+    fase: Math.random() * 10, terakhirKirim: 0,
+  };
+  g.style.display = "none"; label.style.display = "none";
+  o.skala = skala; o.warna = t.warna;
+  return o;
+}
+/** Badan, kepala, wajah, rambut, dan aksesori sesuai gaya kursi (sprite menghadap kanan; dibalik saat menghadap kiri). */
+function gambarSosok(atas, t) {
+  const r = t.gaya, a = t.aksesori;
+  if (a === "hoodie") el("rect", { class: "tudung", x: -6.8, y: -29.5, width: 11, height: 6.5, rx: 3.2 }, atas);   // tudung di punggung
+  if (r === "panjang") el("rect", { class: "rambut", x: -7.2, y: -36.5, width: 12.6, height: 14, rx: 5 }, atas);   // rambut terurai
+  el("rect", { class: "tubuh", x: -7.5, y: -27, width: 15, height: 18, rx: 7 }, atas);
+  if (a === "jas") {
+    el("rect", { class: "jas", x: -7.5, y: -27, width: 15, height: 18, rx: 7 }, atas);
+    el("path", { class: "kemeja depan", d: "M-2.6 -26.6 L2.6 -26.6 L0 -20.5 Z" }, atas);
+    el("path", { class: "dasi depan", d: "M-0.9 -25.8 L0.9 -25.8 L0.7 -19.5 L0 -18.4 L-0.7 -19.5 Z" }, atas);
+  }
+  if (a === "dasi") el("path", { class: "dasi-gelap depan", d: "M-0.9 -26 L0.9 -26 L0.7 -19.5 L0 -18.4 L-0.7 -19.5 Z" }, atas);
+  if (a === "lanyard") { el("path", { class: "tali depan", d: "M-3.4 -26.6 L0 -20.5 L3.4 -26.6" }, atas); el("rect", { class: "kartu-id depan", x: -1.6, y: -21, width: 3.2, height: 3.8, rx: 0.6 }, atas); }
+  if (a === "hoodie") { el("path", { class: "tali depan", d: "M-1.6 -26.5 L-1.6 -22 M1.6 -26.5 L1.6 -22.6" }, atas); }
+  el("circle", { class: "kepala", cx: 0, cy: -33, r: 6.6 }, atas);
+  // wajah (hanya tampak depan): mata ke arah hadap, pipi
+  el("circle", { class: "mata depan", cx: 1.6, cy: -33.2, r: 0.85 }, atas);
+  el("circle", { class: "mata depan", cx: 4.3, cy: -33.2, r: 0.85 }, atas);
+  el("circle", { class: "pipi depan", cx: 4.6, cy: -30.9, r: 1.1 }, atas);
+  // rambut depan
+  const topi = "M-6.8 -33.5 A6.8 6.8 0 0 1 6.8 -33.5 L6.8 -35 Q0 -42 -6.8 -35 Z";
+  if (r === "cepak" || r === "panjang") el("path", { class: "rambut", d: topi }, atas);
+  if (r === "samping") { el("path", { class: "rambut", d: topi }, atas); el("path", { class: "rambut", d: "M0.5 -39.2 Q6.2 -38.4 7.1 -32.4 L5.3 -34.6 Q3 -37.4 0.5 -37.6 Z" }, atas); }
+  if (r === "kuncir") { el("path", { class: "rambut", d: topi }, atas); el("circle", { class: "rambut", cx: -5.6, cy: -38.8, r: 3.1 }, atas); }
+  if (r === "keriting") for (const [cx, cy, rr] of [[-4.6, -36.4, 3.4], [-1.2, -39.2, 3.6], [2.6, -38.9, 3.4], [5.4, -36.2, 2.6]]) el("circle", { class: "rambut", cx, cy, r: rr }, atas);
+  // tampak belakang: rambut menutupi kepala
+  el("circle", { class: "rambut-belakang", cx: 0, cy: -33.4, r: r === "botak" ? 0 : 6.9 }, atas);
+  if (r === "panjang") el("rect", { class: "rambut-belakang", x: -7.2, y: -36.5, width: 14.4, height: 14, rx: 5 }, atas);
+  if (r === "botak") el("circle", { class: "kepala-belakang", cx: 0, cy: -33, r: 6.6 }, atas);
+  if (a === "kacamata") el("path", { class: "kacamata depan", d: "M0.2 -34.2 h2.9 v2.1 h-2.9 Z M3.5 -34.2 h2.6 v2.1 h-2.6 Z M3.1 -33.3 h0.4" }, atas);
+  if (a === "headset") {
+    el("path", { class: "headset", d: "M-6.4 -33.6 A6.9 6.9 0 0 1 6.4 -33.6" }, atas);
+    el("rect", { class: "headset-isi", x: -7.9, y: -35.2, width: 3, height: 4.4, rx: 1.3 }, atas);
+    el("path", { class: "headset depan", d: "M-6.2 -31.6 Q-2 -27.4 2.6 -28.6" }, atas);
+  }
+  if (a === "topi") { el("path", { class: "topi", d: "M-6.9 -33.6 A6.9 6.9 0 0 1 6.9 -33.6 Z" }, atas); el("rect", { class: "topi", x: 2.6, y: -34.6, width: 7, height: 1.8, rx: 0.9 }, atas); }
+}
+function setBarang(o, jenis) {
+  if (o.bawa === jenis) return;
+  o.bawa = jenis; o.barang.replaceChildren();
+  if (jenis === "kertas") el("rect", { class: "kertas", x: 10, y: -25, width: 7, height: 9, rx: 1 }, o.barang);
+  if (jenis === "cangkir") el("rect", { class: "cangkir", x: 11, y: -22, width: 5, height: 6, rx: 1 }, o.barang);
+}
+function ucap(o, teks, ms = 1900, panggil = false) {
+  if (!o?.tampak) return;
+  o.ucapanTeks.textContent = teks;
+  const w = Math.max(26, teks.length * 6.6 + 16);
+  o.ucapanLatar.setAttribute("x", -w / 2); o.ucapanLatar.setAttribute("y", -69.5); o.ucapanLatar.setAttribute("width", w);
+  o.ucapan.setAttribute("class", panggil ? "ucapan panggil" : "ucapan");
+  o.ucapan.setAttribute("visibility", "visible"); o.ucapSampai = performance.now() + ms;
+  const [sx, sy] = iso(o.x, o.y); o.ucapan.setAttribute("transform", `translate(${sx.toFixed(1)} ${sy.toFixed(1)}) scale(${o.skala})`);
+}
+
+const sedangKerja = (st) => st === "bekerja" || st === "berpikir" || st === "menunggu";
+const diKursi = (o) => { const [x, y] = KURSI[o.nama].duduk; return Math.hypot(o.x - x, o.y - y) < 0.06 && !o.rute.length; };
+function lepasTempat(o) { if (o.tempat) { o.tempat.dipakai = null; o.tempat = null; } }
+function pesanTempat(o, jenis) {
+  const bebas = TEMPAT.filter((t) => !t.dipakai && (jenis ? jenis.includes(t.jenis) : true));
+  if (!bebas.length) return null;
+  const t = pilihAcak(bebas); t.dipakai = o.nama; o.tempat = t;
+  return t;
+}
+/** Tujuan bawaan sesuai status: meja saat bekerja; lounge saat santai (ngopi dulu di bar, lalu duduk). */
+function tujuanBawaan(o, now) {
+  if (o.status === "absen") { lepasTempat(o); return { kunci: "pintu", xy: PINTU }; }
+  const meja = { kunci: "meja", xy: KURSI[o.nama].duduk };
+  if (o.nama === CHIEF || sedangKerja(o.status) || o.siapKerjaSampai > now) { lepasTempat(o); return meja; }
+  if (!o.tempat) pesanTempat(o, o.sudahNgopi ? ["sofa", "pouf", "meja", "bangku", "berdiri"] : ["bar"]) || pesanTempat(o);
+  return o.tempat ? { kunci: `t${TEMPAT.indexOf(o.tempat)}`, xy: [o.tempat.x, o.tempat.y] } : meja;
+}
+function jalanKe(o, xy) { o.rute = cariJalur([o.x, o.y], xy); o.arahDiam = null; }
+
+// --- cerita kerja ---
+/** Hentikan perjalanan di titik berikutnya agar cerita baru segera dimulai. */
+const sela = (o) => { if (o.rute.length > 1) o.rute = o.rute.slice(0, 1); };
+/** Pilih titik tamu di meja atasan (dipesan agar dua bawahan tidak berdiri di titik yang sama). */
+function pesanTamu(o, atasan) {
+  const daftar = KURSI[atasan].tamu ?? [[KURSI[atasan].duduk[0] + 1.1, KURSI[atasan].duduk[1] + 1.4]];
+  const bebas = daftar.find((t) => !t.dipakai) ?? daftar[0];
+  bebas.dipakai = o.nama; o.tamu = bebas;
+  return bebas;
+}
+function lepasTamu(o) { if (o.tamu) { o.tamu.dipakai = null; o.tamu = null; } }
+const hadapKe = (o, target) => { const sdx = (target.x - o.x) - (target.y - o.y); o.arahDiam = { hadap: sdx >= 0 ? 1 : -1, membelakang: (target.x - o.x) + (target.y - o.y) < 0 }; };
+
+/** Atasan memanggil dari mejanya; bawahan datang ke kursi tamu, menerima berkas, lalu kembali bekerja. */
+function panggil(atasan, bawahan, label = "Ada tugas") {
+  const a = ORANG[atasan], b = ORANG[bawahan];
+  if (!b?.tampak) return;
+  if (!a?.tampak) { b.siapKerjaSampai = performance.now() + 25000; return; }
+  ucap(a, `${TIM[bawahan].pendek}, ke meja saya`, 2200, true);
+  sela(b);
+  b.siapKerjaSampai = performance.now() + 40000;
+  b.skrip.push(
+    { aksi: () => ucap(b, "Baik"), tunggu: 550 },
+    { ke: () => { lepasTempat(b); const t = pesanTamu(b, atasan); return [t[0], t[1]]; } },
+    { aksi: () => { hadapKe(b, a); hadapKe(a, b); ucap(a, label); }, tunggu: 1000 },
+    { aksi: () => { serahBerkas(a, b); }, tunggu: 650 },
+    { aksi: () => { ucap(b, "Siap ✓", 1200); a.arahDiam = null; }, tunggu: 700 },
+    { aksi: () => { lepasTamu(b); b.siapKerjaSampai = performance.now() + 25000; } },
+  );
+}
+/** Bawahan membawa laporan ke kursi tamu atasan. */
+function lapor(bawahan, atasan, kata = "Laporan selesai") {
+  const a = ORANG[atasan], b = ORANG[bawahan];
+  if (!b?.tampak || !a?.tampak || b.skrip.some((s) => s.lapor)) return;
+  b.siapKerjaSampai = 0;
+  sela(b);
+  b.skrip.push(
+    { lapor: true, ke: () => { lepasTempat(b); const t = pesanTamu(b, atasan); return [t[0], t[1]]; }, mulai: () => setBarang(b, "kertas") },
+    { aksi: () => { hadapKe(b, a); hadapKe(a, b); ucap(b, kata); }, tunggu: 1100 },
+    { aksi: () => { setBarang(b, null); serahBerkas(b, a); }, tunggu: 600 },
+    { aksi: () => ucap(a, "Terima kasih", 1300), tunggu: 900 },
+    { aksi: () => { lepasTamu(b); a.arahDiam = null; } },
+  );
+}
+/** Rekan menghampiri meja (atau tempat santai) rekan lain untuk bertanya. */
+function kunjungi(dari, ke) {
+  const p = ORANG[dari], q = ORANG[ke];
+  if (!p?.tampak || !q?.tampak) return;
+  sela(p);
+  p.skrip.push(
+    { ke: () => { lepasTempat(p); return pusat(...selBebas(q.x + 0.9, q.y + 0.35)); } },   // di samping, tidak di dalam perabot
+    { aksi: () => { hadapKe(p, q); ucap(p, "Boleh tanya?"); q.tahanSampai = performance.now() + 3200; }, tunggu: 1500 },
+    { aksi: () => ucap(q, "Begini…", 1600), tunggu: 1700 },
+    { aksi: () => ucap(p, "Terima kasih", 1200), tunggu: 700 },
+  );
+}
+const berkasTerbang = [];
+function serahBerkas(dari, ke) {
+  if (HEMAT_GERAK) return;
+  const g = el("rect", { class: "berkas", width: 8, height: 10, rx: 1.2, style: `--warna:${dari.warna ?? TIM[dari.nama]?.warna}` }, lapisUcap);
+  berkasTerbang.push({ g, dari, ke, mulai: performance.now(), lama: 650 });
+}
+const OBROLAN = [["Kopinya enak", "Baru diganti bijinya"], ["Deploy lancar?", "Aman, hijau semua"], ["Sudah makan?", "Nanti, habis ini"],
+  ["Tesnya lulus?", "Lulus semua"], ["Rapat jam berapa?", "Habis makan siang"], ["Capek juga ya", "Istirahat dulu"]];
+function obrolSantai(o) {
+  const teman = Object.values(ORANG).find((p) => p !== o && p.tampak && p.tempat && !p.rute.length && p.status === "santai"
+    && Math.hypot(p.x - o.x, p.y - o.y) < 4.2);
+  if (!teman) return false;
+  const [a, b] = pilihAcak(OBROLAN);
+  hadapKe(o, teman); hadapKe(teman, o);
+  ucap(o, a, 1700);
+  setTimeout(() => { if (teman.status === "santai" && teman.tempat && !teman.rute.length) ucap(teman, b, 1700); }, 1300);
+  return true;
+}
+
+// --- pembaruan per frame ---
+function majukan(o, dt, now) {
+  // 1) skrip cerita didahulukan
+  if (!o.rute.length && o.tunggu <= 0 && o.skrip.length && !(o.tahanSampai > now)) {
+    const s = o.skrip[0];
+    if (s.ke && !s.berangkat) { s.berangkat = true; o.kunci = null; s.mulai?.(); jalanKe(o, s.ke()); }
+    else { o.skrip.shift(); s.aksi?.(); o.tunggu = s.tunggu ?? 0; }
+  }
+  if (o.tunggu > 0) o.tunggu -= dt * 1000;
+  // 2) perilaku bawaan
+  const bebas = !o.skrip.length && o.tunggu <= 0 && !(o.tahanSampai > now);
+  if (bebas) {
+    const tujuan = tujuanBawaan(o, now);
+    if (o.kunci !== tujuan.kunci) { o.kunci = tujuan.kunci; jalanKe(o, tujuan.xy); }
+    else if (!o.rute.length) {
+      if (o.status === "absen" && o.kunci === "pintu") { o.tampak = false; o.g.style.display = "none"; o.label.style.display = "none"; }
+      else if (o.tempat?.jenis === "bar" && !o.sudahNgopi) {
+        if (!o.ngopiSampai) o.ngopiSampai = now + acak(4500, 7500);
+        else if (now > o.ngopiSampai) { o.sudahNgopi = true; o.ngopiSampai = 0; lepasTempat(o); o.kunci = null; }
+      } else if (o.tempat && (o.jeda -= dt) <= 0) {
+        o.jeda = acak(12, 26);
+        const r = Math.random();
+        if (r < 0.5) obrolSantai(o);
+        else if (r < 0.75) { lepasTempat(o); o.kunci = null; }
+        else if (r < 0.85) { o.sudahNgopi = false; lepasTempat(o); o.kunci = null; }
+      }
+    }
+  }
+  // 3) bergerak sepanjang rute
+  let bergerak = false;
+  if (o.rute.length && !(o.tahanSampai > now)) {
+    if (HEMAT_GERAK) { [o.x, o.y] = o.rute.at(-1); o.rute = []; }
+    else {
+      const [tx, ty] = o.rute[0], dx = tx - o.x, dy = ty - o.y, jarak = Math.hypot(dx, dy), langkah = o.kecepatan * dt;
+      if (jarak <= langkah) { o.x = tx; o.y = ty; o.rute.shift(); }
+      else { o.x += (dx / jarak) * langkah; o.y += (dy / jarak) * langkah; bergerak = true; }
+      if (jarak > 0.01) { const sdx = dx - dy; if (Math.abs(sdx) > 0.01) o.hadap = sdx > 0 ? 1 : -1; o.membelakang = dx + dy < -0.01; }
+    }
+  }
+  // 4) pose & arah diam
+  const diMeja = !bergerak && diKursi(o);
+  const tp = !bergerak && o.tempat && Math.hypot(o.x - o.tempat.x, o.y - o.tempat.y) < 0.06 ? o.tempat : null;
+  const diTamu = !bergerak && o.tamu && Math.hypot(o.x - o.tamu[0], o.y - o.tamu[1]) < 0.06;
+  let pose = bergerak ? "jalan" : "berdiri";
+  if (diMeja) {
+    pose = o.status === "menunggu" ? "angkat" : o.status === "berpikir" ? "pikir" : o.status === "bekerja" ? (["baca", "web"].includes(o.ikon) ? "baca" : "ketik") : "duduk";
+    const pimpinan = KURSI[o.nama].pimpinan;
+    if (!o.arahDiam) { o.hadap = pimpinan ? -1 : 1; o.membelakang = !pimpinan; }
+  } else if (tp) {
+    pose = tp.jenis === "bar" || tp.jenis === "berdiri" ? "minum" : "duduk-santai";
+    if (!o.arahDiam) { const [hx, hy] = tp.hadap; o.hadap = hx - hy >= 0 ? 1 : -1; o.membelakang = hx + hy < 0; }
+  } else if (diTamu) pose = o.tamu[2] ? "duduk" : "berdiri";
+  if (!bergerak && o.arahDiam) { o.hadap = o.arahDiam.hadap; o.membelakang = o.arahDiam.membelakang; }
+  o.pose = pose;
+  if (!o.bawa || o.bawa === "cangkir") setBarang(o, ["minum", "duduk-santai"].includes(pose) || (pose === "jalan" && o.sudahNgopi && o.status === "santai" && !o.skrip.length) ? "cangkir" : null);
+  gambarOrang(o, now, bergerak, diMeja);
+}
+
+function gambarOrang(o, now, bergerak, diMeja) {
+  const [sx, sy] = iso(o.x, o.y), t = now / 1000 + o.fase;
+  const duduk = ["duduk", "ketik", "baca", "pikir", "angkat", "duduk-santai"].includes(o.pose);
+  const ayun = bergerak ? Math.sin(t * 11) : 0;
+  const naik = bergerak ? -Math.abs(Math.cos(t * 11)) * 1.4 : 0;
+  const posisi = `translate(${sx.toFixed(1)} ${(sy + (duduk ? -3 : 0)).toFixed(1)}) scale(${o.skala})`;
+  o.g.setAttribute("transform", posisi);
+  if (o.ucapSampai) o.ucapan.setAttribute("transform", posisi);
+  o.g.classList.toggle("membelakang", o.membelakang);
+  o.badan.setAttribute("transform", `scale(${o.hadap} 1)`);
+  o.atas.setAttribute("transform", `translate(0 ${(duduk ? 4 : naik).toFixed(2)})`);
+  o.kakiKi.setAttribute("transform", duduk ? "translate(0 4) scale(1 .45)" : `rotate(${(ayun * 22).toFixed(1)} -3 -10)`);
+  o.kakiKa.setAttribute("transform", duduk ? "translate(0 4) scale(1 .45)" : `rotate(${(-ayun * 22).toFixed(1)} 3 -10)`);
+  let depan = 8, belakang = -8;
+  switch (o.pose) {
+    case "jalan": depan = -ayun * 28; belakang = ayun * 28; break;
+    case "ketik": { const k = HEMAT_GERAK ? 0 : Math.sin(t * 16) * 9; depan = -62 + k; belakang = -58 - k; break; }
+    case "baca": depan = -75; belakang = -70; break;
+    case "pikir": depan = -150; belakang = 6; break;
+    case "angkat": depan = -172 + (HEMAT_GERAK ? 0 : Math.sin(t * 5) * 8); belakang = 6; break;
+    case "minum": case "duduk-santai": case "duduk": depan = o.bawa === "cangkir" ? -55 + (HEMAT_GERAK ? 0 : Math.max(0, Math.sin(t * 0.9)) * -40) : 10; belakang = 6; break;
+    default: depan = o.bawa === "kertas" ? -55 : 6; belakang = -6;
+  }
+  o.lenganDepan.setAttribute("transform", `translate(5 -25) rotate(${depan.toFixed(1)})`);
+  o.lenganBelakang.setAttribute("transform", `translate(-5 -25) rotate(${belakang.toFixed(1)})`);
+  o.barang.setAttribute("transform", o.pose === "baca" ? "translate(-2 -6)" : "translate(0 0)");
+  o.label.style.display = diMeja || !o.tampak ? "none" : "";
+  if (!diMeja) o.label.setAttribute("transform", posisi);
+  if (o.ucapSampai && now > o.ucapSampai) { o.ucapan.setAttribute("visibility", "hidden"); o.ucapSampai = 0; }
+}
+function majukanBerkas(now) {
+  for (let i = berkasTerbang.length - 1; i >= 0; i--) {
+    const b = berkasTerbang[i], u = Math.min(1, (now - b.mulai) / b.lama);
+    const [ax, ay] = iso(b.dari.x, b.dari.y), [bx, by] = iso(b.ke.x, b.ke.y);
+    const x = ax + (bx - ax) * u, y = ay + (by - ay) * u - 30 - Math.sin(u * Math.PI) * 16;
+    b.g.setAttribute("x", (x - 4).toFixed(1)); b.g.setAttribute("y", (y - 5).toFixed(1));
+    if (u >= 1) { b.g.remove(); berkasTerbang.splice(i, 1); }
+  }
+}
+
+let tSebelum = performance.now();
+function frame(now) {
+  const dt = Math.min(0.08, Math.max(0, (now - tSebelum) / 1000)); tSebelum = now;
+  for (const o of Object.values(ORANG)) if (o.tampak) majukan(o, dt, now);
+  for (const o of Object.values(ASISTEN)) majukanAsisten(o, dt, now);
+  majukanBerkas(now);
+  // urutan gambar: orang & asisten disisipkan di antara perabot menurut kedalaman x+y
+  const urut = [...Object.values(ORANG), ...Object.values(ASISTEN)].filter((o) => o.tampak).sort((a, b) => (a.x + a.y) - (b.x + b.y));
+  let k = 0;
+  for (const o of urut) {
+    const d = o.x + o.y;
+    while (k < PERABOT.length && PERABOT[k].d <= d) k++;
+    const ref = k < PERABOT.length ? PERABOT[k].g : null;
+    if (o.g.nextSibling !== ref) lapisIsi.insertBefore(o.g, ref);
+  }
+  requestAnimationFrame(frame);
+}
+
+// ================= asisten (subagent) =================
+const ASISTEN = {};   // id → karakter asisten
+const MAKS_ASISTEN = 12;
+function kelompokBantu(induk) { const dv = TIM[induk]?.divisi; return dv && dv.startsWith("tim") ? dv : "umum"; }
+function terapkanAsisten(daftar = []) {
+  const ada = new Set();
+  for (const a of daftar) {
+    ada.add(a.id);
+    let o = ASISTEN[a.id];
+    if (!o && a.status === "aktif" && ORANG[a.induk]?.tampak && Object.keys(ASISTEN).length < MAKS_ASISTEN) {
+      const titik = (MEJA_BANTU[kelompokBantu(a.induk)] ?? []).find((t) => !t.dipakai) ?? MEJA_BANTU.umum.find((t) => !t.dipakai);
+      if (!titik) continue;                                   // meja bantuan penuh: tetap tercatat di panel
+      const t = TIM[a.induk];
+      o = buatOrang(`asisten:${a.id}`, { ...t, pendek: `Asisten ${t.pendek}`, gaya: "cepak", aksesori: "lanyard" }, 0.95);
+      o.asisten = a; o.induk = a.induk; o.titik = titik; titik.dipakai = a.id;
+      const induk = ORANG[a.induk];
+      [o.x, o.y] = HEMAT_GERAK ? [titik.x, titik.y] : pusat(...selBebas(induk.x + 0.7, induk.y + 0.6));
+      o.tampak = true; o.g.style.display = ""; o.g.setAttribute("class", "orang bekerja asisten");
+      o.simbol.textContent = SIMBOL.bekerja;
+      if (!HEMAT_GERAK) { ucap(induk, "Tolong bantu ya", 1500); jalanKe(o, [titik.x, titik.y]); }
+      ASISTEN[a.id] = o;
+    }
+    if (o) { o.asisten = a; o.ikon = a.icon; }
+  }
+  for (const [id, o] of Object.entries(ASISTEN)) {
+    if (o.pulang) continue;
+    if (o.asisten.status === "selesai" || !ada.has(id)) pulangkanAsisten(o);
+  }
+}
+/** Asisten selesai: membawa hasil ke pemanggil, menyerahkannya, lalu pergi. */
+function pulangkanAsisten(o) {
+  o.pulang = true;
+  if (o.titik) { o.titik.dipakai = null; o.titik = null; }
+  const induk = ORANG[o.induk];
+  if (!induk?.tampak || HEMAT_GERAK) { hapusAsisten(o); return; }
+  setBarang(o, "kertas");
+  o.skrip.push(
+    { ke: () => pusat(...selBebas(induk.x + 0.8, induk.y + 0.5)) },
+    { aksi: () => { hadapKe(o, induk); ucap(o, "Selesai, ini hasilnya", 1300); setBarang(o, null); serahBerkas(o, induk); }, tunggu: 1200 },
+    { aksi: () => hapusAsisten(o) },
+  );
+}
+function hapusAsisten(o) {
+  if (o.titik) o.titik.dipakai = null;
+  o.g.remove(); o.label.remove(); o.ucapan.remove();
+  delete ASISTEN[o.asisten.id];
+}
+function majukanAsisten(o, dt, now) {
+  if (!o.rute.length && o.tunggu <= 0 && o.skrip.length) {
+    const s = o.skrip[0];
+    if (s.ke && !s.berangkat) { s.berangkat = true; jalanKe(o, s.ke()); }
+    else { o.skrip.shift(); s.aksi?.(); o.tunggu = s.tunggu ?? 0; }
+  }
+  if (o.tunggu > 0) o.tunggu -= dt * 1000;
+  if (!ASISTEN[o.asisten?.id]) return;                         // sudah dihapus oleh skrip
+  let bergerak = false;
+  if (o.rute.length) {
+    if (HEMAT_GERAK) { [o.x, o.y] = o.rute.at(-1); o.rute = []; }
+    else {
+      const [tx, ty] = o.rute[0], dx = tx - o.x, dy = ty - o.y, jarak = Math.hypot(dx, dy), langkah = o.kecepatan * dt;
+      if (jarak <= langkah) { o.x = tx; o.y = ty; o.rute.shift(); }
+      else { o.x += (dx / jarak) * langkah; o.y += (dy / jarak) * langkah; bergerak = true; }
+      if (jarak > 0.01) { const sdx = dx - dy; if (Math.abs(sdx) > 0.01) o.hadap = sdx > 0 ? 1 : -1; o.membelakang = dx + dy < -0.01; }
+    }
+  }
+  const diMeja = !bergerak && o.titik && Math.hypot(o.x - o.titik.x, o.y - o.titik.y) < 0.06;
+  if (diMeja) { const [hx, hy] = o.titik.hadap; o.hadap = hx - hy >= 0 ? 1 : -1; o.membelakang = hx + hy < 0; }
+  if (!bergerak && o.arahDiam) { o.hadap = o.arahDiam.hadap; o.membelakang = o.arahDiam.membelakang; }
+  o.pose = bergerak ? "jalan" : diMeja ? (["baca", "web"].includes(o.ikon) ? "baca" : "ketik") : "berdiri";
+  gambarOrang(o, now, bergerak, false);
+}
+
+// ================= penerapan status dari server =================
+function terapkanStatus(ag, awal) {
+  const o = ORANG[ag.name], st = ag.present ? ag.status : "absen", sebelum = o.status;
+  o.status = st; o.ikon = ag.icon;
+  o.g.setAttribute("class", `orang ${st}${o.membelakang ? " membelakang" : ""}`);
+  o.simbol.textContent = SIMBOL[st];
+  if (st !== "absen" && !o.tampak) {
+    o.tampak = true; o.g.style.display = ""; o.kunci = null;
+    if (awal || HEMAT_GERAK) { const t = tujuanBawaan(o, performance.now()); [o.x, o.y] = t.xy; o.kunci = t.kunci; if (o.tempat?.jenis === "bar") o.sudahNgopi = true; }
+    else [o.x, o.y] = PINTU;
+    o.rute = [];
+  }
+  if (sedangKerja(st) && !sedangKerja(sebelum)) o.sudahNgopi = false;
+  // selesai satu giliran kerja tanpa laporan eksplisit → bawa laporan ke atasan
+  if (!awal && sedangKerja(sebelum) && st === "santai" && TIM[ag.name].atasan && performance.now() - o.terakhirKirim > 60000)
+    lapor(ag.name, TIM[ag.name].atasan);
+}
+const KATA_LAPOR = { laporan: "Laporan selesai", terhambat: "Saya terhambat", eskalasi: "Darurat, SEV1!", info: "Sekadar info", jawaban: "Ini jawabannya" };
+/** Kejadian pesan → cerita sesuai hubungan atasan–bawahan dan jenis pesan. */
+function ceritakan(f) {
+  const dari = f.agent, ke = f.to;
+  if (!ke || !TIM[ke] || ke === dari) return;
+  ORANG[dari].terakhirKirim = performance.now();
+  const jenis = f.jenis ?? (f.label === "Memanggil agent" ? "tugas" : null);
+  if (atasanDari(dari, ke)) {
+    if (jenis === "diterima") { ucap(ORANG[dari], "Diterima ✓"); setTimeout(() => ucap(ORANG[ke], "Terima kasih", 1300), 900); }
+    else if (jenis === "info") { ucap(ORANG[dari], `Info untuk ${TIM[ke].pendek}`); setTimeout(() => ucap(ORANG[ke], "Oke", 1100), 900); }
+    else panggil(dari, ke, jenis === "revisi" ? "Ada revisi" : jenis === "tinjau" ? "Tolong tinjau kode saya" : f.label === "Memanggil agent" ? "Selamat datang, ini tugasmu" : "Ada tugas");
+  } else if (atasanDari(ke, dari)) lapor(dari, ke, KATA_LAPOR[jenis] ?? "Laporan selesai");
+  else kunjungi(dari, ke);
+}
+
+// ================= panel =================
+const elTim = document.getElementById("tim"), elAkt = document.getElementById("aktivitas");
+const elJalur = document.getElementById("jalur"), elPerhatian = document.getElementById("perhatian");
+const LI = {}, SEL = {}, KELOMPOK = {}, LABEL_JALUR = {};
+let state = null, dipilih = null, diterimaPada = 0, sudahLihat = new Set(), pertama = true;
+
+function bangunPanel() {
+  for (const dv of DIVISI) {
+    const h = document.createElement("li"); h.className = "kelompok"; h.style.setProperty("--warna", dv.titik);
+    h.innerHTML = `<i aria-hidden="true"></i><span>${esc(dv.nama)}</span>`; elTim.append(h); KELOMPOK[dv.id] = h;
+    for (const nama of URUT.filter((n) => TIM[n].divisi === dv.id)) {
+      const t = TIM[nama], li = document.createElement("li");
+      li.dataset.agen = nama; li.style.setProperty("--warna", t.warna); li.className = "absen";
+      const leader = KURSI[nama].pimpinan && nama !== CHIEF ? "<small>leader</small>" : "";
+      const idRinci = `rinci-${URUT.indexOf(nama)}`;
+      li.innerHTML = `<button type="button" aria-expanded="false" aria-controls="${idRinci}">
+          <span class="avatar">${t.inisial}<i class="simbol absen" aria-hidden="true"></i></span>
+          <span class="nama">${esc(nama)}${leader}</span><span class="waktu"></span><span class="keadaan">Belum masuk</span></button>
+        <div class="rincian" id="${idRinci}" hidden></div>`;
+      li.querySelector("button").addEventListener("click", () => pilih(dipilih === nama ? null : nama));
+      elTim.append(li); LI[nama] = li;
+      const label = document.createElement("span"); label.className = "label"; label.textContent = t.pendek; label.title = nama;
+      const sel2 = document.createElement("div"); sel2.className = "sel"; sel2.style.setProperty("--warna", t.warna);
+      sel2.innerHTML = "<i></i>".repeat(60); sel2.setAttribute("role", "img");
+      elJalur.append(label, sel2); SEL[nama] = sel2; LABEL_JALUR[nama] = label;
+    }
+  }
+}
+function pilih(nama) {
+  dipilih = nama;
+  for (const [n, m] of Object.entries(MEJA)) { m.g.classList.toggle("dipilih", n === nama); m.tag.classList.toggle("dipilih", n === nama); }
+  if (state) render(state, true);
+  for (const [n, li] of Object.entries(LI)) {
+    const buka = n === nama;
+    li.querySelector("button").setAttribute("aria-expanded", String(buka));
+    li.querySelector(".rincian").hidden = !buka;
+  }
+  if (state) isiRincian();
+}
+function isiRincian() {
+  if (!dipilih) return;
+  const ag = state.agents.find((a) => a.name === dipilih);
+  if (!ag) return;
+  const akt = state.feed.filter((f) => f.agent === dipilih).slice(0, 6);
+  LI[dipilih].querySelector(".rincian").innerHTML = `
+    <h3>Sesi</h3>${ag.sessions.length ? `<ul>${ag.sessions.map((s) => `<li>${esc(s.title)} — ${esc(s.label)}<br><span class="lokasi">${esc(s.cwd)}</span></li>`).join("")}</ul>`
+      : "<p class=\"kosong\">Belum ada sesi aktif. COO membentuknya saat kamu memanggil /rudisone.</p>"}
+    <h3>Aktivitas</h3>${akt.length ? `<ul>${akt.map((f) => `<li>${fmtJam(f.ts)} · ${esc(f.label)}${f.detail ? ` — ${esc(f.detail)}` : ""}</li>`).join("")}</ul>`
+      : "<p class=\"kosong\">Belum ada aktivitas dalam 24 jam.</p>"}`;
+}
+function ukurTag(nama) {
+  const m = MEJA[nama];
+  const lebar = Math.max(...[m.namaT, m.aksiT].filter((t) => t.textContent).map((t) => t.getComputedTextLength())) + 16;
+  m.latarTag.setAttribute("x", (m.tengahX - lebar / 2).toFixed(1)); m.latarTag.setAttribute("y", m.atasY.toFixed(1));
+  m.latarTag.setAttribute("width", lebar.toFixed(1)); m.latarTag.setAttribute("height", m.aksiT.textContent ? 33 : 19);
+}
+
+const WARNA_STATUS = { berjalan: "var(--bekerja)", antre: "var(--santai)", diparkir: "var(--santai)", ditinjau: "var(--berpikir)",
+  terhambat: "var(--menunggu)", baru: "var(--berpikir)", penyelarasan: "var(--menunggu)" };
+const TUGAS_SOROT = new URLSearchParams(location.search).get("tugas");
+let sudahSorot = false;
+/** Id teknis di kolom Pemilik register → nama peran. */
+const NAMA_ID = {
+  coo: "COO", "tech-lead": "Tech Lead", "business-systems-analyst": "Business Systems Analyst",
+  "software-engineer": "Software Engineer", "program-manager": "Program Manager", "technical-writer": "Technical Writer",
+  "head-of-strategy": "Head of Strategy", "financial-controller": "Financial Controller", "research-analyst": "Research Analyst",
+  "hr-business-partner": "HR Business Partner", "head-of-it-operations": "Head of IT Operations",
+  "system-administrator": "System Administrator",
+};
+/** Pemilik di register ("Tech Lead · kasir", "Tech Lead · Tim 1", "Head of IT Operations", "COO",
+ *  "Software Engineer #2 · toko", atau id teknis seperti "tech-lead") → kursi. */
+function kursiPemilik(pemilik, tim) {
+  if (!pemilik) return null;
+  if (TIM[pemilik]) return pemilik;
+  const [peran0, sisa = ""] = pemilik.split(" · ");
+  const bernomor = /^(.*?)\s*#(\d)$/.exec(peran0.trim());
+  const dasar = bernomor ? bernomor[1] : peran0.trim();
+  const peran = Object.hasOwn(NAMA_ID, dasar) ? NAMA_ID[dasar] : dasar;
+  if (TIM[peran]) return peran;
+  const n = Number(/Tim\s*(\d)/.exec(sisa)?.[1] ?? tim?.find((t) => t.proyek === sisa.trim())?.n ?? 1);
+  const k = kursiTim(peran === "Software Engineer" ? `Software Engineer #${bernomor?.[2] === "2" ? 2 : 1}` : peran, n);
+  return TIM[k] ? k : null;
+}
+/** Tautan `?tugas=<ID>` dari jawaban COO: tandai tugasnya, pilih pemiliknya, dan dekatkan denah ke mejanya. */
+function sorotTugasDariTautan(s) {
+  if (sudahSorot || !TUGAS_SOROT || !s.tugas) return;
+  sudahSorot = true;
+  const t = s.tugas.find((x) => x.id === TUGAS_SOROT);
+  const k = t && kursiPemilik(t.pemilik, s.tim);
+  if (!k) return;
+  pilih(k);
+  const [x, y] = iso(...KURSI[k].duduk);
+  tampilan.cx = x; tampilan.cy = y - 20; setZoom(1.4);
+  document.querySelector(`.tugas li[data-id="${CSS.escape(TUGAS_SOROT)}"]`)?.scrollIntoView({ block: "nearest" });
+}
+
+function renderTugas(tugas = []) {
+  const el = document.getElementById("tugas");
+  document.getElementById("hitung-tugas").textContent = tugas.length ? `${tugas.length}` : "";
+  el.innerHTML = tugas.length ? tugas.map((t) => {
+    const st = (t.status || "baru").split(/[\s(]/)[0].toLowerCase();
+    const folder = t.folder ? t.folder.split("/").filter(Boolean).at(-1) : "";
+    return `<li data-id="${esc(t.id)}"${t.id === TUGAS_SOROT ? ' class="sorot"' : ""}><span class="st" style="--warna:${WARNA_STATUS[st] ?? "var(--santai)"}">${esc(t.status || "baru")}</span>
+      <span class="judul${t.prioritas === "segera" ? " segera" : ""}">${esc(t.tugas)}</span>
+      <span class="meta">${esc(t.id)}${folder ? ` · ${esc(folder)}` : ""}${t.pemilik ? ` · ${esc(t.pemilik)}` : ""}</span></li>`;
+  }).join("") : `<li><p class="kosong">Tidak ada tugas berjalan. Tugas yang diterima COO muncul di sini.</p></li>`;
+}
+
+/** Tim engineering per proyek: papan nama & judul kelompok memakai nama proyek; tim yang belum dipakai disembunyikan. */
+function renderTim(s) {
+  for (const n of NOMOR_TIM) {
+    const proyek = s.tim?.find((t) => t.n === n)?.proyek ?? null;
+    const anggota = URUT.filter((x) => TIM[x].divisi === `tim${n}`);
+    const aktif = !!proyek || anggota.some((x) => s.agents.find((a) => a.name === x)?.present);
+    const papan = PAPAN[`tim${n}`], baru = proyek ? `Proyek: ${proyek}` : aktif ? "Proyek belum terdaftar" : "Belum ada proyek";
+    if (papan && papan.t2.textContent !== baru) { papan.t2.textContent = baru; papan.ukur(); }
+    papan?.g.classList.toggle("redup", !aktif);
+    KELOMPOK[`tim${n}`].querySelector("span").textContent = `Engineering · Tim ${n}${proyek ? ` — ${proyek}` : ""}`;
+    for (const el2 of [KELOMPOK[`tim${n}`], ...anggota.flatMap((x) => [LI[x], LABEL_JALUR[x], SEL[x]])]) el2.hidden = !aktif;
+  }
+}
+
+function render(s, ulang = false) {
+  state = s;
+  if (!ulang) diterimaPada = Date.now();
+  const perhatian = [];
+  for (const nama of URUT) {
+    const ag = s.agents.find((a) => a.name === nama) ?? { name: nama, present: false, status: "absen", label: "Belum masuk", detail: "", sessions: [], timeline: [] };
+    const st = ag.present ? ag.status : "absen";
+    terapkanStatus(ag, pertama);
+    const m = MEJA[nama];
+    m.g.setAttribute("class", `meja ${st}${dipilih === nama ? " dipilih" : ""}`);
+    // papan meja ringkas: nama pendek; baris aksi hanya saat menunggu Anda atau saat meja dipilih
+    const jumlahSesi = ag.sessions?.length ?? 0;
+    const jumlahAsisten = (s.asisten ?? []).filter((a) => a.induk === nama && a.status === "aktif").length;
+    const namaBaru = jumlahSesi > 1 ? `${TIM[nama].pendek} ×${jumlahSesi}` : TIM[nama].pendek;
+    if (m.namaT.textContent !== namaBaru) { m.namaT.textContent = namaBaru; ukurTag(nama); }
+    const aksiBaru = st === "menunggu" ? "Menunggu Anda" : jumlahAsisten ? `+${jumlahAsisten} asisten` : dipilih === nama && ag.present
+      ? potong(st === "santai" ? "Di lounge" : ag.detail ? `${ag.label} · ${ag.detail}` : ag.label, 30) : "";
+    if (m.aksiT.textContent !== aksiBaru) { m.aksiT.textContent = aksiBaru; ukurTag(nama); }
+    m.tag.setAttribute("class", `tag ${st}${dipilih === nama ? " dipilih" : ""}`);
+    m.g.setAttribute("aria-label", `${nama}, ${LABEL_STATUS[st]}${ag.present ? `: ${ag.label}${ag.detail ? `, ${ag.detail}` : ""}` : ""}`);
+    if (st === "menunggu") perhatian.push(ag);
+    const li = LI[nama];
+    li.className = st;
+    li.querySelector(".simbol").className = `simbol ${st}`;
+    li.querySelector(".simbol").textContent = SIMBOL[st];
+    li.querySelector(".keadaan").innerHTML = ag.present
+      ? `<b>${esc(ag.label)}</b>${ag.detail ? ` · ${esc(ag.detail)}` : ""}${jumlahSesi > 1 ? ` · ${jumlahSesi} sesi` : ""}${jumlahAsisten ? ` · ${jumlahAsisten} asisten` : ""}` : `Belum masuk · ${esc(TIM[nama].peran)}`;
+    li.querySelector(".waktu").textContent = ag.present ? lalu(ag.lastTs) : "";
+    let aktif = 0;
+    [...SEL[nama].children].forEach((c, i) => { const n = ag.timeline?.[i]?.n ?? 0; if (n) aktif++; c.dataset.n = n >= 4 ? 3 : n >= 2 ? 2 : n; });
+    SEL[nama].setAttribute("aria-label", `${nama}: aktif ${aktif} dari 60 menit terakhir`);
+  }
+  renderTugas(s.tugas);
+  renderTim(s);
+  terapkanAsisten(s.asisten);
+  sorotTugasDariTautan(s);
+  elPerhatian.hidden = perhatian.length === 0;
+  document.getElementById("daftar-perhatian").innerHTML = perhatian.map((a) =>
+    `<li><i class="simbol menunggu" aria-hidden="true">!</i><b>${esc(a.name)} — ${esc(a.label)}</b>
+     <span class="sesi">Buka sesi “${esc(a.sessions[0]?.title ?? a.name)}” di sidebar Claude.</span></li>`).join("");
+  elAkt.innerHTML = s.feed.length ? s.feed.slice(0, 40).map((f) => `<li style="--warna:${TIM[f.agent]?.warna}">
+      <time>${fmtJam(f.ts)}</time><i class="titik" aria-hidden="true"></i>
+      <span><b>${esc(f.agent)}</b> ${esc(f.label)}${f.detail ? `<span class="rinci"> — ${esc(f.detail)}</span>` : ""}</span></li>`).join("")
+    : `<li><p class="kosong">Belum ada aktivitas dalam 24 jam terakhir.</p></li>`;
+  if (dipilih) isiRincian();
+  for (const f of ulang ? [] : [...s.feed].reverse()) {
+    const kunci = `${f.ts}|${f.agent}|${f.label}|${f.to ?? ""}`;
+    if (sudahLihat.has(kunci)) continue;
+    sudahLihat.add(kunci);
+    if (pertama || Date.now() - f.ts > 90e3) continue;
+    if (f.icon === "pesan" && f.to) ceritakan(f);
+  }
+  if (!ulang) pertama = false;
+  const hitung = (st) => s.agents.filter((a) => a.present && a.status === st).length;
+  svg.setAttribute("aria-label", `Denah kantor: ${hitung("bekerja")} bekerja, ${hitung("menunggu")} menunggu Anda, ${hitung("berpikir")} berpikir, ${hitung("santai")} santai, ${s.agents.filter((a) => !a.present).length} belum masuk.`);
+}
+
+// ================= koneksi, jam, jeda gerak =================
+const elKon = document.getElementById("koneksi"), elKonT = document.getElementById("koneksi-teks");
+let modeDemo = false, putus = false;
+function detik() {
+  document.getElementById("jam").textContent = `${fmtJam(Date.now())} WIB`;
+  if (modeDemo) return;
+  const umur = diterimaPada ? Math.round((Date.now() - diterimaPada) / 1000) : null;
+  elKon.classList.toggle("putus", putus);
+  elKon.classList.toggle("basi", !putus && umur !== null && umur > 30);
+  if (putus) elKonT.textContent = "Terputus dari server kantor — mencoba lagi. Jalankan bin/kantor.sh bila server mati.";
+  else if (umur !== null) elKonT.textContent = umur > 30 ? `Data terakhir ${umur} dtk lalu` : "Terhubung · langsung";
+  if (state) for (const [n, li] of Object.entries(LI)) { const a = state.agents.find((x) => x.name === n); li.querySelector(".waktu").textContent = a?.present ? lalu(a.lastTs) : ""; }
+}
+function sambung() {
+  const es = new EventSource("/events");
+  es.onopen = () => { putus = false; detik(); };
+  es.onmessage = (e) => { putus = false; render(JSON.parse(e.data)); detik(); };
+  es.onerror = () => { putus = true; detik(); };
+}
+// zoom & geser denah
+const ZOOM = [1, 1.4, 2, 2.8];
+const tbKecil = document.getElementById("zoom-kecil"), tbBesar = document.getElementById("zoom-besar"), tbPas = document.getElementById("zoom-pas");
+function setZoom(z) {
+  tampilan.zoom = z; aturViewBox();
+  tbKecil.disabled = z === ZOOM[0]; tbBesar.disabled = z === ZOOM.at(-1); tbPas.disabled = z === 1;
+}
+tbBesar.addEventListener("click", () => setZoom(ZOOM.find((z) => z > tampilan.zoom) ?? tampilan.zoom));
+tbKecil.addEventListener("click", () => setZoom([...ZOOM].reverse().find((z) => z < tampilan.zoom) ?? tampilan.zoom));
+tbPas.addEventListener("click", () => { tampilan.cx = DASAR.x + DASAR.w / 2; tampilan.cy = DASAR.y + DASAR.h / 2; setZoom(1); });
+let seret = null, baruDigeser = false;
+svg.addEventListener("pointerdown", (e) => {
+  if (tampilan.zoom === 1) return;
+  seret = { x: e.clientX, y: e.clientY, cx: tampilan.cx, cy: tampilan.cy, gerak: false, id: e.pointerId };
+});
+svg.addEventListener("pointermove", (e) => {
+  if (!seret) return;
+  const per = (DASAR.w / tampilan.zoom) / svg.clientWidth, dx = e.clientX - seret.x, dy = e.clientY - seret.y;
+  if (!seret.gerak && Math.hypot(dx, dy) > 4) { seret.gerak = true; svg.classList.add("digeser"); try { svg.setPointerCapture(seret.id); } catch { /* pointer sudah lepas */ } }   // klik meja tetap berfungsi
+  if (!seret.gerak) return;
+  tampilan.cx = seret.cx - dx * per; tampilan.cy = seret.cy - dy * per; aturViewBox();
+});
+const akhiriSeret = () => { if (seret?.gerak) { baruDigeser = true; setTimeout(() => { baruDigeser = false; }, 0); } seret = null; svg.classList.remove("digeser"); };
+svg.addEventListener("pointerup", akhiriSeret); svg.addEventListener("pointercancel", akhiriSeret);
+setZoom(1);
+
+const tombolJeda = document.getElementById("jeda");
+function aturJeda() { tombolJeda.setAttribute("aria-pressed", String(HEMAT_GERAK)); tombolJeda.textContent = HEMAT_GERAK ? "Lanjutkan gerak" : "Jeda gerak"; }
+tombolJeda.addEventListener("click", () => {
+  HEMAT_GERAK = !HEMAT_GERAK; aturJeda();
+  try { localStorage.setItem("kantor-jeda", HEMAT_GERAK ? "1" : "0"); } catch { /* abaikan */ }
+});
+
+// ================= mode demo (?demo=1): skenario contoh berulang tiap 70 detik =================
+function demo() {
+  modeDemo = true;
+  elKonT.textContent = "Mode demo — data contoh, bukan aktivitas nyata"; elKon.classList.add("basi");
+  const L1 = kursiTim("Tech Lead", 1), S1 = kursiTim("Business Systems Analyst", 1), P1 = kursiTim("Software Engineer #1", 1);
+  const L2 = kursiTim("Tech Lead", 2), S2 = kursiTim("Business Systems Analyst", 2), Q2 = kursiTim("Software Engineer #1", 2);
+  const STRAT = "Head of Strategy", FIN = "Financial Controller", RISET = "Research Analyst", PM = "Program Manager",
+    TW = "Technical Writer", ITOPS = "Head of IT Operations", SYSADM = "System Administrator";
+  const SKEN = [ // [detik, agent, status, label, detail, ikon] atau [detik, "pesan", dari, ke, jenis]
+    [2, "pesan", CHIEF, L1, "tugas"],
+    [8, L1, "bekerja", "Membaca kode", "use-pos-cart.ts", "baca"],
+    [11, "pesan", L1, P1, "tugas"],
+    [16, P1, "bekerja", "Menulis", "CartLineRow.tsx", "kode"],
+    [6, "pesan", CHIEF, L2, "tugas"],
+    [12, L2, "bekerja", "Menyusun rencana", "landing toko-b", "rencana"],
+    [14, "pesan", L2, S2, "tugas"],
+    [19, S2, "bekerja", "Menulis", "user-story.md", "kode"],
+    [18, "pesan", CHIEF, ITOPS, "tugas"],
+    [23, ITOPS, "bekerja", "Menjalankan perintah", "Selidiki stok minus cabang 2", "terminal"],
+    [25, "pesan", ITOPS, SYSADM, "tugas"],
+    [30, SYSADM, "bekerja", "Bekerja di server", "Cek kesehatan server", "server"],
+    [27, "pesan", CHIEF, STRAT, "tugas"],
+    [32, STRAT, "bekerja", "Riset di web", "harga paket toko-b", "web"],
+    [34, "pesan", STRAT, FIN, "konsultasi"],
+    [33, S1, "menunggu", "Menunggu jawaban Anda", "", "tunggu"],
+    [40, P1, "santai", "Santai", "", "santai"], [40, "pesan", P1, L1, "laporan"],
+    [44, "pesan", L1, P1, "tinjau"],
+    [47, SYSADM, "santai", "Santai", "", "santai"], [47, "pesan", SYSADM, ITOPS, "laporan"],
+    [51, L1, "santai", "Santai", "", "santai"], [51, "pesan", L1, CHIEF, "laporan"],
+    [55, ITOPS, "santai", "Santai", "", "santai"], [55, "pesan", ITOPS, CHIEF, "laporan"],
+    [58, S2, "santai", "Santai", "", "santai"], [58, "pesan", S2, L2, "laporan"],
+    [62, STRAT, "santai", "Santai", "", "santai"], [62, "pesan", STRAT, CHIEF, "laporan"],
+    [66, S1, "santai", "Santai", "", "santai"],
+  ];
+  const hadirAwal = new Set([CHIEF, STRAT, FIN, RISET, PM, TW, ITOPS, SYSADM, L1, S1, P1, L2, S2, Q2]);
+  const awal = () => Object.fromEntries(URUT.map((n) => [n,
+    !hadirAwal.has(n) ? { status: "absen" }
+      : n === PM ? { status: "bekerja", label: "Menyusun rencana", detail: "status lintas proyek", icon: "rencana" }
+        : { status: "santai", label: "Santai", detail: "", icon: "santai" }]));
+  let keadaan = awal(), feed = [], mulai = performance.now(), terakhir = -1;
+  const kirim = () => {
+    const now = Date.now();
+    const agents = URUT.map((name, i) => {
+      const k = keadaan[name], timeline = Array.from({ length: 60 }, (_, m) => ({ n: (m * 7 + i * 13) % 9 < 3 ? ((m + i) % 5) : 0 }));
+      return k.status === "absen"
+        ? { name, present: false, status: "absen", label: "Belum masuk", detail: "", icon: "absen", lastTs: 0, sessions: [], timeline }
+        : { name, present: true, ...k, lastTs: now - i * 30e3, timeline, sessions: [{ title: `${name} · contoh`, label: k.label, cwd: "~/contoh" }] };
+    });
+    // asisten contoh: Tech Lead Tim 1 menambah dua asisten engineer, Head of Strategy satu asisten riset
+    const asisten = [["d1", L1, 20, 42, "Menulis", "kode", "Asisten: tes qty"], ["d2", L1, 22, 46, "Menjalankan tes", "tes", "Asisten: cek regresi"],
+      ["d3", STRAT, 33, 50, "Riset di web", "web", "Asisten: harga pesaing"]]
+      .filter(([, , a, b]) => terakhir >= a && terakhir < b + 8)
+      .map(([id, induk, a, b, label, icon, deskripsi]) => ({ id, induk, status: terakhir >= b ? "selesai" : "aktif", label, icon, deskripsi, jenis: "general-purpose" }));
+    render({ now, agents, feed: [...feed].reverse(), asisten, tim: [{ n: 1, proyek: "kasir" }, { n: 2, proyek: "toko-b" }], tugas: [
+      { id: "T-20261024-3", tugas: "Insiden stok minus cabang 2", folder: "~/Documents/Neuron/ai-agent/RudisOne/ruang/head-of-it-operations", pemilik: "Head of IT Operations", prioritas: "segera", status: "berjalan" },
+      { id: "T-20261024-2", tugas: "Perbaikan cetak SJ paging", folder: "~/Documents/kasir", pemilik: "Tech Lead · Tim 1", prioritas: "normal", status: "berjalan" },
+      { id: "T-20261024-4", tugas: "Landing page toko-b", folder: "~/Documents/toko-b", pemilik: "Tech Lead · Tim 2", prioritas: "normal", status: "berjalan" },
+      { id: "T-20261024-5", tugas: "Kelayakan paket harga toko-b", folder: "~/Documents/Neuron/ai-agent/RudisOne/ruang/head-of-strategy", pemilik: "Head of Strategy", prioritas: "normal", status: "berjalan" },
+    ] });
+  };
+  setInterval(() => {
+    const dtk = Math.floor((performance.now() - mulai) / 1000) % 70;
+    if (dtk < terakhir) { keadaan = awal(); feed = []; }
+    for (const e of SKEN) if ((e[0] > terakhir && e[0] <= dtk) || (dtk < terakhir && e[0] <= dtk)) {
+      if (e[1] === "pesan") feed.push({ ts: Date.now(), agent: e[2], label: `Mengirim pesan ke ${e[3]}`, detail: e[4][0].toUpperCase() + e[4].slice(1), icon: "pesan", to: e[3], jenis: e[4] });
+      else { keadaan[e[1]] = { status: e[2], label: e[3], detail: e[4], icon: e[5] }; feed.push({ ts: Date.now(), agent: e[1], label: e[3], detail: e[4], icon: e[5] }); }
+    }
+    terakhir = dtk; kirim();
+  }, 500);
+  kirim();
+}
+
+// ================= mulai =================
+bangunLantai();
+bangunRuangPimpinan(); for (const n of NOMOR_TIM) bangunTim(n); bangunCorporate(); bangunBersama(); bangunOperations(); bangunLounge();
+// papan nama: di atas dinding (zona belakang, Corporate di dinding kiri) dan di tepi lantai depan
+const PAPAN = {};
+PAPAN.pimpinan = papanZona(DIVISI[0], [0, 6.2, 2.95]);
+PAPAN.corp = papanZona(DIVISI[1], [0, 19.6, 2.95]);
+for (const n of NOMOR_TIM) PAPAN[`tim${n}`] = papanZona(DIVISI.find((d) => d.tim === n), [OX_TIM[n] + 0.9, 0, 3.0]);
+PAPAN.bersama = papanZona(DIVISI.find((d) => d.id === "bersama"), [11.9, 20.8, 0]);
+PAPAN.ops = papanZona(DIVISI.find((d) => d.id === "ops"), [18.1, 20.8, 0]);
+papanZona({ nama: "Lounge", sub: "Kopi, sofa, ngobrol", warna: "var(--z-lounge)" }, [30.4, 20.8, 0]);
+PERABOT.sort((a, b) => a.d - b.d);
+for (const p of PERABOT) lapisIsi.append(p.g);
+for (const nama of URUT) bangunOrang(nama);
+bangunPanel();
+for (const nama of URUT) ukurTag(nama);
+document.fonts?.ready.then(() => URUT.forEach(ukurTag));
+aturJeda();
+{ const gulir = document.querySelector(".denah-gulir"); gulir.scrollLeft = (gulir.scrollWidth - gulir.clientWidth) / 2; }   // HP: mulai dari tengah denah
+detik(); setInterval(detik, 1000);
+requestAnimationFrame(frame);
+if (new URLSearchParams(location.search).has("demo")) demo(); else sambung();
+</script>
+</body>
+</html>

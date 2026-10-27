@@ -1,0 +1,8 @@
+# per device
+/TEAM.md
+handoff/*
+!handoff/.gitkeep
+**/.claude/settings.local.json
+/konfigurasi/*
+!/konfigurasi/server.contoh.json
+.DS_Store

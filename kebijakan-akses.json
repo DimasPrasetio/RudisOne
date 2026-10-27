@@ -1,0 +1,109 @@
+{
+  "versi": 1,
+  "keterangan": "Kebijakan akses & batas kewenangan RudisOne — aturan GENERIK yang dibaca hook bin/kebijakan.mjs. Fakta per device (host ssh, aplikasi deploy, MCP DNS) TIDAK ada di sini: dibaca dari konfigurasi/server.json (bin/konfig.sh), diisi atas persetujuan pengguna. Ringkasan untuk manusia: bin/kebijakan.sh tampil. Prinsip & cara mengubah: protokol.md › Aset, akses & batas kewenangan. Mengubah file ini = mengubah delegasi kewenangan: hanya atas keputusan pemilik (pengguna), kutipannya dicatat di commit.",
+  "disetujui": "pengguna: jenjang 2 = deploy app terdaftar, tambah subdomain DNS, buat repo GitHub privat; berlaku hanya di sesi RudisOne; akses per jabatan.",
+
+  "jabatan": {
+    "coo": { "nama": "COO" },
+    "head-of-strategy": { "nama": "Head of Strategy" },
+    "financial-controller": { "nama": "Financial Controller" },
+    "research-analyst": { "nama": "Research Analyst" },
+    "hr-business-partner": { "nama": "HR Business Partner" },
+    "tech-lead": { "nama": "Tech Lead", "alias": ["TechLead"] },
+    "business-systems-analyst": { "nama": "Business Systems Analyst" },
+    "software-engineer": { "nama": "Software Engineer" },
+    "program-manager": { "nama": "Program Manager" },
+    "technical-writer": { "nama": "Technical Writer" },
+    "head-of-it-operations": { "nama": "Head of IT Operations" },
+    "system-administrator": { "nama": "System Administrator" }
+  },
+
+  "kemampuan": {
+    "dns": { "nama": "Domain & DNS", "akses": ["head-of-it-operations", "system-administrator"] },
+    "hosting": { "nama": "Hosting web penyedia", "akses": ["head-of-it-operations", "system-administrator"] },
+    "server": { "nama": "Server deploy", "akses": ["head-of-it-operations", "system-administrator"] },
+    "data-produksi": { "nama": "Database production", "akses": ["head-of-it-operations", "system-administrator"] },
+    "rilis": { "nama": "Status CI & image rilis", "akses": ["coo", "tech-lead", "head-of-it-operations", "system-administrator"] },
+    "repo": { "nama": "Repositori kode", "akses": ["coo", "tech-lead", "software-engineer", "business-systems-analyst", "program-manager", "technical-writer", "head-of-it-operations", "system-administrator"] }
+  },
+
+  "jenjang2": {
+    "deploy": {
+      "nama": "Deploy sha penuh ke app terdaftar setelah rilis-cek SIAP DEPLOY",
+      "jabatan": ["head-of-it-operations", "system-administrator"],
+      "rilis_cek_maks_jam": 24
+    },
+    "dns_tambah": {
+      "nama": "Tambah record subdomain (tanpa overwrite; bukan apex/www/MX/NS/wildcard)",
+      "jabatan": ["head-of-it-operations", "system-administrator"],
+      "tipe": ["A", "AAAA", "CNAME", "TXT"],
+      "nama_dilarang": ["@", "www", ""]
+    },
+    "repo_buat_privat": {
+      "nama": "Buat repo privat baru (Persetujuan Rilis proyek baru)",
+      "jabatan": ["coo"]
+    }
+  },
+
+  "penyedia": {
+    "github": {
+      "jenis": "cli", "perintah": "gh", "kemampuan": "repo",
+      "baca": [
+        "^(run|pr|issue|release|workflow|repo|cache|ruleset|label)\\s+(list|view|watch|checks|status|diff)\\b",
+        "^auth\\s+status\\b",
+        "^search\\s",
+        "^(--version|version)\\b"
+      ],
+      "api_baca": true,
+      "repo_buat_privat": "^repo\\s+create\\s+\\S+(?=.*\\s--private\\b)(?!.*--public)(?!.*--push)",
+      "akun": "pribadi pemilik — tahap berikut: akun/token khusus RudisOne"
+    },
+    "gitlab": {
+      "jenis": "cli", "perintah": "glab", "kemampuan": "repo", "status": "siap dipakai bila ada proyek GitLab",
+      "baca": [
+        "^(mr|issue|release|ci|pipeline|repo)\\s+(list|view|status|diff)\\b",
+        "^auth\\s+status\\b"
+      ],
+      "api_baca": true,
+      "repo_buat_privat": "^repo\\s+create\\s+\\S+(?=.*\\s--private\\b)(?!.*--public)(?!.*--push)",
+      "akun": "belum ada"
+    },
+    "git": { "jenis": "cli", "perintah": "git", "kemampuan": "repo", "tulis_remote": "^push\\b" }
+  },
+
+  "keterangan_konfigurasi": "Host ssh (jenis ssh, kemampuan server), daftar aplikasi deploy jenjang 2, dan MCP DNS yang aktif berasal dari konfigurasi/server.json: server.<alias>.ssh_host · aplikasi.<slug>.{server,folder,repo} · dns.mcp_server (harus punya adapter di adapter_mcp).",
+
+  "adapter_mcp": {
+    "hostinger-api": {
+      "klasifikasi": "operasi",
+      "kemampuan_menurut_awalan": { "dns_": "dns", "domains_": "dns", "vps_": "server", "*": "hosting" },
+      "baca_operasi": "(^|[_-])(list|get|validate|status|show|search|check|availability|catalog)$",
+      "dns_tambah_operasi": "dns_records_update"
+    }
+  },
+
+  "perkakas_baca": {
+    "server-cek": "server",
+    "pasca-deploy": "server",
+    "rilis-cek": "rilis"
+  },
+
+  "ssh_baca": [
+    "^(uptime|df|free|whoami|hostname|date|uname|id|nproc)\\b",
+    "^ls\\b",
+    "^(cat|head|tail|grep|wc|stat|find)\\b",
+    "^docker\\s+(ps|images|logs|inspect|stats\\s+--no-stream|version|info|system\\s+df)\\b",
+    "^docker\\s+compose\\s+(ps|logs|images|ls)\\b",
+    "^systemctl\\s+(status|is-active|is-enabled|list-units|list-timers)\\b",
+    "^journalctl\\b",
+    "^ss\\s+-",
+    "^curl\\b(?!.*\\s(-X|--request|-d|--data|--data-raw|--data-binary|-F|--form|-T|--upload-file)\\b)",
+    "^openssl\\s+(s_client|x509)\\b",
+    "^(echo|printf|sort|uniq|cut|awk|tr|jq|column|true)\\b",
+    "^sed\\s+-n\\b",
+    "^cd\\s+\\S+$"
+  ],
+  "ssh_rahasia": "\\.env\\b|id_[rde]\\w*sa|\\.pem\\b|\\.key\\b|secret|passw|token|credential",
+
+  "lokal_netral": ["cd", "echo", "printf", "tail", "head", "grep", "wc", "sort", "uniq", "cut", "jq", "cat", "ls", "awk", "tr", "sleep", "true", "test", "[", "date", "column", "tee", "sed"]
+}

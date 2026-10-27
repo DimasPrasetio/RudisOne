@@ -1,0 +1,24 @@
+{
+  "versi": 1,
+  "keterangan": "Contoh. Salin menjadi konfigurasi/server.json (git-ignored, per device) — diisi COO atas persetujuan pengguna, lihat penyedia.md › Konfigurasi server. Jangan menaruh rahasia (password, token, kunci) di sini.",
+  "diisi": { "tanggal": "YYYY-MM-DD", "oleh": "COO", "persetujuan": "<kutipan persetujuan pengguna>" },
+  "server_bawaan": "<alias>",
+  "server": {
+    "<alias>": {
+      "ssh_host": "<nama Host di ~/.ssh/config>",
+      "user": "<opsional>",
+      "penyedia": "<opsional, mis. nama penyedia VPS>",
+      "os": "<opsional>",
+      "zona_waktu": "UTC",
+      "playbook": "<path playbook/runbook di server, atau null>",
+      "reverse_proxy": "nginx",
+      "db": "mysql-host",
+      "akun": "<akun siapa yang dipakai, mis. pribadi pemilik>"
+    }
+  },
+  "aplikasi": {
+    "<slug>": { "server": "<alias>", "folder": "~/<slug>", "repo": "<owner>/<repo>", "domain": ["<sub>.<domain>"] }
+  },
+  "dns": { "penyedia": "<opsional>", "mcp_server": "<nama server MCP DNS bila ada, mis. hostinger-api; null bila tidak ada>", "domain": ["<domain>"] },
+  "github": { "owner_bawaan": "<owner>" }
+}

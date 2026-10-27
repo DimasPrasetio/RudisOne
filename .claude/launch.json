@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "kantor",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["kantor/server.mjs"],
+      "port": 7421
+    }
+  ]
+}

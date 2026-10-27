@@ -1,0 +1,23 @@
+{
+  "perkakas": [
+    {
+      "id": "rudis-monorepo",
+      "jenis": "skill",
+      "label": "rudis",
+      "repo": "https://github.com/DimasPrasetio/rudis-monorepo.git",
+      "lokal": "~/Documents/Neuron/ai-agent/rudis-monorepo",
+      "paket": "dist/rudis-monorepo.skill",
+      "pasang": "install.sh",
+      "terpasang": "~/.claude/skills/rudis-monorepo",
+      "hooks": ".githooks"
+    },
+    {
+      "id": "rudis-modules",
+      "jenis": "pustaka",
+      "label": "lib",
+      "repo": "https://github.com/DimasPrasetio/rudis-modules.git",
+      "lokal": "~/Documents/Neuron/ai-agent/rudis-modules",
+      "hooks": ".githooks"
+    }
+  ]
+}
