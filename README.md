@@ -73,7 +73,7 @@ TEAM.md, handoff/, konfigurasi/server.json  per device, tidak di-commit (TEAM.md
 ```
 
 ## Pasang di device baru
-1. `git clone https://github.com/DimasPrasetio/RudisOne.git ~/Documents/Neuron/ai-agent/RudisOne` (repo privat; harus di path ini —
+1. `git clone https://github.com/DimasPrasetio/RudisOne.git ~/Documents/Neuron/ai-agent/RudisOne` (repo publik; harus di path ini —
    peran dan aturan merujuk `~/Documents/Neuron/ai-agent/RudisOne`).
 2. `~/Documents/Neuron/ai-agent/RudisOne/install.sh` — membuat `handoff/`, memeriksa symlink, konfigurasi server
    (bila sudah diisi: koneksi ssh & MCP DNS), dan memasang perkakas resmi SDLC (clone `rudis-monorepo` dan
