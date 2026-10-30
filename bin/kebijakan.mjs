@@ -387,6 +387,23 @@ function mysqlBaca(w) {
 // printf -v dan test -v mengevaluasi subskrip array (zsh/bash) → bisa menjalankan $( ) — tidak termasuk.
 const BACA_LOKAL = new Set(["cd", "echo", "tail", "head", "grep", "wc", "sort", "uniq", "cut", "jq", "cat", "ls", "tr", "sleep", "true", "date", "column"]);
 const RAHASIA_LOKAL = "|\\.ssh(/|$)|\\.aws|\\.netrc|\\.npmrc|\\.pypirc|\\.git-credentials|\\.config/gh|\\.gnupg|\\.docker/config|keychain|(^|/)rahasia(/|$)|\\.kube/config";
+/** Lokasi kredensial device ini (absolut, ternormal; juga tujuan symlink-nya). gh: GH_CONFIG_DIR / XDG_CONFIG_HOME/gh. */
+let _lokasiRahasia = null;
+function lokasiRahasia() {
+  if (_lokasiRahasia) return _lokasiRahasia;
+  const cfg = process.env.XDG_CONFIG_HOME || path.join(HOME, ".config");
+  const xs = [".ssh", ".aws", ".netrc", ".npmrc", ".pypirc", ".git-credentials", ".gnupg", path.join(".docker", "config.json"), ".kube",
+    path.join("Library", "Keychains"), path.join(".config", "gh"), path.join(".config", "rudisone", "rahasia")].map((p) => path.join(HOME, p))
+    .concat([path.join(cfg, "gh"), path.join(cfg, "rudisone", "rahasia"), process.env.GH_CONFIG_DIR].filter(Boolean));
+  return (_lokasiRahasia = [...new Set(xs.flatMap((x) => [path.resolve(rumah(x)), asli(path.resolve(rumah(x)))].filter(Boolean)).map(normal))]);
+}
+/** Apakah path argumen `x` (dibaca dari folder `cwd`) berada di lokasi kredensial. Folder tak diketahui + path relatif → ya. */
+function jalurRahasia(x, cwd) {
+  const p = rumah(x);
+  if (!path.isAbsolute(p) && !cwd) return true;
+  const abs = path.resolve(cwd ?? "/", p);
+  return [abs, asli(abs)].filter(Boolean).map(normal).some((a) => lokasiRahasia().some((l) => dalam(a, l)));
+}
 /** Program dipanggil dengan nama telanjang (dicari di PATH) atau dari folder sistem — bukan ./gh atau /tmp/x/cat. */
 const programStandar = (prog) => !prog.includes("/") || /^\/(usr\/(local\/)?bin|bin|usr\/sbin|sbin|opt\/homebrew\/bin)\/[^/]+$/.test(prog);
 
@@ -562,8 +579,13 @@ function klasifikasiSegmen(s, K, ctx) {
   if (BACA_LOKAL.has(nama) && K.lokal_netral.includes(nama)) {
     const rahasia = new RegExp(K.ssh_rahasia + RAHASIA_LOKAL, "i");
     const dibaca = [...args, ...s.alih.filter((a) => a.op.endsWith("<")).map((a) => a.target)];
+    // T-20261030-12: selain teks argumen, path yang BENAR-BENAR dibaca (diselesaikan dari folder sekarang, `.`/`..`/`//`
+    // dirapikan, symlink diikuti) tidak boleh berada di lokasi kredensial — `cd ~/.config && cat gh/hosts.yml` dsb.
+    const nilai = dibaca.map((x) => (x.startsWith("-") ? (x.includes("=") ? x.slice(x.indexOf("=") + 1) : null) : x)).filter(Boolean);
     const aman = dasarAman
       && !dibaca.some((x) => rahasia.test(x))
+      && !nilai.some((x) => jalurRahasia(x, ctx.cwd))
+      && !(nama !== "cd" && (!ctx.cwd || jalurRahasia(ctx.cwd, ctx.cwd)))
       && !ARG_BERBAHAYA[nama]?.(args) && !ARG_BERBAHAYA_LOKAL[nama]?.(args);
     return { aman };
   }
