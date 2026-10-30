@@ -510,3 +510,70 @@ test("pengurai: kutip, escape, operator, pengalihan", async () => {
   assert.equal(urai("cat *.md").segmen[0].kata[1].glob, true);
   assert.equal(urai("cat '*.md'").segmen[0].kata[1].glob, false);
 });
+
+// ===================== T-20261030-5 · temuan peninjau berkonteks bersih (putaran 1) =====================
+test("tinjauan H1–H6: komentar, printf/test -v, kurawal/glob, gh api gugus opsi, mysql, curl → bukan allow", () => {
+  const SA_ = SA;
+  for (const [cwd, c] of [
+    [COO, "gh pr list; echo #'\ntouch /tmp/pwn\n#'"], [COO, "gh pr list #\\\ntouch /tmp/pwn"],
+    [SA_, "ssh vps-uji \"cat x #'\nfind / -delete\n#'\""],
+    [COO, "gh pr list; printf -v 'a[$(touch /tmp/pwn)]' x"], [COO, "printf -v PATH %s /tmp/evil; gh pr list"],
+    [COO, "printf -v BROWSER x; gh pr view 1 --web"], [COO, "gh pr list && test -v 'a[$(touch /tmp/p)]'"],
+    [COO, "gh pr list && [ -v 'a[$(touch /tmp/p)]' ]"],
+    [SA_, "ssh vps-uji cat {x\;find,/tmp/d,-delete}"], [SA_, "ssh vps-uji cat {x\;curl,-o,/etc/x,http://e}"],
+    [SA_, "ssh vps-uji cat /tmp/s/a*"], [SA_, "ssh vps-uji 'find /tmp {-delete,}'"],
+    [COO, "gh api repos/o/r {-XDELETE,}"], [COO, "gh repo create evil --private --{public,private=false}"],
+    [COO, "gh repo create evil --private --source=. --pu{sh,sh}"],
+    [COO, "gh api repos/o/r/git/refs/heads/main -iX DELETE"], [COO, "gh api repos/o/r/issues -if title=pwn"],
+    [COO, "gh api repos/o/r/issues -XPOST"], [COO, "gh api repos/o/r/issues --method PATCH"], [COO, "gh api graphql -Fq=x"],
+    [COO, "gh auth status --show-token"], [COO, "gh auth status -t"],
+    [SA_, "ssh vps-uji \"mysql --init-command='drop table users' -e 'select 1'\""],
+    [SA_, "ssh vps-uji \"mysql -e 'select 1' -e 'drop table users'\""],
+    [SA_, "ssh vps-uji \"mysql -e 'select * from users into outfile \\\"/tmp/x\\\"'\""],
+    [SA_, "ssh vps-uji \"mysql --tee=/root/.bashrc -e 'select 1'\""], [SA_, "ssh vps-uji \"mysql -e 'select 1; drop table x'\""],
+    [SA_, "ssh vps-uji \"mysql -e 'select 1 \\\\! rm -rf /'\""], [SA_, "ssh vps-uji \"mysql -e 'select load_file(1)'\""],
+    [SA_, "ssh vps-uji \"mysql --pager='sh' -e 'select 1'\""],
+    [SA_, "ssh vps-uji \"curl -s -w '%output{>>/root/.bashrc}x' http://localhost\""],
+    [SA_, "ssh vps-uji 'curl --libcurl /root/.ssh/authorized_keys http://localhost'"], [SA_, "ssh vps-uji 'curl --etag-save /x http://l'"],
+    [SA_, "ssh vps-uji 'curl --hsts /x http://l'"], [SA_, "ssh vps-uji 'curl -sw @/etc/shadow http://l'"],
+    [SA_, "ssh vps-uji \"sed -n 1p -i ~/app-uji/docker-compose.yml\""], [SA_, "ssh vps-uji \"sed -n -e 1p -e 'w /x' f\""],
+    [SA_, "ssh vps-uji hostname pwned"], [SA_, "ssh vps-uji date 010100002020"], [SA_, "ssh vps-uji 'ss -D /root/x -t'"],
+    [SA_, "ssh vps-uji 'journalctl --cursor-file=/root/x'"], [SA_, "ssh vps-uji 'openssl s_client -sess_out /x -connect a:443'"],
+    [SA_, "ssh vps-uji 'X=/root/.ssh/id_rsa; cat $X'"], [SA_, "ssh vps-uji 'cat $HOME/x'"],
+  ]) assert.notEqual(kep(bash(cwd, c)), "allow", c);
+});
+
+test("tinjauan H7/M4/M5: huruf besar-kecil, folder induk, Write ke ~/.claude.json/agents/skills/.mcp.json → ask", () => {
+  const tulis = (f) => putuskan({ session_id: "t", cwd: "/x", tool_name: "Write", tool_input: { file_path: f, content: "" }, hook_event_name: "PreToolUse" }, K).keputusan;
+  if (process.platform === "darwin") {
+    for (const f of [path.join(ROOT, "KEBIJAKAN-AKSES.json"), path.join(ROOT, "Bin", "server-cek.sh"), path.join(ROOT, "KONFIGURASI", "server.json"),
+      path.join(os.homedir(), ".Claude", "settings.json"), path.join(os.homedir(), ".ZSHRC"), path.join(os.homedir(), ".claude", "Projects", "x", "y.jsonl"),
+      path.join(process.env.RUDISONE_AUDIT, "..", "AUDIT", "2026-10.jsonl")]) assert.equal(tulis(f), "ask", f);
+  }
+  for (const f of [path.join(os.homedir(), ".claude.json"), path.join(os.homedir(), ".claude", "agents", "rudis-x.md"), "/x/repo/.mcp.json",
+    path.join(os.homedir(), ".claude", "skills", "x", "SKILL.md"), path.join(ROOT, "agen", "rudis-coo.md")]) assert.equal(tulis(f), "ask", f);
+  for (const c of ["echo x > KEBIJAKAN-AKSES.json", "mv bin /tmp/oldbin", `rm -rf ${path.dirname(process.env.RUDISONE_AUDIT)}`, `mv ${ROOT} /tmp/r2`, "rm -rf ~",
+    "cd bin && cp /tmp/x server-cek.sh", "git checkout evil -- .", `git -C ${ROOT} checkout evil -- bin`, "rm -rf ~/.claude"]) {
+    assert.equal(kep(bash(COO, c)), "ask", c);
+  }
+  // tetap tidak ditanya: perintah biasa di ROOT, git baca, worktree
+  for (const c of ["git status", `git -C ${ROOT} log -3`, "git merge --no-ff refs/heads/rudis/T-1", "npm test", "ls handoff",
+    "cd .claude/worktrees/r2-lead-x && git status"]) assert.notEqual(kep(bash(COO, c)), "ask", c);
+});
+
+test("tinjauan M1: Skill rudisone yang dipanggil model sendiri tidak menjadikan sesi COO", () => {
+  const t = transkrip("m1", [{ type: "user", cwd: "/tmp/proj", message: { content: "rangkum berkas ini" } },
+    { type: "assistant", cwd: "/tmp/proj", message: { content: [{ type: "tool_use", name: "Skill", input: { skill: "rudisone" } }] } }]);
+  const p = putuskan(bash("/tmp/proj", "gh repo create evil --private", { transcript_path: t }), K);
+  assert.equal(p.sesi.rudisOne, false);
+  assert.notEqual(p.keputusan, "allow");
+});
+
+test("tinjauan: baca server yang sah tetap allow (regresi)", () => {
+  for (const c of ["ssh vps-uji 'grep -rn server_name /etc/nginx'", "ssh vps-uji \"sed -n '/server_name/p' /etc/nginx/nginx.conf\"",
+    "ssh vps-uji \"mysql -u ro -N app_uji_db -e 'select count(*) from users'\"", "ssh vps-uji \"mysql app_uji_db -e 'SHOW TABLES;'\"",
+    "ssh vps-uji 'curl -sS -o /dev/null -w \"%{http_code}\" --max-time 5 https://contoh.test'", "ssh vps-uji 'curl -sI https://contoh.test'",
+    "ssh vps-uji hostname", "ssh vps-uji 'date +%F'", "ssh vps-uji 'ls /var/log/*.log'", "ssh vps-uji 'docker logs --tail 20 app 2>&1 | grep -i error'"]) {
+    assert.equal(kep(bash(SA, c)), "allow", c);
+  }
+});

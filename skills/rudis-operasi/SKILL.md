@@ -67,12 +67,15 @@ disentuh: hook RudisOne dikenali dari path absolutnya.
 Akun yang dipakai masih akun pribadi pemilik; akun dinas RudisOne adalah tahap berikutnya (`penyedia.md`).
 
 ## 9. Berkas terlindung & batas hook
-Berkas yang menentukan keputusan hook atau izin Claude Code: `kebijakan-akses.json`, `bin/**` di checkout utama,
-`konfigurasi/**`, `handoff/audit/**` (termasuk cache `.sesi/`), `**/.claude/settings*.json`, transkrip
-`~/.claude/projects/**/*.jsonl`, `~/.claude/shell-snapshots/**`, dan berkas rc shell. `Write`/`Edit`/`MultiEdit`/
-`NotebookEdit` ke sana (juga lewat symlink/hardlink) dan perintah Bash yang menyebutnya tanpa sekadar membaca —
-termasuk `kebijakan.sh`/`inti.sh` `pasang`/`lepas` — selalu **ask**, di sesi mana pun, dan yang disetujui tercatat
-di audit (`berkas-terlindung`). Perubahannya keputusan pemilik.
+Berkas yang menentukan keputusan hook atau izin Claude Code: `kebijakan-akses.json`, `bin/**`, `agen/**`, `skills/**`
+di checkout utama, `konfigurasi/**`, `handoff/audit/**` (termasuk cache `.sesi/`), `**/.claude/settings*.json`,
+`**/.mcp.json`, `~/.claude.json`, `~/.claude/{agents,skills,commands,shell-snapshots}/**`, transkrip
+`~/.claude/projects/**/*.jsonl`, dan berkas rc shell. `Write`/`Edit`/`MultiEdit`/`NotebookEdit` ke sana (juga lewat
+symlink/hardlink dan huruf besar-kecil berbeda) dan perintah Bash yang menyebutnya tanpa sekadar membaca — termasuk
+`kebijakan.sh`/`inti.sh` `pasang`/`lepas`, serta `rm`/`mv`/`cp`/`git checkout|reset|…` pada folder induknya —
+selalu **ask**, di sesi mana pun, dan yang disetujui tercatat di audit (`berkas-terlindung`). Perubahannya keputusan
+pemilik. Jabatan COO di sesi folder proyek hanya dari `/rudisone` yang **diketik** pengguna, bukan dari model yang
+memanggil skill sendiri.
 
 Batas yang tidak bisa ditutup hook (platform): agent berjalan sebagai user OS yang sama, jadi Bash yang menyamarkan
 path (variabel, glob, base64, skrip buatan sendiri) tetap bisa menulis berkas apa pun; hook juga gagal terbuka

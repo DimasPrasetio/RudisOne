@@ -103,11 +103,11 @@
     "^ss\\s+-",
     "^curl\\b",
     "^openssl\\s+(s_client|x509)\\b",
-    "^(echo|printf|sort|uniq|cut|tr|jq|column|true)\\b",
-    "^sed\\s+-n\\s+'?\\d+(,\\d+)?p'?(\\s|$)",
+    "^(echo|sort|uniq|cut|tr|jq|column|true)\\b",
+    "^sed\\s+-n\\s+(['\"]?)(\\d+(,\\d+)?|/[^/'\"]*/)p\\1(\\s|$)",
     "^cd\\s+\\S+$"
   ],
   "ssh_rahasia": "\\.env\\b|id_[rde]\\w*sa|\\.pem\\b|\\.key\\b|secret|passw|token|credential",
 
-  "lokal_netral": ["cd", "echo", "printf", "tail", "head", "grep", "wc", "sort", "uniq", "cut", "jq", "cat", "ls", "tr", "sleep", "true", "test", "[", "date", "column"]
+  "lokal_netral": ["cd", "echo", "tail", "head", "grep", "wc", "sort", "uniq", "cut", "jq", "cat", "ls", "tr", "sleep", "true", "date", "column"]
 }

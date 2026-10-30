@@ -72,9 +72,9 @@ function teksPesanPengguna(baris) {
   if (Array.isArray(c)) return c.filter((b) => b?.type === "text").map((b) => b.text).join("\n");
   return "";
 }
-const panggilRudisone = (b) => teksPesanPengguna(b).includes(PENANDA_RUDISONE)
-  || (b?.type === "assistant" && Array.isArray(b.message?.content)
-    && b.message.content.some((c) => c?.type === "tool_use" && c.name === "Skill" && c.input?.skill === "rudisone"));
+/** Hanya /rudisone yang DIKETIK pengguna. Pemanggilan Skill oleh model sendiri tidak dihitung (model yang terinjeksi
+ *  bisa menjadikan dirinya COO) — sesi yang memanggil RudisOne lewat bahasa biasa tetap jalan, hanya tanpa jenjang COO. */
+const panggilRudisone = (b) => teksPesanPengguna(b).includes(PENANDA_RUDISONE);
 
 /** Transkrip sesi utama. Untuk subagent, transkrip miliknya (`<sid>/subagents/agent-*.jsonl`) ditulis pemanggilnya
  *  (prompt) — identitas induk selalu dibaca dari transkrip utama `<sid>.jsonl`. */
@@ -203,7 +203,7 @@ export function urai(cmd) {
   cmd = String(cmd);
   const segmen = []; let kompleks = false, ekspansi = false;
   let seg = { teks: "", kata: [], alih: [] }, w = null, tunggu = null;
-  const kini = () => (w ??= { nilai: "", glob: false, ekspansi: false });
+  const kini = () => (w ??= { nilai: "", glob: false, kurawal: false, ekspansi: false });
   const tutupKata = () => {
     if (!w) return;
     if (tunggu) { seg.alih.push({ op: tunggu, target: w.nilai, glob: w.glob, ekspansi: w.ekspansi }); tunggu = null; } else seg.kata.push(w);
@@ -261,7 +261,9 @@ export function urai(cmd) {
       continue;
     }
     if (c === " " || c === "\t" || c === "\r") { tutupKata(); seg.teks += c; continue; }
+    if (c === "#" && !w) kompleks = true;                       // komentar: sisa baris tidak terlihat oleh pengurai
     if ("*?[{".includes(c)) kini().glob = true;
+    if (c === "{") kini().kurawal = true;
     kini().nilai += c; seg.teks += c;
   }
   if (tunggu || w) tutupKata();
@@ -293,25 +295,64 @@ const ARG_BERBAHAYA = {
   find: (a) => a.some((x) => /^-(exec|execdir|ok|okdir|delete|fprint0?|fprintf|fls)$/.test(x)),
   sort: (a) => a.some((x) => /^--(output|temporary-directory|compress-program)/.test(x) || /^-[A-Za-z]*[oT]/.test(x)),
   uniq: (a) => a.filter((x) => x === "-" || !x.startsWith("-")).length > 1,
-  date: (a) => a.some((x) => x.startsWith("--set") || /^-[uR]*s/.test(x)),
-  journalctl: (a) => a.some((x) => /^--(vacuum|rotate|flush|relinquish|sync|setup-keys|update-catalog)/.test(x)),
-  ss: (a) => a.some((x) => x === "--kill" || /^-[A-Za-z]*K/.test(x)),
-  curl: (a) => a.some((x, i) => {
-    if (x === "--output") return a[i + 1] !== "/dev/null";
-    if (x.startsWith("--output=")) return x !== "--output=/dev/null";
-    const o = x.match(/^-([A-Za-z]*?)o(.*)$/);
-    if (o && !/[OKTdFXcD]/.test(o[1])) return (o[2] || a[i + 1]) !== "/dev/null";
-    return /^--(remote-name|config|upload-file|data|form|request|json|create-dirs|output-dir|cookie-jar|dump-header|trace|stderr)/.test(x) || /^-[A-Za-z]*[OKTdFXcD]/.test(x);
-  }),
-  openssl: (a) => a.some((x) => /^-(out|keyout|writerand)$/.test(x)),
+  date: (a) => a.some((x) => x.startsWith("--set") || /^-[uR]*s/.test(x) || /^\d/.test(x)),
+  hostname: (a) => a.some((x) => !/^-([fsdiIaAy]+|-(fqdn|short|domain|ip-address|all-ip-addresses|all-fqdns|long))$/.test(x)),
+  sed: (a) => a.some((x) => /^-[A-Za-z]*[iefsz]|^--(in-place|expression|file|separate|null-data)/.test(x.replace(/^-n/, "-"))),
+  journalctl: (a) => a.some((x) => /^--(vacuum|rotate|flush|relinquish|sync|setup-keys|update-catalog|cursor-file)/.test(x)),
+  ss: (a) => a.some((x) => /^--(kill|diag)/.test(x) || /^-[A-Za-z]*[KD]/.test(x)),
+  curl: (a) => curlBerbahaya(a),
+  openssl: (a) => a.some((x) => /^-(out|keyout|writerand|sess_out|keylogfile|msgfile|trace|CAfile_out)$/.test(x)),
   jq: (a) => a.some((x) => /\$ENV|\benv\b|input_filename|\$__loc__|\bimport\b|\binclude\b/.test(x) || /^(--rawfile|--slurpfile|--from-file|-f|-L)$/.test(x)),
+};
+/** Khusus lokal: grep rekursif membaca semua berkas (termasuk .env) ke transkrip. */
+const ARG_BERBAHAYA_LOKAL = {
   grep: (a) => a.some((x) => /^--(recursive|dereference-recursive|directories)/.test(x) || /^-[A-Za-z]*[rRd]/.test(x)),
 };
 
+/** curl hanya dengan opsi dari daftar baca (tidak menulis berkas, tidak mengirim data, tidak membaca config). */
+function curlBerbahaya(a) {
+  const nilaiBuruk = (opsi, v) => (opsi === "o" && v !== "/dev/null") || (opsi === "w" && /%output\{|^@/.test(v)) || (opsi === "H" && v.startsWith("@"));
+  const panjang = { output: "o", "write-out": "w", header: "H", "max-time": "m", "connect-timeout": "m", "user-agent": "A", retry: "m", "retry-delay": "m", "max-redirs": "m", resolve: "m", range: "m" };
+  for (let i = 0; i < a.length; i++) {
+    const x = a[i];
+    if (!x.startsWith("-") || x === "-") continue;                                   // URL
+    if (/^--(silent|show-error|fail|fail-with-body|location|head|insecure|verbose|include|compressed|ipv4|ipv6|http1\.1|http2|no-progress-meter|globoff|no-buffer)$/.test(x)) continue;
+    const pj = x.match(/^--([a-z-]+)(?:=(.*))?$/);
+    if (pj) { if (!(pj[1] in panjang)) return true; const v = pj[2] ?? a[++i] ?? ""; if (nilaiBuruk(panjang[pj[1]], v)) return true; continue; }
+    for (let j = 1; j < x.length; j++) {
+      const c = x[j];
+      if ("sSfLIkvi46".includes(c)) continue;
+      if ("mHAwo".includes(c)) { const v = j + 1 < x.length ? x.slice(j + 1) : a[++i] ?? ""; if (nilaiBuruk(c, v)) return true; break; }
+      return true;
+    }
+  }
+  return false;
+}
+
+/** mysql hanya: opsi koneksi/format dari daftar, satu -e, satu pernyataan baca (tanpa INTO OUTFILE, \, ;). */
+function mysqlBaca(w) {
+  let stmt = null, posisional = 0;
+  for (let i = 1; i < w.length; i++) {
+    const x = w[i];
+    if (x === "-e" || x === "--execute") { if (stmt !== null) return false; stmt = w[++i] ?? ""; continue; }
+    if (/^--execute=/.test(x)) { if (stmt !== null) return false; stmt = x.slice(10); continue; }
+    if (/^-e./.test(x)) { if (stmt !== null) return false; stmt = x.slice(2); continue; }
+    if (/^-[uhPD]$/.test(x)) { i++; continue; }
+    if (/^-[uhPD]\S+$/.test(x)) continue;
+    if (/^--(user|host|port|database|default-character-set|connect-timeout)=/.test(x)) continue;
+    if (/^-[NBstEr]+$/.test(x) || /^--(batch|skip-column-names|silent|table|vertical|raw|column-names|no-auto-rehash|skip-pager)$/.test(x)) continue;
+    if (!x.startsWith("-")) { if (++posisional > 1) return false; continue; }
+    return false;
+  }
+  if (stmt === null) return false;
+  const q = stmt.trim().replace(/;\s*$/, "");
+  return /^(select|show|describe|desc|explain)\b/i.test(q) && !/[;\\]/.test(q) && !/\binto\s+(outfile|dumpfile)\b/i.test(q) && !/\bload_file\s*\(/i.test(q);
+}
+
 /** Perintah lokal yang boleh ikut dalam perintah majemuk yang diloloskan — irisan daftar bawaan hook dengan
  *  `lokal_netral` di kebijakan (berkas kebijakan hanya bisa MENYEMPITKAN). awk/sed/tee/git tidak pernah netral. */
-const BACA_LOKAL = new Set(["cd", "echo", "printf", "tail", "head", "grep", "wc", "sort", "uniq", "cut", "jq", "cat", "ls", "tr", "sleep", "true", "test", "[", "date", "column"]);
-const PEMBACA_BERKAS = new Set(["cat", "head", "tail", "grep", "wc", "sort", "uniq", "cut", "jq", "column", "tr"]);
+// printf -v dan test -v mengevaluasi subskrip array (zsh/bash) → bisa menjalankan $( ) — tidak termasuk.
+const BACA_LOKAL = new Set(["cd", "echo", "tail", "head", "grep", "wc", "sort", "uniq", "cut", "jq", "cat", "ls", "tr", "sleep", "true", "date", "column"]);
 const RAHASIA_LOKAL = "|\\.ssh(/|$)|\\.aws|\\.netrc|\\.npmrc|\\.pypirc|\\.git-credentials|\\.config/gh|\\.gnupg|\\.docker/config|keychain|\\.kube/config";
 /** Program dipanggil dengan nama telanjang (dicari di PATH) atau dari folder sistem — bukan ./gh atau /tmp/x/cat. */
 const programStandar = (prog) => !prog.includes("/") || /^\/(usr\/(local\/)?bin|bin|usr\/sbin|sbin|opt\/homebrew\/bin)\/[^/]+$/.test(prog);
@@ -335,13 +376,33 @@ function klasifikasiRemote(remote, prov, K) {
     if (/\bsudo\b/.test(t) || rahasia.test(t) || !s.alih.every(alihAman)) return true;
     const w = s.kata.map((x) => x.nilai);
     if (!w.length || /^[A-Za-z_][A-Za-z0-9_]*=/.test(w[0])) return true;
-    if (/^mysql\b/.test(t)) return !/\s-e\s*(['"]?)\s*(select|show|describe|explain)\b[^;]*;?\s*\1\s*$/i.test(t.replace(/^mysql\b.*?(\s-e)/, " -e"));
+    if (s.kata.some((x) => x.kurawal)) return true;                    // {a,b} diekspansi shell server menjadi opsi
+    if (path.basename(w[0]) === "mysql") return !mysqlBaca(w);
     if (ARG_BERBAHAYA[path.basename(w[0])]?.(w.slice(1))) return true;
     return !baca.some((r) => r.test(t));
   });
   const kemampuan = u.segmen.some((s) => /^mysql\b/.test(s.teks)) ? "data-produksi" : "server";
-  if (!tidakBaca.length && !u.kompleks) return [{ kemampuan, jenjang: 1, aksi: `baca server ${prov}` }];
+  if (!tidakBaca.length && !u.kompleks && !u.ekspansi) return [{ kemampuan, jenjang: 1, aksi: `baca server ${prov}` }];
   return [{ kemampuan, jenjang: 3, aksi: `perintah server ${prov}: ${(tidakBaca[0]?.teks ?? remote).slice(0, 80)}` }];
+}
+
+/** gh/glab api: menulis bila ada field/input, atau metode selain GET — termasuk gugus opsi pendek (-iX DELETE, -if). */
+function apiTulis(t) {
+  for (let i = 0; i < t.length; i++) {
+    const x = t[i];
+    if (/^--(field|raw-field|input|form)(=|$)/.test(x)) return true;
+    if (/^--method(=|$)/.test(x)) { const v = x.includes("=") ? x.slice(9) : t[++i]; if (!/^get$/i.test(v ?? "")) return true; continue; }
+    if (/^-[A-Za-z]/.test(x)) {
+      for (let j = 1; j < x.length; j++) {
+        const c = x[j];
+        if (c === "f" || c === "F") return true;
+        if (c === "X") { const v = j + 1 < x.length ? x.slice(j + 1) : t[++i]; if (!/^get$/i.test(v ?? "")) return true; break; }
+        if ("HpqtR".includes(c)) { if (j + 1 >= x.length) i++; break; }   // opsi bernilai: sisanya nilai
+        if (!/[A-Za-z]/.test(c)) break;
+      }
+    }
+  }
+  return false;
 }
 
 /** Skrip perkakas RudisOne yang asli: path absolut di ROOT/bin, atau bin/… relatif terhadap folder sekarang tanpa
@@ -365,7 +426,8 @@ function klasifikasiSegmen(s, K, ctx) {
   const alihOk = s.alih.every(alihAman);
   if (!w.length) return { aman: false };
   const prog = w[0].nilai, nama = path.basename(prog), args = w.slice(1).map((x) => x.nilai);
-  const dasarAman = alihOk && !prefiks.length && !w.some((x) => x.ekspansi);
+  // glob & {a,b} diekspansi shell lokal SEBELUM program melihatnya (bisa menyisipkan opsi/perintah) → tidak pernah aman
+  const dasarAman = alihOk && !prefiks.length && !w.some((x) => x.ekspansi || x.glob);
   // perkakas RudisOne (bin/<nama>.sh)
   const pk = nama.match(/^([a-z-]+)\.sh$/)?.[1];
   if (pk && perkakasAsli(prog, ctx)) {
@@ -390,9 +452,9 @@ function klasifikasiSegmen(s, K, ctx) {
     // git: hanya push yang urusan kebijakan (jenjang 3); git lain = perintah lokal biasa, TIDAK pernah ikut diloloskan.
     if (p.tulis_remote) return new RegExp(p.tulis_remote).test(a)
       ? { aman: false, aksi: [{ kemampuan: p.kemampuan, jenjang: 3, aksi: `${nama} ${a}`.slice(0, 80) }] } : { aman: false };
-    const amanCli = dasarAman && !/\$ENV|\benv\b/.test(a);
+    const amanCli = dasarAman && !/\$ENV|\benv\b|--show-token/.test(a) && !(/^auth\s/.test(a) && rest.includes("-t"));
     if ((p.baca ?? []).some((r) => new RegExp(r).test(a))) return { aman: amanCli, aksi: [{ kemampuan: p.kemampuan, jenjang: 1, aksi: `${id} baca` }] };
-    if (p.api_baca && /^api\s/.test(a) && !/(^|\s)(-X|--method)[\s=]*(POST|PUT|PATCH|DELETE)|(^|\s)(-[fF]\S*|--field|--raw-field|--input)(\s|=|$)/i.test(a))
+    if (p.api_baca && rest[0] === "api" && !apiTulis(rest.slice(1)))
       return { aman: amanCli, aksi: [{ kemampuan: p.kemampuan, jenjang: 1, aksi: `${id} api baca` }] };
     if (p.repo_buat_privat && new RegExp(p.repo_buat_privat).test(a))
       return { aman: dasarAman, aksi: [{ kemampuan: p.kemampuan, jenjang: 2, jenis: "repo_buat_privat", aksi: `${id} buat repo privat ${rest[2] ?? ""}`.trim() }] };
@@ -424,9 +486,8 @@ function klasifikasiSegmen(s, K, ctx) {
     const rahasia = new RegExp(K.ssh_rahasia + RAHASIA_LOKAL, "i");
     const dibaca = [...args, ...s.alih.filter((a) => a.op.endsWith("<")).map((a) => a.target)];
     const aman = dasarAman
-      && !(PEMBACA_BERKAS.has(nama) && w.slice(1).some((x) => x.glob))
       && !dibaca.some((x) => rahasia.test(x))
-      && !ARG_BERBAHAYA[nama]?.(args);
+      && !ARG_BERBAHAYA[nama]?.(args) && !ARG_BERBAHAYA_LOKAL[nama]?.(args);
     return { aman };
   }
   return { aman: false };
@@ -438,35 +499,51 @@ function klasifikasiSegmen(s, K, ctx) {
 // menyamarkan path (variabel, glob, base64, skrip) tidak terlihat; penegakan kerasnya permissions.deny + sandbox
 // (skills/rudis-operasi › Berkas terlindung).
 const NAMA_TERLINDUNG = [
-  /kebijakan-akses\.json/, /kebijakan\.(mjs|sh)/, /konfig\.(mjs|sh)/, /inti\.(mjs|sh)/, /rilis-cek\.(sh|mjs)/,
-  /(^|\/)konfigurasi(\/|$)/, /handoff\/audit/, /(^|\/)\.sesi(\/|$)/, /(^|\/)\d{4}-\d{2}\.jsonl$/,
-  /\.claude(?![\w/])|\.claude\/(?!worktrees\/)/, /(^|\/)settings(\.local)?\.json/,
-  /(^|\/)\.(zshrc|zshenv|zprofile|bashrc|bash_profile|profile)$/,
+  /kebijakan-akses\.json/i, /kebijakan\.(mjs|sh)/i, /konfig\.(mjs|sh)/i, /inti\.(mjs|sh)/i, /rilis-cek\.(sh|mjs)/i,
+  /(^|\/)konfigurasi(\/|$)/i, /handoff\/audit/i, /(^|\/)\.sesi(\/|$)/i, /(^|\/)\d{4}-\d{2}\.jsonl$/i,
+  /\.claude(?![\w/])|\.claude\/(?!worktrees\/)/i, /(^|\/)settings(\.local)?\.json/i, /\.mcp\.json/i,
+  /(^|\/)\.(zshrc|zshenv|zprofile|bashrc|bash_profile|profile)$/i,
 ];
+/** Program yang menghapus/memindah/menimpa: menyebut folder LELUHUR berkas terlindung (mv bin x, rm -rf handoff, rm -rf ~)
+ *  juga terlindung. git hanya untuk subperintah yang menimpa berkas kerja. */
+const PROGRAM_PERUSAK = /^(rm|rmdir|mv|cp|ln|chmod|chown|chflags|truncate|dd|rsync|install|unlink|trash|ditto|tar|unzip)$/;
+const GIT_PERUSAK = /^(checkout|restore|reset|clean|rm|mv|stash|apply|am|merge|pull|rebase|switch|worktree|read-tree|checkout-index)$/;
+// Sistem berkas macOS/Windows tidak membedakan huruf besar-kecil: ~/.ZSHRC = ~/.zshrc.
+const LIPAT = process.platform === "darwin" || process.platform === "win32";
+const normal = (p) => { const r = path.resolve(p); return LIPAT ? r.toLowerCase() : r; };
+const dalam = (a, b) => a === b || a.startsWith(b.endsWith(path.sep) ? b : b + path.sep);
 function asli(p) {
-  try { return fs.realpathSync(p); } catch { /* belum ada */ }
-  try { return path.join(fs.realpathSync(path.dirname(p)), path.basename(p)); } catch { return null; }
+  try { return fs.realpathSync.native(p); } catch { /* belum ada */ }
+  try { return path.join(fs.realpathSync.native(path.dirname(p)), path.basename(p)); } catch { return null; }
 }
 let _terlindung = null;
 function daftarTerlindung() {
   if (_terlindung) return _terlindung;
-  const berkas = [path.join(ROOT, "kebijakan-akses.json"), FILE_KEBIJAKAN, INI, FILE_KONFIG,
+  const berkas = [path.join(ROOT, "kebijakan-akses.json"), FILE_KEBIJAKAN, INI, FILE_KONFIG, path.join(HOME, ".claude.json"),
     ...[".zshrc", ".zshenv", ".zprofile", ".bashrc", ".bash_profile", ".profile"].map((f) => path.join(HOME, f))];
-  const folder = [path.join(ROOT, "bin"), path.join(ROOT, "konfigurasi"), DIR_AUDIT, path.join(HOME, ".claude", "shell-snapshots")];
-  const dua = (xs) => [...new Set(xs.flatMap((x) => [path.resolve(x), asli(x)].filter(Boolean)))];
-  return (_terlindung = { berkas: dua(berkas), folder: dua(folder), proyek: dua([path.join(HOME, ".claude", "projects")]) });
+  const folder = [path.join(ROOT, "bin"), path.join(ROOT, "konfigurasi"), path.join(ROOT, "agen"), path.join(ROOT, "skills"), DIR_AUDIT,
+    ...["shell-snapshots", "agents", "skills", "commands"].map((f) => path.join(HOME, ".claude", f))];
+  const semua = (xs) => [...new Set(xs.flatMap((x) => [path.resolve(x), asli(x)].filter(Boolean)).map(normal))];
+  return (_terlindung = { berkas: semua(berkas), folder: semua(folder), proyek: semua([path.join(HOME, ".claude", "projects")]),
+    akar: semua([ROOT]), claude: semua([path.join(HOME, ".claude")]) });
 }
-/** Alasan bila path absolut `p` terlindung; `ikuti` = periksa juga tujuan symlink dan hardlink (alat tulis berkas). */
-export function sebabTerlindung(p, ikuti = true) {
+/** Alasan bila path absolut `p` terlindung. `ikuti` = periksa juga tujuan symlink & hardlink (alat tulis berkas).
+ *  `leluhur` = "dalam" (folder leluhur di dalam RudisOne atau ~/.claude) | "semua" (leluhur mana pun) | false. */
+export function sebabTerlindung(p, ikuti = true, leluhur = false) {
   const L = daftarTerlindung();
-  const calon = [path.resolve(p)];
-  if (ikuti) { const r = asli(p); if (r && !calon.includes(r)) calon.push(r); }
+  const calon = [normal(p)];
+  if (ikuti) { const r = asli(p); if (r && !calon.includes(normal(r))) calon.push(normal(r)); }
   for (const c of calon) {
     if (L.berkas.includes(c)) return `berkas kebijakan/konfigurasi ${c}`;
-    const d = L.folder.find((f) => di(c, f));
+    const d = L.folder.find((f) => dalam(c, f));
     if (d) return `folder terlindung ${d}`;
-    if (/\/\.claude\/settings[^/]*\.json$/.test(c)) return `settings Claude Code ${c}`;
-    if (L.proyek.some((f) => di(c, f)) && c.endsWith(".jsonl")) return `transkrip sesi ${c}`;
+    if (/\/\.claude\/settings[^/]*\.json$/i.test(c) || /\/\.mcp\.json$/i.test(c)) return `settings Claude Code ${c}`;
+    if (L.proyek.some((f) => dalam(c, f)) && c.endsWith(".jsonl")) return `transkrip sesi ${c}`;
+    if (leluhur) {
+      const sasaran = [...L.berkas, ...L.folder, ...L.proyek];
+      const boleh = leluhur === "semua" || L.akar.some((r) => c !== r && dalam(c, r)) || L.claude.some((r) => dalam(c, r));
+      if (boleh && sasaran.some((t) => t !== c && dalam(t, c))) return `folder induk berkas terlindung ${c}`;
+    }
   }
   if (ikuti) {
     try {
@@ -491,10 +568,16 @@ function analisisBash(input, K) {
     // semua kata kecuali nama program (menjalankan bin/<x>.sh bukan mengubahnya) + target pengalihan
     const iProg = s.kata.findIndex((x) => !/^[A-Za-z_][A-Za-z0-9_]*=/.test(x.nilai));
     const kandidat = [...s.kata.filter((_, i) => i !== iProg).map((x) => x.nilai), ...s.alih.map((a) => a.target)];
-    for (const k of kandidat) {
-      if (!k || sebut) continue;
-      if (NAMA_TERLINDUNG.some((r) => r.test(k))) sebut = k;
-      else if (/[/~.]/.test(k) && !ctx.adaCd) sebut = sebabTerlindung(path.resolve(rumah(input.cwd || HOME), rumah(k)), false);
+    const prog = path.basename(s.kata[iProg]?.nilai ?? "");
+    const gitSub = prog === "git" ? s.kata.slice(iProg + 1).map((x) => x.nilai).filter((x, i, a) => !x.startsWith("-") && !["-C", "-c", "--git-dir", "--work-tree"].includes(a[i - 1]))[0] : null;
+    const leluhur = PROGRAM_PERUSAK.test(prog) || (gitSub && GIT_PERUSAK.test(gitSub)) ? "semua" : "dalam";
+    for (const k0 of kandidat) {
+      if (!k0 || sebut) continue;
+      for (const k of new Set([k0, k0.slice(k0.lastIndexOf("=") + 1)])) {
+        if (!k || sebut) continue;
+        if (NAMA_TERLINDUNG.some((r) => r.test(k))) sebut = k;
+        else if (!ctx.adaCd && !k.startsWith("-")) sebut = sebabTerlindung(path.resolve(rumah(input.cwd || HOME), rumah(k)), false, leluhur);
+      }
     }
     if (/^(cd|pushd|popd)$/.test(s.kata[0]?.nilai ?? "")) ctx.adaCd = true;
   }
