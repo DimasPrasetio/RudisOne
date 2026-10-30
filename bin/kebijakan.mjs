@@ -63,11 +63,21 @@ function teksPesanPengguna(baris) {
   return "";
 }
 
-/** { rudisOne, jabatan } untuk satu sesi; transkrip dibaca bertahap dan hasilnya disimpan per sesi. */
+/** { rudisOne, jabatan [, subagent, induk] } untuk satu panggilan alat.
+ *  Subagent dari definisi peran (`agent_type` = rudis-<id>, protokol.md › Model sesi) dicatat dengan jabatan perannya,
+ *  tetapi aksesnya hanya boleh MENYEMPIT: `putuskan` mensyaratkan jabatan induk dan jabatan subagent sama-sama berhak,
+ *  jenjang 2 selalu ditanya, dan subagent dari sesi yang bukan RudisOne tidak pernah diloloskan. */
 export function kenaliSesi(input, K) {
-  // Subagent dari definisi peran (protokol.md › Model sesi): jabatannya = perannya, bukan jabatan sesi pemanggil.
   const sub = String(input.agent_type ?? "").match(/^rudis-([a-z-]+)$/);
-  if (sub && K.jabatan[sub[1]]) return { rudisOne: true, jabatan: sub[1] };
+  if (sub && K.jabatan[sub[1]]) {
+    const induk = kenaliInduk(input, K);
+    return { rudisOne: true, jabatan: sub[1], subagent: true, induk: induk.rudisOne ? induk.jabatan : null };
+  }
+  return kenaliInduk(input, K);
+}
+
+/** { rudisOne, jabatan } sesi (utas utama); transkrip dibaca bertahap dan hasilnya disimpan per sesi. */
+function kenaliInduk(input, K) {
   const cwd = rumah(input.cwd || "");
   if (cwd && di(cwd, ROOT)) {
     const rel = path.relative(ROOT, path.resolve(cwd)).split(path.sep);
@@ -308,8 +318,14 @@ export function putuskan(input, K) {
   if (!aksi.length) return { keputusan: null, alasan: "bukan aksi infrastruktur", sesi };
   const nama = sesi.jabatan ? K.jabatan[sesi.jabatan]?.nama ?? sesi.jabatan : "jabatan tak dikenal";
   const tanya = [];
+  const namaInduk = sesi.induk ? K.jabatan[sesi.induk]?.nama ?? sesi.induk : null;
   for (const a of aksi) {
     const akses = K.kemampuan[a.kemampuan]?.akses;
+    if (sesi.subagent) {
+      if (!sesi.induk) { tanya.push(`${a.aksi} — subagent ${nama} dipanggil sesi yang bukan sesi RudisOne`); continue; }
+      if (akses && !akses.includes(sesi.induk)) { tanya.push(`${a.aksi} — di luar akses ${namaInduk} (pemanggil subagent ${nama})`); continue; }
+      if (a.jenjang === 2) { tanya.push(`${a.aksi} — jenjang 2 tidak dijalankan subagent tanpa prompt`); continue; }
+    }
     if (sesi.jabatan && akses && !akses.includes(sesi.jabatan)) { tanya.push(`${a.aksi} — di luar akses ${nama} (${K.kemampuan[a.kemampuan].nama})`); continue; }
     if (a.jenjang === 3) { tanya.push(`${a.aksi} — jenjang 3, keputusan pemilik`); continue; }
     if (a.jenjang === 2) {
@@ -336,7 +352,8 @@ export function catatSesudah(input, K) {
     else if (a.jenjang >= 2) rekam.push({ jenis: a.jenis ?? "ubah", jenjang: a.jenjang, kemampuan: a.kemampuan, aksi: a.aksi });
   }
   if (!rekam.length) return null;
-  const dasar = { waktu: new Date().toISOString(), sesi: input.session_id ?? null, jabatan: sesi.jabatan, tugas: tugasTerakhir(input.transcript_path),
+  const dasar = { waktu: new Date().toISOString(), sesi: input.session_id ?? null, jabatan: sesi.jabatan,
+    ...(sesi.subagent ? { subagent: input.agent_type, induk: sesi.induk } : {}), tugas: tugasTerakhir(input.transcript_path),
     cwd: input.cwd ?? null, alat: input.tool_name, ringkasan: samarkan(ringkasan) };
   fs.mkdirSync(DIR_AUDIT, { recursive: true });
   for (const r of rekam) fs.appendFileSync(berkasAudit(), `${JSON.stringify({ ...dasar, ...r })}\n`);

@@ -228,15 +228,26 @@ test("pasang & lepas: idempoten, cadangan dibuat, settings lain utuh", () => {
   assert.equal(statusPasang(), false);
 });
 
-test("subagent peran rudis-<id> memakai jabatannya sendiri, bukan jabatan sesi pemanggil", async () => {
-  const i = bash(COO, "ssh vps-uji 'sudo systemctl restart nginx'", { agent_type: "rudis-research-analyst", agent_id: "a1" });
-  const p = putuskan(i, K);
-  assert.equal(p.keputusan, "ask");
-  assert.match(JSON.stringify(p), /Research Analyst/);
+test("subagent peran rudis-<id>: tercatat dengan jabatannya, akses hanya menyempit", async () => {
   const { kenaliSesi } = await import("./kebijakan.mjs");
-  assert.equal(kenaliSesi(i, K).jabatan, "research-analyst");
+  const SA_RUANG = path.join(ROOT, "ruang", "system-administrator");
+  const sub = (cwd, cmd, tipe) => bash(cwd, cmd, { agent_type: tipe, agent_id: "a1" });
+  // jabatan tercatat = peran subagent, induk = jabatan sesi pemanggil
+  const s = kenaliSesi(sub(COO, "ls", "rudis-research-analyst"), K);
+  assert.deepEqual([s.jabatan, s.induk, s.subagent], ["research-analyst", "coo", true]);
+  // eskalasi ditolak: COO memanggil subagent SysAdmin untuk ssh → tetap ditanya (COO tidak punya akses server)
+  const e = putuskan(sub(COO, "ssh vps-uji uptime", "rudis-system-administrator"), K);
+  assert.equal(e.keputusan, "ask");
+  assert.match(e.alasan, /di luar akses COO/);
+  // sesi pribadi (bukan RudisOne) memanggil subagent SysAdmin → tidak pernah diloloskan
+  const p = putuskan(sub(path.join(tmp, "pribadi"), "ssh vps-uji \"mysql app -e 'select 1'\"", "rudis-system-administrator"), K);
+  assert.equal(p.keputusan, "ask");
+  assert.match(p.alasan, /bukan sesi RudisOne/);
+  // menyempit: sesi SysAdmin memanggil subagent Research Analyst untuk ssh → ditanya (RA tidak punya akses server)
+  assert.equal(putuskan(sub(SA_RUANG, "ssh vps-uji uptime", "rudis-research-analyst"), K).keputusan, "ask");
+  // sesi SysAdmin + subagent SysAdmin: jenjang 1 boleh, jenjang 2 selalu ditanya
+  assert.equal(putuskan(sub(SA_RUANG, "ssh vps-uji uptime", "rudis-system-administrator"), K).keputusan, "allow");
+  // tipe subagent lain (bukan rudis-) memakai jabatan sesi
   assert.equal(kenaliSesi(bash(COO, "ls", { agent_type: "Explore" }), K).jabatan, "coo");
-  // tipe subagent lain (bukan rudis-) tetap memakai jabatan sesi (COO di akar repo)
-  const j = putuskan(bash(COO, "ls", { agent_type: "Explore" }), K);
-  assert.notEqual(j.keputusan, "deny");
 });
+
