@@ -1,9 +1,12 @@
-# Backend sesi `cli` — padanan alat sesi Claude Desktop (Linux & Windows/WSL2)
+# Backend sesi `cli` — padanan alat sesi Claude Desktop (Linux, WSL2, Claude Code CLI & ekstensi VS Code)
 
-Dipakai COO bila `bin/sesi.sh backend` mencetak `cli` (device tanpa Claude Desktop; `konfigurasi/sesi.json`, ditulis
-`install.sh`). Aturan organisasi tidak berubah — yang berubah hanya **alat** untuk membentuk, menyapa, dan menghentikan sesi.
-Satu backend per device: jangan mencampur sesi Desktop dan sesi CLI. **Belum diuji di mesin Linux sungguhan**
-(T-20261030-11: simulasi + `claude` tiruan) — bila perilaku CLI berbeda dari tabel ini, laporkan ke pengguna, jangan diakali.
+Dipakai COO bila backend efektifnya `cli`: `bin/sesi.sh backend` mencetak `cli` (device tanpa Claude Desktop; `konfigurasi/sesi.json`,
+ditulis `install.mjs`), atau mencetak `auto` dan alat sesi Claude Desktop tidak ada di daftar alatmu (CLI/ekstensi VS Code di
+macOS/Windows). Aturan organisasi tidak berubah — yang berubah hanya **alat** untuk membentuk, menyapa, dan menghentikan sesi.
+Satu COO memakai satu backend selama sesinya: jangan mencampur sesi Desktop dan sesi CLI dalam satu tugas. **Belum diuji di mesin
+Linux sungguhan** (T-20261030-11: simulasi + `claude` tiruan). Windows 11 native (Claude Code 2.1.302) teruji untuk `claude --bg`,
+`claude agents --json --all`, `claude logs` (keluarannya dump layar ber-kode ANSI) dan `claude rm <id>` (memakai **id**, bukan nama);
+`SendMessage`/`attach` belum diuji di sana. Bila perilaku CLI berbeda dari tabel ini, laporkan ke pengguna, jangan diakali.
 
 ## Prasyarat (sekali per device, oleh pengguna)
 - Claude Code CLI **≥ 2.1.300** (`claude --version`; perbarui `claude update`). COO sendiri berjalan di terminal (`claude`).

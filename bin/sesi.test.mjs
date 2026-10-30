@@ -40,8 +40,8 @@ fs.writeFileSync(AGENTS, JSON.stringify([
 const m = await import(pathToFileURL(SKRIP).href);
 
 test("deteksi & folder Desktop per OS; konfigurasi/sesi.json menang atas deteksi", () => {
-  assert.equal(m.deteksi("darwin"), "desktop");
-  assert.equal(m.deteksi("win32"), "desktop");
+  assert.equal(m.deteksi("darwin"), "auto");
+  assert.equal(m.deteksi("win32"), "auto");
   assert.equal(m.deteksi("linux"), "cli");
   assert.equal(m.folderDesktop("darwin", {}, "/Users/u"), "/Users/u/Library/Application Support/Claude/claude-code-sessions");
   assert.equal(m.folderDesktop("linux", {}, "/home/u"), "/home/u/.config/Claude/claude-code-sessions");
@@ -129,4 +129,24 @@ test("normalAgents tahan JSON aneh; nama tak aman tidak dipakai di perintah atta
   assert.deepEqual(m.normalAgents({ bukan: "larik" }), []);
   const e = m.normalAgents([{ sessionId: "sid-1", name: "x; rm -rf ~", state: "blocked" }])[0];
   assert.equal(e.perintah, "claude attach sid-1");
+});
+
+test("backend auto: sumber baca = cli + desktop; daftar menampilkan sesi CLI; cek informatif dan tidak menggagalkan", () => {
+  assert.deepEqual(m.sumberBaca("auto"), ["cli", "desktop"]);
+  assert.deepEqual(m.sumberBaca("cli"), ["cli"]);
+  assert.deepEqual(m.sumberBaca("desktop"), ["desktop"]);
+  tulisSesi("auto");
+  assert.equal(sesi("backend").stdout.trim(), "auto (konfigurasi/sesi.json)");
+  const d = sesi("daftar");
+  assert.equal(d.status, 0, d.stderr);
+  assert.match(d.stdout, /r1-lead-toko/);
+  assert.match(d.stdout, /backend auto: sesi yang dibentuk lewat alat Desktop tidak tercantum/);
+  // folder belum dipercaya CLI + auto: tetap exit 0 (jalur Desktop mungkin yang dipakai)
+  fs.writeFileSync(CLAUDE_JSON, JSON.stringify({ projects: {} }));
+  const c = sesi("cek");
+  assert.equal(c.status, 0, c.stdout);
+  assert.match(c.stdout, /backend auto: Desktop dipakai bila alat sesinya ada/);
+  assert.match(c.stdout, /folder belum dipercaya CLI/);
+  tulisSesi("cli");
+  assert.equal(sesi("cek").status, 1, "backend cli murni: folder belum dipercaya = perlu perhatian");
 });

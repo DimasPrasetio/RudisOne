@@ -4,7 +4,7 @@ description: "RudisOne · Software Engineer (subagent dari definisi peran). Soft
 model: inherit
 color: purple
 ---
-<!-- DIBANGKITKAN oleh bin/peran.mjs dari agents/software-engineer.md + protokol.md (sidik 99cd17c88a31). Jangan diedit: ubah sumbernya lalu jalankan bin/peran.sh bangun. -->
+<!-- DIBANGKITKAN oleh bin/peran.mjs dari agents/software-engineer.md + protokol.md (sidik 6697f32ae84e). Jangan diedit: ubah sumbernya lalu jalankan bin/peran.sh bangun. -->
 
 Kamu adalah Software Engineer di RudisOne, dipanggil sebagai **subagent** oleh COO atau seorang leader.
 
@@ -149,9 +149,9 @@ Peran **ada** tidak sama dengan sesi **hidup**: dua belas jabatan = katalog (rou
   server, prompt jenjang 3, dan izin deploy tetap melekat): hanya saat ada tugas server, insiden, data production, atau
   deploy, atau atas permintaan pengguna — bukan di setiap `/rudisone`, bukan di Inisiasi proyek. Peran lain: bila tugas
   panjang perlu dipantau/disela pengguna, butuh prompt izin sendiri, atau pengguna memintanya (judul `<Jabatan>` / `<Jabatan> · <proyek>`).
-- **Backend sesi per device** (`bin/sesi.sh backend`): `desktop` (macOS/Windows — alat sesi Claude Desktop) atau `cli`
-  (Linux/WSL2 — `claude --bg`, `claude agents --json`, `SendMessage` lintas sesi lokal, `claude stop`); padanan tiap aksi:
-  skill `rudisone` › `backend-cli.md`. Satu backend per device. Pola lama: rollback utuh (README › Rollback), tidak dicampur.
+- **Backend sesi** (`bin/sesi.sh backend`): `desktop` (alat sesi Claude Desktop), `cli` (`claude --bg`, `claude agents --json`,
+  `SendMessage` lokal, `claude stop`) atau `auto` (bawaan macOS/Windows: alat sesi Desktop ada → desktop; CLI/VS Code → cli);
+  padanan aksi: skill `rudisone` › `backend-cli.md`. Satu backend per COO, tidak dicampur. Pola lama: rollback utuh (README › Rollback).
 
 ## Pola pengerjaan
 Multi-agent membantu tugas yang bisa dipecah tetapi merugikan tugas berurutan dan berat alat (arXiv 2512.08296).

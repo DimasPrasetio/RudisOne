@@ -14,7 +14,7 @@ import { fileURLToPath } from "node:url";
 import { bangun as bangunPeran, daftarPeran } from "./peran.mjs";
 import { periksaTautan } from "./lib/tautan.mjs";
 import { deteksiProyek } from "./perkakas.mjs";
-import { agentsCli, backendSesi, folderDesktop, normalAgents } from "./sesi.mjs";
+import { agentsCli, backendSesi, folderDesktop, normalAgents, sumberBaca } from "./sesi.mjs";
 
 const HOME = os.homedir();
 const INI = fileURLToPath(import.meta.url);
@@ -195,14 +195,19 @@ export function cekPemetaan(root = ROOT, ref = null) {
 function sesiDesktop() {
   const m = new Map();
   // backend cli: sesi dari `claude agents --json --all`, dikenali lewat session id dan nama (`--name`)
-  if (backendSesi().backend === "cli") {
+  // backend auto: kedua sumber dibaca; null hanya bila tak satu pun terbaca
+  const sumber = sumberBaca();
+  let terbaca = false;
+  if (sumber.includes("cli")) {
     const d = agentsCli();
-    if (!d) return null;
-    for (const e of normalAgents(d)) { const v = { arsip: e.archived, judul: e.title ?? "" }; m.set(e.cli, v); m.set(e.localId, v); }
-    return m;
+    if (d) {
+      terbaca = true;
+      for (const e of normalAgents(d)) { const v = { arsip: e.archived, judul: e.title ?? "" }; m.set(e.cli, v); m.set(e.localId, v); }
+    }
+    if (!sumber.includes("desktop")) return d ? m : null;
   }
   let akun = [];
-  try { akun = fs.readdirSync(DESKTOP); } catch { return null; }
+  try { akun = fs.readdirSync(DESKTOP); terbaca = true; } catch { return terbaca ? m : null; }
   for (const a of akun) {
     let orgs = []; try { orgs = fs.readdirSync(path.join(DESKTOP, a)); } catch { continue; }
     for (const o of orgs) {
@@ -262,7 +267,8 @@ export function cekDevice(root = ROOT) {
       const m = baris.match(/^\|\s*([^|]+?)\s*\|.*?`(local_[0-9a-f-]{8,}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})`/);
       if (!m) continue;
       const [, peran, id] = m;
-      const asal = backendSesi().backend === "cli" ? "claude agents --json --all" : "sesi Desktop";
+      const b = backendSesi().backend;
+      const asal = b === "cli" ? "claude agents --json --all" : b === "auto" ? "claude agents --json --all dan sesi Desktop" : "sesi Desktop";
       if (!sesi) { catat("info", "team", `metadata ${asal} tidak terbaca — TEAM.md tidak dicocokkan`); break; }
       const s = sesi.get(id);
       if (!s) catat("peringatan", "team", `TEAM.md: ${peran} → ${id} tidak ditemukan di ${asal}`);

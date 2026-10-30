@@ -100,8 +100,9 @@ RudisOne berjalan di **macOS**, **Linux**, dan **Windows lewat WSL2** (jalur Lin
   `ruang/*/.claude/agents/*.md`) adalah salinan terbangkit dari `agents/<id-peran>.md` (`bin/peran.sh bangun`; diperiksa
   `bin/peran.sh cek`). Yang masih memakai symlink hanya tautan `install.sh` ke `~/.claude` (skill & subagent).
 - **Akhir baris:** `.gitattributes` memaksa LF di semua OS (termasuk `core.autocrlf=true` bawaan Git for Windows).
-- **Backend sesi** (`bin/sesi.sh backend`, dicatat `install.sh` di `konfigurasi/sesi.json`): macOS/Windows → `desktop`
-  (alat sesi Claude Desktop); Linux/WSL2 → `cli`: COO membentuk sesi Tech Lead/IT Operations dengan `claude --bg`, bertukar
+- **Backend sesi** (`bin/sesi.sh backend`, dicatat `install.mjs` di `konfigurasi/sesi.json`): macOS/Windows → `auto` (COO memilih
+  per sesi: alat sesi Claude Desktop ada → `desktop`; Claude Code CLI atau ekstensi VS Code → `cli`); Linux/WSL2 → `cli`.
+  Instalasi lama yang mencatat `desktop` tetap berlaku. Backend `cli`: COO membentuk sesi Tech Lead/IT Operations dengan `claude --bg`, bertukar
   pesan dengan `SendMessage` ke nama sesi, membaca status dari `claude agents --json`, menghentikan dengan `claude stop`
   (`skills/rudisone/backend-cli.md`). Syarat backend cli: Claude Code **≥ 2.1.300**, dan setiap folder sesi dipercaya
   sekali — `bin/sesi.sh cek` mencetak daftar `cd <folder> && claude` (terima prompt, `/exit`), termasuk worktree Tech Lead

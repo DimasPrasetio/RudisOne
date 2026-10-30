@@ -10,7 +10,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { bacaKonfig } from "../bin/konfig.mjs";
-import { agentsCli, backendSesi, folderDesktop, normalAgents } from "../bin/sesi.mjs";
+import { agentsCli, folderDesktop, normalAgents, sumberBaca } from "../bin/sesi.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const HOME = os.homedir();
@@ -190,11 +190,12 @@ const desktopCache = new Map(); // file → {mtimeMs, entry}
 function loadDesktop(now) {
   if (now - desktopReadAt < 10e3) return;
   desktopReadAt = now;
-  if (backendSesi().backend === "cli") {
-    try { desktop = new Map(normalAgents(agentsCli({ timeout: 4000 })).map((e) => [e.cli, e])); } catch { desktop = new Map(); }
-    return;
-  }
+  const sumber = sumberBaca();   // "auto": sesi dari `claude agents` dan metadata Desktop digabung
   const next = new Map();
+  if (sumber.includes("cli")) {
+    try { for (const e of normalAgents(agentsCli({ timeout: 4000 }))) next.set(e.cli, e); } catch { /* CLI tidak ada */ }
+    if (!sumber.includes("desktop")) { desktop = next; return; }
+  }
   let accounts = [];
   try { accounts = fs.readdirSync(DESKTOP_SESSIONS); } catch { desktop = next; return; }
   for (const a of accounts) {

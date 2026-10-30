@@ -133,10 +133,11 @@ else fail("Claude Code CLI tidak ditemukan (opsional bila hanya memakai Claude D
 {
   const d = node("sesi.mjs", ["deteksi", "--tulis"]);
   pass(`backend sesi: ${String(d.stdout).trim()}`);
-  if (String(node("sesi.mjs", ["backend"]).stdout).split(" ")[0] === "cli") {
+  const be = String(node("sesi.mjs", ["backend"]).stdout).split(" ")[0];
+  if (be === "cli" || be === "auto") {
     const c = node("sesi.mjs", ["cek"]);
     for (const l of String(c.stdout).split(/\r?\n/).slice(1).filter(Boolean)) cetak(`  ${l}`);
-    if (c.status === 0) pass("backend sesi cli siap");
+    if (c.status === 0) pass(be === "cli" ? "backend sesi cli siap" : "jalur CLI/VS Code (backend auto) tersedia");
     else fail("backend sesi cli perlu perhatian (lihat baris di atas) — sesi Tech Lead/IT Operations belum bisa dibentuk");
   }
 }
