@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Kebijakan akses & batas kewenangan RudisOne — hook PreToolUse/PostToolUse Claude Code + perintah pengelola.
 // Jenjang & akses jabatan hanya di sesi RudisOne (COO, divisi, tim engineering); sesi pribadi dilewati tanpa jejak,
-// KECUALI berkas terlindung (kebijakan, konfigurasi, audit, settings, transkrip, rc shell) → ask di sesi mana pun.
+// KECUALI penulisan nyata ke berkas terlindung (kebijakan, konfigurasi, audit, settings, transkrip, rc shell) → ask di
+// sesi mana pun (membaca/menjalankan/menyebut tidak ditanya).
 // Jenjang 1 (baca) → allow · jenjang 2 (rutin, syarat terpenuhi) → allow · jenjang 3 / di luar akses jabatan → ask.
 // `allow` hanya bila SETIAP bagian perintah majemuk dikenali aman; sisanya ke alur izin biasa. Jabatan dari folder AWAL
 // sesi / pesan pertama, bukan folder sekarang. Galat apa pun → keluar 0 tanpa keputusan (gagal terbuka) — larangan
@@ -521,14 +522,16 @@ function klasifikasiSegmen(s, K, ctx) {
 
 // ---------- berkas terlindung (T-20261030-5 · F2) ----------
 // Berkas yang menentukan keputusan hook ini atau izin Claude Code. Write/Edit/MultiEdit/NotebookEdit ke sana, dan
-// perintah Bash yang menyebutnya tetapi tidak sepenuhnya baca, SELALU "ask" — di semua sesi. Batas: Bash yang
-// menyamarkan path (variabel, glob, base64, skrip) tidak terlihat; penegakan kerasnya permissions.deny + sandbox
-// (skills/rudis-operasi › Berkas terlindung).
+// perintah Bash yang MENULISNYA secara nyata (targetTulis), SELALU "ask" — di semua sesi. Membaca/menjalankan/menyebut
+// tidak (A9). Batas: penulisan yang disamarkan (variabel, glob, interpreter, skrip) tidak terlihat; penegakan kerasnya
+// permissions.deny + sandbox (skills/rudis-operasi › Berkas terlindung).
 const NAMA_TERLINDUNG = [
   /kebijakan-akses\.json/i, /kebijakan\.(mjs|sh)/i, /konfig\.(mjs|sh)/i, /inti\.(mjs|sh)/i, /rilis-cek\.(sh|mjs)/i,
   /(^|\/)konfigurasi(\/|$)/i, /handoff\/audit/i, /(^|\/)\.sesi(\/|$)/i, /(^|\/)\d{4}-\d{2}\.jsonl$/i,
   // ~/.claude: hanya bagian yang memengaruhi izin/identitas — bukan tool-results, plans, memory, worktrees
-  /\.claude\/?$/i, /\.claude\.json/i, /\.claude\/(agents|skills|commands|shell-snapshots|hooks)(\/|$)/i, /\.claude\/projects\/.*\.jsonl$/i,
+  // agents/skills/commands/shell-snapshots hanya di ~/.claude milik pengguna (skill proyek di repo = kerja Engineering biasa)
+  /^(~|\$\{?HOME\}?|\/Users\/[^/]+|\/home\/[^/]+)\/\.claude\/?$/i, /\.claude\.json/i, /\.claude\/projects\/.*\.jsonl$/i,
+  /^(~|\$\{?HOME\}?|\/Users\/[^/]+|\/home\/[^/]+)\/\.claude\/(agents|skills|commands|shell-snapshots|hooks)(\/|$)/i,
   /(^|\/)settings(\.local)?\.json/i, /\.mcp\.json/i,
   /(^|\/)\.(zshrc|zshenv|zprofile|bashrc|bash_profile|profile)$/i, /register-tugas\.json/i,
 ];
@@ -572,7 +575,7 @@ export function sebabTerlindung(p, ikuti = true, leluhur = false) {
     if (leluhur) {
       const sasaran = [...L.berkas, ...L.folder, ...L.proyek];
       const boleh = leluhur === "semua" || L.akar.some((r) => c !== r && dalam(c, r)) || L.claude.some((r) => dalam(c, r));
-      if (boleh && sasaran.some((t) => t !== c && dalam(t, c))) return `folder induk berkas terlindung ${c}`;
+      if (boleh && sasaran.some((t) => dalam(t, c))) return `folder induk berkas terlindung ${c}`;
     }
   }
   if (ikuti) {
@@ -582,6 +585,55 @@ export function sebabTerlindung(p, ikuti = true, leluhur = false) {
     } catch { /* belum ada */ }
   }
   return null;
+}
+
+/** Target penulisan satu segmen: [{ path, leluhur }]. `leluhur` = menghapus/memindah folder induk juga terhitung
+ *  (rm -rf handoff, mv <ROOT> …). Penulisan yang tidak bisa ditentukan (interpreter, skrip, sudo/xargs) → tidak ada
+ *  target → alur izin biasa; permissions.deny/ask (Edit) & sandbox yang menjaganya. */
+const TULIS_SEMUA = /^(rm|rmdir|unlink|truncate|chmod|chown|chflags|touch|tee|shred|trash|mv|srm)$/;
+const HAPUS_INDUK = /^(rm|rmdir|trash|mv|srm)$/;
+const TULIS_TUJUAN = /^(cp|ln|install|rsync|ditto|gcp)$/;
+const SUNTING_DI_TEMPAT = /^(sed|gsed|perl|ruby)$/;
+const GIT_TULIS_PATH = /^(checkout|restore|rm|mv|clean|reset|stash|apply|am|checkout-index)$/;
+export function targetTulis(s, cwd) {
+  const out = [];
+  for (const a of s.alih) if (/>/.test(a.op) && !/&$/.test(a.op) && a.target && !/^\/dev\//.test(a.target)) out.push({ path: a.target, leluhur: false });
+  const w = s.kata.map((x) => x.nilai);
+  let i = 0;
+  while (i < w.length && /^[A-Za-z_][A-Za-z0-9_]*=/.test(w[i])) i++;
+  const prog = path.basename(w[i] ?? "");
+  const args = w.slice(i + 1);
+  const bukanOpsi = (xs) => { const r = []; let habis = false; for (const x of xs) { if (habis || !x.startsWith("-") || x === "-") r.push(x); else if (x === "--") habis = true; } return r; };
+  const keDir = (tujuan, sumber) => {
+    let dir = /\/$/.test(tujuan);
+    if (!dir && cwd) { try { dir = fs.statSync(path.resolve(cwd, rumah(tujuan))).isDirectory(); } catch { /* belum ada */ } }
+    return dir ? [tujuan, ...sumber.map((x) => path.join(tujuan, path.basename(x)))] : [tujuan];
+  };
+  if (TULIS_SEMUA.test(prog)) for (const x of bukanOpsi(args)) out.push({ path: x, leluhur: HAPUS_INDUK.test(prog) });
+  else if (TULIS_TUJUAN.test(prog)) {
+    const p = bukanOpsi(args);
+    const t = args.findIndex((x) => x === "-t" || x === "--target-directory");
+    const tujuan = t >= 0 ? args[t + 1] : (args.find((x) => x.startsWith("--target-directory="))?.slice(19) ?? p.at(-1));
+    if (tujuan && (p.length > 1 || t >= 0)) for (const x of keDir(tujuan, p.filter((x) => x !== tujuan))) out.push({ path: x, leluhur: false });
+  } else if (SUNTING_DI_TEMPAT.test(prog) && args.some((x) => /^-[A-Za-z]*i/.test(x) || /^--in-place/.test(x))) {
+    for (const x of bukanOpsi(args)) out.push({ path: x, leluhur: false });
+  } else if (prog === "dd") {
+    for (const x of args) if (x.startsWith("of=")) out.push({ path: x.slice(3), leluhur: false });
+  } else if (prog === "tar" || prog === "unzip" || prog === "bsdtar") {
+    const ekstrak = prog === "unzip" || args.some((x) => /^(-[A-Za-z]*x|--extract|x[A-Za-z]*$)/.test(x));
+    if (ekstrak) {
+      const dir = args.map((x, j) => (x === "-C" || x === "--directory" || x === "-d" ? args[j + 1] : /^-C./.test(x) ? x.slice(2) : x.startsWith("--directory=") ? x.slice(12) : null)).find(Boolean);
+      out.push({ path: dir ?? ".", leluhur: false });
+    }
+  } else if (prog === "git") {
+    let j = 0; const pre = [];
+    while (j < args.length && args[j].startsWith("-")) { if (["-C", "-c", "--git-dir", "--work-tree"].includes(args[j])) { if (args[j] === "-C") pre.push(args[j + 1]); j += 2; } else j++; }
+    if (GIT_TULIS_PATH.test(args[j] ?? "")) {
+      const basis = pre.at(-1);
+      for (const x of bukanOpsi(args.slice(j + 1))) out.push({ path: basis ? path.join(basis, x) : x, leluhur: true });
+    }
+  }
+  return out.filter((t) => t.path);
 }
 
 /** Analisis lengkap satu perintah Bash. */
@@ -596,20 +648,12 @@ function analisisBash(input, K) {
     const h = klasifikasiSegmen(s, K, ctx);
     hasil.push(h);
     if (h.ubahSendiri) ubahSendiri = true;
-    // semua kata kecuali nama program (menjalankan bin/<x>.sh bukan mengubahnya) + target pengalihan
-    const iProg = s.kata.findIndex((x) => !/^[A-Za-z_][A-Za-z0-9_]*=/.test(x.nilai));
-    const kandidat = [...s.kata.filter((_, i) => i !== iProg).map((x) => x.nilai), ...s.alih.map((a) => a.target)];
-    const prog = path.basename(s.kata[iProg]?.nilai ?? "");
-    const gitSub = prog === "git" ? s.kata.slice(iProg + 1).map((x) => x.nilai).filter((x, i, a) => !x.startsWith("-") && !["-C", "-c", "--git-dir", "--work-tree"].includes(a[i - 1]))[0] : null;
-    // folder induk berkas terlindung hanya relevan bagi program yang menghapus/memindah/menimpa (rm -rf handoff, mv <ROOT>)
-    const leluhur = PROGRAM_PERUSAK.test(prog) || (gitSub && GIT_PERUSAK.test(gitSub)) ? "semua" : false;
-    for (const k0 of kandidat) {
-      if (!k0 || sebut) continue;
-      for (const k of new Set([k0, k0.slice(k0.lastIndexOf("=") + 1), k0.replace(/^-[A-Za-z]/, "")])) {
-        if (!k || sebut) continue;
-        if (NAMA_TERLINDUNG.some((r) => r.test(k))) sebut = k;
-        else if (ctx.cwd && !k.startsWith("-")) sebut = sebabTerlindung(path.resolve(ctx.cwd, rumah(k)), false, leluhur);
-      }
+    // T-20261030-6 A9: hanya TARGET PENULISAN nyata yang diperiksa (pengalihan keluar, tee, sed/perl -i, cp/mv/rm/…,
+    // git checkout/restore/… dengan path). Membaca, menjalankan, menguji, atau sekadar menyebut path → bukan urusan ini.
+    for (const t of targetTulis(s, ctx.cwd)) {
+      if (sebut) break;
+      if (NAMA_TERLINDUNG.some((r) => r.test(t.path))) { sebut = t.path; break; }
+      if (ctx.cwd) sebut = sebabTerlindung(path.resolve(ctx.cwd, rumah(t.path)), false, t.leluhur ? "semua" : false);
     }
     const k0 = s.kata[0]?.nilai ?? "";
     if (/^(pushd|popd)$/.test(k0)) ctx.cwd = null;
@@ -620,9 +664,7 @@ function analisisBash(input, K) {
   }
   const aksi = hasil.flatMap((h) => h.aksi ?? []);
   const aman = !u.kompleks && !u.ekspansi && hasil.length > 0 && hasil.every((h) => h.aman);
-  // Menyebut berkas terlindung hanya boleh lolos bila SETIAP bagian perintah dikenali baca.
-  const bacaSaja = !u.kompleks && !u.ekspansi && hasil.every((h) => h.aman || h.bacaSendiri);
-  const terlindung = ubahSendiri ? "pengelola kebijakan/hook (pasang, lepas, …)" : sebut && !bacaSaja ? sebut : null;
+  const terlindung = ubahSendiri ? "pengelola kebijakan/hook (pasang, lepas, …)" : sebut;
   return { aksi, aman, terlindung, ringkasan: cmd };
 }
 

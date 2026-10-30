@@ -462,14 +462,16 @@ test("F2: symlink dan hardlink ke berkas terlindung tetap terlindung", () => {
 test("F2: Bash yang mengubah berkas terlindung → ask; yang hanya membaca tidak", () => {
   for (const c of [
     "echo x > ~/.claude/settings.json", "sed -i.bak s/a/b/ kebijakan-akses.json", "tee kebijakan-akses.json < /tmp/x",
-    "cp /tmp/x kebijakan-akses.json", "node -e \"require('fs').writeFileSync('kebijakan-akses.json','{}')\"",
+    "cp /tmp/x kebijakan-akses.json",
     "echo '{}' >> handoff/audit/2026-10.jsonl", "cd handoff && echo x >> audit/2026-10.jsonl", "echo x >> 2026-10.jsonl",
     "printf x > konfigurasi/server.json", "ln -s /tmp/x bin/kebijakan.mjs", "cat /tmp/x > 'kebij'\"akan-akses.json\"",
     "echo x > k\\ebijakan-akses.json", "bin/kebijakan.sh lepas --ya", `${ROOT}/bin/kebijakan.sh pasang --ya`,
     "node bin/kebijakan.mjs lepas --ya", "bin/inti.sh pasang", "echo 'alias gh=rm' >> ~/.zshrc",
     "rm -rf ~/.claude/shell-snapshots", "echo x > ruang/system-administrator/.claude/settings.local.json",
-    "cat kebijakan-akses.json $(echo) ", "git -C . add kebijakan-akses.json",
   ]) assert.equal(kep(bash(COO, c)), "ask", c);
+  // A9: penulisan yang tidak bisa ditentukan (interpreter, git add) atau sekadar menyebut → alur biasa, bukan ask/allow
+  for (const c of ["node -e \"require('fs').writeFileSync('kebijakan-akses.json','{}')\"", "cat kebijakan-akses.json $(echo) ",
+    "git -C . add kebijakan-akses.json"]) assert.equal(kep(bash(COO, c)), null, c);
   // dari cwd yang sudah di folder terlindung (cd pada panggilan sebelumnya)
   assert.equal(kep(bash(path.join(ROOT, "konfigurasi"), "echo x > server.json")), "ask");
   assert.equal(kep(bash(process.env.RUDISONE_AUDIT, "echo x >> 2026-10.jsonl")), "ask");
@@ -696,4 +698,37 @@ test("D1: hook yang dipanggil menulis denyut (≤1×/60 dtk) dengan versi; cek m
   assert.equal(fs.statSync(path.join(dir, ".denyut.json")).mtimeMs, t1);          // throttle
   let out = ""; try { out = execFileSync(process.execPath, [path.join(SINI, "kebijakan.mjs"), "cek"], { env }).toString(); } catch (e) { out = String(e.stdout); }
   assert.match(out, /Denyut hook: .*jam lalu/);
+});
+
+// ===================== T-20261030-6 A9 · berkas terlindung hanya untuk PENULISAN nyata =====================
+test("A9: membaca/menjalankan/menguji/menyebut berkas terlindung → bukan ask", () => {
+  const H = os.homedir(), AUD = process.env.RUDISONE_AUDIT;
+  for (const c of [
+    "node --test bin/*.test.mjs kantor/*.test.mjs", "bin/kebijakan.sh cek", `${ROOT}/bin/kebijakan.sh audit --verifikasi`,
+    `grep -n permissions ${H}/.claude/settings.json`, `python3 -c "import json;print(json.load(open('${H}/.claude/settings.json')).keys())"`,
+    "sed -n 1,40p bin/kebijakan.mjs", `cat ${AUD}/2026-10.jsonl | tail -3`, "bin/register.sh ubah T-20261030-6 --status berjalan",
+    "node bin/kebijakan.mjs uji '{\"tool_name\":\"Bash\"}'", `wc -l ${ROOT}/kebijakan-akses.json`, `git -C ${ROOT} log -3 -- bin/kebijakan.mjs`,
+    `git -C ${ROOT} diff --stat 570dba4..HEAD -- bin/ kebijakan-akses.json`, `ls ${H}/.claude/agents ${H}/.claude/skills`,
+    `node -e "console.log(require('fs').readFileSync('${ROOT}/kebijakan-akses.json','utf8').length)"`, `head -5 ${H}/.claude/projects/-x/a.jsonl`,
+    `cp ${ROOT}/kebijakan-akses.json /tmp/salinan.json`, `cd ${ROOT} && node --test bin/`, "shasum bin/kebijakan.mjs kebijakan-akses.json",
+  ]) assert.notEqual(kep(bash(COO, c)), "ask", c);
+});
+
+test("A9: penulisan nyata ke berkas/folder terlindung → ask", () => {
+  const H = os.homedir(), AUD = process.env.RUDISONE_AUDIT;
+  for (const c of [
+    "echo x > kebijakan-akses.json", `echo '{}' >> ${AUD}/2026-10.jsonl`, `printf x | tee ${H}/.claude/settings.json`,
+    "sed -i '' s/a/b/ bin/kebijakan.mjs", "perl -pi -e s/a/b/ kebijakan-akses.json", `cp /tmp/x ${ROOT}/bin/server-cek.sh`,
+    `cp /tmp/settings.json ${H}/.claude/`, `mv /tmp/x ${H}/.zshrc`, `mv ${ROOT}/bin /tmp/b`, `rm -f ${ROOT}/kebijakan-akses.json`,
+    `install -m 644 /tmp/x ${ROOT}/konfigurasi/server.json`, `ln -sf /tmp/x ${ROOT}/bin/kebijakan.mjs`, `truncate -s 0 ${AUD}/2026-10.jsonl`,
+    `chmod 777 ${ROOT}/bin/kebijakan.mjs`, `git -C ${ROOT} checkout HEAD~3 -- bin/kebijakan.mjs`, `git -C ${ROOT} restore kebijakan-akses.json`,
+    "git rm bin/kebijakan.mjs", `dd if=/dev/zero of=${ROOT}/kebijakan-akses.json count=1`, `tar -xf /tmp/e.tar -C ${ROOT}/bin`,
+    `rm -rf ${H}/.claude/projects`, "bin/kebijakan.sh lepas --ya",
+  ]) assert.equal(kep(bash(COO, c)), "ask", c);
+});
+
+test("A9: skill/command proyek di repo (bukan ~/.claude) bukan berkas terlindung", () => {
+  for (const c of ["mkdir -p p/.claude/skills/x && printf x > p/.claude/skills/x/SKILL.md", "T=/tmp/a; printf x > $T/p/.claude/skills/x/SKILL.md",
+    "cp /tmp/x .claude/commands/rudis.plan.md"]) assert.notEqual(kep(bash("/x/proyek", c)), "ask", c);
+  for (const c of ["printf x > ~/.claude/skills/x/SKILL.md", "printf x > $HOME/.claude/agents/rudis-x.md", "rm -rf ~/.claude"]) assert.equal(kep(bash("/x/proyek", c)), "ask", c);
 });
