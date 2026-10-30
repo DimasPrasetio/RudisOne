@@ -99,7 +99,7 @@ RudisOne berjalan di **macOS**, **Linux**, dan **Windows lewat WSL2** (jalur Lin
 - **Symlink:** repo memuat symlink (`.claude/agents/coo.md`, `ruang/*/.claude/agents/*.md`) dan `install.sh` menautkan
   skill & subagent ke `~/.claude`. macOS/Linux/WSL mendukungnya bawaan; pastikan `git config --get core.symlinks` tidak
   `false` (bila `false`: `git config core.symlinks true && git checkout -- .`).
-- Daftar uji Windows/WSL2 untuk rekan: `handoff/T-20261030-10/uji-windows.md` (per device, tidak di-commit; minta COO).
+- Daftar uji Linux & Windows/WSL2 untuk rekan: `handoff/T-20261030-10/uji-windows.md` (per device, tidak di-commit; minta COO).
 
 1. `git clone https://github.com/DimasPrasetio/RudisOne.git ~/Documents/Neuron/ai-agent/RudisOne` (repo publik; harus di path ini —
    peran dan aturan merujuk `~/Documents/Neuron/ai-agent/RudisOne`).

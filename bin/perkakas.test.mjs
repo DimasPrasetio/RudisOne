@@ -680,3 +680,20 @@ test("Linux: repo privat via askpass dari berkas rahasia; PAT belum ada → peri
     srv.close();
   }
 });
+
+test("tanpa RUDISONE_OS: penyimpan & perintah PAT mengikuti OS sebenarnya (darwin → Keychain, lainnya → pat)", () => {
+  fs.rmSync(RAHASIA, { recursive: true, force: true });
+  const env = { ...ENV, RUDISONE_PERKAKAS_MANIFEST: M_SDD };
+  delete env.RUDISONE_OS;
+  const r = spawnSync(path.join(ROOT, "bin", "rudis-sdd.sh"), ["init", "--here"], { env, encoding: "utf8" });
+  assert.equal(r.status, 0, r.stderr);
+  if (process.platform === "darwin") assert.match(r.stderr, /GL_TOKEN tidak ada di Keychain \(rudisone-rudis-sdd\).*security add-generic-password/);
+  else {
+    assert.match(r.stderr, /GL_TOKEN tidak ada di berkas rahasia \(.*\).*bin\/perkakas\.sh pat rudisone-rudis-sdd/);
+    // `pat` di bash memakai uname: Linux → berkas, bukan Keychain
+    const p = spawnSync(SKRIP_SH, ["pat", SDD_NYATA.auth.keychain], { env, input: `${PAT_UJI}\n`, encoding: "utf8" });
+    assert.equal(p.status, 0, p.stderr);
+    assert.equal(fs.statSync(BERKAS_PAT).mode & 0o777, 0o600);
+  }
+  fs.rmSync(RAHASIA, { recursive: true, force: true });
+});
