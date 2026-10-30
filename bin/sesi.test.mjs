@@ -116,3 +116,11 @@ test("cek (cli): versi, pengaman, dan folder yang belum dipercaya (persis, bukan
   assert.equal(sesi("cek").status, 0);
   assert.equal(sesi("tidak-ada").status, 3);
 });
+
+test("normalAgents tahan JSON aneh; nama tak aman tidak dipakai di perintah attach", () => {
+  assert.doesNotThrow(() => m.normalAgents([{ sessionId: "a", cwd: 123 }, null, 5, { sessionId: 7 }, { sessionId: "b; rm" }]));
+  assert.deepEqual(m.normalAgents([{ sessionId: "a", cwd: 123 }]).map((x) => x.cwd), [null]);
+  assert.deepEqual(m.normalAgents({ bukan: "larik" }), []);
+  const e = m.normalAgents([{ sessionId: "sid-1", name: "x; rm -rf ~", state: "blocked" }])[0];
+  assert.equal(e.perintah, "claude attach sid-1");
+});

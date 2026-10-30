@@ -73,16 +73,20 @@ export function judulDariNama(nama) {
 }
 const di = (p, akar) => { const a = path.resolve(p), b = path.resolve(akar); return a === b || a.startsWith(b + path.sep); };
 /** Sesi milik RudisOne: bernama r<n>-lead-… / rudis-…, atau berjalan di dalam repo RudisOne. */
-export const milikRudisOne = (s) => /^(r[1-3]-lead-|rudis-)/.test(s?.name ?? "") || (s?.cwd ? di(s.cwd, ROOT) : false);
+export const milikRudisOne = (s) => /^(r[1-3]-lead-|rudis-)/.test(String(s?.name ?? "")) || (typeof s?.cwd === "string" && s.cwd ? di(s.cwd, ROOT) : false);
+/** Nama yang aman disalin pengguna ke terminal; selain itu sessionId. */
+const aliasAman = (s) => (/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(String(s.name ?? "")) ? s.name : s.sessionId);
 
 /** Entri seragam untuk Kantor/metrik/cek-konsistensi: { cli, localId, title, archived, awaiting, state, waitingFor, cwd }. */
 export function normalAgents(daftar) {
-  return (daftar ?? []).filter((s) => s?.sessionId).map((s) => {
-    const state = s.state ?? s.status ?? "";
-    return { cli: s.sessionId, localId: s.name || s.sessionId, title: judulDariNama(s.name) ?? s.name ?? null,
+  return (Array.isArray(daftar) ? daftar : []).filter((s) => s && typeof s === "object" && typeof s.sessionId === "string"
+    && /^[A-Za-z0-9._-]+$/.test(s.sessionId)).map((s) => {
+    const state = String(s.state ?? s.status ?? "");
+    const nama = typeof s.name === "string" && s.name ? s.name : null;
+    return { cli: s.sessionId, localId: nama || s.sessionId, title: judulDariNama(nama) ?? nama,
       archived: /^(stopped|done|failed)$/.test(state), awaiting: state === "blocked" || !!s.waitingFor,
-      state, waitingFor: s.waitingFor ?? null, cwd: s.cwd ?? null, rudisOne: milikRudisOne(s),
-      perintah: state === "blocked" || s.waitingFor ? `claude attach ${s.name || s.sessionId}` : null };
+      state: String(state), waitingFor: typeof s.waitingFor === "string" ? s.waitingFor : null, cwd: typeof s.cwd === "string" ? s.cwd : null,
+      rudisOne: milikRudisOne(s), perintah: state === "blocked" || s.waitingFor ? `claude attach ${aliasAman(s)}` : null };
   });
 }
 

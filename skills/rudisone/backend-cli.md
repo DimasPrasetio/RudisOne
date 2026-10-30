@@ -27,12 +27,16 @@ Satu backend per device: jangan mencampur sesi Desktop dan sesi CLI. **Belum diu
 | Tautan sesi untuk prompt izin jenjang 3 | sesi `blocked` (`waitingFor: permission prompt`) → beri pengguna perintah `claude attach <nama>` (jawab prompt, `←` kembali) | Kantor menampilkannya |
 
 ## Aturan cli
-- **Prompt `--bg`** satu argumen dalam tanda kutip **tunggal**, tanpa `'`, `$`, atau backtick; isi panjang (brief) dikirim
-  sesudah "Siap" lewat `SendMessage`. Tanpa `--settings` pengaman, dengan opsi lain (`--add-dir`, `--mcp-config`,
-  `--allowedTools`, `--system-prompt`, …), atau `bypassPermissions` → hook kebijakan **menanyakan** pemilik.
+- **Bentuk tetap:** `claude --bg` di depan; opsi hanya `--name`, `--resume`, `--model`, `--permission-mode` (bukan bypass),
+  dan tepat satu `--settings` berupa **path absolut harfiah** (bukan `~`, bukan relatif); prompt satu argumen dalam tanda
+  kutip **tunggal**, tanpa `'`, `$`, atau backtick, dan bukan nama subperintah. Isi panjang (brief) dikirim sesudah "Siap"
+  lewat `SendMessage`. Bentuk lain (`--agent`, `--add-dir`, `--mcp-config`, pembungkus `bash -c`/`sudo`/`timeout`, …) atau
+  `bypassPermissions` → hook kebijakan **menanyakan** pemilik.
 - **Pengaman** `konfigurasi/sesi-cli.settings.json` (berkas terlindung): `worktree.bgIsolation: "none"` (sesi latar tidak
-  memindah diri ke worktree baru lalu commit/push/draft PR), deny `git push`/`gh pr create`/`glab mr create`/`claude rm`,
-  mode bypass dimatikan. Push tetap hanya atas permintaan pengguna (protokol › Akses).
+  memindah diri ke worktree baru lalu commit/push/draft PR — jangan setel `worktree.bgIsolation: "worktree"` di settings
+  pengguna/proyek, nilai itu menang), deny berbasis prefiks `git push`/`gh pr create|merge`/`glab mr create`/`claude rm`
+  (bentuk lain seperti `git -C x push` ditangkap hook kebijakan sebagai jenjang 3), mode bypass dimatikan. Push tetap hanya
+  atas permintaan pengguna (protokol › Akses).
 - Hanya COO yang membentuk/menghentikan sesi (`claude --bg`, `stop`/`kill`, `respawn`, `logs` = kemampuan `sesi`);
   jabatan lain → ditanya. `claude agents --json` dan `bin/sesi.sh backend|daftar|cek` boleh semua jabatan.
 - Tidak terikat giliran ketikan pengguna, tetapi sesi tetap dibentuk hanya untuk tugas yang sudah selaras dan dijadwalkan.

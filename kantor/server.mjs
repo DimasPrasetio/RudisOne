@@ -190,7 +190,10 @@ const desktopCache = new Map(); // file → {mtimeMs, entry}
 function loadDesktop(now) {
   if (now - desktopReadAt < 10e3) return;
   desktopReadAt = now;
-  if (backendSesi().backend === "cli") { desktop = new Map(normalAgents(agentsCli({ timeout: 4000 })).map((e) => [e.cli, e])); return; }
+  if (backendSesi().backend === "cli") {
+    try { desktop = new Map(normalAgents(agentsCli({ timeout: 4000 })).map((e) => [e.cli, e])); } catch { desktop = new Map(); }
+    return;
+  }
   const next = new Map();
   let accounts = [];
   try { accounts = fs.readdirSync(DESKTOP_SESSIONS); } catch { desktop = next; return; }
