@@ -860,6 +860,6 @@ test("backend sesi cli: claude --bg/stop/kill/respawn/logs hanya COO; rm/attach/
     "git commit -F - <<'EOF'\nfix: claude --bg; claude rm dilarang\nEOF", "grep -rn claude docs/bypass.md", "grep -n claude a.md -e bypassPermissions"])
     for (const cwd of [COO, path.join(ROOT, "ruang", "research-analyst")]) assert.notEqual(kep(bash(cwd, c)), "ask", c);
   // …tetapi yang benar-benar dijalankan shell tetap ditanya
-  for (const c of ["bash <<'EOF'\nclaude --bg x\nEOF", `bash -c 'claude --bg x'`, `echo "$(claude --bg x)"`, "echo \"`claude rm x`\""])
+  for (const c of ["bash <<'EOF'\nclaude --bg x\nEOF", "cat <<EOF | bash\nclaude --bg x\nEOF", `bash -c 'claude --bg x'`, `echo "$(claude --bg x)"`, "echo \"`claude rm x`\""])
     assert.equal(kep(bash(path.join(ROOT, "ruang", "research-analyst"), c)), "ask", c);
 });

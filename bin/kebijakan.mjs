@@ -591,8 +591,9 @@ const AWAL_CLAUDE = "(?:(?:^|[\\n;&|({`!]|\\$\\(|\\b(?:then|do|else)\\s|-c\\s*[\
 const CLAUDE_SESI_MENTAH = new RegExp(`${AWAL_CLAUDE}(?:[^;&|\\n\`)]*\\s)?(?:--bg|--background|stop|kill|respawn|rm|attach)\\b`);
 const CLAUDE_BYPASS_MENTAH = new RegExp(`${AWAL_CLAUDE}[^;&|\\n\`)]*bypass`, "i");
 const HEREDOC = /<<-?\s*(['"]?)([A-Za-z_]\w*)\1[^\n]*\n([\s\S]*?)(?:\n[ \t]*\2[ \t]*(?=\n|$)|$)/g;
-const keShell = (semua, off) => /(?:^|[;&|(]\s*)(?:\S*\/)?(?:ba|z|da|k)?sh(?:\s+-\S+)*\s*$/
-  .test(semua.slice(semua.lastIndexOf("\n", off) + 1, off).trimEnd());
+const SHELL = "(?:\\S*\\/)?(?:ba|z|da|k)?sh";
+const keShell = (semua, off) => new RegExp(`(?:^|[;&|(]\\s*)${SHELL}(?:\\s+-\\S+)*\\s*$`).test(semua.slice(semua.lastIndexOf("\n", off) + 1, off).trimEnd())
+  || new RegExp(`\\|\\s*${SHELL}\\b`).test(semua.slice(off, (semua.indexOf("\n", off) + 1 || semua.length + 1) - 1));   // cat <<EOF | bash
 /** Potongan badan heredoc (dipecah seperti pengurai: baris, ;, &&, ||, |) yang diberikan ke program selain shell. */
 function badanHeredoc(cmd) {
   const b = [];
