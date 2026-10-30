@@ -147,6 +147,8 @@ punya perubahan lokal, jadi **jangan merge langsung** — merge akan batal atau 
 Urutan aman (`agents/tech-lead.md` › Serah ke branch utama):
 ```bash
 cd ~/Documents/Neuron/ai-agent/RudisOne
+# cek dulu — skripnya baru ada di branch, jadi jalankan dari worktree branch itu terhadap checkout utama:
+RUDISONE_ROOT="$PWD" node <worktree rudis/T-20261030-2>/bin/cek-konsistensi.mjs --serah refs/heads/rudis/T-20261030-2
 git rm -r -q --cached catatan && git commit -m "chore: catatan/ per device, keluar dari git (T-20261030-2)"
 git merge --no-ff refs/heads/rudis/T-20261030-2
 ./install.sh
@@ -155,9 +157,10 @@ git merge --no-ff refs/heads/rudis/T-20261030-2
 
 ## Rollback ke pola lama (organisasi penuh sebagai sesi, protokol v4)
 Migrasi v5 (T-20261030-2) masuk sebagai satu merge commit, jadi bisa dibalik utuh:
-1. `git -C ~/Documents/Neuron/ai-agent/RudisOne revert -m 1 <sha-merge-T-20261030-2>` (atau `git checkout 3b1c888 -- .`
-   di branch baru untuk melihatnya dulu). `catatan/` tetap di device karena di-ignore; bila ingin melacaknya lagi,
-   hapus baris `/catatan/` dari `.gitignore` lalu `git add catatan`.
+1. Revert memulihkan `catatan/*.md` sebagai berkas terlacak dan akan bentrok dengan berkas tak terlacak di disk
+   ("untracked working tree files would be overwritten"). Pindahkan dulu, revert, lalu kembalikan isi device:
+   `mv catatan /tmp/catatan-cadangan && git revert -m 1 <sha-merge-T-20261030-2> && cp /tmp/catatan-cadangan/*.md catatan/`
+   (isi device menang; `git status` lalu menunjukkan perubahannya sebagai perubahan lokal biasa).
 2. `install.sh` lalu lepas hook pemuat ulang inti bila tidak dipakai lagi: `bin/inti.sh lepas`. Tautan subagent
    `~/.claude/agents/rudis-*.md` milik repo ini boleh dihapus (`find ~/.claude/agents -name 'rudis-*.md' -type l -delete`).
 3. Panggilan `/rudisone` berikutnya membentuk lagi organisasi penuh (pola v4); sesi lama yang masih tercatat di
