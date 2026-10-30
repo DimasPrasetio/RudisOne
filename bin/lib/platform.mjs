@@ -19,6 +19,8 @@ const kutip = (a) => (/[\s"&|<>^%()]/.test(a) || a === "" ? `"${String(a).replac
 /** spawnSync yang juga bisa menjalankan skrip .cmd/.bat dan shim npm (mis. claude.cmd) di Windows — Node tidak
  *  mau men-spawn berkas itu langsung. Di OS lain sama dengan spawnSync. */
 export function jalankan(cmd, args = [], opsi = {}) {
+  // windowsHide: pemanggil tanpa konsol (server Kantor berjalan tersembunyi) tidak boleh memunculkan jendela konsol baru tiap panggilan
+  opsi = { windowsHide: true, ...opsi };
   const lewatCmd = () => spawnSync(process.env.ComSpec || "cmd.exe", ["/d", "/s", "/c", [cmd, ...args].map(kutip).join(" ")],
     { ...opsi, windowsVerbatimArguments: true });
   if (WINDOWS && /\.(cmd|bat)$/i.test(cmd)) return lewatCmd();
@@ -49,7 +51,7 @@ export function bukaUrl(url, os = osLogis()) {
 export function cariBash() {
   if (process.env.RUDISONE_BASH) return process.env.RUDISONE_BASH;
   if (!WINDOWS) return "bash";
-  const g = spawnSync("git", ["--exec-path"], { encoding: "utf8" });
+  const g = spawnSync("git", ["--exec-path"], { encoding: "utf8", windowsHide: true });
   if (g.status === 0) {
     const ep = g.stdout.trim().replace(/\//g, path.sep);
     for (const rel of [["..", "..", "..", "bin", "bash.exe"], ["..", "..", "bin", "bash.exe"], ["..", "..", "..", "usr", "bin", "bash.exe"]]) {
