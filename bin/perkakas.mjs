@@ -20,7 +20,9 @@
 //   macOS → Keychain (`security`); Linux/WSL2 → berkas 0600 di ~/.config/rudisone/rahasia/<layanan> (folder 0700),
 //   diisi pengguna lewat `bin/perkakas.sh pat <layanan>` (PAT diketik saat diminta). git memanggil bin/perkakas.sh
 //   sebagai GIT_ASKPASS, dan skrip itu membaca penyimpan itu sendiri.
-import { spawnSync } from "node:child_process";
+import { cariBash, jalankan as jalankanProses, posix, tampilPath, tarZip } from "./lib/platform.mjs";
+import { ada as adaRahasia, baca as bacaRahasia, bacaTersembunyi, berkasRahasia as rahasiaBerkas, dirRahasia, jenisPenyimpan, layananSah,
+  pakaiKeychain, simpan as simpanRahasia } from "./lib/rahasia.mjs";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
@@ -35,19 +37,15 @@ const MANIFEST = process.env.RUDISONE_PERKAKAS_MANIFEST || path.join(ROOT, "perk
 const REGISTER = process.env.RUDISONE_REGISTER || path.join(ROOT, "handoff", "register-tugas.md");
 const STATE = process.env.RUDISONE_PERKAKAS_STATE || path.join(ROOT, "handoff", ".perkakas.json");
 const JEDA_FETCH_MS = 30 * 60 * 1000;
-const ASKPASS = path.join(ROOT, "bin", "perkakas.sh");
-const binKeychain = () => process.env.RUDISONE_KEYCHAIN_BIN || "security";
-/** macOS memakai Keychain; Linux & WSL2 memakai berkas rahasia (libsecret umumnya tidak berjalan di WSL/headless). */
-export const pakaiKeychain = () => (process.env.RUDISONE_OS || process.platform) === "darwin";
-export const dirRahasia = () => process.env.RUDISONE_RAHASIA_DIR
-  || path.join(process.env.XDG_CONFIG_HOME || path.join(os.homedir(), ".config"), "rudisone", "rahasia");
-const berkasRahasia = (layanan) => path.join(dirRahasia(), layanan);
-const tampilPath = (p) => (p.startsWith(`${os.homedir()}/`) ? `~${p.slice(os.homedir().length)}` : p);
+// Program yang dipanggil git sebagai GIT_ASKPASS. Windows: .cmd (git menjalankannya langsung); lainnya: pembungkus sh.
+const ASKPASS = path.join(ROOT, "bin", process.platform === "win32" ? "askpass.cmd" : "perkakas.sh");
+export { pakaiKeychain, dirRahasia };
+const berkasRahasia = rahasiaBerkas;
 
-const rumah = (p) => p.replace(/^~(?=\/|$)/, os.homedir());
+const rumah = (p) => path.normalize(p.replace(/^~(?=\/|$)/, os.homedir()));   // normalize: pemisah path sama di semua OS
 
 function jalankan(cmd, args, cwd, envTambah = {}, timeout = 120_000) {
-  const r = spawnSync(cmd, args, { cwd, encoding: "utf8", timeout,
+  const r = jalankanProses(cmd, args, { cwd, encoding: "utf8", timeout,
     env: { ...process.env, GIT_TERMINAL_PROMPT: "0", ...envTambah } });
   return { ok: r.status === 0, out: (r.stdout || "").trim(), err: (r.stderr || r.error?.message || "").trim() };
 }
@@ -65,35 +63,25 @@ function bacaManifest() {
 
 // ---- Penyimpan PAT: Keychain (macOS `security`) · berkas rahasia 0600 (Linux/WSL2) ----------------------------------
 
-/** Berkas rahasia sah: berkas biasa, berisi, dan tidak bisa dibaca grup/orang lain (mode lebih longgar → diabaikan). */
-function berkasRahasiaSah(layanan) {
-  try { const st = fs.statSync(berkasRahasia(layanan)); return st.isFile() && st.size > 0 && (st.mode & 0o077) === 0; }
-  catch { return false; }
-}
 /** Apakah PAT layanan ada — tanpa membaca nilainya. */
-export function adaPat(layanan) {
-  if (!pakaiKeychain()) return berkasRahasiaSah(layanan);
-  return spawnSync(binKeychain(), ["find-generic-password", "-s", layanan], { stdio: "ignore", timeout: 15_000 }).status === 0;
-}
+export const adaPat = adaRahasia;
 /** Nilai PAT, hanya untuk lingkungan proses anak (GL_TOKEN rudis); null bila tidak ada. */
-function bacaPat(layanan) {
-  if (!pakaiKeychain()) {
-    if (!berkasRahasiaSah(layanan)) return null;
-    const v = fs.readFileSync(berkasRahasia(layanan), "utf8").split(/\r?\n/)[0];
-    return v || null;
-  }
-  const r = spawnSync(binKeychain(), ["find-generic-password", "-s", layanan, "-w"],
-    { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: 15_000 });
-  return r.status === 0 && r.stdout.trim() ? r.stdout.replace(/\r?\n$/, "") : null;
-}
+const bacaPat = bacaRahasia;
 /** Nama penyimpan untuk pesan, mis. "Keychain (rudisone-rudis-sdd)". */
-export const namaPenyimpan = (layanan) => (pakaiKeychain() ? `Keychain (${layanan})`
-  : `berkas rahasia (${tampilPath(berkasRahasia(layanan))}, mode 0600)`);
+export const namaPenyimpan = (layanan) => {
+  const j = jenisPenyimpan();
+  return j === "keychain" ? `Keychain (${layanan})`
+    : j === "dpapi" ? `penyimpan terenkripsi Windows (${tampilPath(berkasRahasia(layanan))}, hanya akun ini)`
+      : `berkas rahasia (${tampilPath(berkasRahasia(layanan))}, mode 0600)`;
+};
 /** Perintah untuk pengguna; PAT selalu diketik saat diminta, tidak pernah di argumen.
- *  macOS: `-w` di akhir tanpa nilai → `security` meminta PAT. Linux/WSL2: `bin/perkakas.sh pat` membaca tanpa gema. */
-export const perintahPat = (layanan, perbarui = false) => (pakaiKeychain()
-  ? `security add-generic-password${perbarui ? " -U" : ""} -s ${layanan} -a "$USER" -w`
-  : `${tampilPath(ASKPASS)} pat ${layanan}`);
+ *  macOS: `-w` di akhir tanpa nilai → `security` meminta PAT. Windows/Linux/WSL2: `perkakas pat` membaca tanpa gema. */
+export const perintahPat = (layanan, perbarui = false) => {
+  const j = jenisPenyimpan();
+  if (j === "keychain") return `security add-generic-password${perbarui ? " -U" : ""} -s ${layanan} -a "$USER" -w`;
+  if (j === "dpapi") return `node ${tampilPath(path.join(ROOT, "bin", "perkakas.mjs"))} pat ${layanan}`;
+  return `${tampilPath(path.join(ROOT, "bin", "perkakas.sh"))} pat ${layanan}`;
+};
 
 /** Argumen + env git untuk entri ber-`auth`. PAT ada di penyimpannya → helper kredensial pengguna dimatikan untuk
  *  perintah itu (tidak ada yang tersimpan) dan git meminta PAT ke bin/perkakas.sh (mode GIT_ASKPASS). PAT belum
@@ -103,7 +91,8 @@ function aksesGit(t) {
   if (!layanan || !adaPat(layanan)) return { pat: false, args: [], env: {} };
   return { pat: true, args: ["-c", "credential.helper="],
     env: { GIT_ASKPASS: ASKPASS, RUDISONE_ASKPASS_LAYANAN: layanan, RUDISONE_ASKPASS_PENGGUNA: t.auth.pengguna || "oauth2",
-      ...(pakaiKeychain() ? {} : { RUDISONE_ASKPASS_BERKAS: berkasRahasia(layanan) }) } };
+      // berkas polos hanya untuk jenis "berkas"; Keychain dan DPAPI dibaca langsung oleh mode askpass
+      ...(jenisPenyimpan() === "berkas" ? { RUDISONE_ASKPASS_BERKAS: berkasRahasia(layanan) } : {}) } };
 }
 const GALAT_AUTH = /could not read (Username|Password)|Authentication failed|terminal prompts disabled|HTTP Basic: Access denied|returned error: 40[13]|\b40[13]\b/i;
 function pesanAuth(t, akses) {
@@ -277,8 +266,13 @@ function terpasangSamaDenganPaket(paket, terpasang) {
   if (!fs.existsSync(terpasang)) return false;
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "perkakas-"));
   try {
+    // unzip (macOS/Linux) → python3 → tar (bsdtar membuka zip: macOS, Windows 10+) → PowerShell Expand-Archive (Windows)
     let r = jalankan("unzip", ["-q", paket, "-d", tmp]);
     if (!r.ok) r = jalankan("python3", ["-c", "import sys,zipfile; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])", paket, tmp]);
+    if (!r.ok) r = jalankan(tarZip(), ["-xf", paket, "-C", tmp]);
+    if (!r.ok && process.platform === "win32") {
+      r = jalankan("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", `Expand-Archive -LiteralPath '${paket.replaceAll("'", "''")}' -DestinationPath '${tmp.replaceAll("'", "''")}' -Force`]);
+    }
     if (!r.ok) throw new Error(`paket tidak bisa dibuka: ${baris1(r.err)}`);
     const isi = path.join(tmp, path.basename(terpasang));
     return fs.existsSync(isi) && sidikFolder(isi) === sidikFolder(terpasang);
@@ -370,7 +364,7 @@ function siapkan(t, { ubah, segera, paksa, sibuk, state }) {
     else if (sibuk.length && !paksa) awas(`${nama}: skill terpasang beda dari paket, pemasangan ditunda — tugas Engineering berjalan: ${sibuk.join(", ")}`);
     else if (!ubah) awas(`${nama}: skill terpasang ${fs.existsSync(terpasang) ? "beda dari" : "belum ada; ada"} paket sumber`);
     else {
-      const r = jalankan("bash", [path.join(akar, t.pasang)], akar);
+      const r = jalankan(cariBash() ?? "bash", [posix(path.join(akar, t.pasang))], akar);
       if (r.ok && terpasangSamaDenganPaket(paket, terpasang)) ok(`${nama}: skill dipasang ulang dari paket sumber`);
       else awas(`${nama}: pemasangan gagal — ${baris1(r.err || r.out)}`);
     }
@@ -497,7 +491,7 @@ function sdd(manifest, args) {
   }
   for (const c of r.catatan) console.error(`[sdd] ${c}`);
   console.error(`[sdd] ${[cmd, ...awal, ...r.argv].join(" ")}`);
-  const p = spawnSync(process.env.RUDISONE_UVX_BIN || cmd, [...awal, ...r.argv], { stdio: "inherit", env });
+  const p = jalankanProses(process.env.RUDISONE_UVX_BIN || cmd, [...awal, ...r.argv], { stdio: "inherit", env });
   if (p.error) { console.error(`[sdd] ${cmd} gagal dijalankan: ${p.error.message}`); return 1; }
   return p.status ?? 1;
 }
@@ -555,4 +549,36 @@ function main(argv) {
   return perhatian ? 1 : 0;
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) process.exitCode = main(process.argv.slice(2));
+/** Mode GIT_ASKPASS — hanya saat perkakas.mjs menjalankan git untuk repo privat (env RUDISONE_ASKPASS_LAYANAN di proses git itu
+ *  saja). PAT dibaca dari penyimpannya di proses ini dan hanya diserahkan ke git lewat stdout: tidak pernah lewat argumen, env, atau log. */
+function askpass(prompt) {
+  if (/^Username/i.test(prompt)) { console.log(process.env.RUDISONE_ASKPASS_PENGGUNA || "oauth2"); return 0; }
+  const berkas = process.env.RUDISONE_ASKPASS_BERKAS;
+  const v = berkas ? (fs.readFileSync(berkas, "utf8").split(/\r?\n/)[0] || null) : bacaRahasia(process.env.RUDISONE_ASKPASS_LAYANAN);
+  if (!v) return 1;
+  console.log(v);
+  return 0;
+}
+
+/** `pat <layanan>` — PAT diketik saat diminta (tanpa gema), tidak pernah di argumen. macOS → Keychain (`security` meminta sendiri);
+ *  Windows → penyimpan terenkripsi DPAPI; lainnya → berkas 0600 di ~/.config/rudisone/rahasia/<layanan>. Dijalankan PENGGUNA. */
+async function pat(layanan) {
+  if (!layananSah(layanan)) { console.error("Pemakaian: bin/perkakas.sh pat <layanan>   (mis. rudisone-rudis-sdd)"); return 3; }
+  if (pakaiKeychain()) {
+    const r = jalankanProses(process.env.RUDISONE_KEYCHAIN_BIN || "security", ["add-generic-password", "-U", "-s", layanan, "-a", process.env.USER || os.userInfo().username, "-w"], { stdio: "inherit" });
+    return r.status ?? 1;
+  }
+  const v = (await bacaTersembunyi(`PAT untuk ${layanan} (tidak ditampilkan): `)).replace(/\r$/, "");
+  if (!v) { console.error("PAT kosong — tidak disimpan."); return 1; }
+  try { simpanRahasia(layanan, v); } catch (e) { console.error(`PAT gagal disimpan: ${e.message}`); return 1; }
+  const j = jenisPenyimpan();
+  console.error(`PAT ${layanan} tersimpan di ${tampilPath(rahasiaBerkas(layanan))} (${j === "dpapi" ? "terenkripsi DPAPI, hanya terbaca akun ini" : `mode 0600, hanya terbaca ${os.userInfo().username}`}).`);
+  return 0;
+}
+
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  const argv = process.argv.slice(2);
+  if (process.env.RUDISONE_ASKPASS_LAYANAN) process.exitCode = askpass(argv[0] ?? "");
+  else if (argv[0] === "pat") process.exitCode = await pat(argv[1]);
+  else process.exitCode = main(argv);
+}

@@ -19,8 +19,10 @@ folder mana pun ia dibuka) adalah pintu tunggal pengguna ke seluruh organisasi.
    tugas aktif; sesi IT Operations hanya saat ada tugas server/insiden/data production/deploy atau pengguna memintanya
    (bukan di setiap panggilan). **Jangan** membentuk divisi lain sebagai sesi:
    mereka dipanggil sebagai subagent `rudis-<id-peran>` saat ada tugasnya. Lalu `bin/perkakas.sh siapkan`. Giliran ini
-   dipicu ketikan pengguna, jadi `start_session` diizinkan. Device tanpa Claude Desktop (`bin/sesi.sh backend` = `cli`,
-   Linux/WSL2): alat sesi diganti padanannya di [backend-cli.md](backend-cli.md).
+   dipicu ketikan pengguna, jadi `start_session` diizinkan. **Pilih backend sesi** (`bin/sesi.sh backend`): `desktop` → alat
+   sesi Claude Desktop; `cli` → padanannya di [backend-cli.md](backend-cli.md) (device tanpa Desktop, mis. Linux/WSL2);
+   `auto` (bawaan macOS/Windows) → bila alat sesi Desktop (`start_session`, `list_sessions`, …) ada di daftar alatmu pakai
+   `desktop`, bila tidak ada (kamu berjalan di Claude Code CLI atau ekstensi VS Code) pakai `cli`.
 3. **Samakan persepsi dulu** atas permintaan pengguna: $ARGUMENTS
    Muat skill **`rudis-grill-me`** dan jalankan `agents/coo.md` › "Penyelarasan persepsi": daftarkan ID berstatus
    `penyelarasan` (`bin/register.sh tambah`), cari sendiri fakta yang bisa dicari, tanyakan cabang yang tersisa satu

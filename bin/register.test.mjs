@@ -6,6 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { jalankanSh } from "./lib/uji-util.mjs";
 
 const SINI = path.dirname(fileURLToPath(import.meta.url));
 const SKRIP = path.join(SINI, "register.mjs");
@@ -296,10 +297,10 @@ test("penulisan bersamaan: 12 proses tambah paralel → semua tugas ada, JSON va
 
 test("bin/register.sh meneruskan ke register.mjs", () => {
   const l = lokasi();
-  const r = spawnSync(path.join(SINI, "register.sh"), ["tampil"], { encoding: "utf8", env: { ...process.env, RUDISONE_REGISTER_JSON: l.json, RUDISONE_REGISTER_MD: l.md } });
+  const r = jalankanSh(path.join(SINI, "register.sh"), ["tampil"], { encoding: "utf8", env: { ...process.env, RUDISONE_REGISTER_JSON: l.json, RUDISONE_REGISTER_MD: l.md } });
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.stdout, /tidak ada tugas aktif/);
-  assert.equal(spawnSync(path.join(SINI, "register.sh"), ["tidak-dikenal"], { encoding: "utf8" }).status, 2);
+  assert.equal(jalankanSh(path.join(SINI, "register.sh"), ["tidak-dikenal"], { encoding: "utf8" }).status, 2);
 });
 
 test.after(() => fs.rmSync(tmp, { recursive: true, force: true }));
@@ -308,7 +309,7 @@ test("impor --timpa menyalin register JSON lama lebih dulu (bukti tidak hilang)"
   const { execFileSync } = await import("node:child_process");
   const d = fs.mkdtempSync(path.join(os.tmpdir(), "reg-timpa-"));
   const env = { ...process.env, RUDISONE_REGISTER_JSON: path.join(d, "register-tugas.json"), RUDISONE_REGISTER_MD: path.join(d, "register-tugas.md") };
-  const jalan = (...a) => execFileSync(process.execPath, [new URL("./register.mjs", import.meta.url).pathname, ...a], { env, encoding: "utf8" });
+  const jalan = (...a) => execFileSync(process.execPath, [fileURLToPath(new URL("./register.mjs", import.meta.url)), ...a], { env, encoding: "utf8" });
   jalan("tambah", "--judul", "uji", "--status", "baru", "--folder", "/x", "--divisi", "Engineering", "--pemilik", "Tech Lead", "--bukti", "sha abc");
   jalan("impor", "--timpa");
   const cadangan = fs.readdirSync(d).filter((f) => f.startsWith("register-tugas.json.sebelum-impor-"));

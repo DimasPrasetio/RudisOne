@@ -4,16 +4,16 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { palsu } from "../bin/lib/uji-util.mjs";
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "kantor-cli-"));
 const proj = path.join(tmp, "projects", "-toko");
 fs.mkdirSync(proj, { recursive: true });
 const ROOT = path.join(tmp, "RudisOne");
 const WT = "/x/toko/.claude/worktrees/r1-lead-toko";
-const PALSU = path.join(tmp, "claude-palsu.sh");
-fs.writeFileSync(PALSU, `#!/bin/sh\n[ "$1" = "agents" ] && cat <<'J'\n${JSON.stringify([
+const PALSU = palsu(tmp, "claude-palsu", `if (process.argv[2] === "agents") process.stdout.write(${JSON.stringify(JSON.stringify([
   { cwd: WT, kind: "background", sessionId: "sid-lead", name: "r1-lead-toko", state: "blocked", waitingFor: "permission prompt" },
-  { cwd: path.join(ROOT, "ruang", "system-administrator"), kind: "background", sessionId: "sid-sa", name: "rudis-sysadmin", state: "stopped" }])}\nJ\n`, { mode: 0o755 });
+  { cwd: path.join(ROOT, "ruang", "system-administrator"), kind: "background", sessionId: "sid-sa", name: "rudis-sysadmin", state: "stopped" }]))});\n`);
 Object.assign(process.env, {
   RUDISONE_ROOT: ROOT, RUDISONE_SESI: path.join(tmp, "sesi.json"), RUDISONE_CLAUDE_BIN: PALSU,
   RUDISONE_SERVER: path.join(tmp, "tidak-ada.json"), RUDISONE_KANTOR_PROJECTS: path.join(tmp, "projects"),

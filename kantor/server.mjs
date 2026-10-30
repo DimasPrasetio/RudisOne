@@ -10,7 +10,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { bacaKonfig } from "../bin/konfig.mjs";
-import { agentsCli, backendSesi, folderDesktop, normalAgents } from "../bin/sesi.mjs";
+import { agentsCli, folderDesktop, normalAgents, sumberBaca } from "../bin/sesi.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const HOME = os.homedir();
@@ -37,7 +37,7 @@ const diRoot = (cwd) => { const a = path.resolve(cwd), b = path.resolve(ROOT); r
 /** Tanda sesi RudisOne di pesan masuk: /rudisone, atau pembuka peran "Kamu adalah … di RudisOne". */
 const TANDA_RUDISONE = /<command-name>\/rudisone<\/command-name>|Kamu adalah\s[^\n]{1,80}?\sdi RudisOne\b/;
 /** Worktree tim engineering RudisOne: <repo>/.claude/worktrees/r<n>-<peran>-<proyek>. */
-const RE_WORKTREE = /\/\.claude\/worktrees\/r[1-3]-/;
+const RE_WORKTREE = /[\\/]\.claude[\\/]worktrees[\\/]r[1-3]-/;
 /** Sesi milik RudisOne — sistem agent lain di device yang sama (nama peran sama) tidak ikut ditampilkan. */
 function milikRudisOne(s, d) {
   if (d && teamMap.has(d.localId)) return true;
@@ -88,8 +88,8 @@ function nomorTim(proyek) {
 /** Nama proyek sebuah sesi: dari folder kerjanya (akar repo, juga dari worktree), atau akhiran judul bila proyeknya dikenal. */
 function proyekDari(teks = "", cwd = "") {
   if (cwd && !diRoot(cwd)) {
-    const akar = cwd.split(`${path.sep}.claude${path.sep}worktrees${path.sep}`)[0];
-    return path.basename(akar);
+    const akar = cwd.split(/[\\/]\.claude[\\/]worktrees[\\/]/)[0];
+    return path.basename(akar.replaceAll("\\", "/"));
   }
   const akhiran = String(teks).split(" · ").slice(1).join(" · ").trim();
   return akhiran && timProyek.has(akhiran) ? akhiran : null;
@@ -190,11 +190,12 @@ const desktopCache = new Map(); // file → {mtimeMs, entry}
 function loadDesktop(now) {
   if (now - desktopReadAt < 10e3) return;
   desktopReadAt = now;
-  if (backendSesi().backend === "cli") {
-    try { desktop = new Map(normalAgents(agentsCli({ timeout: 4000 })).map((e) => [e.cli, e])); } catch { desktop = new Map(); }
-    return;
-  }
+  const sumber = sumberBaca();   // "auto": sesi dari `claude agents` dan metadata Desktop digabung
   const next = new Map();
+  if (sumber.includes("cli")) {
+    try { for (const e of normalAgents(agentsCli({ timeout: 4000 }))) next.set(e.cli, e); } catch { /* CLI tidak ada */ }
+    if (!sumber.includes("desktop")) { desktop = next; return; }
+  }
   let accounts = [];
   try { accounts = fs.readdirSync(DESKTOP_SESSIONS); } catch { desktop = next; return; }
   for (const a of accounts) {

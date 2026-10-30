@@ -5,7 +5,8 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { palsu } from "./lib/uji-util.mjs";
 
 const SKRIP = path.join(path.dirname(fileURLToPath(import.meta.url)), "sesi.mjs");
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "sesi-uji-"));
@@ -17,8 +18,13 @@ fs.writeFileSync(path.join(ROOT, "handoff", "register-tugas.json"), JSON.stringi
 const CLAUDE_JSON = path.join(tmp, "claude.json");
 const AGENTS = path.join(tmp, "agents.json"), VERSI = path.join(tmp, "versi.txt"), LOG = path.join(tmp, "claude.log");
 // claude tiruan: --version dari VERSI, `agents --json [--all]` dari AGENTS; argumen dicatat
-const PALSU = path.join(tmp, "claude-palsu.sh");
-fs.writeFileSync(PALSU, `#!/bin/sh\necho "$*" >> "${LOG}"\n[ "$1" = "--version" ] && { cat "${VERSI}"; exit 0; }\n[ "$1" = "agents" ] && [ "$2" = "--json" ] && { cat "${AGENTS}"; exit 0; }\nexit 9\n`, { mode: 0o755 });
+const PALSU = palsu(tmp, "claude-palsu", `import fs from "node:fs";
+const a = process.argv.slice(2);
+fs.appendFileSync(${JSON.stringify(LOG)}, a.join(" ") + "\\n");
+if (a[0] === "--version") { process.stdout.write(fs.readFileSync(${JSON.stringify(VERSI)})); process.exit(0); }
+if (a[0] === "agents" && a[1] === "--json") { process.stdout.write(fs.readFileSync(${JSON.stringify(AGENTS)})); process.exit(0); }
+process.exit(9);
+`);
 const ENV = { ...process.env, RUDISONE_ROOT: ROOT, RUDISONE_CLAUDE_BIN: PALSU, RUDISONE_CLAUDE_JSON: CLAUDE_JSON,
   RUDISONE_SESI: path.join(ROOT, "konfigurasi", "sesi.json"), RUDISONE_REGISTER: path.join(ROOT, "handoff", "register-tugas.json") };
 delete ENV.RUDISONE_KANTOR_DESKTOP;
@@ -31,16 +37,16 @@ fs.writeFileSync(AGENTS, JSON.stringify([
   { pid: 3, cwd: "/lain/pribadi", kind: "interactive", sessionId: "aaaaaaaa-0000-4000-8000-000000000003", name: "Catatan pribadi", status: "idle" },
 ]));
 
-const m = await import(SKRIP);
+const m = await import(pathToFileURL(SKRIP).href);
 
 test("deteksi & folder Desktop per OS; konfigurasi/sesi.json menang atas deteksi", () => {
-  assert.equal(m.deteksi("darwin"), "desktop");
-  assert.equal(m.deteksi("win32"), "desktop");
+  assert.equal(m.deteksi("darwin"), "auto");
+  assert.equal(m.deteksi("win32"), "auto");
   assert.equal(m.deteksi("linux"), "cli");
   assert.equal(m.folderDesktop("darwin", {}, "/Users/u"), "/Users/u/Library/Application Support/Claude/claude-code-sessions");
   assert.equal(m.folderDesktop("linux", {}, "/home/u"), "/home/u/.config/Claude/claude-code-sessions");
   assert.equal(m.folderDesktop("linux", { XDG_CONFIG_HOME: "/x" }, "/home/u"), "/x/Claude/claude-code-sessions");
-  assert.equal(m.folderDesktop("win32", { APPDATA: "C:/A" }, "C:/u"), path.join("C:/A", "Claude", "claude-code-sessions"));
+  assert.equal(m.folderDesktop("win32", { APPDATA: "C:/A" }, "C:/u"), path.win32.join("C:/A", "Claude", "claude-code-sessions"));
   assert.equal(m.folderDesktop("linux", { RUDISONE_KANTOR_DESKTOP: "/o" }), "/o");
   fs.rmSync(ENV.RUDISONE_SESI, { force: true });
   assert.match(sesi("backend").stdout, new RegExp(`^${m.deteksi()} \\(deteksi OS`));
@@ -123,4 +129,24 @@ test("normalAgents tahan JSON aneh; nama tak aman tidak dipakai di perintah atta
   assert.deepEqual(m.normalAgents({ bukan: "larik" }), []);
   const e = m.normalAgents([{ sessionId: "sid-1", name: "x; rm -rf ~", state: "blocked" }])[0];
   assert.equal(e.perintah, "claude attach sid-1");
+});
+
+test("backend auto: sumber baca = cli + desktop; daftar menampilkan sesi CLI; cek informatif dan tidak menggagalkan", () => {
+  assert.deepEqual(m.sumberBaca("auto"), ["cli", "desktop"]);
+  assert.deepEqual(m.sumberBaca("cli"), ["cli"]);
+  assert.deepEqual(m.sumberBaca("desktop"), ["desktop"]);
+  tulisSesi("auto");
+  assert.equal(sesi("backend").stdout.trim(), "auto (konfigurasi/sesi.json)");
+  const d = sesi("daftar");
+  assert.equal(d.status, 0, d.stderr);
+  assert.match(d.stdout, /r1-lead-toko/);
+  assert.match(d.stdout, /backend auto: sesi yang dibentuk lewat alat Desktop tidak tercantum/);
+  // folder belum dipercaya CLI + auto: tetap exit 0 (jalur Desktop mungkin yang dipakai)
+  fs.writeFileSync(CLAUDE_JSON, JSON.stringify({ projects: {} }));
+  const c = sesi("cek");
+  assert.equal(c.status, 0, c.stdout);
+  assert.match(c.stdout, /backend auto: Desktop dipakai bila alat sesinya ada/);
+  assert.match(c.stdout, /folder belum dipercaya CLI/);
+  tulisSesi("cli");
+  assert.equal(sesi("cek").status, 1, "backend cli murni: folder belum dipercaya = perlu perhatian");
 });

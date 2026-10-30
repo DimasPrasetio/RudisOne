@@ -1,0 +1,60 @@
+name: CI
+
+# Suite uji RudisOne di tiga sistem operasi. Windows dijalankan tanpa Developer Mode (tanpa hak symlink) —
+# itu juga jalur yang dialami kebanyakan pemakai Windows, sehingga jalur "salinan terlacak" ikut teruji.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  uji:
+    name: uji (${{ matrix.os }}, node ${{ matrix.node }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        node: [22, 24]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Versi alat
+        run: |
+          node --version
+          git --version
+      - name: Suite uji (node --test)
+        # Satu berkas uji pada satu waktu: beberapa uji memakai port, repo git sementara, dan HOME sementara.
+        run: node --test --test-concurrency=1 "bin/*.test.mjs" "kantor/*.test.mjs"
+
+  install-asap:
+    name: install.mjs (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Pemeriksa konsistensi bersih dari galat
+        # kode keluar: 0 bersih · 1 hanya peringatan (wajar di runner kosong: hook/TEAM.md belum ada) · 2 galat
+        shell: bash
+        run: |
+          set +e
+          node bin/cek-konsistensi.mjs
+          kode=$?
+          echo "kode keluar: $kode"
+          [ "$kode" -lt 2 ]
+      - name: Pembangkit peran mutakhir
+        run: node bin/peran.mjs cek

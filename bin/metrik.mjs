@@ -21,7 +21,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { agentsCli, backendSesi, folderDesktop, normalAgents } from "./sesi.mjs";
+import { agentsCli, folderDesktop, normalAgents, sumberBaca } from "./sesi.mjs";
 
 const HOME = os.homedir();
 const PROJECTS = () => process.env.RUDISONE_METRIK_PROJECTS || path.join(HOME, ".claude", "projects");
@@ -142,9 +142,10 @@ export function pesanMasuk(o) {
 export function muatDesktop(dir = DESKTOP()) {
   const cli = new Map(), lokal = new Map();
   // backend cli: judul dari `claude agents --json --all` (termasuk sesi latar yang sudah selesai)
-  if (!process.env.RUDISONE_METRIK_DESKTOP && backendSesi().backend === "cli") {
+  const sumber = process.env.RUDISONE_METRIK_DESKTOP ? ["desktop"] : sumberBaca();
+  if (sumber.includes("cli")) {
     for (const e of normalAgents(agentsCli())) { cli.set(e.cli, { title: e.title, localId: e.localId }); lokal.set(e.localId, e.title); }
-    return { cli, lokal };
+    if (!sumber.includes("desktop")) return { cli, lokal };
   }
   const ls = (d) => { try { return fs.readdirSync(d); } catch { return []; } };
   for (const a of ls(dir)) for (const o of ls(path.join(dir, a))) for (const n of ls(path.join(dir, a, o))) {

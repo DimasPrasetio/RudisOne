@@ -29,7 +29,7 @@ const git = (cwd, args, opsi = {}) => execFileSync("git", args, { cwd, encoding:
 export function periksa(cwd, id) {
   if (!POLA_ID.test(id ?? "")) throw new Tolak(`ID tugas tidak sah: ${id ?? "(kosong)"}`);
   let akar;
-  try { akar = git(cwd, ["rev-parse", "--show-toplevel"]); } catch { throw new Tolak(`bukan repo git: ${cwd}`); }
+  try { akar = path.resolve(git(cwd, ["rev-parse", "--show-toplevel"])); } catch { throw new Tolak(`bukan repo git: ${cwd}`); }
   const gitDir = path.resolve(akar, git(akar, ["rev-parse", "--git-dir"]));
   const common = path.resolve(akar, git(akar, ["rev-parse", "--git-common-dir"]));
   if (gitDir === common) throw new Tolak("ini checkout utama (milik pengguna) — jalankan di worktree tugas");

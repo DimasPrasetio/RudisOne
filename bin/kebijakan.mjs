@@ -19,6 +19,7 @@ import os from "node:os";
 import path from "node:path";
 import readline from "node:readline";
 import { execFileSync } from "node:child_process";
+import { dariBash, jalankan as jalankanProses, posix } from "./lib/platform.mjs";
 import { fileURLToPath } from "node:url";
 import { bacaKonfig, FILE_KONFIG } from "./konfig.mjs";
 
@@ -30,8 +31,11 @@ const DIR_AUDIT = process.env.RUDISONE_AUDIT || path.join(ROOT, "handoff", "audi
 const FILE_REGISTER = process.env.RUDISONE_REGISTER || path.join(ROOT, "handoff", "register-tugas.json");
 const SETTINGS = process.env.RUDISONE_SETTINGS_USER || path.join(HOME, ".claude", "settings.json");
 const PENANDA = `"${INI}"`;   // path absolut skrip ini — hook sistem lain yang juga bernama bin/kebijakan.mjs bukan milik kita
+const INI_LURUS = posix(INI);   // Windows: perintah hook ditulis dengan `/` (andal di Git Bash maupun cmd); bentuk `\` lama tetap dikenali
+const dikenaliMilik = (c) => { const s = String(c ?? ""); return s.includes(PENANDA) || s.includes(`"${INI_LURUS}"`); };
 
-const rumah = (p) => String(p ?? "").replace(/^~(?=\/|$)/, HOME);
+// `~` → folder rumah; di Windows juga path gaya Git Bash (/c/Users/x → C:/Users/x), karena Bash tool di sana = Git Bash.
+const rumah = (p) => dariBash(String(p ?? "").replace(/^~(?=\/|$)/, HOME));
 const di = (anak, induk) => { const a = path.resolve(rumah(anak)), b = path.resolve(induk); return a === b || a.startsWith(b + path.sep); };
 
 /** Aturan generik (kebijakan-akses.json) + fakta per device (konfigurasi/server.json, lihat bin/konfig.mjs).
@@ -54,7 +58,7 @@ export function muatKebijakan(file = FILE_KEBIJAKAN, fileKonfig = FILE_KONFIG) {
 // kebenaran (T-20261030-5 · F2). Sumbernya: folder AWAL sesi (`cwd` baris pertama transkrip), pembuka peran di pesan
 // PERTAMA sesi, atau pemanggilan /rudisone yang posisinya di transkrip diverifikasi ulang setiap kali dipakai.
 const WORKTREE = { lead: "tech-lead", bsa: "business-systems-analyst", se1: "software-engineer", se2: "software-engineer" };
-const POLA_WORKTREE = /\/\.claude\/worktrees\/r[1-3]-(lead|bsa|se1|se2)-[^/]+(?:\/|$)/;
+const POLA_WORKTREE = /[\\/]\.claude[\\/]worktrees[\\/]r[1-3]-(lead|bsa|se1|se2)-[^\\/]+(?:[\\/]|$)/;   // pemisah / atau \ (Windows)
 const PENANDA_RUDISONE = "<command-name>/rudisone</command-name>";
 let TULIS_CACHE = true;   // `uji` tidak menulis cache sesi
 
@@ -83,8 +87,8 @@ const panggilRudisone = (b) => teksPesanPengguna(b).includes(PENANDA_RUDISONE);
  *  (prompt) — identitas induk selalu dibaca dari transkrip utama `<sid>.jsonl`. */
 export function transkripInduk(t) {
   if (!t) return null;
-  const m = String(t).match(/^(.*)\/([^/]+)\/subagents\/[^/]+\.jsonl$/);
-  return m ? `${m[1]}/${m[2]}.jsonl` : String(t);
+  const m = String(t).match(/^(.*)([\\/])([^\\/]+)[\\/]subagents[\\/][^\\/]+\.jsonl$/);   // pemisah / atau \ (Windows)
+  return m ? `${m[1]}${m[2]}${m[3]}.jsonl` : String(t);
 }
 
 /** Kepala transkrip: folder awal sesi + pesan pengguna pertama (dibaca sampai keduanya ketemu, maks. 4 MB). */
@@ -394,14 +398,21 @@ function lokasiRahasia() {
   const cfg = process.env.XDG_CONFIG_HOME || path.join(HOME, ".config");
   const xs = [".ssh", ".aws", ".netrc", ".npmrc", ".pypirc", ".git-credentials", ".gnupg", path.join(".docker", "config.json"), ".kube",
     path.join("Library", "Keychains"), path.join(".config", "gh"), path.join(".config", "rudisone", "rahasia")].map((p) => path.join(HOME, p))
-    .concat([path.join(cfg, "gh"), path.join(cfg, "rudisone", "rahasia"), process.env.GH_CONFIG_DIR].filter(Boolean));
+    .concat([path.join(cfg, "gh"), path.join(cfg, "rudisone", "rahasia"), process.env.GH_CONFIG_DIR, process.env.RUDISONE_RAHASIA_DIR].filter(Boolean))
+    // Windows: gh menyimpan token di %APPDATA%\GitHub CLI; PAT RudisOne (DPAPI) di %APPDATA%\rudisone\rahasia
+    .concat(process.platform === "win32" && process.env.APPDATA
+      ? [path.join(process.env.APPDATA, "GitHub CLI"), path.join(process.env.APPDATA, "rudisone", "rahasia")] : []);
   return (_lokasiRahasia = [...new Set(xs.flatMap((x) => [path.resolve(rumah(x)), asli(path.resolve(rumah(x)))].filter(Boolean)).map(normal))]);
 }
 /** Path seperti dibuka kernel: komponen demi komponen, symlink diikuti SEBELUM `..` diterapkan (path.resolve memotong `..`
  *  secara teks — `L/../x` dengan L symlink membuka induk TUJUAN L). */
 function jalurFisik(cwd, p) {
-  let cur = "/";
-  for (const k of (path.isAbsolute(p) ? p : `${cwd}/${p}`).split("/")) {
+  const mentah = path.isAbsolute(p) ? p : `${cwd}/${p}`;
+  // akar (/ di POSIX, `C:\` di Windows) dan sisa path dalam bentuk dengan `/`; `..` tidak diselesaikan secara teks
+  let cur = path.parse(path.resolve(mentah)).root;
+  let sisa = mentah;
+  if (path.sep === "\\") sisa = sisa.replaceAll("\\", "/").replace(/^[A-Za-z]:/, "");
+  for (const k of sisa.split("/")) {
     if (!k || k === ".") continue;
     if (k === "..") { cur = path.dirname(cur); continue; }
     const berikut = path.join(cur, k);
@@ -414,13 +425,16 @@ function jalurFisik(cwd, p) {
  *  `/proc/self/root` menunjuk folder proses PEMBACA, bukan proses hook ini). */
 function jalurRahasia(x, cwd) {
   const p = rumah(x);
+  // pemeriksaan teks (tidak bergantung OS): /proc di Linux & Git Bash/MSYS, /.vol di macOS — path.resolve di Windows
+  // mengubahnya jadi D:\proc\… sehingga pemeriksaan pada bentuk ternormal di bawah tidak akan melihatnya
+  if (/^\/(\.vol|proc|dev\/fd)(\/|$)/.test(String(p).replaceAll("\\", "/"))) return true;
   if (!path.isAbsolute(p) && !cwd) return true;
   const abs = path.resolve(cwd ?? "/", p), fisik = jalurFisik(cwd ?? "/", p);
   return [abs, asli(abs), fisik].filter(Boolean).map(normal).some((a) => /^\/(\.vol|proc|dev\/fd)(\/|$)/.test(a)
     || lokasiRahasia().some((l) => dalam(a, l)));
 }
 /** Program dipanggil dengan nama telanjang (dicari di PATH) atau dari folder sistem — bukan ./gh atau /tmp/x/cat. */
-const programStandar = (prog) => !prog.includes("/") || /^\/(usr\/(local\/)?bin|bin|usr\/sbin|sbin|opt\/homebrew\/bin)\/[^/]+$/.test(prog);
+const programStandar = (prog) => (!prog.includes("/") && !prog.includes("\\")) || /^\/(usr\/(local\/)?bin|bin|usr\/sbin|sbin|opt\/homebrew\/bin)\/[^/]+$/.test(prog);
 
 function klasifikasiRemote(remote, prov, K) {
   const u = urai(remote);
@@ -490,6 +504,9 @@ function perkakasAsli(prog, ctx) {
   // tidak bisa dipastikan (cd logis vs fisik, symlink) → bukan perkakas
   else if (/^(\.\/)?bin\/[^/]+$/.test(p) && ctx.cwd && ctx.cwd === ctx.awal) mentah = `${rumah(ctx.awal)}/${p}`;
   else return false;
+  // Windows: Win32 menyelesaikan `..` secara leksikal sedangkan bash (MSYS) bisa menyelesaikannya secara fisik lewat
+  // junction/symlink (dibuat tanpa hak admin) — kedua hasil bisa beda, jadi path ber-`..` bukan perkakas resmi.
+  if (path.sep === "\\" && /(^|[\\/])\.\.([\\/]|$)/.test(mentah)) return false;
   // Path diselesaikan seperti kernel (realpath.native, bukan path.resolve yang memotong `..` secara teks): symlink +
   // `..` tidak bisa membawa skrip lain masuk sebagai perkakas resmi (T-20261030-6 U3 H2).
   let asliP = null, asliBin = null;
@@ -699,7 +716,12 @@ function klasifikasiClaude(args, dasarAman, ctx) {
         // hanya path absolut harfiah yang persis sama: CLI tidak mengekspansi `~`, dan path relatif/symlink diselesaikan CLI
         // dari cwd fisik yang tidak selalu sama dengan cwd yang dilacak hook (cd gagal, cd lewat symlink)
         // `..` diselesaikan CLI secara fisik (lewat symlink) → hanya bentuk ternormal tanpa `.`/`..`/`//`
-        if (k === "--settings") { if (v.startsWith("/") && path.normalize(v) === v && normal(v) === normal(SETTINGS_SESI)) pengaman++; else settingsLain++; }
+        if (k === "--settings") {
+          const mutlak = dariBash(v);   // Git Bash: /d/x/… = D:/x/… (bash mengubahnya untuk program Windows)
+          const mutlakSah = path.sep === "\\" ? /^[A-Za-z]:[\\/]/.test(mutlak) : v.startsWith("/");
+          const lurus = path.sep === "\\" ? path.normalize(mutlak).replaceAll("\\", "/") === mutlak.replaceAll("\\", "/") : path.normalize(v) === v;
+          if (mutlakSah && lurus && normal(mutlak) === normal(SETTINGS_SESI)) pengaman++; else settingsLain++;
+        }
         continue;
       }
       if (a.startsWith("-")) { asing = a; break; }
@@ -740,8 +762,14 @@ const GIT_PERUSAK = /^(checkout|restore|reset|clean|rm|mv|stash|apply|am|merge|p
 // Sistem berkas macOS/Windows tidak membedakan huruf besar-kecil: ~/.ZSHRC = ~/.zshrc.
 const LIPAT = process.platform === "darwin" || process.platform === "win32";
 // /System/Volumes/Data/<path> (firmlink macOS) = <path>; /.vol/<dev>/<ino> membuka berkas lewat nomor inode.
-const normal = (p) => { const r = path.resolve(p).replace(/^\/System\/Volumes\/Data(?=\/)/i, ""); return LIPAT ? r.toLowerCase() : r; };
-const dalam = (a, b) => a === b || a.startsWith(b.endsWith(path.sep) ? b : b + path.sep);
+// Bentuk ternormal selalu memakai `/` (juga di Windows: C:\a\b → c:/a/b), sehingga semua pola di bawah berlaku di semua OS.
+const normal = (p) => {
+  let r = path.resolve(p);
+  if (path.sep === "\\") r = r.replaceAll("\\", "/");
+  r = r.replace(/^\/System\/Volumes\/Data(?=\/)/i, "");
+  return LIPAT ? r.toLowerCase() : r;
+};
+const dalam = (a, b) => a === b || a.startsWith(b.endsWith("/") ? b : `${b}/`);
 function asli(p) {
   try { return fs.realpathSync.native(p); } catch { /* belum ada */ }
   try { return path.join(fs.realpathSync.native(path.dirname(p)), path.basename(p)); } catch { return null; }
@@ -857,7 +885,7 @@ function analisisBash(input, K) {
     // git checkout/restore/… dengan path). Membaca, menjalankan, menguji, atau sekadar menyebut path → bukan urusan ini.
     for (const t of targetTulis(s, ctx.cwd)) {
       if (sebut) break;
-      if (NAMA_TERLINDUNG.some((r) => r.test(t.path))) { sebut = t.path; break; }
+      if (NAMA_TERLINDUNG.some((r) => r.test(path.sep === "\\" ? t.path.replaceAll("\\", "/") : t.path))) { sebut = t.path; break; }
       if (ctx.cwd) sebut = sebabTerlindung(path.resolve(ctx.cwd, rumah(t.path)), false, t.leluhur ? "semua" : false);
     }
     const k0 = s.kata[0]?.nilai ?? "";
@@ -897,6 +925,16 @@ export function klasifikasi(input, K) {
     const f = input.tool_input?.file_path ?? input.tool_input?.notebook_path;
     const sebab = f ? sebabTerlindung(path.resolve(rumah(input.cwd || HOME), rumah(f)), true) : null;
     return { aksi: [], dipahami: false, terlindung: sebab, ringkasan: `${input.tool_name} ${f ?? ""}` };
+  }
+  if (input.tool_name === "PowerShell") {
+    // Windows: alat PowerShell tidak diurai (kebijakan memodelkan sintaks bash). Di sesi RudisOne selalu ditanya (putuskan);
+    // di sesi mana pun, perintah yang tampak MENULIS dan menyebut berkas terlindung juga ditanya (F2).
+    const cmd = String(input.tool_input?.command ?? "");
+    const teks = cmd.replaceAll("\\", "/");
+    const menulis = />|\b(Set-Content|Add-Content|Out-File|New-Item|Remove-Item|Move-Item|Copy-Item|Rename-Item|Clear-Content|Set-ItemProperty|Tee-Object|WriteAll(Text|Bytes|Lines)|AppendAll(Text|Lines)|Invoke-Expression|iex)\b|\b(sc|ac|ni|ri|mi|cpi|rm|mv|cp|del|erase|copy|move|ren)\s/i.test(cmd);
+    const pola = menulis ? NAMA_TERLINDUNG.find((r) => r.test(teks)) : null;
+    return { aksi: [], dipahami: false, powershell: true, ringkasan: `PowerShell ${cmd}`,
+      terlindung: pola ? "perintah PowerShell menulis ke/menyebut berkas terlindung (kebijakan, konfigurasi, audit, settings)" : null };
   }
   if (String(input.tool_name).startsWith("mcp__")) {
     const aksi = klasifikasiMcp(input.tool_name, input.tool_input, K) ?? [];
@@ -1008,7 +1046,7 @@ function tugasTerakhir(transcript) {
 }
 
 // ---------- keputusan ----------
-const RILIS_CEK = process.env.RUDISONE_RILIS_CEK || path.join(ROOT, "bin", "rilis-cek.sh");
+const RILIS_CEK = process.env.RUDISONE_RILIS_CEK || path.join(ROOT, "bin", "rilis-cek.mjs");
 /** Syarat deploy jenjang 2: catatan rilis-cek "SIAP DEPLOY" ≤ N jam DAN pemeriksaan ulang langsung saat ini (GitHub
  *  lewat bin/rilis-cek.sh). Catatan audit bisa ditulis agent sendiri, jadi tidak pernah cukup sendirian (F2). Galat,
  *  timeout, atau belum siap → ditanya. */
@@ -1021,8 +1059,10 @@ function rilisSiap(repo, sha, K) {
     && r.sha && r.sha.length >= 7 && (sha.startsWith(r.sha) || r.sha.startsWith(sha)) && Date.parse(r.waktu) >= batas);
   if (!tercatat) return false;
   try {
-    const out = execFileSync(RILIS_CEK, [repo, sha], { timeout: 20000, stdio: ["ignore", "pipe", "ignore"] }).toString();
-    return /Hasil: SIAP DEPLOY/.test(out);
+    // modul .mjs dijalankan lewat Node (tanpa shebang/bash, jalan di Windows); pengganti uji berupa executable biasa
+    const [cmd, args] = RILIS_CEK.endsWith(".mjs") ? [process.execPath, [RILIS_CEK, repo, sha]] : [RILIS_CEK, [repo, sha]];
+    const r = jalankanProses(cmd, args, { timeout: 20000, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+    return r.status === 0 && /Hasil: SIAP DEPLOY/.test(String(r.stdout ?? ""));
   } catch { return false; }
 }
 
@@ -1037,6 +1077,7 @@ export function putuskan(input, K) {
   if (ALAT_TULIS.has(input.tool_name)) return { keputusan: null, alasan: "bukan berkas terlindung", sesi: null };
   const sesi = kenaliSesi(input, K);
   if (!sesi.rudisOne) return { keputusan: null, alasan: "bukan sesi RudisOne", sesi };
+  if (k.powershell) return { keputusan: "ask", alasan: "RudisOne · perintah PowerShell tidak dianalisis kebijakan akses — pakai Bash (Git Bash) untuk perkakas RudisOne, atau pemilik menyetujuinya langsung", sesi, aksi: [] };
   const { aksi, dipahami } = k;
   if (!aksi.length) return { keputusan: null, alasan: "bukan aksi infrastruktur", sesi };
   const nama = sesi.jabatan ? K.jabatan[sesi.jabatan]?.nama ?? sesi.jabatan : "jabatan tak dikenal";
@@ -1097,13 +1138,13 @@ export function catatSesudah(input, K) {
 
 // ---------- pemasangan (dijalankan pengguna) ----------
 /** Alat yang dilihat hook. Write/Edit/MultiEdit/NotebookEdit sejak T-20261030-5 (berkas terlindung). */
-export const MATCHER = "^(Bash|Write|Edit|MultiEdit|NotebookEdit|mcp__.*)$";
+export const MATCHER = "^(Bash|PowerShell|Write|Edit|MultiEdit|NotebookEdit|mcp__.*)$";
 /** PostToolUseFailure: perintah yang gagal (exit ≠ 0) tetap bisa sudah mengembalikan data prod ke transkrip (U3 M3). */
 const PERISTIWA = ["PreToolUse", "PostToolUse", "PostToolUseFailure"];
 function entriHook() {
-  return { matcher: MATCHER, hooks: [{ type: "command", command: `"${process.execPath}" "${INI}" hook`, timeout: 30 }] };
+  return { matcher: MATCHER, hooks: [{ type: "command", command: `"${posix(process.execPath)}" "${INI_LURUS}" hook`, timeout: 30 }] };
 }
-const milikKita = (e) => (e?.hooks ?? []).some((h) => String(h?.command ?? "").includes(PENANDA));
+const milikKita = (e) => (e?.hooks ?? []).some((h) => dikenaliMilik(h?.command));
 function bacaSettings() { try { return JSON.parse(fs.readFileSync(SETTINGS, "utf8")); } catch (e) { if (e.code === "ENOENT") return {}; throw e; } }
 export function statusPasang() {
   const s = bacaSettings();
@@ -1119,7 +1160,7 @@ export function hookDimatikan() { return bacaSettings().disableAllHooks === true
 /** Program yang dipanggil hook masih ada? (mis. Node versi nvm lama dihapus → hook diam-diam tidak berjalan). */
 export function programHookAda() {
   const s = bacaSettings();
-  const cmds = Object.values(s.hooks ?? {}).flat().flatMap((e) => e?.hooks ?? []).map((h) => String(h?.command ?? "")).filter((c) => c.includes(PENANDA));
+  const cmds = Object.values(s.hooks ?? {}).flat().flatMap((e) => e?.hooks ?? []).map((h) => String(h?.command ?? "")).filter(dikenaliMilik);
   return cmds.every((c) => [...c.matchAll(/"([^"]+)"/g)].every((m) => fs.existsSync(m[1])));
 }
 async function konfirmasi(pesan, opsi) {

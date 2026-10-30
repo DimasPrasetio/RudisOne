@@ -12,13 +12,15 @@ import path from "node:path";
 import { execFileSync, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { bangun as bangunPeran, daftarPeran } from "./peran.mjs";
+import { RUMAH_TAMPIL } from "./lib/lokasi.mjs";
+import { periksaTautan } from "./lib/tautan.mjs";
 import { deteksiProyek } from "./perkakas.mjs";
-import { agentsCli, backendSesi, folderDesktop, normalAgents } from "./sesi.mjs";
+import { agentsCli, backendSesi, folderDesktop, normalAgents, sumberBaca } from "./sesi.mjs";
 
 const HOME = os.homedir();
 const INI = fileURLToPath(import.meta.url);
 const ROOT = process.env.RUDISONE_ROOT || path.resolve(path.dirname(INI), "..");
-const RUMAH = "~/Documents/Neuron/ai-agent/RudisOne";
+const RUMAH = RUMAH_TAMPIL;   // satu sumber: lib/lokasi.mjs
 const SKILLS_USER = process.env.RUDISONE_SKILLS_USER || path.join(HOME, ".claude", "skills");
 const AGENTS_USER = process.env.RUDISONE_AGENTS_USER || path.join(HOME, ".claude", "agents");
 const DESKTOP = folderDesktop();
@@ -95,7 +97,7 @@ export function cekRepo(root = ROOT, opsi = {}) {
 
   // R3 — subagent terbangkit
   // R3 — CLAUDE.md (pemuat inti) & subagent terbangkit
-  for (const r of bangunPeran(root, false)) if (r.status !== "sama") catat("galat", r.id === "CLAUDE.md" ? "inti-muat" : "subagent", `${r.berkas} ${r.status} — jalankan bin/peran.sh bangun`);
+  for (const r of bangunPeran(root, false)) if (r.status !== "sama") catat("galat", r.id === "CLAUDE.md" ? "inti-muat" : r.jenis === "peran-ruang" ? "peran-ruang" : "subagent", `${r.berkas} ${r.status} — jalankan bin/peran.sh bangun`);
 
   // R4–R6 — rujukan di semua Markdown
   let perkakas = [];
@@ -194,14 +196,19 @@ export function cekPemetaan(root = ROOT, ref = null) {
 function sesiDesktop() {
   const m = new Map();
   // backend cli: sesi dari `claude agents --json --all`, dikenali lewat session id dan nama (`--name`)
-  if (backendSesi().backend === "cli") {
+  // backend auto: kedua sumber dibaca; null hanya bila tak satu pun terbaca
+  const sumber = sumberBaca();
+  let terbaca = false;
+  if (sumber.includes("cli")) {
     const d = agentsCli();
-    if (!d) return null;
-    for (const e of normalAgents(d)) { const v = { arsip: e.archived, judul: e.title ?? "" }; m.set(e.cli, v); m.set(e.localId, v); }
-    return m;
+    if (d) {
+      terbaca = true;
+      for (const e of normalAgents(d)) { const v = { arsip: e.archived, judul: e.title ?? "" }; m.set(e.cli, v); m.set(e.localId, v); }
+    }
+    if (!sumber.includes("desktop")) return d ? m : null;
   }
   let akun = [];
-  try { akun = fs.readdirSync(DESKTOP); } catch { return null; }
+  try { akun = fs.readdirSync(DESKTOP); terbaca = true; } catch { return terbaca ? m : null; }
   for (const a of akun) {
     let orgs = []; try { orgs = fs.readdirSync(path.join(DESKTOP, a)); } catch { continue; }
     for (const o of orgs) {
@@ -219,16 +226,19 @@ export function cekDevice(root = ROOT) {
   // D1 skill & subagent terpasang (tautan ke repo ini)
   const tautKe = (p) => { try { return fs.realpathSync(p); } catch { return null; } };
   const rootAsli = tautKe(root) ?? root;
+  // tautan bisa symlink/junction ke repo ini, atau salinan terlacak (Windows tanpa hak symlink) — lihat lib/tautan.mjs
+  const periksaPasang = (p, kategori, namaTampil, perintah) => {
+    const st = periksaTautan(p, rootAsli);
+    if (!st.ada) catat("peringatan", kategori, `${namaTampil} belum terpasang — ${perintah}`);
+    else if (st.milik === "salinan") { if (!st.mutakhir) catat("peringatan", kategori, `${namaTampil} salinan lama/berubah — jalankan install.sh (node install.mjs)`); }
+    else if (st.milik !== "symlink") catat("peringatan", kategori, `${namaTampil} menunjuk ke luar repo ini (${tautKe(p) ?? p})`);
+  };
   for (const s of fs.readdirSync(path.join(root, "skills"))) {
     if (!fs.existsSync(path.join(root, "skills", s, "SKILL.md"))) continue;
-    const t = tautKe(path.join(SKILLS_USER, s));
-    if (!t) catat("peringatan", "skill-terpasang", `skill ${s} belum terpasang di ~/.claude/skills — jalankan install.sh dari checkout utama`);
-    else if (!t.startsWith(rootAsli + path.sep)) catat("peringatan", "skill-terpasang", `~/.claude/skills/${s} menunjuk ke luar repo ini (${t})`);
+    periksaPasang(path.join(SKILLS_USER, s), "skill-terpasang", `skill ${s} di ~/.claude/skills`, "jalankan install.sh dari checkout utama");
   }
   for (const id of daftarPeran(root)) {
-    const t = tautKe(path.join(AGENTS_USER, `rudis-${id}.md`));
-    if (!t) catat("peringatan", "subagent-terpasang", `subagent rudis-${id} belum tertaut di ~/.claude/agents — jalankan install.sh`);
-    else if (!t.startsWith(rootAsli + path.sep)) catat("peringatan", "subagent-terpasang", `~/.claude/agents/rudis-${id}.md menunjuk ke luar repo ini (${t})`);
+    periksaPasang(path.join(AGENTS_USER, `rudis-${id}.md`), "subagent-terpasang", `subagent rudis-${id} di ~/.claude/agents`, "jalankan install.sh");
   }
   // D2 skill sistem lain (mis. TimAgent) — tidak disentuh, hanya diberitahukan
   try {
@@ -258,7 +268,8 @@ export function cekDevice(root = ROOT) {
       const m = baris.match(/^\|\s*([^|]+?)\s*\|.*?`(local_[0-9a-f-]{8,}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})`/);
       if (!m) continue;
       const [, peran, id] = m;
-      const asal = backendSesi().backend === "cli" ? "claude agents --json --all" : "sesi Desktop";
+      const b = backendSesi().backend;
+      const asal = b === "cli" ? "claude agents --json --all" : b === "auto" ? "claude agents --json --all dan sesi Desktop" : "sesi Desktop";
       if (!sesi) { catat("info", "team", `metadata ${asal} tidak terbaca — TEAM.md tidak dicocokkan`); break; }
       const s = sesi.get(id);
       if (!s) catat("peringatan", "team", `TEAM.md: ${peran} → ${id} tidak ditemukan di ${asal}`);

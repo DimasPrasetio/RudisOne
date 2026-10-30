@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "inti-"));
 const ROOT = path.join(tmp, "RudisOne");
@@ -59,7 +60,7 @@ test("pasang/lepas menjaga hook lain dan bersifat idempoten", async () => {
   fs.writeFileSync(S, JSON.stringify({ hooks: { SessionStart: [lain] }, lainnya: 1 }));
   assert.equal(statusPasang(), false);
   const { execFileSync } = await import("node:child_process");
-  const jalan = (...a) => execFileSync(process.execPath, [new URL("./inti.mjs", import.meta.url).pathname, ...a], { env: process.env, encoding: "utf8" });
+  const jalan = (...a) => execFileSync(process.execPath, [fileURLToPath(new URL("./inti.mjs", import.meta.url)), ...a], { env: process.env, encoding: "utf8" });
   jalan("pasang", "--ya"); jalan("pasang", "--ya");
   let s = JSON.parse(fs.readFileSync(S, "utf8"));
   assert.equal(s.hooks.SessionStart.length, 2);

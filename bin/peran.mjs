@@ -1,16 +1,18 @@
 // Definisi subagent per peran RudisOne (protokol.md › Model sesi). Sumber tunggal: agents/<id-peran>.md + protokol.md;
 // berkas agen/rudis-<id-peran>.md DIBANGKITKAN dari keduanya (jangan diedit tangan) lalu ditautkan install.sh ke
 // ~/.claude/agents/ agar bisa dipanggil `Agent` dengan subagent_type "rudis-<id-peran>" dari sesi mana pun.
-// Juga membangkitkan CLAUDE.md akar (salinan protokol.md) — lihat bangkitkanClaudeMd.
+// Juga membangkitkan CLAUDE.md akar (salinan protokol.md) — lihat bangkitkanClaudeMd — dan salinan berkas peran di
+// ruang sesi (.claude/agents/coo.md, ruang/<id>/.claude/agents/<id>.md) — lihat targetRuang.
 // Pemakaian: node bin/peran.mjs bangun | cek | daftar
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { RUMAH_TAMPIL } from "./lib/lokasi.mjs";
 
 const INI = fileURLToPath(import.meta.url);
 const ROOT = process.env.RUDISONE_ROOT || path.resolve(path.dirname(INI), "..");
-const RUMAH = "~/Documents/Neuron/ai-agent/RudisOne";
+const RUMAH = RUMAH_TAMPIL;   // satu sumber: lib/lokasi.mjs
 /** COO tidak dibangkitkan: ia utas utama (settings "agent": "coo" atau skill /rudisone), bukan subagent. */
 const BUKAN_SUBAGENT = new Set(["coo"]);
 
@@ -82,9 +84,37 @@ export function bangkitkanClaudeMd(root = ROOT) {
 ${inti}`;
 }
 
+/** Salinan peran di ruang sesi: `.claude/agents/coo.md` (ruang COO) dan `ruang/<id>/.claude/agents/<id>.md`. Dulu symlink
+ *  ke agents/<id>.md; kini salinan terbangkit — symlink butuh Developer Mode/admin di Windows dan hilang di arsip zip. */
+export function targetRuang(root = ROOT) {
+  const t = [{ id: "coo", target: ".claude/agents/coo.md" }];
+  const ruang = path.join(root, "ruang");
+  if (!fs.existsSync(ruang)) return t;
+  for (const id of fs.readdirSync(ruang).sort()) {
+    if (fs.existsSync(path.join(root, "agents", `${id}.md`)) && fs.existsSync(path.join(ruang, id, ".claude"))) {
+      t.push({ id, target: `ruang/${id}/.claude/agents/${id}.md` });
+    }
+  }
+  return t;
+}
+
 export function bangun(root = ROOT, tulis = true) {
   const dir = path.join(root, "agen");
   const hasil = [];
+  for (const { id, target } of targetRuang(root)) {
+    const f = path.join(root, ...target.split("/"));
+    const isi = fs.readFileSync(path.join(root, "agents", `${id}.md`), "utf8");
+    let lama = null; let taut = false;
+    try { taut = fs.lstatSync(f).isSymbolicLink(); lama = fs.readFileSync(f, "utf8"); } catch { /* belum ada / tautan patah */ }
+    // symlink lama dianggap basi: ditulis ulang sebagai berkas biasa (menulis lewat tautan akan mengubah sumbernya)
+    const status = taut || (lama !== null && lama !== isi) ? "basi" : lama === null ? "baru" : "sama";
+    if (status !== "sama" && tulis) {
+      fs.mkdirSync(path.dirname(f), { recursive: true });
+      fs.rmSync(f, { force: true });
+      fs.writeFileSync(f, isi);
+    }
+    hasil.push({ id, jenis: "peran-ruang", berkas: target, status });
+  }
   {
     const f = path.join(root, "CLAUDE.md");
     const isi = bangkitkanClaudeMd(root);
@@ -111,12 +141,12 @@ function utama(argv) {
   const [cmd = "cek"] = argv;
   if (cmd === "bangun") {
     for (const r of bangun()) if (r.status !== "sama") console.log(`  ${r.status === "yatim" ? "dihapus" : r.status === "baru" ? "dibuat" : "diperbarui"}  ${r.berkas}`);
-    console.log(`Siap: CLAUDE.md + ${daftarPeran().length} subagent peran di agen/.`);
+    console.log(`Siap: CLAUDE.md + ${daftarPeran().length} subagent peran di agen/ + ${targetRuang().length} salinan peran di ruang sesi.`);
     return 0;
   }
   if (cmd === "cek") {
     const salah = bangun(ROOT, false).filter((r) => r.status !== "sama");
-    if (!salah.length) { console.log(`CLAUDE.md & subagent peran mutakhir (${daftarPeran().length}).`); return 0; }
+    if (!salah.length) { console.log(`CLAUDE.md, subagent peran (${daftarPeran().length}) & salinan peran ruang (${targetRuang().length}) mutakhir.`); return 0; }
     for (const r of salah) console.log(`  ${r.status}: ${r.berkas}`);
     console.log("Jalankan: bin/peran.sh bangun");
     return 1;

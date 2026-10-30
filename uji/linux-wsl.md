@@ -26,9 +26,9 @@ Semua langkah berikut di terminal **Linux** — di Windows: terminal **Ubuntu** 
 
 ## C. Pasang RudisOne
 7. `mkdir -p ~/Documents/Neuron/ai-agent && git clone https://github.com/DimasPrasetio/RudisOne.git ~/Documents/Neuron/ai-agent/RudisOne`
-8. 📋 `cd ~/Documents/Neuron/ai-agent/RudisOne && pwd && git config --get core.symlinks; ls -l .claude/agents/coo.md`
-   Harapan: path `/home/<user>/Documents/Neuron/ai-agent/RudisOne` (WSL: bukan `/mnt/c/...`); `core.symlinks` kosong atau `true`;
-   `coo.md -> ...` (symlink, huruf pertama `l`).
+8. 📋 `cd ~/Documents/Neuron/ai-agent/RudisOne && pwd && node bin/peran.mjs cek; ls -l .claude/agents/coo.md`
+   Harapan: path `/home/<user>/Documents/Neuron/ai-agent/RudisOne` (WSL: bukan `/mnt/c/...`); `peran.mjs cek` melaporkan
+   "mutakhir"; `coo.md` berkas biasa (huruf pertama `-`, bukan symlink).
 9. 📋 `./install.sh`
    Harapan: baris `[ok]` untuk lokasi repo, peran tertaut, skill tertaut, perkakas `bin/*.sh`, Node.js. Baris `[!!]` yang
    **wajar** pada device baru: hook kebijakan/inti belum terpasang (langkah 10), PAT rudis-sdd belum ada (langkah 11).

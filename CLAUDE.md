@@ -1,4 +1,4 @@
-<!-- DIBANGKITKAN oleh bin/peran.mjs dari protokol.md (sidik fe0214b13bdc). Jangan diedit: ubah protokol.md lalu jalankan bin/peran.sh bangun.
+<!-- DIBANGKITKAN oleh bin/peran.mjs dari protokol.md (sidik 67c9171b53ab). Jangan diedit: ubah protokol.md lalu jalankan bin/peran.sh bangun.
      Termuat otomatis untuk setiap sesi di folder ini dan subfoldernya (COO, ruang/, worktree RudisOne) dan dimuat ulang setelah kompaksi.
      Peranmu: nilai "agent" di .claude/settings.json folder sesimu, atau pembuka brief. -->
 # Protokol inti RudisOne (v5 — inti kecil + subagent)
@@ -70,9 +70,9 @@ Peran **ada** tidak sama dengan sesi **hidup**: dua belas jabatan = katalog (rou
   server, prompt jenjang 3, dan izin deploy tetap melekat): hanya saat ada tugas server, insiden, data production, atau
   deploy, atau atas permintaan pengguna — bukan di setiap `/rudisone`, bukan di Inisiasi proyek. Peran lain: bila tugas
   panjang perlu dipantau/disela pengguna, butuh prompt izin sendiri, atau pengguna memintanya (judul `<Jabatan>` / `<Jabatan> · <proyek>`).
-- **Backend sesi per device** (`bin/sesi.sh backend`): `desktop` (macOS/Windows — alat sesi Claude Desktop) atau `cli`
-  (Linux/WSL2 — `claude --bg`, `claude agents --json`, `SendMessage` lintas sesi lokal, `claude stop`); padanan tiap aksi:
-  skill `rudisone` › `backend-cli.md`. Satu backend per device. Pola lama: rollback utuh (README › Rollback), tidak dicampur.
+- **Backend sesi** (`bin/sesi.sh backend`): `desktop` (alat sesi Claude Desktop), `cli` (`claude --bg`, `claude agents --json`,
+  `SendMessage` lokal, `claude stop`) atau `auto` (bawaan macOS/Windows: alat sesi Desktop ada → desktop; CLI/VS Code → cli);
+  padanan aksi: skill `rudisone` › `backend-cli.md`. Satu backend per COO, tidak dicampur. Pola lama: rollback utuh (README › Rollback).
 
 ## Pola pengerjaan
 Multi-agent membantu tugas yang bisa dipecah tetapi merugikan tugas berurutan dan berat alat (arXiv 2512.08296).

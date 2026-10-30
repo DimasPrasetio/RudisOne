@@ -82,7 +82,8 @@ TEAM.md, catatan/, handoff/, konfigurasi/server.json  per device, TIDAK di-commi
 ```
 
 ## Pasang di device baru
-RudisOne berjalan di **macOS**, **Linux**, dan **Windows lewat WSL2** (jalur Linux; Windows native tidak didukung).
+RudisOne berjalan di **macOS**, **Linux**, dan **Windows** — native (Claude Desktop, Claude Code CLI, ekstensi VS Code) atau lewat
+WSL2 (jalur Linux). Windows native: lihat bagian **Windows native** di bawah tabel.
 
 | | macOS | Linux (Ubuntu/Debian) | Windows (WSL2) |
 |---|---|---|---|
@@ -93,14 +94,37 @@ RudisOne berjalan di **macOS**, **Linux**, dan **Windows lewat WSL2** (jalur Lin
 | uv/uvx (RUDIS SDD) | `brew install uv` | `curl -LsSf https://astral.sh/uv/install.sh \| sh` | sama dengan Linux |
 | PAT rudis-sdd | Keychain | berkas 0600 `~/.config/rudisone/rahasia/` | sama dengan Linux |
 
+- **Windows native** (Windows 10/11, tanpa WSL):
+  - **Prasyarat:** [Git for Windows](https://git-scm.com/download/win) (menyertakan Git Bash — dipakai Claude Code sebagai Bash tool
+    dan untuk pembungkus `bin/*.sh`), Node.js ≥ 18 (≥ 22 untuk menjalankan suite uji), GitHub CLI `gh` (login), dan Claude Desktop
+    dan/atau Claude Code CLI dan/atau ekstensi VS Code. OpenSSH klien (bawaan Windows) untuk perkakas server. `uv/uvx` bila memakai RUDIS SDD.
+  - **Lokasi:** `git clone https://github.com/DimasPrasetio/RudisOne.git %USERPROFILE%\Documents\Neuron\ai-agent\RudisOne`
+    (PowerShell: `$HOME\Documents\Neuron\ai-agent\RudisOne`). Folder Documents yang dialihkan ke OneDrive dikenali bila `Documents`
+    di profil adalah junction/tautan; selain itu pindahkan/clone ke path di atas.
+  - **Pasang:** `node install.mjs` (atau `install.cmd`; di Git Bash `./install.sh`). Tanpa bash/WSL. Hook: `node bin\kebijakan.mjs pasang`
+    dan `node bin\inti.mjs pasang`. Perkakas bergaya skrip tetap dipanggil `bin/<nama>.sh` dari **Bash tool (Git Bash)** — nama itu
+    yang dikenali hook kebijakan; dari PowerShell pakai `node bin\<nama>.mjs`.
+  - **Tanpa hak admin/Developer Mode:** symlink tidak dipakai di repo (peran = salinan terbangkit `bin/peran.mjs`). Skill ditautkan ke
+    `~/.claude/skills` sebagai **junction**, subagent sebagai **salinan terlacak** (`~/.claude/.rudisone-tautan.json`; `install.mjs`
+    memperbaruinya, `bin/cek-konsistensi.mjs` memeriksanya). Dengan Developer Mode aktif dipakai symlink biasa.
+  - **Rahasia:** PAT disimpan terenkripsi DPAPI per-pengguna di `%APPDATA%\rudisone\rahasia\<layanan>.dpapi` — `node bin\perkakas.mjs pat
+    <layanan>` (diketik tanpa gema). Hanya akun Windows yang sama di mesin yang sama bisa membukanya.
+  - **Kebijakan akses:** alat **PowerShell** ikut dicegat hook dan selalu ditanya di sesi RudisOne (perintahnya tidak diurai); gunakan
+    Bash (Git Bash) untuk perkakas RudisOne. Path gaya Git Bash (`/c/Users/…`) dan path Windows (`C:\…`, tak peka huruf besar-kecil)
+    dikenali. Detail: `bin/kebijakan.mjs`, uji `bin/kebijakan-windows.test.mjs`.
+  - **Backend sesi:** `auto` (lihat Backend sesi di bawah). **Windows terverifikasi** (Windows 11, Claude Code 2.1.302): suite uji,
+    `install.mjs`, hook, DPAPI, `claude --bg`/`agents`/`logs`/`rm`; **belum terverifikasi:** `/rudisone` end-to-end di Claude Desktop dan
+    ekstensi VS Code — daftar uji: [`uji/windows.md`](uji/windows.md).
 - **WSL2:** clone ke filesystem WSL (`~/Documents/…` = `/home/<user>/Documents/…`), **bukan** `/mnt/c/…`: di sana symlink
   dan mode berkas (`chmod 600`, bit executable) tidak andal dan git jauh lebih lambat. Buka sesi Claude Code dari terminal
   WSL (atau VS Code › WSL), bukan dari Windows.
-- **Symlink:** repo memuat symlink (`.claude/agents/coo.md`, `ruang/*/.claude/agents/*.md`) dan `install.sh` menautkan
-  skill & subagent ke `~/.claude`. macOS/Linux/WSL mendukungnya bawaan; pastikan `git config --get core.symlinks` tidak
-  `false` (bila `false`: `git config core.symlinks true && git checkout -- .`).
-- **Backend sesi** (`bin/sesi.sh backend`, dicatat `install.sh` di `konfigurasi/sesi.json`): macOS/Windows → `desktop`
-  (alat sesi Claude Desktop); Linux/WSL2 → `cli`: COO membentuk sesi Tech Lead/IT Operations dengan `claude --bg`, bertukar
+- **Symlink:** repo tidak lagi memuat symlink. Berkas peran di ruang sesi (`.claude/agents/coo.md`,
+  `ruang/*/.claude/agents/*.md`) adalah salinan terbangkit dari `agents/<id-peran>.md` (`bin/peran.sh bangun`; diperiksa
+  `bin/peran.sh cek`). Yang masih memakai symlink hanya tautan `install.sh` ke `~/.claude` (skill & subagent).
+- **Akhir baris:** `.gitattributes` memaksa LF di semua OS (termasuk `core.autocrlf=true` bawaan Git for Windows).
+- **Backend sesi** (`bin/sesi.sh backend`, dicatat `install.mjs` di `konfigurasi/sesi.json`): macOS/Windows → `auto` (COO memilih
+  per sesi: alat sesi Claude Desktop ada → `desktop`; Claude Code CLI atau ekstensi VS Code → `cli`); Linux/WSL2 → `cli`.
+  Instalasi lama yang mencatat `desktop` tetap berlaku. Backend `cli`: COO membentuk sesi Tech Lead/IT Operations dengan `claude --bg`, bertukar
   pesan dengan `SendMessage` ke nama sesi, membaca status dari `claude agents --json`, menghentikan dengan `claude stop`
   (`skills/rudisone/backend-cli.md`). Syarat backend cli: Claude Code **≥ 2.1.300**, dan setiap folder sesi dipercaya
   sekali — `bin/sesi.sh cek` mencetak daftar `cd <folder> && claude` (terima prompt, `/exit`), termasuk worktree Tech Lead
@@ -113,7 +137,7 @@ RudisOne berjalan di **macOS**, **Linux**, dan **Windows lewat WSL2** (jalur Lin
 
 1. `git clone https://github.com/DimasPrasetio/RudisOne.git ~/Documents/Neuron/ai-agent/RudisOne` (repo publik; harus di path ini —
    peran dan aturan merujuk `~/Documents/Neuron/ai-agent/RudisOne`).
-2. `~/Documents/Neuron/ai-agent/RudisOne/install.sh` — membuat `handoff/`, memeriksa symlink, konfigurasi server
+2. `~/Documents/Neuron/ai-agent/RudisOne/install.sh` (Windows: `node install.mjs`) — membuat `handoff/`, memeriksa peran, menautkan skill & subagent ke `~/.claude`, konfigurasi server
    (bila sudah diisi: koneksi ssh & MCP DNS), dan memasang perkakas resmi SDLC (clone `rudis-monorepo` dan
    `rudis-modules` ke `~/Documents/Neuron/ai-agent`, skill ke `~/.claude/skills`) bila belum ada.
 3. Pasang dua hook (dijalankan pemilik sendiri, sekali per device; cadangan settings dibuat dulu; hanya bertindak di
