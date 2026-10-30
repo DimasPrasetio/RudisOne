@@ -14,8 +14,13 @@ import { fileURLToPath } from "node:url";
 
 const INI = fileURLToPath(import.meta.url);
 const POLA_ID = /^T-\d{8}-\d+(\.\d+)?$/;
-const RAHASIA = /(^|\/)(\.env(\.[^/]*)?|id_[rde]\w*sa|[^/]*\.(pem|key|p12|pfx)|\.netrc|\.npmrc|credentials?(\.json)?)$/i;
-const BOLEH_RAHASIA = /\.(example|sample|template)$|\.env\.[^/]*\.example$/i;
+const RAHASIA = new RegExp([
+  "(^|/)\\.env(\\.[^/]*)?$", "(^|/)[^/]*\\.env$", "(^|/)\\.envrc$",
+  "(^|/)id_(rsa|dsa|ecdsa|ed25519)(_sk)?$", "\\.(pem|key|p12|pfx|jks|keystore|ppk|kdbx)$",
+  "(^|/)\\.(netrc|npmrc|pypirc|pgpass|git-credentials|htpasswd)$", "(^|/)[^/]*credentials?[^/]*$",
+  "(^|/)[^/]*secrets?[^/]*\\.(json|ya?ml|toml|ini|txt)$", "(^|/)service[-_]?account[^/]*\\.json$", "(^|/)[^/]*token[^/]*\\.(json|txt)$",
+].join("|"), "i");
+const BOLEH_RAHASIA = /\.(example|sample|template|dist)$|\.env\.[^/]*\.example$/i;
 
 class Tolak extends Error {}
 const git = (cwd, args, opsi = {}) => execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], ...opsi }).trim();
@@ -74,6 +79,15 @@ export function rollback(cwd, id, sha, paths) {
     const abs = path.resolve(akar, p);
     if (abs !== akar && !abs.startsWith(akar + path.sep)) throw new Tolak(`path di luar repo: ${p}`);
     if (/^:|[*?[]/.test(p)) throw new Tolak(`pathspec khusus/glob tidak didukung: ${p}`);
+  }
+  // Berkas yang di-.gitignore tidak masuk checkpoint, tetapi `git restore --worktree` tetap menimpanya bila ada di
+  // checkpoint → isinya hilang dari mana pun (U3 M5). Tolak; pengguna/TL memindahkan atau meng-commit-nya dulu.
+  const abai = execFileSync("git", ["ls-files", "--others", "--ignored", "--exclude-standard", "-z", "--", ...paths], { cwd: akar, encoding: "utf8" })
+    .split("\0").filter(Boolean);
+  if (abai.length) {
+    const diCp = new Set(execFileSync("git", ["ls-tree", "-r", "--name-only", "-z", full, "--", ...paths], { cwd: akar, encoding: "utf8" }).split("\0").filter(Boolean));
+    const tertimpa = abai.filter((f) => diCp.has(f));
+    if (tertimpa.length) throw new Tolak(`berkas yang diabaikan git akan tertimpa dan tidak tersimpan di checkpoint mana pun: ${tertimpa.join(", ")} — pindahkan dulu`);
   }
   const sebelum = checkpoint(akar, id, `sebelum rollback ke ${full.slice(0, 7)}`);
   try { git(akar, ["restore", `--source=${full}`, "--staged", "--worktree", "--", ...paths]); }

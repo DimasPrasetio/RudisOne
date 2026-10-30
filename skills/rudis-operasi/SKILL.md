@@ -49,8 +49,10 @@ baris) dan setiap perubahan berkas terlindung tercatat di `handoff/audit/<YYYY-M
 aksi; rahasia disamarkan). Lihat: `bin/kebijakan.sh audit`. Jenjang 1 lainnya tidak diaudit. Saat memverifikasi aksi
 ubah, COO mencocokkannya dengan audit.
 - Audit hanya ditulis hook. Tiap baris berantai hash dengan baris sebelumnya: `bin/kebijakan.sh audit --verifikasi`
-  (exit 1 = ada suntingan/sisipan/hapusan). Bukti `rilis-cek` untuk deploy jenjang 2 hanya dipercaya dari berkas yang
-  rantainya utuh, dan tetap diperiksa ulang langsung ke GitHub saat deploy.
+  (exit 1 = ada suntingan/sisipan/hapusan di tengah). Batasnya: rantai tanpa kunci — memotong ekor, menghapus berkas, atau
+  menghitung ulang semua hash tidak terdeteksi; penjaga sebenarnya `permissions.deny` Edit + sandbox `denyWrite` atas
+  `handoff/audit/**`. Bukti `rilis-cek` untuk deploy jenjang 2 hanya dipercaya dari berkas yang rantainya utuh, dan
+  tetap diperiksa ulang langsung ke GitHub saat deploy.
 - **Denyut hook:** setiap kali dipanggil Claude Code, hook menulis `handoff/audit/.denyut.json` (paling sering 1×/menit,
   dengan versi kodenya). `bin/kebijakan.sh cek` dan `bin/cek-konsistensi.sh` membacanya — denyut basi atau dari versi
   lain berarti hook tidak berjalan (Node berpindah, matcher lama, dilepas): larangan hook tidak berlaku sampai pemilik
@@ -67,8 +69,12 @@ ubah, COO mencocokkannya dengan audit.
 - **Isi query:** keluaran **agregat** (COUNT, SUM, GROUP BY) atau kolom kunci saja; data pribadi (nama, email, telepon,
   alamat, NIK) dan rahasia **dimasking** di SQL (`CONCAT(LEFT(email,2),'***')`, `NULL AS password`), selalu `LIMIT`
   (≤50 baris). Yang masuk transkrip dikirim ke vendor model — UU PDP: anggap transfer lintas batas.
-- **Jejak:** setiap SELECT prod tercatat (`baca-data`, perintah tersamar, `baris` = jumlah baris yang benar-benar
-  dikembalikan ke agent). Laporan HITO menyebut ID tugas, query, dan jumlah barisnya.
+- **Jejak:** setiap SELECT prod tercatat (`baca-data`, perintah tersamar, `baris` = jumlah baris keluaran yang benar-benar
+  dikembalikan ke agent — termasuk perintah yang gagal sesudahnya; satu baris agregat/JSON tetap dihitung 1). Laporan HITO
+  menyebut ID tugas, query, dan jumlah barisnya.
+- Hook hanya meloloskan klien `mysql` dari PATH/folder sistem, host lokal server, dan fungsi bawaan; stored function
+  bisa `MODIFIES SQL DATA`, jadi pemakaian rutin sebaiknya lewat user MySQL **read-only** (GRANT SELECT pada view) yang
+  disiapkan System Administrator — keputusan pengguna.
 
 ## 6. Jangan mengakali kebijakan
 Tidak membungkus perintah infrastruktur dalam skrip lokal, variabel, atau `$( … )` agar tidak dikenali. Perintah yang

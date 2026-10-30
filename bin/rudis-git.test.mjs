@@ -79,3 +79,26 @@ test("pembungkus shell memanggil modul", () => {
   const out = execFileSync(path.join(SINI, "rudis-git.sh"), ["daftar", "T-20261030-6"], { cwd: WT, encoding: "utf8" });
   assert.match(out, /checkpoint\(T-20261030-6\)/);
 });
+
+test("U3 M6: berkas rahasia umum ditolak checkpoint; contoh/template boleh", () => {
+  for (const f of ["id_ed25519", ".git-credentials", "prod.env", ".envrc", ".pgpass", "secrets.json", "service-account.json", "config/credentials.yml", "a.keystore"]) {
+    fs.mkdirSync(path.dirname(path.join(WT, f)), { recursive: true });
+    tulis(f, "rahasia\n");
+    tolak(() => checkpoint(WT, "T-20261030-6"), /berkas rahasia/);
+    fs.rmSync(path.join(WT, f));
+  }
+  tulis("secrets.json.example", "{}\n");
+  assert.equal(checkpoint(WT, "T-20261030-6", "contoh").baru, true);
+});
+
+test("U3 M5: rollback menolak menimpa berkas yang diabaikan git dan tidak tersimpan di commit mana pun", () => {
+  fs.mkdirSync(path.join(WT, "conf"), { recursive: true });
+  tulis("conf/local.cfg", "v1 tracked\n");
+  const cp = checkpoint(WT, "T-20261030-6", "conf dilacak").sha;
+  g(WT, "rm", "-q", "--cached", "conf/local.cfg");
+  fs.appendFileSync(path.join(WT, ".gitignore"), "conf/local.cfg\n");
+  g(WT, "add", "-A"); g(WT, "commit", "-q", "-m", "conf lokal diabaikan");
+  tulis("conf/local.cfg", "suntingan lokal pengguna\n");
+  tolak(() => rollback(WT, "T-20261030-6", cp, ["conf"]), /diabaikan git akan tertimpa/);
+  assert.equal(baca("conf/local.cfg"), "suntingan lokal pengguna\n");
+});

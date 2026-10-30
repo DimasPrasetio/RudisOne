@@ -625,7 +625,9 @@ test("positif palsu: tool-results/plans di ~/.claude dan cd ke handoff tidak dit
     assert.equal(kep(bash(COO, c)), "ask", c);
   }
   assert.notEqual(kep(bash(COO, "cd /tmp/evil && bin/rilis-cek.sh contoh/app-uji 0123456")), "allow");
-  assert.equal(kep(bash(path.join(ROOT, "ruang", "x"), `cd ${ROOT} && bin/rilis-cek.sh contoh/app-uji 0123456`)), "allow");
+  // sesudah `cd` di perintah yang sama, bin/… relatif bukan perkakas lagi (cwd fisik tidak pasti, U3 H2) — alur biasa
+  assert.equal(kep(bash(path.join(ROOT, "ruang", "x"), `cd ${ROOT} && bin/rilis-cek.sh contoh/app-uji 0123456`)), null);
+  assert.equal(kep(bash(ROOT, "bin/rilis-cek.sh contoh/app-uji 0123456")), "allow");
 });
 
 
@@ -731,4 +733,70 @@ test("A9: skill/command proyek di repo (bukan ~/.claude) bukan berkas terlindung
   for (const c of ["mkdir -p p/.claude/skills/x && printf x > p/.claude/skills/x/SKILL.md", "T=/tmp/a; printf x > $T/p/.claude/skills/x/SKILL.md",
     "cp /tmp/x .claude/commands/rudis.plan.md"]) assert.notEqual(kep(bash("/x/proyek", c)), "ask", c);
   for (const c of ["printf x > ~/.claude/skills/x/SKILL.md", "printf x > $HOME/.claude/agents/rudis-x.md", "rm -rf ~/.claude"]) assert.equal(kep(bash("/x/proyek", c)), "ask", c);
+});
+
+
+// ===================== T-20261030-6 U3 · temuan peninjau berkonteks bersih =====================
+test("U3 H1/H2: perkakas jenjang 1 hanya yang asli di ROOT/bin (realpath kernel) dan tidak diubah dari commit", () => {
+  const R = fs.realpathSync(fs.mkdtempSync(path.join(tmp, "root-git-")));
+  const g = (...a) => execFileSync("git", a, { cwd: R, stdio: ["ignore", "pipe", "pipe"] }).toString().trim();
+  fs.mkdirSync(path.join(R, "bin")); fs.mkdirSync(path.join(R, "ruang", "system-administrator"), { recursive: true });
+  fs.writeFileSync(path.join(R, "bin", "server-cek.sh"), "#!/bin/sh\necho asli\n", { mode: 0o755 });
+  g("init", "-q"); g("config", "user.email", "u@t.test"); g("config", "user.name", "u"); g("config", "commit.gpgsign", "false");
+  g("add", "-A"); g("commit", "-q", "-m", "awal");
+  const jahat = path.join(tmp, "jahat", "a", "b", "c"); fs.mkdirSync(jahat, { recursive: true });
+  fs.mkdirSync(path.join(tmp, "jahat", "bin"), { recursive: true });
+  fs.writeFileSync(path.join(tmp, "jahat", "bin", "server-cek.sh"), "#!/bin/sh\necho JAHAT\n", { mode: 0o755 });
+  const SA_R = path.join(R, "ruang", "system-administrator");
+  try { fs.symlinkSync(jahat, path.join(SA_R, "lnk")); } catch { /* sudah ada */ }
+  const uji = (cwd, command) => JSON.parse(execFileSync(process.execPath, [path.join(SINI, "kebijakan.mjs"), "uji", JSON.stringify({ cwd, tool_name: "Bash", tool_input: { command } })],
+    { env: { ...process.env, RUDISONE_ROOT: R } }).toString()).keputusan;
+  assert.equal(uji(SA_R, `${R}/bin/server-cek.sh`), "allow");                                     // asli & bersih
+  assert.notEqual(uji(SA_R, `${SA_R}/lnk/../../../bin/server-cek.sh`), "allow");                  // symlink + .. (H2)
+  assert.notEqual(uji(SA_R, `cd -P ${SA_R}/lnk/../../.. && bin/server-cek.sh`), "allow");          // cd -P (H2)
+  fs.writeFileSync(path.join(R, "bin", "server-cek.sh"), "#!/bin/sh\necho DITIMPA\n");          // ditimpa lewat ~+ (H1)
+  assert.notEqual(uji(SA_R, `${R}/bin/server-cek.sh`), "allow");
+  assert.notEqual(uji(SA_R, "cd ~+/../.. && cp /tmp/x bin/server-cek.sh"), "allow");
+});
+
+test("U3 H1: ~+, ~-, ~user = ekspansi (tidak dianggap path harfiah)", async () => {
+  const { urai } = await import("./kebijakan.mjs");
+  for (const c of ["cd ~+/../..", "echo x > ~-/a", "cat ~karyawan/x"]) assert.equal(urai(c).ekspansi, true, c);
+  for (const c of ["cd ~/x", "cat ~", "echo a~b"]) assert.equal(urai(c).ekspansi, false, c);
+});
+
+test("U3 M1/M2: mysql — klien bukan dari PATH, host jauh, fungsi bukan bawaan → bukan jenjang 1", () => {
+  for (const c of ["ssh vps-uji \"/tmp/x/mysql -e 'select 1'\"", "ssh vps-uji \"./mysql -e 'select 1'\"", "ssh vps-uji \"~/app/mysql -e 'select 1'\"",
+    "ssh vps-uji \"mysql -h evil.example.com -u root -e 'select 1'\"", "ssh vps-uji \"mysql --host=evil.example.com -e 'select 1'\"",
+    "ssh vps-uji \"mysql app -e 'select purge_inactive()'\"", "ssh vps-uji \"mysql app -e 'select app.hapus_lama(1)'\""]) assert.equal(kep(bash(SA, c)), "ask", c);
+  for (const c of ["ssh vps-uji \"mysql -h 127.0.0.1 app -e 'select count(*), max(id) from users'\"", "ssh vps-uji \"/usr/bin/mysql app -e 'select date_format(now(), \\\"%Y\\\")'\"",
+    "ssh vps-uji \"mysql app -e 'select concat(left(email,2),\\\"***\\\") from users limit 5'\""]) assert.equal(kep(bash(SA, c)), "allow", c);
+});
+
+test("U3 M3: hitungBaris tidak tertipu -eSELECT, data berawalan Warning:, atau -ss; PostToolUseFailure tetap diaudit", async () => {
+  const { hitungBaris } = await import("./kebijakan.mjs");
+  const keluaran = "email\na@x\nb@x\nWarning: c@x\n";
+  const cmd = (q) => `ssh vps-uji "mysql app ${q}"`;
+  const a = (q) => putuskan(bash(SA, cmd(q)), K).aksi[0];
+  assert.equal(hitungBaris(keluaran, a("'-eSELECT email FROM users'")), 3);
+  assert.equal(hitungBaris("a@x\nb@x\n", a("-ss -e 'select email from users'")), 2);
+  const sebelum = bacaAudit().length;
+  const out = execFileSync(process.execPath, [path.join(SINI, "kebijakan.mjs"), "hook"], { input: JSON.stringify({ ...bash(SA, cmd("-e 'select email from users' && ls /tidak-ada")),
+    hook_event_name: "PostToolUseFailure", tool_response: { stdout: "email\na@x\n" } }), env: process.env }).toString();
+  assert.equal(out, "");
+  assert.equal(bacaAudit().length, sebelum + 1);
+  assert.equal(bacaAudit().at(-1).jenis, "baca-data");
+});
+
+test("U3 L2: denyut hanya dari peristiwa hook nyata; disableAllHooks dilaporkan cek", () => {
+  const dir = fs.mkdtempSync(path.join(tmp, "audit-l2-"));
+  const env = { ...process.env, RUDISONE_AUDIT: dir };
+  execFileSync(process.execPath, [path.join(SINI, "kebijakan.mjs"), "hook"], { input: JSON.stringify({ hook_event_name: "Manual" }), env });
+  assert.equal(fs.existsSync(path.join(dir, ".denyut.json")), false);
+  const S = path.join(tmp, "settings-l2.json");
+  const cli = (...a) => { try { return execFileSync(process.execPath, [path.join(SINI, "kebijakan.mjs"), ...a], { env: { ...env, RUDISONE_SETTINGS_USER: S } }).toString(); } catch (e) { return String(e.stdout); } };
+  cli("pasang", "--ya");
+  const s = JSON.parse(fs.readFileSync(S, "utf8")); s.disableAllHooks = true; fs.writeFileSync(S, JSON.stringify(s));
+  assert.match(cli("cek"), /disableAllHooks/);
+  assert.ok(["PreToolUse", "PostToolUse", "PostToolUseFailure"].every((ev) => s.hooks[ev]?.length === 1));
 });

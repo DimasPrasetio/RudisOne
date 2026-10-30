@@ -278,6 +278,8 @@ export function urai(cmd) {
     }
     if (c === " " || c === "\t" || c === "\r") { tutupKata(); seg.teks += c; continue; }
     if (c === "#" && !w) kompleks = true;                       // komentar: sisa baris tidak terlihat oleh pengurai
+    // ~+ (PWD), ~- (OLDPWD), ~user: diekspansi shell ke path yang tidak terlihat pengurai (U3 H1); ~ dan ~/ tetap harfiah
+    if (c === "~" && !w && n !== undefined && n !== "/" && !/[\s;&|()<>]/.test(n)) { ekspansi = true; kini().ekspansi = true; }
     if ("*?[{".includes(c)) kini().glob = true;
     if (c === "{") kini().kurawal = true;
     kini().nilai += c; seg.teks += c;
@@ -346,14 +348,25 @@ function curlBerbahaya(a) {
 }
 
 /** mysql hanya: opsi koneksi/format dari daftar, satu -e, satu pernyataan baca (tanpa INTO OUTFILE, \, ;). */
+/** Fungsi bawaan MySQL yang boleh muncul di SELECT baca; fungsi lain (mis. stored function MODIFIES SQL DATA) → ask. */
+const FUNGSI_BACA = new Set(("count sum avg min max concat concat_ws left right substring substr mid length char_length lower upper trim ltrim " +
+  "rtrim replace lpad rpad round floor ceil ceiling abs mod if ifnull nullif coalesce greatest least cast convert date time year month " +
+  "day hour minute second now curdate curtime current_date current_timestamp date_format str_to_date date_add date_sub datediff " +
+  "timestampdiff unix_timestamp from_unixtime group_concat json_extract json_unquote json_length json_object json_array distinct " +
+  "md5 sha1 sha2 hex unhex format instr locate find_in_set field elt in exists not and or interval values database version").split(" "));
 function mysqlBaca(w) {
+  // klien mysql dari PATH atau folder sistem saja — `/tmp/x/mysql`, `./mysql` bukan klien (U3 M1)
+  if (!(w[0] === "mysql" || /^\/usr\/(local\/)?(mysql\/)?bin\/mysql$/.test(w[0]))) return false;
   let stmt = null, posisional = 0;
   for (let i = 1; i < w.length; i++) {
     const x = w[i];
     if (x === "-e" || x === "--execute") { if (stmt !== null) return false; stmt = w[++i] ?? ""; continue; }
     if (/^--execute=/.test(x)) { if (stmt !== null) return false; stmt = x.slice(10); continue; }
     if (/^-e./.test(x)) { if (stmt !== null) return false; stmt = x.slice(2); continue; }
-    if (/^-[uhPD]$/.test(x)) { i++; continue; }
+    // host hanya lokal server: -h lain membuat server prod menyambung ke host pilihan penyerang dengan kredensialnya (U3 M2)
+    const host = x === "-h" || x === "--host" ? w[i + 1] : /^-h./.test(x) ? x.slice(2) : x.startsWith("--host=") ? x.slice(7) : null;
+    if (host !== null && !/^(localhost|127\.0\.0\.1|::1)$/.test(host)) return false;
+    if (/^-[uhPD]$/.test(x) || x === "--host") { i++; continue; }
     if (/^-[uhPD]\S+$/.test(x)) continue;
     if (/^--(user|host|port|database|default-character-set|connect-timeout)=/.test(x)) continue;
     if (/^-[NBstEr]+$/.test(x) || /^--(batch|skip-column-names|silent|table|vertical|raw|column-names|no-auto-rehash|skip-pager)$/.test(x)) continue;
@@ -365,7 +378,8 @@ function mysqlBaca(w) {
   // komentar (/* */, #, --) bisa memisahkan kata kunci: INTO/**/OUTFILE — ditolak seluruhnya
   return /^(select|show|describe|desc|explain)\b/i.test(q) && !/[;\\#]|\/\*|--/.test(q)
     && !/\binto\b/i.test(q) && !/\bfor\s+(update|share)\b|\block\s+in\s+share\s+mode\b/i.test(q)
-    && !/\b(load_file|sleep|benchmark|get_lock)\s*\(/i.test(q);
+    && !/\b(load_file|sleep|benchmark|get_lock)\s*\(/i.test(q)
+    && [...q.replace(/'[^']*'|"[^"]*"|`[^`]*`/g, "''").matchAll(/([A-Za-z_][\w$.]*)\s*\(/g)].every((m) => FUNGSI_BACA.has(m[1].toLowerCase()));
 }
 
 /** Perintah lokal yang boleh ikut dalam perintah majemuk yang diloloskan — irisan daftar bawaan hook dengan
@@ -407,8 +421,10 @@ function klasifikasiRemote(remote, prov, K) {
     const w = my.kata.map((x) => x.nilai);
     // bentuk keluaran untuk menghitung baris di PostToolUse: vertikal (-E/\G) atau tanpa baris kepala (-N)
     return [{ kemampuan, jenjang: 1, jenis: "baca-data", aksi: `baca data prod ${prov}`, bacaData: true,
-      vertikal: w.some((x) => /^-[A-Za-z]*E/.test(x) && !x.startsWith("--") || x === "--vertical") || /\\G\s*$/.test(w.join(" ")),
-      tanpaKepala: w.some((x) => /^-[A-Za-z]*N/.test(x) && !x.startsWith("--") || x === "--skip-column-names") }];
+      // hanya gugus bendera murni (sama dengan daftar-izin mysqlBaca) — `-eSELECT …` bukan bendera (U3 M3)
+      vertikal: w.some((x) => (/^-[NBstEr]+$/.test(x) && x.includes("E")) || x === "--vertical") || /\\G\s*$/.test(w.join(" ")),
+      tanpaKepala: w.some((x) => (/^-[NBstEr]+$/.test(x) && x.includes("N")) || x === "--skip-column-names")
+        || w.filter((x) => /^-[NBstEr]+$/.test(x)).join("").split("s").length - 1 >= 2 || w.filter((x) => x === "--silent").length >= 2 }];
   }
   return [{ kemampuan, jenjang: 3, aksi: `perintah server ${prov}: ${(tidakBaca[0]?.teks ?? remote).slice(0, 80)}` }];
 }
@@ -436,11 +452,36 @@ function apiTulis(t) {
  *  `cd` sebelumnya di perintah yang sama (cd /tmp/x && bin/server-cek.sh tidak lagi dikenali). */
 function perkakasAsli(prog, ctx) {
   const p = rumah(prog);
-  let abs;
-  if (path.isAbsolute(p)) abs = p;
-  else if (/^(\.\/)?bin\/[^/]+$/.test(p) && ctx.cwd) abs = path.resolve(rumah(ctx.cwd), p);
+  let mentah;
+  if (path.isAbsolute(p)) mentah = p;
+  // relatif hanya dari folder AWAL perintah (input.cwd, folder fisik proses) — sesudah `cd` di perintah yang sama, cwd
+  // tidak bisa dipastikan (cd logis vs fisik, symlink) → bukan perkakas
+  else if (/^(\.\/)?bin\/[^/]+$/.test(p) && ctx.cwd && ctx.cwd === ctx.awal) mentah = `${rumah(ctx.awal)}/${p}`;
   else return false;
-  return path.dirname(path.resolve(abs)) === path.join(ROOT, "bin");
+  // Path diselesaikan seperti kernel (realpath.native, bukan path.resolve yang memotong `..` secara teks): symlink +
+  // `..` tidak bisa membawa skrip lain masuk sebagai perkakas resmi (T-20261030-6 U3 H2).
+  let asliP = null, asliBin = null;
+  try { asliP = fs.realpathSync.native(mentah); } catch { /* tidak ada */ }
+  if (!asliP) return path.dirname(path.resolve(mentah)) === path.join(ROOT, "bin");   // berkas tidak ada → tidak ada yang dijalankan
+  try { asliBin = fs.realpathSync.native(path.join(ROOT, "bin")); } catch { return false; }
+  if (path.dirname(asliP) !== asliBin) return false;
+  return perkakasUtuh(path.basename(asliP));
+}
+/** Perkakas di checkout utama harus sama dengan yang di-commit (di-track, tanpa perubahan) — skrip jenjang 1 yang
+ *  ditimpa agent (mis. lewat `~+/…`, U3 H1) tidak lagi diloloskan. ROOT bukan repo git → tidak diperiksa. */
+const _utuh = new Map();
+function perkakasUtuh(nama) {
+  if (_utuh.has(nama)) return _utuh.get(nama);
+  let ok = true;
+  try {
+    execFileSync("git", ["-C", ROOT, "rev-parse", "--git-dir"], { stdio: "ignore", timeout: 3000 });
+    try {
+      execFileSync("git", ["-C", ROOT, "ls-files", "--error-unmatch", `bin/${nama}`], { stdio: "ignore", timeout: 3000 });
+      execFileSync("git", ["-C", ROOT, "diff", "--quiet", "HEAD", "--", `bin/${nama}`], { stdio: "ignore", timeout: 3000 });
+    } catch { ok = false; }
+  } catch { /* bukan repo git */ }
+  _utuh.set(nama, ok);
+  return ok;
 }
 
 const BACA_SENDIRI = { kebijakan: ["uji", "cek", "tampil", "audit"], konfig: ["cek", "get", "host", "playbook", "contoh"], inti: ["hook", "cek", "uji"] };
@@ -642,6 +683,7 @@ function analisisBash(input, K) {
   const u = urai(cmd);
   // cwd berjalan: `cd <path harfiah>` diikuti; cd lain (variabel, -, pushd/popd) → tidak diketahui (null)
   const ctx = { cwd: input.cwd ? rumah(input.cwd) : HOME };
+  ctx.awal = ctx.cwd;
   const hasil = [];
   let sebut = null, ubahSendiri = false;
   for (const s of u.segmen) {
@@ -852,7 +894,7 @@ export function putuskan(input, K) {
  *  vertikal: penanda "*** n. row ***"). Baris peringatan klien diabaikan. Dihitung dari yang benar-benar dikembalikan
  *  ke agent (setelah | head dsb.) — itulah yang masuk konteks/vendor (X6). */
 export function hitungBaris(out, a = {}) {
-  const baris = String(out ?? "").split("\n").filter((l) => l.trim() && !/^(mysql: \[Warning\]|Warning:|ERROR \d+)/.test(l));
+  const baris = String(out ?? "").split("\n").filter((l) => l.trim() && !/^(mysql: \[Warning\]|ERROR \d+ \(\w+\))/.test(l));
   if (a.vertikal) return baris.filter((l) => /^\*+ \d+\. row \*+$/.test(l.trim())).length;
   return Math.max(0, baris.length - (a.tanpaKepala ? 0 : 1));
 }
@@ -881,6 +923,8 @@ export function catatSesudah(input, K) {
 // ---------- pemasangan (dijalankan pengguna) ----------
 /** Alat yang dilihat hook. Write/Edit/MultiEdit/NotebookEdit sejak T-20261030-5 (berkas terlindung). */
 export const MATCHER = "^(Bash|Write|Edit|MultiEdit|NotebookEdit|mcp__.*)$";
+/** PostToolUseFailure: perintah yang gagal (exit ≠ 0) tetap bisa sudah mengembalikan data prod ke transkrip (U3 M3). */
+const PERISTIWA = ["PreToolUse", "PostToolUse", "PostToolUseFailure"];
 function entriHook() {
   return { matcher: MATCHER, hooks: [{ type: "command", command: `"${process.execPath}" "${INI}" hook`, timeout: 30 }] };
 }
@@ -890,11 +934,13 @@ export function statusPasang() {
   const s = bacaSettings();
   return ["PreToolUse", "PostToolUse"].every((ev) => (s.hooks?.[ev] ?? []).some(milikKita));
 }
-/** Terpasang dengan matcher versi ini? (versi lama tidak melihat Write/Edit → berkas terlindung tidak dijaga) */
+/** Terpasang dengan matcher & peristiwa versi ini? (versi lama tidak melihat Write/Edit atau PostToolUseFailure) */
 export function matcherMutakhir() {
   const s = bacaSettings();
-  return ["PreToolUse", "PostToolUse"].every((ev) => (s.hooks?.[ev] ?? []).filter(milikKita).every((e) => e.matcher === MATCHER));
+  return PERISTIWA.every((ev) => (s.hooks?.[ev] ?? []).some(milikKita) && (s.hooks?.[ev] ?? []).filter(milikKita).every((e) => e.matcher === MATCHER));
 }
+/** `disableAllHooks: true` di settings pengguna mematikan semua hook walau entrinya ada (U3 L2). */
+export function hookDimatikan() { return bacaSettings().disableAllHooks === true; }
 /** Program yang dipanggil hook masih ada? (mis. Node versi nvm lama dihapus → hook diam-diam tidak berjalan). */
 export function programHookAda() {
   const s = bacaSettings();
@@ -921,16 +967,16 @@ async function pasang(opsi) {
   console.log("Hook hanya bertindak di sesi RudisOne; sesi pribadi dilewati. Aturan izin yang sudah ada tidak diubah; cadangan settings dibuat dulu.");
   if (!(await konfirmasi("Pasang sekarang?", opsi))) { console.log("Dibatalkan."); return 1; }
   s.hooks ??= {};
-  for (const ev of ["PreToolUse", "PostToolUse"]) { s.hooks[ev] = (s.hooks[ev] ?? []).filter((e) => !milikKita(e)); s.hooks[ev].push(entriHook()); }
+  for (const ev of PERISTIWA) { s.hooks[ev] = (s.hooks[ev] ?? []).filter((e) => !milikKita(e)); s.hooks[ev].push(entriHook()); }
   tulisSettings(s);
   console.log("Terpasang. Claude Code biasanya langsung memakainya, termasuk di sesi yang sedang terbuka; bila belum, mulai ulang sesinya.");
   return 0;
 }
 async function lepas(opsi) {
   const s = bacaSettings();
-  if (!statusPasang() && !["PreToolUse", "PostToolUse"].some((ev) => (s.hooks?.[ev] ?? []).some(milikKita))) { console.log("Tidak terpasang."); return 0; }
+  if (!statusPasang() && !PERISTIWA.some((ev) => (s.hooks?.[ev] ?? []).some(milikKita))) { console.log("Tidak terpasang."); return 0; }
   if (!(await konfirmasi(`Hapus hook kebijakan RudisOne dari ${SETTINGS}?`, opsi))) { console.log("Dibatalkan."); return 1; }
-  for (const ev of ["PreToolUse", "PostToolUse"]) {
+  for (const ev of PERISTIWA) {
     if (!s.hooks?.[ev]) continue;
     s.hooks[ev] = s.hooks[ev].filter((e) => !milikKita(e));
     if (!s.hooks[ev].length) delete s.hooks[ev];
@@ -970,11 +1016,11 @@ export async function main(argv) {
     try {
       const input = JSON.parse(await bacaStdin());
       const K = muatKebijakan();
-      denyut();
+      if (PERISTIWA.includes(input.hook_event_name) && input.session_id && input.tool_name) denyut();
       if (input.hook_event_name === "PreToolUse") {
         const p = putuskan(input, K);
         if (p.keputusan) process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: p.keputusan, permissionDecisionReason: p.alasan } }));
-      } else if (input.hook_event_name === "PostToolUse") catatSesudah(input, K);
+      } else if (input.hook_event_name === "PostToolUse" || input.hook_event_name === "PostToolUseFailure") catatSesudah(input, K);
     } catch { /* gagal terbuka: alur izin biasa berlaku */ }
     return 0;
   }
@@ -983,7 +1029,8 @@ export async function main(argv) {
   if (perintah === "cek") {
     let ok = statusPasang();
     console.log(ok ? `Kebijakan RudisOne terpasang di ${SETTINGS}.` : `Belum terpasang — pemilik menjalankan: ${ROOT}/bin/kebijakan.sh pasang`);
-    if (ok && !matcherMutakhir()) { ok = false; console.log(`Hook terpasang versi lama (matcher tanpa Write/Edit — berkas terlindung tidak dijaga) — pemilik menjalankan: ${ROOT}/bin/kebijakan.sh pasang`); }
+    if (ok && !matcherMutakhir()) { ok = false; console.log(`Hook terpasang versi lama (matcher/peristiwa tidak lengkap: Write/Edit, PostToolUseFailure) — pemilik menjalankan: ${ROOT}/bin/kebijakan.sh pasang`); }
+    if (ok && hookDimatikan()) { ok = false; console.log(`Semua hook dimatikan (disableAllHooks: true di ${SETTINGS}) — kebijakan tidak berjalan.`); }
     if (ok && !programHookAda()) { ok = false; console.log(`Program yang dipanggil hook tidak ditemukan (Node berpindah versi?) — pemilik menjalankan ulang: ${ROOT}/bin/kebijakan.sh lepas && ${ROOT}/bin/kebijakan.sh pasang`); }
     try {
       const d = JSON.parse(fs.readFileSync(FILE_DENYUT, "utf8"));
