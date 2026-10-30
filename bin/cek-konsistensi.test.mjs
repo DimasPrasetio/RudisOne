@@ -94,3 +94,11 @@ test("pencocokan bagian tidak longgar: judul satu kata + kata palsu, dan judul d
   }));
   assert.deepEqual(kodeTemuan(h), ["rujukan", "rujukan"]);
 });
+
+test("rujukan bagian ke berkas per device (TEAM.md) tidak diperiksa, walau berkasnya ada di device", () => {
+  const h = periksa(repoMini((t) => {
+    t("TEAM.md", "# TEAM\n\n## Engineering · Tim 2 · proyek-x\n");
+    t("agents/coo.md", "---\nname: coo\ndescription: d\n---\nLihat `TEAM.md` › Engineering · Tim <n>.\n");
+  }));
+  assert.deepEqual(kodeTemuan(h), []);
+});
