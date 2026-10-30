@@ -6,6 +6,9 @@ WSL2**. Waktu ±30–45 menit. Linux: lewati bagian A dan catatan "WSL"/"Windows
 **keluaran** tiap langkah bertanda 📋 ke satu berkas teks lalu kirim ke COO (pemilik RudisOne). Jangan kirim PAT, password,
 atau isi `~/.config/rudisone/rahasia/`. Batas saat ini di Linux/WSL (tanpa Claude Desktop): README › Pasang di device baru.
 
+> macOS **sudah terverifikasi** (Claude Desktop, Claude Code CLI, ekstensi VS Code) — lihat [`uji/macos.md`](macos.md). Jangan
+> merekomendasikan atau mengulang uji di macOS; daftar ini hanya untuk Linux dan Windows (WSL2).
+
 ## A. Siapkan WSL2 — khusus Windows (PowerShell sebagai Administrator)
 1. `wsl --install -d Ubuntu` → restart bila diminta, buat user Linux.
    Harapan: `wsl -l -v` 📋 menampilkan `Ubuntu … VERSION 2`.

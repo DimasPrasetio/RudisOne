@@ -108,6 +108,7 @@ RudisOne berjalan di **macOS**, **Linux**, dan **Windows lewat WSL2** (jalur Lin
   Pengaman sesi latar dipasang per sesi (`--settings konfigurasi/sesi-cli.settings.json`: tanpa isolasi worktree otomatis,
   deny `git push`/`gh pr create`/`claude rm`, bypass mati) — settings pengguna tidak diubah. **Belum diuji di mesin Linux
   sungguhan** (simulasi + `claude` tiruan).
+- **macOS sudah terverifikasi** (Claude Desktop, Claude Code CLI, ekstensi VS Code) — jangan diuji ulang: `uji/macos.md`.
 - Daftar uji Linux & Windows/WSL2 untuk rekan (langkah + hasil yang diharapkan, keluarannya dikirim ke COO): `uji/linux-wsl.md`.
 
 1. `git clone https://github.com/DimasPrasetio/RudisOne.git ~/Documents/Neuron/ai-agent/RudisOne` (repo publik; harus di path ini —
