@@ -23,7 +23,15 @@ fs.writeFileSync(RILIS, '#!/bin/sh\nif [ -f "$0.siap" ]; then echo "Hasil: SIAP 
 // register fixture: worktree tim hanya bermakna di folder proyek terdaftar (T-20261030-6 A3)
 const REGISTER = path.join(tmp, "register-tugas.json");
 fs.writeFileSync(REGISTER, JSON.stringify({ versi: 1, tugas: [{ id: "T-1", folder: "/x/toko (branch rudis/T-1)" }] }));
+// lokasi kredensial gh di luar bawaan (T-20261030-12): GH_CONFIG_DIR & XDG_CONFIG_HOME/gh
+const GH = path.join(tmp, "ghconf"), XDG = path.join(tmp, "xdg");
+fs.mkdirSync(GH, { recursive: true }); fs.mkdirSync(path.join(XDG, "gh"), { recursive: true });
+fs.symlinkSync(GH, path.join(tmp, "tautan"));
+fs.mkdirSync(path.join(GH, "sub"), { recursive: true });
+fs.symlinkSync(path.join(GH, "sub"), path.join(tmp, "tautan-sub"));   // tautan-sub/.. = GH (fisik), bukan tmp (teks)
+const HOME_REL = os.homedir().replace(/^\//, "");
 Object.assign(process.env, {
+  GH_CONFIG_DIR: GH, XDG_CONFIG_HOME: XDG,
   RUDISONE_REGISTER: REGISTER,
   RUDISONE_RILIS_CEK: RILIS,
   RUDISONE_ROOT: ROOT,
@@ -862,4 +870,32 @@ test("backend sesi cli: claude --bg/stop/kill/respawn/logs hanya COO; rm/attach/
   // …tetapi yang benar-benar dijalankan shell tetap ditanya
   for (const c of ["bash <<'EOF'\nclaude --bg x\nEOF", "cat <<EOF | bash\nclaude --bg x\nEOF", `bash -c 'claude --bg x'`, `echo "$(claude --bg x)"`, "echo \"`claude rm x`\""])
     assert.equal(kep(bash(path.join(ROOT, "ruang", "research-analyst"), c)), "ask", c);
+});
+
+test("T-20261030-12: berkas kredensial (gh & lainnya) tidak pernah allow lewat cd/relatif/.././/, symlink, glob, pembungkus", () => {
+  const g = (c) => `gh pr list && ${c}`;
+  for (const c of ["cd ~/.config && cat gh/hosts.yml", "cd ~/.config/gh && cat hosts.yml", "cat ~/.config//gh/hosts.yml",
+    "cat ~/.config/./gh/hosts.yml", "cat ~/.config/x/../gh/hosts.yml", "cd ~ && cat .config/gh/hosts.yml", "cd ~/.config && head -5 ./gh/hosts.yml",
+    "cd ~/.config/gh/.. && cat gh/hosts.yml", "cat ~/.config/g?/hosts.yml", "cd ~ && cd .config && cat gh/hosts.yml", "cd - && cat hosts.yml",
+    "cd ~/.config && cat < gh/hosts.yml", "cd ~/.config && grep --file=gh/hosts.yml x", "cd ~/.config && grep -f gh/hosts.yml x",
+    "cd ~/.config && ls gh", "cd ~/.config/gh && ls", "cd ~/.config && tail -n 1 gh//hosts.yml", "cd ~/.config && cut -c1-3 GH/HOSTS.YML".replace("GH", process.platform === "darwin" ? "GH" : "gh"),
+    `cd ${XDG} && cat gh/hosts.yml`, `cat ${GH}/hosts.yml`, `cd ${GH}/.. && cat ghconf/hosts.yml`, `cat ${path.join(tmp, "tautan")}/hosts.yml`,
+    `cd ${tmp} && cat tautan/hosts.yml`, "timeout 5 cat ~/.config/gh/hosts.yml",
+    // pola rahasia lain, cara yang sama
+    "cd ~ && cat .aws/credentials", "cd ~/.aws && cat credentials", "cd ~/.docker && cat config.json", "cd ~/.kube && cat config",
+    "cd ~/.ssh && cat id_ed25519", "cd ~/.ssh/.. && cat .ssh/known_hosts", "cd ~ && head .netrc", "cd ~/.gnupg && ls",
+    "cd ~/.config/rudisone && cat rahasia/rudisone-rudis-sdd", "cd ~/Library && cat Keychains/login.keychain-db",
+    // tinjauan putaran 1: cd gagal/subshell, opsi pendek menempel, `..` di belakang symlink, /.vol
+    `cd /nonexist-xyz; cat ${"../".repeat(12)}${HOME_REL}/.config/./gh/hosts.yml`, `cd /nonexist-xyz || cat ${"../".repeat(12)}${HOME_REL}/.config//gh/hosts.yml`,
+    `cd / | cat ${"../".repeat(12)}${HOME_REL}/.config/gh/hosts.yml`, `cd /tmp & cat ${"../".repeat(12)}${HOME_REL}/.config/gh/hosts.yml`,
+    "cd ~/.config && date -fgh/hosts.yml", "cd ~/.config && grep -fgh/hosts.yml README.md", "cd ~/.config && grep -nfgh/hosts.yml x",
+    `cat ${path.join(tmp, "tautan-sub")}/../hosts.yml`, `cd -P ${path.join(tmp, "tautan-sub")}/.. && cat hosts.yml`,
+    "cat /.vol/16777232/12345/hosts.yml", "cd ~/.config && cat /proc/self/cwd/gh/hosts.yml", "cd ~/.config && cat /proc/thread-self/cwd/gh/hosts.yml",
+    "cd ~/.config && cat /dev/fd/../../proc/self/cwd/gh/hosts.yml", "cat /proc/self/root/home/u/.config/gh/hosts.yml", "cd ~/.config && cat /dev/fd/3"]) {
+    for (const cwd of [COO, SA]) assert.notEqual(kep(bash(cwd, g(c))), "allow", `${cwd}: ${c}`);
+  }
+  // pekerjaan biasa tetap lolos seperti sebelumnya
+  for (const c of [`cd ${ROOT} && cat README.md`, "ls ~/.config", "head -3 bin/x.sh", "cat ~/.config/lain/x.json", "cd ~/proyek && wc -l a.txt",
+    "cd /tmp && ls && cd - && echo ok"])
+    assert.equal(kep(bash(COO, g(c))), "allow", c);
 });
