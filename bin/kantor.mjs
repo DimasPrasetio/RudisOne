@@ -16,8 +16,9 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SERVER = path.join(ROOT, "kantor", "server.mjs");
 const PORT = process.env.RUDISONE_KANTOR_PORT || "7421";
 const ALAMAT = `http://127.0.0.1:${PORT}`;
-const LOG = path.join(process.env.TMPDIR || os.tmpdir(), "kantor-rudisone.log");
-const PIDFILE = path.join(os.tmpdir(), `kantor-rudisone-${PORT}.pid`);
+// log per port (7421 tetap di nama lama): Kantor uji di port lain tidak menimpa log Kantor yang sedang dipakai (T4)
+const LOG = path.join(process.env.TMPDIR || os.tmpdir(), PORT === "7421" ? "kantor-rudisone.log" : `kantor-rudisone-${PORT}.log`);
+const PIDFILE = path.join(os.tmpdir(), `kantor-rudisone-${PORT}.pid`);   // hanya dibersihkan (versi lama menulisnya)
 const AKSI = process.argv[2] || "buka";
 const PEMAKAIAN = `Pemakaian: bin/kantor.sh [buka|--tanpa-browser|mulai-ulang|berhenti|demo]`;
 
@@ -35,28 +36,59 @@ const sehat = () => new Promise((selesai) => {
   req.on("error", () => selesai(null));
 });
 
-/** Hentikan server Kantor milik repo ini: lewat berkas pid, lalu cari proses dengan baris perintah yang sama. */
-function berhenti() {
-  let ada = false;
-  try {
-    const pid = Number(fs.readFileSync(PIDFILE, "utf8"));
-    if (pid > 0) { process.kill(pid); ada = true; }
-  } catch { /* tidak ada berkas pid / proses sudah mati */ }
-  fs.rmSync(PIDFILE, { force: true });
+/** Penanda port di baris perintah server (server.mjs mengabaikannya): bukti proses ini Kantor untuk port INI. */
+const PENANDA = `--kantor-port=${PORT}`;
+const angka = (t) => String(t ?? "").split(/\s+/).map(Number).filter((n) => Number.isInteger(n) && n > 0);
+
+/** Proses yang sedang mendengarkan port ini (mac/Linux: lsof, lalu ss). null = tidak bisa dipastikan. */
+function pendengarPort() {
+  const l = spawnSync("lsof", ["-nP", `-iTCP:${PORT}`, "-sTCP:LISTEN", "-t"], { encoding: "utf8" });
+  if (!l.error) return angka(l.stdout);
+  const s = spawnSync("ss", ["-ltnpH", `sport = :${PORT}`], { encoding: "utf8" });
+  if (!s.error) return [...String(s.stdout).matchAll(/pid=(\d+)/g)].map((m) => Number(m[1]));
+  return null;
+}
+
+/** Server Kantor RudisOne milik checkout ini untuk port ini: baris perintahnya menjalankan SERVER dan (memuat PENANDA,
+ *  atau — server versi lama tanpa penanda — prosesnya memang mendengarkan port ini). Bukan dari berkas pid: pid basi
+ *  bisa sudah dipakai proses lain (T3), dan pencocokan nama skrip saja ikut mengenai Kantor di port lain (T4). */
+function prosesKantor() {
+  let calon;   // [{ pid, cmd, dengar }]
   if (WINDOWS) {
     const jalur = SERVER.replaceAll("'", "''");
-    const ps = `Get-CimInstance Win32_Process -Filter "Name='node.exe'" | Where-Object { $_.CommandLine -like '*${jalur}*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force; $_.ProcessId }`;
-    const r = spawnSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", ps], { encoding: "utf8" });
-    if (r.status === 0 && r.stdout.trim()) ada = true;
+    const ps = `$d=@(Get-NetTCPConnection -LocalPort ${Number(PORT)} -State Listen -ErrorAction SilentlyContinue | ForEach-Object { $_.OwningProcess }); `
+      + `Get-CimInstance Win32_Process -Filter "Name='node.exe'" | Where-Object { $_.CommandLine -and $_.CommandLine.Contains('${jalur}') } | `
+      + `ForEach-Object { "$($_.ProcessId)\t$([int]($d -contains $_.ProcessId))\t$($_.CommandLine)" }`;
+    const r = spawnSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", ps], { encoding: "utf8", windowsHide: true });
+    calon = String(r.stdout ?? "").split(/\r?\n/).filter(Boolean).map((b) => { const [pid, d, ...c] = b.split("\t"); return { pid: Number(pid), dengar: d === "1", cmd: c.join("\t") }; });
   } else {
-    const r = spawnSync("pkill", ["-f", SERVER], { stdio: "ignore" });
-    if (r.status === 0) ada = true;
+    const r = spawnSync("ps", ["-A", "-ww", "-o", "pid=", "-o", "command="], { encoding: "utf8" });
+    calon = String(r.stdout ?? "").split("\n").map((b) => b.trim().match(/^(\d+)\s+(.*)$/)).filter(Boolean)
+      .map((m) => ({ pid: Number(m[1]), cmd: m[2] })).filter((p) => p.cmd.includes(SERVER));
+    const dengar = calon.some((p) => !p.cmd.includes("--kantor-port=")) ? pendengarPort() ?? [] : [];
+    for (const p of calon) p.dengar = dengar.includes(p.pid);
   }
-  return ada;
+  return calon.filter((p) => p.pid !== process.pid && p.cmd.includes(SERVER)
+    && (` ${p.cmd} `.includes(` ${PENANDA} `) || (!p.cmd.includes("--kantor-port=") && p.dengar))).map((p) => p.pid);
+}
+
+/** Hentikan server Kantor milik checkout ini di port ini → daftar pid yang dimatikan. */
+function berhenti() {
+  fs.rmSync(PIDFILE, { force: true });   // berkas pid versi lama: tidak dipercaya lagi, hanya dibersihkan
+  const mati = [];
+  for (const pid of prosesKantor()) { try { process.kill(pid); mati.push(pid); } catch { /* sudah berhenti */ } }
+  return mati;
 }
 
 async function utama() {
-  if (AKSI === "berhenti") { console.log(berhenti() ? "Kantor dimatikan." : "Kantor tidak sedang berjalan."); return 0; }
+  if (AKSI === "berhenti") {
+    const mati = berhenti();
+    if (mati.length) { console.log(`Kantor (port ${PORT}) dimatikan — pid ${mati.join(", ")}.`); return 0; }
+    console.log(await sehat()
+      ? `Port ${PORT} dijawab server yang tidak terbukti Kantor dari checkout ini (${SERVER}) — tidak dimatikan.`
+      : `Kantor tidak sedang berjalan di port ${PORT}.`);
+    return 0;
+  }
   if (!["buka", "--tanpa-browser", "mulai-ulang", "demo"].includes(AKSI)) { console.log(PEMAKAIAN); return 1; }
 
   let jalan = await sehat();
@@ -64,14 +96,17 @@ async function utama() {
     console.log("Memulai ulang Kantor (kode server berubah atau diminta).");
     berhenti();
     for (let i = 0; i < 20; i++) { if (!(await sehat())) break; tidur(250); }
+    if (await sehat()) {
+      console.error(`Port ${PORT} masih dijawab server yang tidak terbukti Kantor dari checkout ini (${SERVER}) — tidak dimatikan; hentikan dari checkout asalnya atau pakai RUDISONE_KANTOR_PORT lain.`);
+      return 1;
+    }
     jalan = null;
   }
   if (!jalan) {
     const log = fs.openSync(LOG, "w");
-    const anak = spawn(process.execPath, [SERVER], { detached: true, stdio: ["ignore", log, log], windowsHide: true,
+    const anak = spawn(process.execPath, [SERVER, PENANDA], { detached: true, stdio: ["ignore", log, log], windowsHide: true,
       env: { ...process.env, RUDISONE_KANTOR_PORT: PORT } });
     anak.unref();
-    if (anak.pid) fs.writeFileSync(PIDFILE, String(anak.pid));
     for (let i = 0; i < 20; i++) { if (await sehat()) break; tidur(250); }
   }
   if (!(await sehat())) {

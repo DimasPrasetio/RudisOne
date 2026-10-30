@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { palsu } from "./lib/uji-util.mjs";
 
@@ -922,4 +922,81 @@ test("T-20261030-12: berkas kredensial (gh & lainnya) tidak pernah allow lewat c
   for (const c of [`cd ${ROOT} && cat README.md`, "ls ~/.config", "head -3 bin/x.sh", "cat ~/.config/lain/x.json", "cd ~/proyek && wc -l a.txt",
     "cd /tmp && ls && cd - && echo ok"])
     assert.equal(kep(bash(COO, g(c))), "allow", c);
+});
+
+test("T1: matcher hook dinilai per OS — tanpa PowerShell tetap mutakhir di macOS/Linux, wajib di Windows; pesan menyebut yang kurang", async () => {
+  const { matcherMutakhir, kekuranganHook, alatWajib, MATCHER: MATCHER_KINI } = await import("./kebijakan.mjs");
+  const S = process.env.RUDISONE_SETTINGS_USER;
+  fs.mkdirSync(path.dirname(S), { recursive: true });
+  const entri = (matcher) => ({ matcher, hooks: [{ type: "command", command: `"${process.execPath}" "${path.join(SINI, "kebijakan.mjs")}" hook`, timeout: 30 }] });
+  const tulis = (matcher, peristiwa = ["PreToolUse", "PostToolUse", "PostToolUseFailure"]) =>
+    fs.writeFileSync(S, JSON.stringify({ hooks: Object.fromEntries(peristiwa.map((ev) => [ev, [entri(matcher)]])) }));
+  const cek = (sistem) => spawnSync(process.execPath, [path.join(SINI, "kebijakan.mjs"), "cek"], { encoding: "utf8", env: { ...process.env, RUDISONE_OS: sistem } });
+  assert.ok(alatWajib("win32").includes("PowerShell"));
+  assert.ok(!alatWajib("darwin").includes("PowerShell") && !alatWajib("linux").includes("PowerShell"));
+  try {
+    // matcher versi sebelum dukungan Windows (instalasi Mac/Linux yang sudah ada)
+    tulis("^(Bash|Write|Edit|MultiEdit|NotebookEdit|mcp__.*)$");
+    for (const os_ of ["darwin", "linux"]) {
+      assert.equal(matcherMutakhir(os_), true, os_);
+      const r = cek(os_);
+      assert.equal(r.status, 0, r.stdout);
+      assert.doesNotMatch(r.stdout, /versi lama/);
+    }
+    assert.equal(matcherMutakhir("win32"), false);
+    assert.deepEqual(kekuranganHook("win32"), ["alat PowerShell di PreToolUse", "alat PowerShell di PostToolUse", "alat PowerShell di PostToolUseFailure"]);
+    let r = cek("win32");
+    assert.equal(r.status, 1);
+    assert.match(r.stdout, /versi lama \(kurang: alat PowerShell di PreToolUse/);
+    assert.doesNotMatch(r.stdout, /Write\/Edit/, "pesan tidak menyebut bagian yang sudah ada");
+    // matcher versi ini: mutakhir di semua OS
+    tulis(MATCHER_KINI);
+    for (const os_ of ["darwin", "linux", "win32"]) assert.equal(matcherMutakhir(os_), true, os_);
+    // versi lebih lama lagi: tanpa Write/Edit dan tanpa PostToolUseFailure → keduanya disebut, juga di macOS
+    tulis("^(Bash|mcp__.*)$", ["PreToolUse", "PostToolUse"]);
+    const k = kekuranganHook("darwin");
+    assert.ok(k.includes("alat Write di PreToolUse") && k.includes("peristiwa PostToolUseFailure"), k.join("; "));
+    assert.ok(!k.some((x) => /PowerShell/.test(x)), "PowerShell tidak dituntut di macOS");
+    r = cek("darwin");
+    assert.equal(r.status, 1);
+    assert.match(r.stdout, /kurang: .*alat Write di PreToolUse.*peristiwa PostToolUseFailure/);
+    // matcher kosong / "*" = semua alat (semantik Claude Code)
+    tulis("*");
+    assert.equal(matcherMutakhir("win32"), true);
+  } finally { fs.rmSync(S, { force: true }); }
+});
+
+test("T2: `node bin/<perkakas>.mjs` dikenali sama seperti `bin/<perkakas>.sh` — kemampuan, jenjang, cek jabatan, audit", () => {
+  const RA = path.join(ROOT, "ruang", "research-analyst");
+  const PERKAKAS = { "server-cek": "", "rilis-cek": ` contoh/app-uji ${SHA}`, "pasca-deploy": ` app-uji ${SHA.slice(0, 7)}` };
+  for (const [pk, a] of Object.entries(PERKAKAS)) {
+    for (const cwd of [RA, SA, COO]) {
+      const sh = putuskan(bash(cwd, `${ROOT}/bin/${pk}.sh${a}`), K);
+      assert.ok(sh.aksi?.length, `${pk}.sh dikenali`);
+      const bentuk = [`node ${ROOT}/bin/${pk}.mjs${a}`, ...(cwd === COO ? [`node bin/${pk}.mjs${a}`, `node ./bin/${pk}.mjs${a}`] : [])];
+      for (const c of bentuk) {
+        const m = putuskan(bash(cwd, c), K);
+        assert.equal(m.keputusan, sh.keputusan, `${path.basename(cwd)}: ${c}`);
+        assert.deepEqual(m.aksi, sh.aksi, c);
+      }
+    }
+  }
+  // kebijakan asli: Research Analyst tidak punya akses server → ditanya, baik .sh maupun .mjs
+  assert.equal(kep(bash(RA, `node ${ROOT}/bin/server-cek.mjs`)), "ask");
+  assert.match(putuskan(bash(RA, `node ${ROOT}/bin/server-cek.mjs`), K).alasan, /di luar akses Research Analyst/);
+  assert.equal(kep(bash(SA, `node ${ROOT}/bin/server-cek.mjs`)), "allow");
+  // opsi Node sebelum skrip / node di luar PATH standar: tetap dicek jabatan, tidak pernah diloloskan
+  assert.equal(kep(bash(RA, `node --require /tmp/x.js ${ROOT}/bin/server-cek.mjs`)), "ask");
+  assert.equal(kep(bash(SA, `node --require /tmp/x.js ${ROOT}/bin/server-cek.mjs`)), null);
+  assert.equal(kep(bash(SA, `/tmp/palsu/node ${ROOT}/bin/server-cek.mjs`)), null);
+  // bukan perkakas RudisOne: folder lain, relatif dari folder selain ROOT, skrip .mjs yang tidak terdaftar
+  assert.equal(kep(bash(RA, "node /x/lain/bin/server-cek.mjs")), null);
+  assert.equal(kep(bash(SA, "node bin/server-cek.mjs")), null);
+  assert.equal(kep(bash(RA, `node ${ROOT}/bin/metrik.mjs tugas T-1`)), null);
+  // audit: hasil rilis-cek lewat .mjs tercatat seperti lewat .sh; bentuk ber-opsi tidak dicatat sebagai hasil perkakas
+  const audit = (c) => catatSesudah({ ...bash(COO, c), hook_event_name: "PostToolUse", tool_response: { stdout: "Hasil: SIAP DEPLOY" } }, K);
+  const r1 = audit(`node bin/rilis-cek.mjs contoh/app-t2 ${SHA}`);
+  assert.equal(r1?.[0]?.jenis, "rilis-cek");
+  assert.equal(r1[0].repo, "contoh/app-t2");
+  assert.equal(audit(`node --require /tmp/x.js bin/rilis-cek.mjs contoh/app-t2 ${SHA}`), null);
 });

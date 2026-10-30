@@ -2,7 +2,7 @@
 // Jalan di macOS, Linux, dan Windows: node --test bin/
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import http from "node:http";
 import os from "node:os";
@@ -181,6 +181,62 @@ test("kantor.mjs: nyala (tanpa browser), tidak memulai ulang bila kode sama, mul
   }
   await new Promise((ok) => setTimeout(ok, 800));
   assert.equal(await sehat(), null, "server sudah berhenti");
+});
+
+// T3/T4: `kantor berhenti` hanya mematikan server Kantor checkout ini untuk port yang diminta.
+const portAcak = () => String(20000 + Math.floor(Math.random() * 30000));
+const sehatDi = (port) => new Promise((ok) => { http.get(`http://127.0.0.1:${port}/health`, { timeout: 2000, agent: false }, (res) => { let b = ""; res.on("data", (d) => { b += d; }); res.on("end", () => ok(res.statusCode === 200 ? b.trim() : null)); }).on("error", () => ok(null)); });
+const tunggu = async (syarat, ms = 8000) => { const akhir = Date.now() + ms; while (Date.now() < akhir) { if (await syarat()) return true; await new Promise((r) => setTimeout(r, 200)); } return false; };
+const hidup = (pid) => { try { process.kill(pid, 0); return true; } catch { return false; } };
+const SERVER_KANTOR = path.join(REPO, "kantor", "server.mjs");
+
+test("T3: berkas pid basi yang menunjuk proses lain tidak pernah membuat `kantor berhenti` mematikannya", async () => {
+  const port = portAcak();
+  // proses lain milik pengguna: biasa, dan yang baris perintahnya kebetulan memuat path server.mjs (tanpa port ini)
+  const korban = [spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], { stdio: "ignore" }),
+    spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)", SERVER_KANTOR], { stdio: "ignore" }),
+    spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)", SERVER_KANTOR, `--kantor-port=${port}0`], { stdio: "ignore" })];
+  try {
+    await tunggu(async () => korban.every((k) => k.pid && hidup(k.pid)));
+    for (const k of korban) {
+      fs.writeFileSync(path.join(os.tmpdir(), `kantor-rudisone-${port}.pid`), String(k.pid));
+      const r = node(path.join(SINI, "kantor.mjs"), ["berhenti"], { RUDISONE_KANTOR_PORT: port });
+      assert.equal(r.status, 0, r.stderr);
+      assert.match(r.stdout, new RegExp(`Kantor tidak sedang berjalan di port ${port}\\.`), "pesan jujur: tidak ada yang dimatikan");
+      assert.ok(hidup(k.pid), `proses ${k.pid} tidak boleh ikut mati`);
+      assert.ok(!fs.existsSync(path.join(os.tmpdir(), `kantor-rudisone-${port}.pid`)), "berkas pid basi dibersihkan");
+    }
+  } finally { for (const k of korban) k.kill(); }
+});
+
+test("T4: berhenti/mulai-ulang Kantor uji tidak mematikan Kantor di port lain dan tidak menimpa lognya", async () => {
+  const [p1, p2] = [portAcak(), portAcak()];
+  const kantor = (port, aksi) => node(path.join(SINI, "kantor.mjs"), [aksi], { RUDISONE_KANTOR_PORT: port });
+  // "Kantor yang sedang dipakai": dinyalakan versi lama (tanpa penanda port di baris perintah), seperti 7421 di device
+  const lain = spawn(process.execPath, [SERVER_KANTOR], { stdio: "ignore", env: { ...process.env, RUDISONE_KANTOR_PORT: p2 } });
+  const logLain = path.join(process.env.TMPDIR || os.tmpdir(), `kantor-rudisone-${p2}.log`);
+  try {
+    assert.ok(await tunggu(async () => /^ok /.test(await sehatDi(p2) ?? "")), "Kantor lain menyala");
+    fs.writeFileSync(logLain, "log kantor lain\n");
+    let r = kantor(p1, "--tanpa-browser");
+    assert.equal(r.status, 0, r.stderr + r.stdout);
+    assert.ok(fs.existsSync(path.join(process.env.TMPDIR || os.tmpdir(), `kantor-rudisone-${p1}.log`)), "log per port");
+    r = kantor(p1, "mulai-ulang");
+    assert.match(r.stdout, /Memulai ulang Kantor/);
+    r = kantor(p1, "berhenti");
+    assert.match(r.stdout, new RegExp(`Kantor \\(port ${p1}\\) dimatikan — pid \\d+`));
+    assert.ok(await tunggu(async () => (await sehatDi(p1)) === null), "Kantor uji berhenti");
+    assert.match(await sehatDi(p2) ?? "", /^ok /, "Kantor di port lain tetap hidup");
+    assert.ok(hidup(lain.pid));
+    assert.equal(fs.readFileSync(logLain, "utf8"), "log kantor lain\n", "log Kantor lain tidak tertimpa");
+    // Kantor versi lama tetap bisa dihentikan dari port-nya sendiri (bukti: proses itu mendengarkan port tsb.)
+    const bisaPort = WIN || !spawnSync("lsof", ["-v"]).error || !spawnSync("ss", ["-V"]).error;
+    if (bisaPort) {
+      r = kantor(p2, "berhenti");
+      assert.match(r.stdout, new RegExp(`Kantor \\(port ${p2}\\) dimatikan — pid ${lain.pid}\\.`), r.stdout);
+      assert.ok(await tunggu(async () => (await sehatDi(p2)) === null));
+    }
+  } finally { lain.kill(); kantor(p1, "berhenti"); fs.rmSync(logLain, { force: true }); }
 });
 
 test("install.mjs di HOME sementara: peran, subagent & skill tertaut; konsisten dengan jalur salinan (Windows tanpa symlink)", () => {

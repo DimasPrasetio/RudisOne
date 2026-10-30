@@ -19,7 +19,7 @@ import os from "node:os";
 import path from "node:path";
 import readline from "node:readline";
 import { execFileSync } from "node:child_process";
-import { dariBash, jalankan as jalankanProses, posix } from "./lib/platform.mjs";
+import { dariBash, jalankan as jalankanProses, osLogis, posix } from "./lib/platform.mjs";
 import { fileURLToPath } from "node:url";
 import { bacaKonfig, FILE_KONFIG } from "./konfig.mjs";
 
@@ -545,12 +545,23 @@ function klasifikasiSegmen(s, K, ctx) {
   const prog = w[0].nilai, nama = path.basename(prog), args = w.slice(1).map((x) => x.nilai);
   // glob & {a,b} diekspansi shell lokal SEBELUM program melihatnya (bisa menyisipkan opsi/perintah) → tidak pernah aman
   const dasarAman = alihOk && !prefiks.length && !w.some((x) => x.ekspansi || x.glob);
-  // perkakas RudisOne (bin/<nama>.sh)
-  const pk = nama.match(/^([a-z-]+)\.sh$/)?.[1];
-  if (pk && perkakasAsli(prog, ctx)) {
-    if (K.perkakas_baca[pk]) return { aman: dasarAman, aksi: [{ kemampuan: K.perkakas_baca[pk], jenjang: 1, aksi: `perkakas ${pk}`, perkakas: pk, args }] };
-    const sub = K.perkakas_perintah?.[pk]?.[args[0]];
-    if (sub) return { aman: dasarAman, aksi: [{ kemampuan: sub, jenjang: 1, aksi: `perkakas ${pk} ${args.slice(0, 2).join(" ")}`, perkakas: pk, args }] };
+  // perkakas RudisOne: bin/<nama>.sh, atau pintu masuk Node-nya `node bin/<nama>.mjs` (T2) — kemampuan, jenjang, cek
+  // jabatan & audit sama. Opsi Node sebelum skrip (`node --require x bin/server-cek.mjs`) bisa menjalankan kode lain →
+  // tetap dikenali (cek jabatan berlaku) tetapi tidak pernah ikut diloloskan dan tidak dicatat sebagai hasil perkakas.
+  const perkakasDikenal = (n) => Boolean(K.perkakas_baca[n] || K.perkakas_perintah?.[n]);
+  let pk = nama.match(/^([a-z-]+)\.sh$/)?.[1], pkProg = prog, pkArgs = args, pkAman = dasarAman, pkMurni = true;
+  if (!pk && /^node(\.exe)?$/i.test(nama)) {
+    const i = args.findIndex((x) => perkakasDikenal(path.basename(x).match(/^([a-z-]+)\.mjs$/)?.[1] ?? "") && perkakasAsli(x, ctx));
+    if (i >= 0) {
+      pk = path.basename(args[i]).slice(0, -4); pkProg = args[i]; pkArgs = args.slice(i + 1);
+      pkMurni = i === 0; pkAman = dasarAman && pkMurni && programStandar(prog);
+    }
+  }
+  if (pk && perkakasAsli(pkProg, ctx)) {
+    const ciri = pkMurni ? { perkakas: pk, args: pkArgs } : {};
+    if (K.perkakas_baca[pk]) return { aman: pkAman, aksi: [{ kemampuan: K.perkakas_baca[pk], jenjang: 1, aksi: `perkakas ${pk}`, ...ciri }] };
+    const sub = K.perkakas_perintah?.[pk]?.[pkArgs[0]];
+    if (sub) return { aman: pkAman, aksi: [{ kemampuan: sub, jenjang: 1, aksi: `perkakas ${pk} ${pkArgs.slice(0, 2).join(" ")}`, ...ciri }] };
   }
   // pengelola kebijakan/konfigurasi/inti: subperintah baca tidak dianggap mengubah berkas terlindung (tidak pernah allow)
   const skrip = (nama === "node" ? path.basename(args[0] ?? "") : nama).match(/^(kebijakan|konfig|inti)\.(sh|mjs)$/)?.[1];
@@ -1150,11 +1161,32 @@ export function statusPasang() {
   const s = bacaSettings();
   return ["PreToolUse", "PostToolUse"].every((ev) => (s.hooks?.[ev] ?? []).some(milikKita));
 }
-/** Terpasang dengan matcher & peristiwa versi ini? (versi lama tidak melihat Write/Edit atau PostToolUseFailure) */
-export function matcherMutakhir() {
-  const s = bacaSettings();
-  return PERISTIWA.every((ev) => (s.hooks?.[ev] ?? []).some(milikKita) && (s.hooks?.[ev] ?? []).filter(milikKita).every((e) => e.matcher === MATCHER));
+/** Alat yang WAJIB dilihat hook di OS ini (contoh nama untuk diuji terhadap matcher terpasang). PowerShell hanya ada
+ *  di Windows — di macOS/Linux matcher lama tanpa PowerShell tetap mutakhir, tidak perlu dipasang ulang (T1). */
+export function alatWajib(sistem = osLogis()) {
+  return ["Bash", ...(sistem === "win32" ? ["PowerShell"] : []), "Write", "Edit", "MultiEdit", "NotebookEdit", "mcp__contoh__alat"];
 }
+/** Matcher Claude Code: kosong/"*" = semua alat; selain itu diuji sebagai regex utuh. Rusak → tidak mencakup apa pun. */
+function cocokMatcher(matcher, alat) {
+  if (matcher === undefined || matcher === "" || matcher === "*") return true;
+  try { return new RegExp(`^(?:${matcher})$`).test(alat); } catch { return false; }
+}
+/** Bagian yang kurang dari pemasangan hook dibanding versi ini, per OS: peristiwa yang belum ada dan alat yang tidak
+ *  dicakup matcher. Kosong = mutakhir. Contoh: ["peristiwa PostToolUseFailure", "alat PowerShell di PreToolUse"]. */
+export function kekuranganHook(sistem = osLogis()) {
+  const s = bacaSettings();
+  const kurang = [];
+  for (const ev of PERISTIWA) {
+    const milik = (s.hooks?.[ev] ?? []).filter(milikKita);
+    if (!milik.length) { kurang.push(`peristiwa ${ev}`); continue; }
+    for (const alat of alatWajib(sistem)) {
+      if (!milik.every((e) => cocokMatcher(e.matcher, alat))) kurang.push(`alat ${alat.startsWith("mcp__") ? "MCP (mcp__*)" : alat} di ${ev}`);
+    }
+  }
+  return kurang;
+}
+/** Terpasang dengan matcher & peristiwa yang dibutuhkan versi ini di OS ini? */
+export function matcherMutakhir(sistem = osLogis()) { return kekuranganHook(sistem).length === 0; }
 /** `disableAllHooks: true` di settings pengguna mematikan semua hook walau entrinya ada (U3 L2). */
 export function hookDimatikan() { return bacaSettings().disableAllHooks === true; }
 /** Program yang dipanggil hook masih ada? (mis. Node versi nvm lama dihapus → hook diam-diam tidak berjalan). */
@@ -1245,7 +1277,8 @@ export async function main(argv) {
   if (perintah === "cek") {
     let ok = statusPasang();
     console.log(ok ? `Kebijakan RudisOne terpasang di ${SETTINGS}.` : `Belum terpasang — pemilik menjalankan: ${ROOT}/bin/kebijakan.sh pasang`);
-    if (ok && !matcherMutakhir()) { ok = false; console.log(`Hook terpasang versi lama (matcher/peristiwa tidak lengkap: Write/Edit, PostToolUseFailure) — pemilik menjalankan: ${ROOT}/bin/kebijakan.sh pasang`); }
+    const kurang = ok ? kekuranganHook() : [];
+    if (kurang.length) { ok = false; console.log(`Hook terpasang versi lama (kurang: ${kurang.join(", ")}) — pemilik menjalankan: ${ROOT}/bin/kebijakan.sh pasang`); }
     if (ok && hookDimatikan()) { ok = false; console.log(`Semua hook dimatikan (disableAllHooks: true di ${SETTINGS}) — kebijakan tidak berjalan.`); }
     if (ok && !programHookAda()) { ok = false; console.log(`Program yang dipanggil hook tidak ditemukan (Node berpindah versi?) — pemilik menjalankan ulang: ${ROOT}/bin/kebijakan.sh lepas && ${ROOT}/bin/kebijakan.sh pasang`); }
     try {
