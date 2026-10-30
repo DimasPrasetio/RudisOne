@@ -97,3 +97,19 @@ test("symlink peran lama dianggap basi dan diganti berkas biasa tanpa mengubah s
   assert.equal(fs.readFileSync(f, "utf8"), sumber);
   assert.equal(fs.readFileSync(path.join(r, "agents", "coo.md"), "utf8"), sumber);
 });
+
+test("salinan CRLF (Windows tanpa .gitattributes): sidik & isi sama dengan salinan LF, cek tidak menganggap basi", () => {
+  const lf = repoMini();
+  bangunSemua(lf, true);
+  const crlf = repoMini();
+  bangunSemua(crlf, true);
+  // ubah SEMUA berkas teks (sumber dan hasil bangkitan) ke CRLF, seperti salinan zip/editor di Windows
+  const keCrlf = (d) => { for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+    const f = path.join(d, e.name);
+    if (e.isDirectory()) keCrlf(f); else fs.writeFileSync(f, fs.readFileSync(f, "utf8").replace(/\r?\n/g, "\r\n"));
+  } };
+  keCrlf(crlf);
+  assert.deepEqual(bangunSemua(crlf, false).filter((x) => x.status !== "sama"), [], "CRLF tidak boleh dianggap basi");
+  assert.equal(bangkitkan("research-analyst", crlf), bangkitkan("research-analyst", lf), "sidik dihitung atas bentuk LF");
+  assert.equal(bangkitkanClaudeMd(crlf), bangkitkanClaudeMd(lf));
+});

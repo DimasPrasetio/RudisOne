@@ -306,7 +306,7 @@ const isoDariId = (id) => { const m = id.match(/^T-(\d{4})(\d{2})(\d{2})/); retu
 /** Baris tugas dari semua tabel ber-kolom ID & Status di register-tugas.md lama → {tugas, peringatan}. */
 export function imporMd(teks) {
   const per = new Map(), peringatan = [];
-  const larik = teks.split("\n");
+  const larik = teks.split(/\r?\n/);   // MD lama bisa ber-CRLF (disunting di Windows)
   for (let i = 0; i < larik.length - 1; i++) {
     if (!/^\|/.test(larik[i]) || !/^\|\s*:?-{3}/.test(larik[i + 1])) continue;
     const kepala = larik[i].split("|").slice(1, -1).map((k) => k.trim().toLowerCase());

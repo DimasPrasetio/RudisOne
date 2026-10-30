@@ -89,7 +89,7 @@ export function cekRepo(root = ROOT, opsi = {}) {
   const skills = fs.existsSync(path.join(root, "skills")) ? fs.readdirSync(path.join(root, "skills")).filter((d) => fs.existsSync(path.join(root, "skills", d, "SKILL.md"))) : [];
   for (const s of skills) {
     const t = baca(root, `skills/${s}/SKILL.md`);
-    const nama = t.match(/^---\n[\s\S]*?^name:\s*(\S+)/m)?.[1];
+    const nama = t.match(/^---\r?\n[\s\S]*?^name:\s*(\S+)/m)?.[1];   // salinan CRLF juga
     if (nama !== s) catat("galat", "skill-nama", `skills/${s}/SKILL.md: name "${nama ?? "?"}" ≠ folder`);
     if (!/^description:\s*\S/m.test(t)) catat("galat", "skill-deskripsi", `skills/${s}/SKILL.md tanpa description`);
     if (Buffer.byteLength(t) > BATAS_SKILL_BYTE) catat("peringatan", "skill-ukuran", `skills/${s}/SKILL.md ${Buffer.byteLength(t)} byte (> ±5.000 token; dipotong setelah kompaksi — taruh yang penting di atas)`);

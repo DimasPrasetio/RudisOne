@@ -223,7 +223,8 @@ test("bangkitkan: format tabel templat; bacaRegister Kantor membaca baris aktif 
 
 test("impor dari MD lama (isi templat + 2 baris): menolak bila JSON ada, --timpa menimpa, MD tulisan tangan dicadangkan", () => {
   const l = lokasi();
-  const templat = fs.readFileSync(path.join(SINI, "..", "templat", "register-tugas.md"), "utf8");
+  // fixture dirakit dari bentuk LF (salinan Windows bisa ber-CRLF); impor CRLF diuji terpisah di bawah
+  const templat = fs.readFileSync(path.join(SINI, "..", "templat", "register-tugas.md"), "utf8").replace(/\r\n/g, "\n");
   const aktifBaris = "| T-20261030-2 | Migrasi F4 | `~/Documents/Neuron/ai-agent/RudisOne` | Engineering · Tim 2 | Tech Lead · RudisOne | tinggi | berjalan | Konstruksi | repo:RudisOne, branch rudis/T-20261030-2 | T-20261030-1 | rudis@f6f4e12 | 2026-10-30 09:15 |";
   const selesaiBaris = "| T-20261030-1 | 2026-10-30 | Riset orkestrasi | ~/Documents/Neuron/ai-agent/RudisOne | Research Analyst | selesai | — | handoff/T-20261030-1/riset.md |";
   const md = templat
@@ -253,6 +254,10 @@ test("impor dari MD lama (isi templat + 2 baris): menolak bila JSON ada, --timpa
   assert.match(lagi.stderr, /sudah ada/);
   assert.equal(jalankan(l, "impor", "--dari", `${l.md}.sebelum-impor`, "--timpa").status, 0);
   assert.equal(baca(l).tugas.length, 2);
+  // MD yang sama ber-CRLF (disunting di Windows) → hasil impor identik, tanpa "\r" tersisa di nilai sel
+  const lf = R.imporMd(md), crlf = R.imporMd(md.replace(/\n/g, "\r\n"));
+  assert.deepEqual(crlf, lf);
+  assert.ok(!JSON.stringify(crlf).includes("\\r"));
 });
 
 test("kunci berkas: kunci basi (> 30 dtk) dibersihkan dan dicatat; kunci segar ditunggu", () => {

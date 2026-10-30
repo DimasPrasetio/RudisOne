@@ -35,10 +35,16 @@ export function daftarPeran(root = ROOT) {
     .filter((id) => !BUKAN_SUBAGENT.has(id)).sort();
 }
 
+/** Baca berkas teks dalam bentuk LF. Salinan Windows bisa ber-CRLF (zip, editor, autocrlf tanpa .gitattributes);
+ *  sidik dan pembandingan memakai bentuk LF agar hasilnya sama di semua OS (T-20261030-2.1). */
+const bacaLf = (f) => fs.readFileSync(f, "utf8").replace(/\r\n/g, "\n");
+/** Isi lama (boleh CRLF) sama dengan isi bangkitan (LF)? */
+const samaIsi = (lama, isi) => lama !== null && lama.replace(/\r\n/g, "\n") === isi;
+
 /** Isi berkas agen/rudis-<id>.md untuk satu peran — deterministik (tanpa waktu), agar `cek` bisa membandingkan. */
 export function bangkitkan(id, root = ROOT) {
-  const sumberPeran = fs.readFileSync(path.join(root, "agents", `${id}.md`), "utf8");
-  const sumberInti = fs.readFileSync(path.join(root, "protokol.md"), "utf8");
+  const sumberPeran = bacaLf(path.join(root, "agents", `${id}.md`));
+  const sumberInti = bacaLf(path.join(root, "protokol.md"));
   const { fm, isi } = pisahFrontmatter(sumberPeran);
   const jabatan = jabatanDari(isi, id);
   const sidik = crypto.createHash("sha1").update(sumberPeran).update("\0").update(sumberInti).digest("hex").slice(0, 12);
@@ -76,7 +82,7 @@ ${sumberInti.replace(/^# .*\n/, "").trim()}
 /** CLAUDE.md akar repo = protokol inti disalin utuh. Impor `@protokol.md` tidak dipakai: impor di CLAUDE.md folder
  *  leluhur tidak diikuti saat sesi dimulai di subfolder (`ruang/<id-peran>`, worktree) — teruji 2026-10-30. */
 export function bangkitkanClaudeMd(root = ROOT) {
-  const inti = fs.readFileSync(path.join(root, "protokol.md"), "utf8");
+  const inti = bacaLf(path.join(root, "protokol.md"));
   const sidik = crypto.createHash("sha1").update(inti).digest("hex").slice(0, 12);
   return `<!-- DIBANGKITKAN oleh bin/peran.mjs dari protokol.md (sidik ${sidik}). Jangan diedit: ubah protokol.md lalu jalankan bin/peran.sh bangun.
      Termuat otomatis untuk setiap sesi di folder ini dan subfoldernya (COO, ruang/, worktree RudisOne) dan dimuat ulang setelah kompaksi.
@@ -103,11 +109,11 @@ export function bangun(root = ROOT, tulis = true) {
   const hasil = [];
   for (const { id, target } of targetRuang(root)) {
     const f = path.join(root, ...target.split("/"));
-    const isi = fs.readFileSync(path.join(root, "agents", `${id}.md`), "utf8");
+    const isi = bacaLf(path.join(root, "agents", `${id}.md`));
     let lama = null; let taut = false;
     try { taut = fs.lstatSync(f).isSymbolicLink(); lama = fs.readFileSync(f, "utf8"); } catch { /* belum ada / tautan patah */ }
     // symlink lama dianggap basi: ditulis ulang sebagai berkas biasa (menulis lewat tautan akan mengubah sumbernya)
-    const status = taut || (lama !== null && lama !== isi) ? "basi" : lama === null ? "baru" : "sama";
+    const status = taut || (lama !== null && !samaIsi(lama, isi)) ? "basi" : lama === null ? "baru" : "sama";
     if (status !== "sama" && tulis) {
       fs.mkdirSync(path.dirname(f), { recursive: true });
       fs.rmSync(f, { force: true });
@@ -119,8 +125,8 @@ export function bangun(root = ROOT, tulis = true) {
     const f = path.join(root, "CLAUDE.md");
     const isi = bangkitkanClaudeMd(root);
     const lama = fs.existsSync(f) ? fs.readFileSync(f, "utf8") : null;
-    if (lama !== isi && tulis) fs.writeFileSync(f, isi);
-    hasil.push({ id: "CLAUDE.md", berkas: "CLAUDE.md", status: lama === isi ? "sama" : lama === null ? "baru" : "basi" });
+    if (!samaIsi(lama, isi) && tulis) fs.writeFileSync(f, isi);
+    hasil.push({ id: "CLAUDE.md", berkas: "CLAUDE.md", status: samaIsi(lama, isi) ? "sama" : lama === null ? "baru" : "basi" });
   }
   if (tulis) fs.mkdirSync(dir, { recursive: true });
   const ada = new Set(fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => /^rudis-.*\.md$/.test(f)) : []);
@@ -129,7 +135,7 @@ export function bangun(root = ROOT, tulis = true) {
     const isi = bangkitkan(id, root);
     const lama = fs.existsSync(f) ? fs.readFileSync(f, "utf8") : null;
     ada.delete(`rudis-${id}.md`);
-    if (lama === isi) { hasil.push({ id, berkas: `agen/rudis-${id}.md`, status: "sama" }); continue; }
+    if (samaIsi(lama, isi)) { hasil.push({ id, berkas: `agen/rudis-${id}.md`, status: "sama" }); continue; }
     if (tulis) fs.writeFileSync(f, isi);
     hasil.push({ id, berkas: `agen/rudis-${id}.md`, status: lama === null ? "baru" : "basi" });
   }

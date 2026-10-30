@@ -29,6 +29,23 @@ langsung.
   kode `main` lama: 5 dari 8 gagal; kode baru: 8/8 lulus.
 - `bin/sesi.test.mjs`: `folderDesktop` letak MSIX; `bin/portabel.test.mjs`: `/health` baris pertama + sumber data.
 
+## Salinan CRLF (permintaan COO, temuan Tim 4)
+- **Clone dengan `core.autocrlf=true`:** `.gitattributes` (`* text=auto eol=lf`) membuat semua berkas tetap LF (kecuali
+  `*.cmd`/`*.ps1`). `bin/peran.mjs cek` → mutakhir; `cek-konsistensi --repo` → 0 galat.
+- **Salinan dipaksa CRLF** (zip, editor, atau checkout lama tanpa `.gitattributes`; 169 berkas):
+  - Sebelum perbaikan: 20 galat `cek-konsistensi --repo`:
+    - 11 subagent dan `CLAUDE.md` "basi" — sidik dan pembandingan `bin/peran.mjs` dihitung per byte;
+    - 8 `skill-nama` — regex frontmatter `^---\n`.
+  - Perbaikan:
+    - `peran.mjs` membaca sumber sebagai LF dan membandingkan dalam bentuk LF;
+    - regex frontmatter menjadi `\r?\n`;
+    - `register.mjs` `imporMd` memecah baris dengan `/\r?\n/`.
+  - Sesudahnya: 0 galat.
+  - Tes penuh di salinan CRLF hanya gagal pada:
+    - 2 tes `uji/suite` yang juga gagal di `main`;
+    - penjaga "bin/remoto/*.sh harus LF" — disengaja: bash rusak oleh CRLF, salinan seperti itu harus diperbaiki, bukan didiamkan.
+- Uji regresi: `bin/peran.test.mjs` (salinan CRLF = salinan LF) dan `bin/register.test.mjs` (impor MD CRLF = LF).
+
 ## Uji manual (Windows)
 1. `node bin\kantor.mjs --tanpa-browser` → `curl http://127.0.0.1:7421/health`: baris `ok <versi>`, `versi:`, `sumber
    transkrip/TEAM.md/register/sesi Desktop/sesi CLI: terbaca …`, `galat terakhir: -`.
