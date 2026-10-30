@@ -13,6 +13,22 @@ export const rumahRepo = (home = os.homedir()) => path.join(home, ...BAGIAN_RUMA
 /** Folder konfigurasi Claude Code pengguna. */
 export const folderClaudeUser = (home = os.homedir()) => path.join(home, ".claude");
 
+/** Path bergaya Windows (huruf drive atau UNC) — dikenali dari teksnya, tidak dari OS yang menjalankan, agar data dari
+ *  Windows (transkrip, ~/.claude.json, TEAM.md) diuji sama di semua OS. */
+export const gayaWindows = (p) => /^[A-Za-z]:[\\/]|^\\\\[^\\]/.test(String(p ?? ""));
+/** Bentuk teks baku untuk dibandingkan tanpa menyentuh disk: path Windows → resolve win32 + huruf kecil (tidak peka
+ *  besar-kecil, `/` = `\`); selain itu resolve posix. */
+export function bakuPath(p) {
+  const s = String(p ?? "");
+  return gayaWindows(s) ? path.win32.resolve(s).toLowerCase() : path.posix.resolve(s.replaceAll("\\", "/"));
+}
+/** `p` sama dengan `akar` atau berada di dalamnya (perbandingan teks baku, lihat bakuPath). */
+export function diDalamPath(p, akar) {
+  if (!p || !akar) return false;
+  const a = bakuPath(p), b = bakuPath(akar), sep = gayaWindows(akar) ? "\\" : "/";
+  return a === b || a.startsWith(b.endsWith(sep) ? b : b + sep);
+}
+
 /** Dua path sama? Tidak membedakan huruf besar/kecil dan pemisah di Windows, dan mengikuti symlink/junction (mis. folder
  *  Documents yang dialihkan ke OneDrive): kedua sisi dibandingkan dalam bentuk aslinya bila ada. */
 export function samaPath(a, b) {

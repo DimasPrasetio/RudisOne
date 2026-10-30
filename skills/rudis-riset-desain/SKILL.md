@@ -52,6 +52,12 @@ brief dulu.
 
 ## 7. Verifikasi visual (wajib, dengan screenshot)
 - Desktop (≥1280px) dan HP (375px); tema terang dan gelap; `prefers-reduced-motion`.
+- **Cara baku tangkapan layar HP: Playwright dengan emulasi perangkat** — bukan `chrome --headless --window-size=390,…`
+  (jendela minimum Chrome ±500px memotong hasilnya; tangkapan seperti itu **tidak sah**, T-20261030-1). Contoh:
+  `npx playwright screenshot --device="iPhone 13" --full-page <url> hp.png` (desktop: `--viewport-size=1440,900`), atau
+  di skrip `browser.newContext({ ...devices["iPhone 13"], colorScheme: "dark" })` lalu `page.screenshot({ fullPage: true })`.
+  Lebar HP yang diklaim harus terlihat di berkasnya (mis. 390 css px × skala perangkat). Panel browser Claude
+  (`resize_window` preset mobile) juga sah bila tersedia.
 - Cek konsol browser bebas galat; uji interaksi utama (klik, keyboard/fokus).
 - Bandingkan dengan brief, lakukan minimal satu putaran kritik → perbaiki → screenshot ulang.
 - Laporkan apa yang sudah dan belum terverifikasi (mis. perangkat fisik).

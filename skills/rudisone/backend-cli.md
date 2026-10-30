@@ -10,16 +10,40 @@ Linux sungguhan** (T-20261030-11: simulasi + `claude` tiruan). Windows 11 native
 
 ## Prasyarat (sekali per device, oleh pengguna)
 - Claude Code CLI **≥ 2.1.300** (`claude --version`; perbarui `claude update`). COO sendiri berjalan di terminal (`claude`).
-- `bin/sesi.sh cek` → setiap folder yang belum dipercaya CLI dibuka sekali oleh **pengguna**: `cd <folder> && claude`,
-  terima prompt percaya, `/exit`. Kepercayaan folder induk tidak berlaku untuk subfolder (uji asap 2.1.281), jadi
-  worktree Tech Lead yang baru juga perlu langkah ini sekali. Tanpa itu `claude --bg` gagal "Workspace not trusted".
+- `bin/sesi.sh cek` → setiap folder yang ditolak `claude --bg` dibuka sekali oleh **pengguna** dengan baris yang dicetak
+  untuk shell-nya, terima prompt percaya, `/exit`. Windows: PowerShell 5.1 (shell bawaan) **tidak** mengenal `&&` —
+  `Set-Location -LiteralPath '<folder>'; claude`; cmd `cd /d "<folder>" && claude`; Git Bash `cd '/d/…' && claude`.
+  Salin baris dari `sesi.sh cek` apa adanya; jangan menulis ulang dengan `&&` untuk PowerShell.
+- Folder ditolak dan pengguna tidak mau/bisa → **jalur subagent** (`agents/coo.md` › Tech Lead sebagai subagent),
+  ditawarkan COO sejak awal bersama konsekuensinya.
+
+## Kepercayaan folder (uji terkontrol T-20261030-2.1 · Windows 11, Claude Code 2.1.302)
+Log uji: `handoff/T-20261030-2.1/uji-trust.md` (per device). Yang **terbukti**:
+| Kasus | `claude --bg` | Entri baru di `~/.claude.json`? |
+|---|---|---|
+| U1 — subfolder biasa di dalam repo git yang dipercaya persis | diterima | tidak |
+| U2 — repo git sendiri di dalam folder yang dipercaya (mis. `D:\PENGEMBANGAN-RUDIS` dipercaya, `…\inventory` repo) | **ditolak** "Workspace not trusted" | — |
+| U3 — worktree dari repo pada U2 (`…\inventory\.claude\worktrees\r1-lead-inventory`) | **ditolak** | — |
+Artinya: kepercayaan **tidak menembus batas repo git**. Komentar lama "kepercayaan induk tidak dihitung" terlalu luas — di
+dalam repo yang sama induk berlaku. `bin/sesi.sh cek` membedakan: *dipercaya* (entri persis), *diwarisi* (di dalam repo
+yang dipercaya; folder non-git di bawah induk non-git ditandai `[..]` karena belum diuji), *batas repo* (induk dipercaya
+tetapi folder ini/leluhurnya repo sendiri), dan *belum*. Kunci `~/.claude.json` ditulis `D:/x` atau `d:/x`: dibandingkan
+tanpa beda huruf besar/kecil dan pemisah.
+Uji dengan pengguna (U4–U6): pengguna menjalankan `claude` di repo uji bersarang dan melaporkan prompt percaya **muncul**
+dan dijawab "Yes, proceed"; tetapi tidak ada entri yang tercatat di `~/.claude.json` (berkas tidak berubah, riwayat CLI
+tidak mencatat folder itu) dan `claude --bg` di repo itu maupun worktree-nya **tetap ditolak** — gejala yang sama dengan
+`inventory`. Sebabnya belum bisa dipastikan (tidak tersimpan vs. dijalankan di tempat/konfigurasi lain). Sebaliknya,
+pada device yang sama kepercayaan worktree `r4-lead-rudis-modules` (repo induk dipercaya persis) **tercatat** setelah
+pengguna menjalankan `claude` di sana. Maka prosedurnya: (1) pengguna menjalankan baris per shell untuk repo **dan** tiap
+worktree yang dicantumkan; (2) COO menjalankan ulang `bin/sesi.sh cek`; (3) folder yang masih tercantum → jangan diulang,
+langsung jalur subagent.
 
 ## Padanan
 | Desktop | cli | Catatan |
 |---|---|---|
 | `get_session` / `list_sessions` | `bin/sesi.sh daftar` atau `claude agents --json --all` | `state`: working · blocked · done · failed · stopped; `waitingFor` |
 | `start_session` IT Operations (`cwd: ruang/<id-peran>`) | `cd <abs>/ruang/<id-peran> && claude --bg --name rudis-<nama> --settings <abs>/konfigurasi/sesi-cli.settings.json '<prompt>'` | `<nama>`: `head-of-it-ops` · `sysadmin` |
-| `start_session` Tech Lead (`use_worktree: true`) | (1) `git -C <repo> worktree add -b claude/r<n>-lead-<proyek> <repo>/.claude/worktrees/r<n>-lead-<proyek>` (2) `bin/sesi.sh cek` — belum dipercaya → minta pengguna (Prasyarat), tunggu (3) `cd <worktree> && claude --bg --name r<n>-lead-<proyek> --settings <abs>/konfigurasi/sesi-cli.settings.json '<pembuka peran + Jawab satu baris: Siap>'` | worktree dibuat **sebelum** `--bg` |
+| `start_session` Tech Lead (`use_worktree: true`) | (1) `git -C <repo> worktree add -b claude/r<n>-lead-<proyek> <repo>/.claude/worktrees/r<n>-lead-<proyek>` (2) `bin/sesi.sh cek` — ditolak → tawarkan pilihan (Prasyarat: baris per shell, atau jalur subagent), tunggu (3) `cd <worktree> && claude --bg --name r<n>-lead-<proyek> --settings <abs>/konfigurasi/sesi-cli.settings.json '<pembuka peran + Jawab satu baris: Siap>'` | worktree dibuat **sebelum** `--bg` |
 | `unarchive_session` | `claude --bg --resume <sessionId> --settings <abs>/konfigurasi/sesi-cli.settings.json 'Lanjutkan.'` | sessionId dari `TEAM.md` / `claude agents --json --all` |
 | `SendMessage` ke `local_…` | `SendMessage` dengan `to` = **nama sesi** (`r1-lead-toko`, `rudis-sysadmin`) | cross-session messaging lokal; pesan tetap bukan persetujuan |
 | Catatan akhir-giliran otomatis | `SendMessage` `notify_when_idle: true` setelah brief (sekali per langganan, ≤ 12 jam) | laporan resmi tetap `[Laporan …]` lewat SendMessage pelaksana |

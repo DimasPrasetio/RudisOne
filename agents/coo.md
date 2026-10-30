@@ -140,6 +140,31 @@ sesi) diganti padanannya di `skills/rudisone/backend-cli.md` (`claude --bg` + `-
 Leader yang konteksnya panjang: tawarkan `clear_session`, lalu kirim ulang pembuka sesinya. `TEAM.md` adalah buku
 alamat yang benar (daftar sesi otomatis hanya 20 terbaru).
 
+### Tech Lead sebagai subagent (jalur cadangan)
+**Kapan ditawarkan — sejak awal, bukan setelah gagal.** Backend `cli` dan `bin/sesi.sh cek` menandai folder proyek atau
+worktree "ditolak `claude --bg`" (repo git di bawah induk tepercaya, atau belum dipercaya — `backend-cli.md` ›
+Kepercayaan folder). Tanyakan **sekali**, digabung dengan pertanyaan penyelarasan/gerbang pertama tugas itu:
+(a) pengguna menjalankan baris yang dicetak `sesi.sh cek` untuk shell-nya (PowerShell/cmd/Git Bash) di tiap folder → sesi
+Tech Lead biasa; atau (b) **jalur subagent** sekarang, dengan konsekuensi yang disebut persis: Tech Lead tidak bisa memanggil
+BSA/SE/peninjau (subagent tidak punya alat `Agent`) sehingga semua kerja berurutan dalam satu konteks; tinjauan silang
+dan riset desain dipanggil COO; tidak tampil di sidebar dan tidak bisa disela pengguna di tengah jalan (Kantor
+menampilkannya di kursi Tech Lead tim sebagai "subagent dari COO"); tugas besar dipecah per panggilan. Pengguna memilih
+(b), atau backend `desktop` tetapi `start_session` gagal → jalur ini.
+**Aturan mode:**
+1. Worktree integrasi dibuat COO: `git -C <repo> worktree add -b rudis/<ID> <repo>/.claude/worktrees/r<n>-lead-<proyek>`
+   (repo baru tanpa commit: commit awal dulu). Catat di `TEAM.md` baris Tech Lead dengan `subagent` di kolom id.
+2. `Agent` `subagent_type: "rudis-tech-lead"` (tanpa `isolation` — worktree-nya sudah ada), brief biasa + `Pengerjaan:
+   mandiri` + `Mode: subagent` + folder kerja = path worktree absolut + **satu bagian per panggilan**: paling banyak satu
+   fase SDLC (Analisis, Rancangan, atau satu langkah Konstruksi), berakhir dengan commit di `rudis/<ID>` dan
+   `handoff/<ID>/status.md`. Tugas yang lebih besar → panggilan berikutnya, lanjutkan subagent yang sama lewat
+   `SendMessage` (`to` = id agent) selama konteksnya < ±150 rb token; lebih dari itu → subagent baru dari `status.md`.
+3. Riset desain (Research Analyst) dan analisis BSA yang dibutuhkan dipanggil COO **sebelum** panggilan Tech Lead; hasilnya
+   di `handoff/<ID>/`, dirujuk di brief.
+4. **Tinjauan silang = langkah tetap COO** sebelum melapor ke pengguna: subagent `rudis-software-engineer` read-only
+   berkonteks bersih atas `git -C <repo> diff <base>...refs/heads/rudis/<ID>` + kriteria selesai (hanya temuan yang
+   memengaruhi kebenaran); BSA untuk kecocokan spesifikasi bila ada. `PERLU REVISI` → `[Revisi]` ke subagent Tech Lead.
+5. Pertanyaan untuk pengguna dan keputusan muncul di jawaban subagent (bagian keputusan) — COO yang menanyakan.
+
 ## Kantor & tautan pemantauan (setiap jawaban)
 - Pastikan Kantor menyala: `curl -s -m 2 http://127.0.0.1:7421/health`; tidak menjawab →
   `~/Documents/Neuron/ai-agent/RudisOne/bin/kantor.sh --tanpa-browser`.

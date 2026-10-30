@@ -11,6 +11,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { bacaKonfig } from "../bin/konfig.mjs";
 import { agentsCli, folderDesktop, normalAgents, sumberBaca } from "../bin/sesi.mjs";
+import { diDalamPath } from "../bin/lib/lokasi.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const HOME = os.homedir();
@@ -21,7 +22,10 @@ const TEAM_MD = process.env.RUDISONE_KANTOR_TEAM_MD || path.join(ROOT, "TEAM.md"
 const REGISTER = process.env.RUDISONE_KANTOR_REGISTER || path.join(ROOT, "handoff", "register-tugas.md");
 /** Sumber kebenaran register (bin/register.sh); bila belum ada, Kantor membaca register-tugas.md lama. */
 const REGISTER_JSON = process.env.RUDISONE_KANTOR_REGISTER_JSON || path.join(ROOT, "handoff", "register-tugas.json");
-const PORT = Number(process.env.RUDISONE_KANTOR_PORT || 7421);
+/** Argumen `--<nama>=<nilai>` dari baris perintah server. bin/kantor.mjs di Windows menyalakan server lewat WMI (di luar
+ *  job object proses Claude), yang tidak mewariskan env — port dan berkas log karena itu juga lewat argumen. */
+const argumen = (nama) => process.argv.slice(2).find((a) => a.startsWith(`--${nama}=`))?.slice(nama.length + 3) || null;
+const PORT = Number(argumen("kantor-port") || process.env.RUDISONE_KANTOR_PORT || 7421);
 /** Server MCP DNS dari konfigurasi per device (bila ada) — aktivitasnya tampil sebagai "Mengurus domain". */
 const MCP_DNS = bacaKonfig()?.dns?.mcp_server ?? null;
 // Sidik kode server: bin/kantor.sh membandingkannya dengan file di disk dan memulai ulang server lama.
@@ -32,12 +36,14 @@ export function hostDiizinkan(host, port = PORT) {
   return [`127.0.0.1:${port}`, `localhost:${port}`].includes(String(host ?? "").toLowerCase());
 }
 
-/** Folder di dalam repo RudisOne (sesi COO & divisi tetap)? */
-const diRoot = (cwd) => { const a = path.resolve(cwd), b = path.resolve(ROOT); return a === b || a.startsWith(b + path.sep); };
+/** Folder di dalam repo RudisOne (sesi COO & divisi tetap)? Path Windows dibandingkan tanpa beda huruf besar/kecil dan
+ *  pemisah (transkrip bisa mencatat `d:\…` maupun `D:\…`). */
+const diRoot = (cwd) => diDalamPath(cwd, ROOT);
 /** Tanda sesi RudisOne di pesan masuk: /rudisone, atau pembuka peran "Kamu adalah … di RudisOne". */
 const TANDA_RUDISONE = /<command-name>\/rudisone<\/command-name>|Kamu adalah\s[^\n]{1,80}?\sdi RudisOne\b/;
+const TANDA_COO = /<command-name>\/rudisone<\/command-name>/;
 /** Worktree tim engineering RudisOne: <repo>/.claude/worktrees/r<n>-<peran>-<proyek>. */
-const RE_WORKTREE = /[\\/]\.claude[\\/]worktrees[\\/]r[1-3]-/;
+const RE_WORKTREE = /[\\/]\.claude[\\/]worktrees[\\/]r\d+-/;
 /** Sesi milik RudisOne — sistem agent lain di device yang sama (nama peran sama) tidak ikut ditampilkan. */
 function milikRudisOne(s, d) {
   if (d && teamMap.has(d.localId)) return true;
@@ -87,7 +93,8 @@ function nomorTim(proyek) {
 }
 /** Nama proyek sebuah sesi: dari folder kerjanya (akar repo, juga dari worktree), atau akhiran judul bila proyeknya dikenal. */
 function proyekDari(teks = "", cwd = "") {
-  if (cwd && !diRoot(cwd)) {
+  // worktree tim (juga worktree platform DI DALAM repo RudisOne) → nama repo induknya; folder lain di RudisOne → dari judul
+  if (cwd && (!diRoot(cwd) || RE_WORKTREE.test(cwd))) {
     const akar = cwd.split(/[\\/]\.claude[\\/]worktrees[\\/]/)[0];
     return path.basename(akar.replaceAll("\\", "/"));
   }
@@ -186,6 +193,8 @@ const DESKTOP_SESSIONS = folderDesktop();
 /** cliSessionId → {localId, archived, title} */
 let desktop = new Map();
 let desktopReadAt = 0;
+/** Hasil `claude agents --json` terakhir (untuk /health): ok null = belum diperiksa. */
+let statusCli = { ok: null, n: 0 };
 const desktopCache = new Map(); // file → {mtimeMs, entry}
 function loadDesktop(now) {
   if (now - desktopReadAt < 10e3) return;
@@ -193,7 +202,11 @@ function loadDesktop(now) {
   const sumber = sumberBaca();   // "auto": sesi dari `claude agents` dan metadata Desktop digabung
   const next = new Map();
   if (sumber.includes("cli")) {
-    try { for (const e of normalAgents(agentsCli({ timeout: 4000 }))) next.set(e.cli, e); } catch { /* CLI tidak ada */ }
+    try {
+      const daftar = agentsCli({ timeout: 4000 });
+      statusCli = { ok: !!daftar, n: daftar?.length ?? 0 };
+      for (const e of normalAgents(daftar)) next.set(e.cli, e);
+    } catch { statusCli = { ok: false, n: 0 }; /* CLI tidak ada */ }
     if (!sumber.includes("desktop")) { desktop = next; return; }
   }
   let accounts = [];
@@ -237,12 +250,16 @@ function loadTeam() {
     teamMtime = st.mtimeMs;
     const m = new Map();
     let proyek = null, kolomName = -1;
-    for (const line of fs.readFileSync(TEAM_MD, "utf8").split("\n")) {
-      // "## Engineering · Tim 2 · toko-b"
-      const kepala = line.match(/^##\s.*Engineering\s*·\s*(?:Tim\s*(\d)\s*·\s*)?(.+?)\s*$/);
+    // CRLF (TEAM.md yang ditulis di Windows) diperlakukan sama dengan LF
+    for (const line of fs.readFileSync(TEAM_MD, "utf8").split(/\r?\n/)) {
+      // "## Engineering · Tim 2 · toko-b", juga "… · RudisOne (platform)" / "… · toko — menunggu pengguna"
+      const kepala = line.match(/^##\s.*Engineering\s*·\s*(?:Tim\s*(\d+)\s*·\s*)?(.+?)\s*$/);
       if (kepala) {
-        proyek = kepala[2].includes("layanan") ? null : kepala[2];
-        if (proyek && kepala[1]) timProyek.set(proyek, Number(kepala[1]));
+        // nama proyek = nama folder repo: keterangan dalam kurung dan sesudah " — " dibuang
+        const nama = kepala[2].replace(/\s+[—–]\s.*$/, "").replace(/\s*\(.*?\)\s*/g, " ").trim();
+        proyek = !nama || nama.includes("layanan") ? null : nama;
+        // hanya Tim 1–3 yang punya kursi (protokol: nomor tim 1–3); nomor lain diabaikan agar tidak ada kursi hantu
+        if (proyek && NOMOR_TIM.includes(Number(kepala[1]))) timProyek.set(proyek, Number(kepala[1]));
         continue;
       }
       if (/^##\s/.test(line)) proyek = null;
@@ -292,10 +309,12 @@ function ingestLine(s, line) {
   if (o.isSidechain && !s.asisten) return; // langkah subagent di transkrip induk; transkrip asisten sendiri dibaca terpisah
   const ts = o.timestamp ? Date.parse(o.timestamp) : 0;
   if (ts && !s.mulai) s.mulai = ts;
-  if (o.cwd) s.cwd = o.cwd;
+  if (o.cwd) { s.cwd = o.cwd; if (RE_WORKTREE.test(o.cwd)) s.cwdWorktree = o.cwd; }
   switch (o.type) {
     case "agent-setting": s.agentSetting = o.agentSetting ?? s.agentSetting; return;
     case "custom-title": s.title = o.customTitle ?? s.title; return;
+    // judul otomatis sesi CLI/VS Code (tanpa judul sidebar Desktop): cadangan bila tidak ada judul lain
+    case "ai-title": s.aiTitle = o.aiTitle ?? s.aiTitle; return;
     case "queue-operation":
       if (o.operation === "enqueue" && ts) { s.lastTs = Math.max(s.lastTs, ts); s.lastKind = "tugas"; }
       return;
@@ -311,6 +330,8 @@ function ingestLine(s, line) {
       if (!text) return;
       if (!s.firstPrompt) s.firstPrompt = text.slice(0, 400);
       if (TANDA_RUDISONE.test(text)) s.rudisone = true;
+      // `/rudisone` menjadikan sesi itu COO (di folder mana pun, juga CLI/VS Code tanpa agent-setting)
+      if (TANDA_COO.test(text)) s.coo = true;
       const from = text.match(/<cross-session-message[^>]*from="([^"]+)"/)?.[1];
       if (from) s.events.push({ ts, kind: "pesan-masuk", from });
       s.lastKind = "tugas";
@@ -325,7 +346,7 @@ function ingestLine(s, line) {
         if (b?.type !== "tool_use") continue;
         tool = true;
         s.pending.set(b.id, { name: b.name, input: b.input ?? {}, ts });
-        if (b.name === "Skill" && b.input?.skill === "rudisone") s.rudisone = true;
+        if (b.name === "Skill" && b.input?.skill === "rudisone") s.rudisone = s.coo = true;
         s.events.push({ ts, kind: "alat", name: b.name, input: b.input ?? {} });
       }
       if (!tool && c.some((b) => b?.type === "text")) s.lastKind = "selesai";
@@ -406,7 +427,7 @@ const bersih = (t) => String(t ?? "").replace(/`/g, "").replace(/\*\*/g, "").tri
 /** Baris tugas yang belum selesai dari semua tabel di register tugas (format lama maupun baru). */
 export function bacaRegister(teks) {
   const hasil = [];
-  const baris = teks.split("\n");
+  const baris = teks.split(/\r?\n/);
   for (let i = 0; i < baris.length - 1; i++) {
     if (!/^\|/.test(baris[i]) || !/^\|\s*-{3}/.test(baris[i + 1])) continue;
     const kepala = baris[i].split("|").slice(1, -1).map((k) => k.trim().toLowerCase());
@@ -456,15 +477,21 @@ const RE_KAMU_ADALAH = new RegExp(`Kamu adalah\\s+\\**\\s*(${POLA_NAMA})(?![\\w-
 /** Peran dari nama worktree tim (`…/.claude/worktrees/r<n>-<peran>-…`). Didahulukan atas agentSetting: worktree DI
  *  DALAM repo RudisOne mewarisi `.claude/settings.json` repo ("agent": "coo"), padahal sesinya Tech Lead/engineer. */
 const PERAN_WORKTREE = { lead: "Tech Lead", bsa: "Business Systems Analyst", se1: "Software Engineer", se2: "Software Engineer" };
+/** Worktree tim di path mana pun (`/` maupun `\` — di Windows transkrip mencatat `C:\…\.claude\worktrees\r2-lead-…`). */
+const RE_PERAN_WORKTREE = /[\\/]\.claude[\\/]worktrees[\\/]r(\d+)-(lead|bsa|se1|se2)-/;
+/** Nomor tim dari nama worktree (`r<n>-…`), hanya 1–3 (kursi yang ada), selain itu null. */
+const nomorWorktree = (cwd) => { const n = Number(String(cwd ?? "").match(RE_PERAN_WORKTREE)?.[1]); return NOMOR_TIM.includes(n) ? n : null; };
 function agentOf(s) {
-  const wt = String(s.cwd ?? "").match(/\/\.claude\/worktrees\/r[1-3]-(lead|bsa|se1|se2)-/)?.[1];
+  const wt = String(s.cwd ?? "").match(RE_PERAN_WORKTREE)?.[2];
   if (wt) return PERAN_WORKTREE[wt];
   const setting = kanonik(s.agentSetting);   // id teknis, mis. "system-administrator"
   if (setting && AGENTS.includes(setting)) return setting;
   const byTitle = namaDiAwal(s.title ?? "");
   if (byTitle) return kanonik(byTitle);
   const n = kanonik(s.firstPrompt?.match(RE_KAMU_ADALAH)?.[1]);
-  return n && AGENTS.includes(n) ? n : null;
+  if (n && AGENTS.includes(n)) return n;
+  // sesi yang menjalankan /rudisone (mis. COO di VS Code/CLI di folder proyek, tanpa agent-setting & judul peran)
+  return s.coo ? "COO" : null;
 }
 
 const RANK = { menunggu: 4, bekerja: 3, berpikir: 2, santai: 1 };
@@ -495,9 +522,24 @@ function peranSubagent(s) {
 }
 /** Kursi subagent peran: peran tim memakai tim pemanggilnya (atau proyek folder kerja); engineer memakai nomor di
  *  deskripsi/pembuka ("#2"), selain itu kursi engineer pertama yang masih kosong (`terisi` = byAgent). */
+/** Proyek subagent tim yang dipanggil COO (mis. Tech Lead sebagai subagent): dari ID tugas di brief-nya → folder tugas di
+ *  register; selain itu dari folder kerja worktree yang pernah dipakainya; terakhir folder kerja terakhir. Folder kerja
+ *  awal subagent = folder pemanggil (COO di induk proyek, mis. `d:\PENGEMBANGAN-RUDIS`), jadi tidak didahulukan. */
+function proyekSubagent(s) {
+  const id = String(s.firstPrompt ?? "").match(/\bT-\d{8}-\d+(?:\.\d+)*\b/)?.[0];
+  // ID persis dulu, lalu induk terdekat (awalan terpanjang): sub-tugas T-x.2 tidak boleh jatuh ke folder induk T-x
+  const tugas = id ? muatTugas() : [];
+  const t = tugas.find((x) => x.id === id)
+    ?? tugas.filter((x) => id.startsWith(`${x.id}.`)).sort((a, b) => b.id.length - a.id.length)[0];
+  const folder = t?.folder?.replace(/\s*\(.*\)\s*$/, "").trim().replace(/^~(?=[\\/]|$)/, HOME);
+  // tugas platform RudisOne (folder = repo RudisOne sendiri, bukan worktree tim) → proyek "RudisOne"
+  const dariFolder = !folder ? null
+    : diRoot(folder) && !RE_WORKTREE.test(folder) ? path.basename(ROOT.replaceAll("\\", "/")) : proyekDari("", folder);
+  return dariFolder ?? proyekDari("", s.cwdWorktree ?? s.cwd ?? "");
+}
 function kursiSubagent(peran, induk, s, terisi) {
   if (!PERAN_TIM.includes(peran)) return peran;
-  const n = Number(induk.match(/· Tim (\d)$/)?.[1] ?? 0) || nomorTim(proyekDari("", s.cwd ?? ""));
+  const n = Number(induk.match(/· Tim (\d)$/)?.[1] ?? 0) || nomorWorktree(s.cwdWorktree) || nomorTim(proyekSubagent(s));
   if (peran !== "Software Engineer") return `${peran} · Tim ${n}`;
   const k = `${s.asisten.meta.description ?? ""} ${s.firstPrompt ?? ""}`.match(POLA_NOMOR_ENGINEER)?.[1];
   if (k) return `Software Engineer #${Math.min(2, Math.max(1, Number(k)))} · Tim ${n}`;
@@ -517,16 +559,24 @@ export function buildState(now = Date.now()) {
   for (const s of files.values()) {
     if (s.asisten) continue;
     const d = desktop.get(s.cli);
-    const title = d?.title ?? s.title;
-    if (!title) continue; // hanya sesi sidebar (punya judul), bukan uji headless
+    const judulPeran = d?.title ?? s.title;   // judul sidebar Desktop / nama sesi cli / judul yang diberi pengguna
+    // Sesi CLI/VS Code hanya punya judul otomatis (ai-title); sesi /rudisone tanpa judul apa pun tetap COO. Uji headless
+    // (tanpa judul dan bukan /rudisone) tidak tampil.
+    const title = judulPeran ?? s.aiTitle ?? (s.coo ? "COO" : null);
+    if (!title) continue;
     if (!milikRudisOne(s, d)) continue; // sesi sistem agent lain / sesi pribadi di device yang sama
-    const peran = agentOf({ ...s, title });
+    const peran = agentOf({ ...s, title: judulPeran });   // judul otomatis tidak dipakai menebak peran
     if (peran) kandidat.push({ s, d, title, peran });
   }
   // proyek tim engineering (dari folder kerja sesi tim) didaftarkan dulu — urut waktu mulai agar nomor tim stabil —
-  // supaya judul "Agent · <proyek>" dan tujuan pesan bisa dipetakan ke timnya
-  for (const k of [...kandidat].sort((a, b) => (a.s.mulai || 0) - (b.s.mulai || 0)))
-    if (PERAN_TIM.includes(k.peran)) { const p = proyekDari("", k.s.cwd); if (p) nomorTim(p); }
+  // supaya judul "Agent · <proyek>" dan tujuan pesan bisa dipetakan ke timnya. Nomor di nama worktree (`r<n>-lead-…`)
+  // dipakai bila TEAM.md belum memetakan proyek itu dan nomornya belum dipakai proyek lain.
+  for (const k of [...kandidat].sort((a, b) => (a.s.mulai || 0) - (b.s.mulai || 0))) {
+    if (!PERAN_TIM.includes(k.peran)) continue;
+    const p = proyekDari("", k.s.cwd), n = nomorWorktree(k.s.cwd);
+    if (p && n && !timProyek.has(p) && ![...timProyek.values()].includes(n)) timProyek.set(p, n);
+    if (p) nomorTim(p);
+  }
   const dikenal = [];
   for (const { s, d, title, peran } of kandidat) {
     const agent = kursiDari(peran, title, s.cwd);
@@ -537,6 +587,7 @@ export function buildState(now = Date.now()) {
   /** Linimasa (pemakaian alat per menit, 60 menit) dan log kejadian satu transkrip untuk satu kursi. */
   const catat = (s, agent) => {
     const jalur = timeline.get(agent);
+    if (!jalur) return;   // kursi di luar denah (mis. tim > 3) — jangan sampai satu sesi aneh mematikan server
     for (const e of s.events) {
       if (e.kind !== "alat") continue;
       const menit = Math.floor((now - e.ts) / 60e3);
@@ -562,7 +613,7 @@ export function buildState(now = Date.now()) {
     let st = sessionStatus(s, now);
     if (d?.awaiting && st.status !== "menunggu") // sesi berhenti menunggu keputusan pengguna (mis. izin)
       st = { status: "menunggu", label: "Menunggu keputusan Anda", detail: d.perintah ?? "", icon: "tunggu", since: s.lastTs };
-    byAgent.get(agent).push({ title, cwd: s.cwd?.replace(HOME, "~") ?? "", lastTs: s.lastTs, ...st });
+    byAgent.get(agent)?.push({ title, cwd: s.cwd?.replace(HOME, "~") ?? "", lastTs: s.lastTs, ...st });
     catat(s, agent);
   }
   // Lintasan 3: subagent sesi RudisOne. Subagent peran (tipe `rudis-<id-peran>`) duduk dan bekerja di kursi peran itu
@@ -583,7 +634,7 @@ export function buildState(now = Date.now()) {
       if (!berjalan) continue;               // selesai → kursi kembali ke katalog
       let st = sessionStatus(s, now);
       if (st.status === "santai") st = { status: "berpikir", label: "Berpikir", detail: "", icon: "pikir", since: s.lastTs };  // subagent berjalan = bekerja
-      byAgent.get(kursi).push({ title: deskripsi || "subagent", cwd: s.cwd?.replace(HOME, "~") ?? "", lastTs: s.lastTs, ...st,
+      byAgent.get(kursi)?.push({ title: deskripsi || "subagent", cwd: s.cwd?.replace(HOME, "~") ?? "", lastTs: s.lastTs, ...st,
         subagent: { dari: induk, id: s.asisten.id, deskripsi } });
       continue;
     }
@@ -620,19 +671,75 @@ export function buildState(now = Date.now()) {
   return { now, agents, feed: feed.slice(0, 80), tugas: muatTugas(), tim, asisten: asisten.slice(0, 30) };
 }
 
+// ---------- kesehatan: versi & sumber data ----------
+/** Keadaan tiap sumber data untuk /health (bukan isi datanya). */
+export function sumberData() {
+  const hasil = [];
+  const periksa = (nama, fn) => { try { hasil.push({ nama, ...fn() }); } catch (e) { hasil.push({ nama, terbaca: false, ket: e.code || e.message }); } };
+  periksa("transkrip", () => {
+    const n = fs.readdirSync(PROJECTS).length;
+    const aktif = [...files.values()].filter((s) => !s.asisten).length;
+    return { terbaca: true, ket: `${n} folder proyek, ${aktif} transkrip ≤48 jam — ${PROJECTS}` };
+  });
+  periksa("TEAM.md", () => {
+    if (!fs.existsSync(TEAM_MD)) return { terbaca: false, ket: `belum ada — ${TEAM_MD}` };
+    fs.accessSync(TEAM_MD, fs.constants.R_OK);
+    return { terbaca: true, ket: `${teamMap.size} alamat sesi — ${TEAM_MD}` };
+  });
+  periksa("register", () => {
+    const f = [REGISTER_JSON, REGISTER].find((x) => fs.existsSync(x));
+    if (!f) return { terbaca: false, ket: "register-tugas.json/.md belum ada" };
+    const isi = muatTugas();
+    return { terbaca: tugasCache.kunci.startsWith(`${f}|`), ket: `${isi.length} tugas aktif — ${f}` };
+  });
+  const sumber = sumberBaca();
+  if (sumber.includes("desktop")) periksa("sesi Desktop", () => {
+    const ada = fs.existsSync(DESKTOP_SESSIONS);
+    const n = [...desktop.values()].filter((e) => String(e.localId ?? "").startsWith("local_")).length;
+    return ada ? { terbaca: true, ket: `${n} sesi — ${DESKTOP_SESSIONS}` } : { terbaca: false, ket: `tidak ada (Claude Desktop belum dipakai di device ini) — ${DESKTOP_SESSIONS}` };
+  });
+  if (sumber.includes("cli")) periksa("sesi CLI", () => (statusCli.ok === null ? { terbaca: false, ket: "belum diperiksa" }
+    : statusCli.ok ? { terbaca: true, ket: `${statusCli.n} sesi dari \`claude agents --json\`` } : { terbaca: false, ket: "`claude agents --json` gagal / CLI tidak ada" }));
+  return hasil;
+}
+/** Galat terakhir di siklus pembaruan (server tetap hidup; ditampilkan di /health dan dicatat ke log). */
+let galatTerakhir = null;
+function catatGalat(asal, e) {
+  galatTerakhir = { ts: new Date().toISOString(), asal, pesan: String(e?.stack ?? e).split("\n").slice(0, 4).join(" | ") };
+  console.error(`[${galatTerakhir.ts}] galat ${asal}: ${galatTerakhir.pesan}`);
+}
+/** Isi /health: baris pertama tetap `ok <versi>` (dibaca bin/kantor.mjs), lalu satu baris per sumber data. */
+export function teksSehat() {
+  const sumber = sumberData();
+  return [`ok ${VERSI}`, `versi: ${VERSI} · node ${process.version} · ${process.platform} · pid ${process.pid} · hidup sejak ${MULAI}`,
+    ...sumber.map((x) => `sumber ${x.nama}: ${x.terbaca ? "terbaca" : "TIDAK terbaca"} (${x.ket})`),
+    `galat terakhir: ${galatTerakhir ? `${galatTerakhir.ts} ${galatTerakhir.asal} — ${galatTerakhir.pesan}` : "-"}`].join("\n");
+}
+const MULAI = new Date().toISOString();
+
 // ---------- HTTP ----------
 const clients = new Set();
 let lastJson = "";
 
 function tick() {
-  scan();
-  const state = buildState();
+  let state;
+  try { scan(); state = buildState(); } catch (e) { catatGalat("pembaruan", e); return; }
   const { now, ...rest } = state;
   const json = JSON.stringify(rest);
   if (json === lastJson) return;
   lastJson = json;
   const payload = `data: ${JSON.stringify(state)}\n\n`;
-  for (const res of clients) res.write(payload);
+  for (const res of clients) { try { res.write(payload); } catch (e) { clients.delete(res); catatGalat("kirim SSE", e); } }
+}
+
+/** `--log=<berkas>`: keluaran server ditambahkan ke berkas itu (dipakai bila server dinyalakan tanpa stdio, mis. WMI). */
+function arahkanLog(berkas) {
+  if (!berkas) return;
+  try {
+    const tulis = (t) => fs.appendFileSync(berkas, `${t}\n`);
+    console.log = (...a) => tulis(a.join(" "));
+    console.error = (...a) => tulis(a.join(" "));
+  } catch { /* log tidak bisa ditulis: tetap jalan */ }
 }
 
 function serve() {
@@ -656,8 +763,14 @@ function serve() {
       clients.add(res);
       req.on("close", () => clients.delete(res));
     } else if (url.pathname === "/health") {
-      res.writeHead(200, { "content-type": "text/plain" });
-      res.end(`ok ${VERSI}`);
+      if (url.searchParams.has("json")) {
+        res.writeHead(200, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
+        res.end(JSON.stringify({ ok: true, versi: VERSI, node: process.version, platform: process.platform, pid: process.pid, mulai: MULAI,
+          sumber: sumberData(), galatTerakhir }));
+      } else {
+        res.writeHead(200, { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" });
+        res.end(teksSehat());
+      }
     } else {
       res.writeHead(404, { "content-type": "text/plain" });
       res.end("Tidak ditemukan");
@@ -668,11 +781,15 @@ function serve() {
     process.exit(1);
   });
   server.listen(PORT, "127.0.0.1", () => {
-    console.log(`Kantor RudisOne: http://127.0.0.1:${PORT}`);
+    console.log(`[${new Date().toISOString()}] Kantor RudisOne: http://127.0.0.1:${PORT} (versi ${VERSI}, pid ${process.pid})`);
   });
-  scan();
+  // Server status yang hanya membaca: galat tak terduga dicatat lalu server tetap melayani — dulu satu galat di siklus
+  // pembaruan mematikan Kantor diam-diam (halaman berhenti update, /health tidak menjawab).
+  process.on("uncaughtException", (e) => catatGalat("tak tertangkap", e));
+  process.on("unhandledRejection", (e) => catatGalat("promise", e));
+  try { scan(); } catch (e) { catatGalat("pindai awal", e); }
   setInterval(tick, 1500);
-  setInterval(() => { for (const res of clients) res.write(": ping\n\n"); }, 20000);
+  setInterval(() => { for (const res of clients) { try { res.write(": ping\n\n"); } catch { clients.delete(res); } } }, 20000);
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) serve();
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) { arahkanLog(argumen("log")); serve(); }

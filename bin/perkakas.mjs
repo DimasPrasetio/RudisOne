@@ -7,6 +7,7 @@
 //   cek      laporkan keadaan tanpa mengubah apa pun (git fetch tetap jalan)
 //   versi    satu baris untuk kolom "Perkakas" register tugas, mis. rudis@b444853 lib@43e552f sdd@e216888
 //   proyek   <folder> [--json]: rudis-pustaka · rudis-deploy · lain, lalu mode-mesin A|B|ragu, backend, bukti, kartu
+//            (folder proyek baru tanpa kode tetap `lain` di baris pertama, mode-mesin A; --json: "baru": true)
 //   pastikan skill luar <skill> tersedia; bila belum, dipasang dari sumber resminya (exit 0 · 1 · 2 alternatif · 3)
 //   skill    keadaan semua skill luar (perkakas.json › skill_luar) tanpa memasang apa pun
 //   marketplace cek [<sumber>]  validasi allowlist (perkakas.json › kebijakan_marketplace); dengan <sumber>: 0 diizinkan · 1 tidak
@@ -194,8 +195,25 @@ function laporanDiabaikan(folder, nama) {
 }
 export function traceDiabaikan(folder) { return laporanDiabaikan(folder, "trace-reports") && laporanDiabaikan(folder, "test-reports"); }
 
+/** Isi akar yang boleh ada di folder proyek baru (belum ada kode): metadata git/editor/lisensi/env, `.claude/`, dan
+ *  `.rudisone/` yang kosong atau hanya berisi kartu proyek. Apa pun selain ini (kode, apps/, specs/, .rudis/, lock) =
+ *  bukan proyek baru. */
+const AKAR_PROYEK_BARU = [/^\.git$/, /^\.gitignore$/, /^\.gitattributes$/, /^readme/i, /^licen[cs]e/i, /^\.claude$/, /^\.vscode$/,
+  /^\.idea$/, /^\.env/, /^\.editorconfig$/, /^\.DS_Store$/, /^Thumbs\.db$/i, /^desktop\.ini$/i];
+export function folderProyekBaru(folder) {
+  let isi;
+  try { isi = fs.readdirSync(folder); } catch { return false; }
+  return isi.every((n) => {
+    if (n === ".rudisone") {
+      try { return fs.readdirSync(path.join(folder, n)).every((f) => f === "kartu-proyek.md" || f === ".DS_Store"); } catch { return false; }
+    }
+    return AKAR_PROYEK_BARU.some((p) => p.test(n));
+  });
+}
+
 /** Hasil deteksi berbukti untuk `perkakas.sh proyek`. Folder tidak ada → Error berkode ENOENT (CLI: exit 3, D1).
- *  mode: ragu (D3/D4/D5/D6) · A (lock sah, ter-track, ≥1 modul aktif, backend go) · B (selain itu; pustaka hanya Go). */
+ *  mode: ragu (D3/D4/D5/D6) · A (lock sah, ter-track, ≥1 modul aktif, backend go; atau folder proyek baru tanpa kode —
+ *  proyek baru dirakit dari pustaka, D2) · B (selain itu; pustaka hanya Go). */
 export function deteksiProyek(folder, { root } = {}) {
   let st = null;
   try { st = fs.statSync(folder); } catch { /* tidak ada */ }
@@ -232,13 +250,15 @@ export function deteksiProyek(folder, { root } = {}) {
   else if (lock.ada && lock.aktif < 1) ragu.push("tidak ada modul aktif di lock — semua detached/kosong (D4)");
   if (!lock.ada && adaDi(folder, "infra", "deploy") && adaDi(folder, "apps", "api") && backend === "go") ragu.push("struktur standar + backend go tanpa lock (D3)");
   if (ragam.size > 1) ragu.push(`beberapa backend: ${[...ragam].join(", ")} (D5)`);
-  const mode = ragu.length ? "ragu" : lock.ada && backend === "go" ? "A" : "B";
+  const baru = !ragu.length && folderProyekBaru(folder);
+  const mode = ragu.length ? "ragu" : (lock.ada && backend === "go") || baru ? "A" : "B";
   for (const r of ragu) bukti.push(`ragu: ${r}`);
+  if (baru) bukti.push("folder proyek baru (belum ada kode) — proyek baru dirakit dari pustaka = Mode A (konfirmasi: Persetujuan Inisiasi)");
   if (mode === "B" && lock.ada) bukti.push(`catatan: perakitan pustaka hanya Go — backend ${backend} = B kecuali kartu berkata lain`);
 
   const k = bacaKartu(folder, root);
   const kartu = k ? { ada: true, path: k.path, mode: k.data.mode ?? "", data: k.data } : { ada: false };
-  return { folder, jenis: jenisProyek(folder), mode, backend, bukti, kartu, traceDiabaikan: traceAbai, perluTrace };
+  return { folder, jenis: jenisProyek(folder), mode, baru, backend, bukti, kartu, traceDiabaikan: traceAbai, perluTrace };
 }
 
 /** Teks keluaran `perkakas.sh proyek`: baris pertama = jenis lama (kompatibel), lalu mode, backend, bukti, kartu. */

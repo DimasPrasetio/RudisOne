@@ -1,7 +1,11 @@
 [Tugas dari <COO | Tech Lead | Head of IT Operations | Program Manager | Head of Strategy>] <ID> · <judul singkat>
 
 <!-- Brief harus mandiri: penerima tidak melihat percakapanmu, dan konteksnya bisa sudah dibersihkan.
-     Ke sesi di folder proyek (Engineering): wajib diawali pembuka peran di bawah. -->
+     Ke sesi di folder proyek (Engineering): wajib diawali pembuka peran di bawah.
+     Sebelum mengirim: SETIAP path yang kamu sebut (berkas, folder, branch, sha) sudah kamu periksa ada — `ls`/Glob/
+     `git rev-parse` — bukan ditulis dari ingatan. Path yang belum ada (akan dibuat penerima) ditandai "(baru)". -->
+
+- [ ] Semua path/branch/sha di brief ini sudah diperiksa ada (yang akan dibuat ditandai "(baru)").
 
 Kamu adalah <Jabatan>[ #n] di RudisOne. Baca dan patuhi ~/Documents/Neuron/ai-agent/RudisOne/agents/<id-peran>.md sebagai peranmu, lalu
 ~/Documents/Neuron/ai-agent/RudisOne/protokol.md dan ~/Documents/Neuron/ai-agent/RudisOne/catatan/<id-peran>.md.

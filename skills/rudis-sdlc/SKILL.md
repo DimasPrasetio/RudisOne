@@ -117,9 +117,13 @@ COO menanyakannya di gerbang yang sesuai dan meneruskan jawabannya apa adanya.
 1. COO: `bin/perkakas.sh siapkan --segera`; daftarkan ID (Fase `Inisiasi`, kolom Perkakas dari `versi`).
 2. COO menyelaraskan persepsi sekaligus menanyakan fakta Persetujuan Inisiasi (skill `rudis-grill-me`; cabang = bagian
    Inisiasi `templat/intake-proyek.md`). Tidak ada tugas ke IT Operations dan tidak ada cek server.
-3. Setelah pemahaman bersama (= Persetujuan Inisiasi) disepakati (giliran yang dipicu pengguna): COO membuat folder proyek, `git init -b main`, dan satu
-   commit kosong (`git commit --allow-empty -m "chore: mulai proyek <nama>"`) — worktree butuh satu commit. Hanya
-   ini yang COO tulis di folder proyek.
+3. Setelah pemahaman bersama (= Persetujuan Inisiasi) disepakati (giliran yang dipicu pengguna): COO membuat folder
+   proyek, `git init -b main`, lalu **kartu proyek Mode A**: `bin/perkakas.sh proyek <folder>` (folder baru →
+   `mode-mesin: A`, bukti "folder proyek baru"), tulis `.rudisone/kartu-proyek.md` dari `templat/kartu-proyek.md` dengan
+   `mode: A`, `mode_mesin: A`, `override: -`, `dikonfirmasi: <tanggal> "<kutipan persetujuan Inisiasi>"` (Persetujuan
+   Inisiasi = konfirmasi mode; tidak ditanyakan lagi), `backend` dari Inisiasi, `constitution: tipis`, `artefak: root`,
+   dan salinan keluaran deteksi. Satu commit `chore: mulai proyek <nama>` berisi kartu itu — worktree butuh satu commit.
+   Backend non-Go (perakitan pustaka hanya Go) → `mode: B` dengan alasan di `override`. Hanya ini yang COO tulis di folder proyek.
 4. COO membentuk sesi Tech Lead untuk folder itu (`agents/coo.md` › Organisasi inti), lalu brief
    ke Tech Lead untuk Analisis–Pengujian (BSA dan SE dipanggil Tech Lead sebagai subagent).
 5. Tech Lead men-scaffold di worktree-nya, di branch `rudis/<ID>`, dengan `--dir <worktree> --force` dan fakta yang
@@ -130,6 +134,25 @@ COO menanyakannya di gerbang yang sesuai dan meneruskan jawabannya apa adanya.
    Final Checklist (*left as markers on purpose*). Fakta deploy kosong tidak pernah menjadi alasan `[Terhambat]`.
 6. Repo GitHub dibuat hanya saat pengguna meminta push pertama (Persetujuan Rilis) — oleh COO (`gh repo create`, privat).
 7. Deploy pertama hanya bila pengguna memintanya → Persetujuan Penerapan (fakta *Sebelum penerapan pertama*).
+
+### Database lokal (awal Konstruksi — sebelum scaffold, bukan sesudahnya)
+Tes integrasi, smoke, dan jalan lokal butuh MySQL di device pengguna; kredensial tidak pernah lewat chat dan agent
+tidak menyentuh MySQL tanpa izin per kali. Agar Konstruksi tidak berhenti menunggu (T-20261030-1):
+1. **COO bertanya bersama pesan Persetujuan Rancangan** (satu pesan, tidak menambah gerbang), bagian *Database lokal*
+   `templat/intake-proyek.md`: jenis MySQL (layanan Windows/macOS, Docker, XAMPP/Laragon, belum ada), versinya (pengguna
+   menjalankan `mysql --version` atau `SELECT VERSION();` — 8.4+/9.x tidak memuat `mysql_native_password`, akun memakai
+   `caching_sha2_password`), dan cara pengguna mengisi `.env` (menyunting berkasnya sendiri; nilai tidak dikirim ke chat).
+2. Setelah scaffold, Tech Lead melapor perintah **satu baris yang dijalankan pengguna sendiri** di terminal, di folder
+   proyek: `node scripts/db-local.mjs` (skrip skill `rudis-monorepo`, ikut ter-scaffold; opsi rinci di README proyek).
+   Skrip menanyakan sandi admin MySQL (masukan tersembunyi, tidak lewat chat), memeriksa `SELECT VERSION()`, membuat
+   **dua** database `<slug>_db` dan `<slug>_test` serta akun `<slug>_dev@'127.0.0.1'` (`caching_sha2_password` di
+   MySQL 8+, berhak hanya atas dua database itu) bersandi acak, lalu menulis `DB_DSN` dan `TEST_DB_DSN` ke `.env`
+   (gitignored; `.env.example` tidak berisi DSN sah). `--print-sql` = mode kering tanpa koneksi, untuk ditinjau
+   pengguna lebih dulu. COO meneruskan perintah itu persis (PowerShell 5.1: tanpa `&&`).
+3. Pengguna menjawab "sudah" → itu izin per kali untuk tes ber-database di tugas itu (kutip di brief). Belum ada MySQL →
+   tes tanpa database jalan terus; kriteria yang butuh database dilaporkan "belum terverifikasi", bukan `[Terhambat]`.
+4. Agent tidak pernah menjalankan skrip itu, membaca `.env`, atau menguji penolakan lewat skrip berefek samping
+   (`protokol.md` › Ruang kerja Engineering — uji penolakan pada fungsi penjaga).
 
 ### Artefak milik proyek
 Hasil yang menjadi bagian proyek (`analysis/`, `knowledge/DESIGN.md`, ADR di `knowledge/decisions/`,
