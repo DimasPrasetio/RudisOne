@@ -170,6 +170,8 @@ test("#1 perintah percaya-folder: Windows → PowerShell 5.1 tanpa `&&`, plus cm
   // spasi dan kutip tunggal di path tetap aman
   assert.equal(m.perintahPercaya(String.raw`C:\Users\DImas Prasetio\it's`, "win32")[0].perintah,
     String.raw`Set-Location -LiteralPath 'C:\Users\DImas Prasetio\it''s'; claude`);
+  // kutip tipografis juga pembatas string di PowerShell → digandakan (temuan tinjauan silang)
+  assert.equal(m.perintahPercaya("C:\\x\\Dimas\u2019s", "win32")[0].perintah, "Set-Location -LiteralPath 'C:\\x\\Dimas\u2019\u2019s'; claude");
   assert.deepEqual(m.perintahPercaya("/home/u/toko", "linux"), [{ shell: "terminal", perintah: "cd '/home/u/toko' && claude" }]);
 });
 

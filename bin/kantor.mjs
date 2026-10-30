@@ -98,7 +98,8 @@ function siapkanLog() {
  *  WmiPrvSE, di luar job itu, sehingga Kantor tidak mati saat sesi yang menyalakannya berhenti. WMI tidak mewariskan env
  *  dan stdio: port dan log lewat argumen (server.mjs `--kantor-port=`, `--log=`). Uji: uji/windows-kantor.md. */
 function nyalakanLepas() {
-  const kutip = (t) => `'${String(t).replaceAll("'", "''")}'`;   // string PowerShell berkutip tunggal
+  // string PowerShell berkutip tunggal; kutip tipografis ‘ ’ ‚ ‛ juga pembatas di PowerShell → digandakan
+  const kutip = (t) => `'${String(t).replace(/['‘-‛]/g, "$&$&")}'`;
   // PENANDA tanpa kutip: prosesKantor() mencarinya sebagai kata utuh di baris perintah
   const baris = [`"${process.execPath}"`, `"${SERVER}"`, PENANDA, `"--log=${LOG}"`].join(" ");
   const ps = `$ErrorActionPreference='Stop'; `

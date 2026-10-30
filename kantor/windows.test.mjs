@@ -32,11 +32,15 @@ fs.writeFileSync(process.env.RUDISONE_KANTOR_TEAM_MD, [
   "# Tim RudisOne", "",
   "## Engineering · Tim 2 · RudisOne (platform)", "| Agent | Session id | Name | cwd |", "|---|---|---|---|",
   "| Tech Lead | `local_aaaa0000-1111-2222-3333-444455556666` | `r2-lead-rudisone` | worktree |", "",
+  "## Engineering · Tim 3 · rudis-monorepo (platform)", "",
   "## Engineering · Tim 4 · rudis-modules (platform) — menunggu pengguna mempercayai repo", "",
 ].join("\r\n"));
 // register ber-CRLF dengan folder `D:\` (format JSON bin/register.mjs)
 fs.writeFileSync(process.env.RUDISONE_KANTOR_REGISTER_JSON, JSON.stringify({ versi: 1, tugas: [
   { id: "T-20261030-1", judul: "Aplikasi gudang inventory", folder: PROYEK, pemilik: "Tech Lead", status: "berjalan", prioritas: "normal", dibuat: "2026-10-30T01:00:00Z" },
+  // induk di folder RudisOne sendiri, dibuat lebih dulu dari sub-tugasnya (urutan register: induk sebelum anak)
+  { id: "T-20261030-2", judul: "Sempurnakan RudisOne", folder: process.env.RUDISONE_ROOT, pemilik: "COO", status: "berjalan", prioritas: "tinggi", dibuat: "2026-10-30T02:00:00Z" },
+  { id: "T-20261030-2.2", judul: "rudis-monorepo", folder: String.raw`C:\Users\u\Documents\Neuron\ai-agent\rudis-monorepo`, pemilik: "Tech Lead", status: "berjalan", prioritas: "tinggi", dibuat: "2026-10-30T02:10:00Z" },
 ] }, null, 2).replaceAll("\n", "\r\n"));
 
 const now = Date.now();
@@ -60,6 +64,15 @@ tulis(path.join(sub, "agent-aef33e60ae9a9bf61.jsonl"), [
   { type: "user", timestamp: iso(60e3), isSidechain: true, cwd: String.raw`d:\PENGEMBANGAN-RUDIS`, message: { content: "[Tugas dari COO] T-20261030-1 · Aplikasi gudang \"inventory\" — Analisis" } },
   { ...pakai(3e3, "s1", "Bash", { command: "go build ./...", description: "Build backend" }, String.raw`d:\PENGEMBANGAN-RUDIS`), isSidechain: true },
 ]);
+// Dua Tech Lead subagent lain dari COO, mulai di folder COO: sub-tugas T-…-2.1 (induk di folder RudisOne → Tim 2) dan
+// T-…-2.2 (folder rudis-monorepo → Tim 3) — temuan tinjauan silang: sub-ID jatuh ke induk; folder = RudisOne → Tim 1
+for (const [id, tugas] of [["b0000000000000021", "T-20261030-2.1"], ["b0000000000000022", "T-20261030-2.2"]]) {
+  fs.writeFileSync(path.join(sub, `agent-${id}.meta.json`), JSON.stringify({ agentType: "rudis-tech-lead", description: `TL ${tugas}` }));
+  tulis(path.join(sub, `agent-${id}.jsonl`), [
+    { type: "user", timestamp: iso(50e3), isSidechain: true, cwd: String.raw`d:\PENGEMBANGAN-RUDIS`, message: { content: `[Tugas dari COO] ${tugas} · platform` } },
+    { ...pakai(2e3, `x${id}`, "Read", { file_path: "a.md" }, String.raw`d:\PENGEMBANGAN-RUDIS`), isSidechain: true },
+  ]);
+}
 // Peninjau (subagent rudis-software-engineer) di worktree proyek, selesai lama → tidak duduk, linimasa tetap
 fs.writeFileSync(path.join(sub, "agent-a89dd276061a47580.meta.json"), JSON.stringify({ agentType: "rudis-software-engineer", description: "Tinjauan silang kode inventory", finished: true }));
 tulis(path.join(sub, "agent-a89dd276061a47580.jsonl"), [
@@ -108,6 +121,13 @@ test("Tech Lead sebagai subagent COO duduk di kursi Tech Lead tim proyeknya (dar
   assert.ok(!st.tim.some((t) => /PENGEMBANGAN/.test(t.proyek)), "folder induk COO bukan proyek");
 });
 
+test("Tech Lead subagent: sub-ID memakai folder tugasnya sendiri (bukan induk); folder = repo RudisOne → tim RudisOne", () => {
+  const di = (n) => ag(n).sessions.map((x) => x.title);
+  assert.ok(di("Tech Lead · Tim 2").includes("TL T-20261030-2.1"), JSON.stringify(st.agents.filter((a) => a.present).map((a) => [a.name, a.sessions.map((x) => x.title)])));
+  assert.ok(di("Tech Lead · Tim 3").includes("TL T-20261030-2.2"));
+  assert.ok(!di("Tech Lead · Tim 1").some((t) => /T-20261030-2/.test(t)));
+});
+
 test("subagent peninjau yang sudah selesai tidak menduduki kursi, tetapi aktivitasnya tetap di log", () => {
   assert.ok(st.feed.some((f) => f.label === "Membaca kode" && /Software Engineer/.test(f.agent)), JSON.stringify(st.feed.map((f) => f.agent)));
 });
@@ -130,7 +150,7 @@ test("register ber-CRLF (MD) terbaca; register JSON ber-CRLF dengan folder D:\\ 
   assert.equal(r.length, 1);
   assert.equal(r[0].folder, String.raw`D:\PENGEMBANGAN-RUDIS\inventory`);
   assert.equal(r[0].status, "berjalan", "tanpa \\r tersisa");
-  assert.equal(st.tugas[0]?.folder, PROYEK);
+  assert.equal(st.tugas.find((t) => t.id === "T-20261030-1")?.folder, PROYEK);
 });
 
 test("/health: baris pertama `ok <versi>`, lalu versi dan keadaan tiap sumber data", () => {

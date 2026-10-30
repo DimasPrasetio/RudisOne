@@ -189,7 +189,8 @@ export function perintahPercaya(folder, platform = process.platform) {
     const w = path.win32.normalize(folder);
     const posix = w.replace(/^([A-Za-z]):/, (_, h) => `/${h.toLowerCase()}`).replaceAll("\\", "/");
     return [
-      { shell: "PowerShell", perintah: `Set-Location -LiteralPath '${w.replaceAll("'", "''")}'; claude` },
+      // PowerShell memperlakukan kutip tipografis ‘ ’ ‚ ‛ (U+2018–U+201B) sama dengan ' → semuanya digandakan
+      { shell: "PowerShell", perintah: `Set-Location -LiteralPath '${w.replace(/['‘-‛]/g, "$&$&")}'; claude` },
       { shell: "cmd", perintah: `cd /d "${w}" && claude` },
       { shell: "Git Bash", perintah: `cd '${posix.replaceAll("'", "'\\''")}' && claude` },
     ];
@@ -257,6 +258,8 @@ function main(argv) {
         for (const p of perintahPercaya(x.f)) console.log(`         ${p.shell.padEnd(10)} ${p.perintah}`);
       }
       console.log("       Pengguna sekali per folder: jalankan satu baris sesuai shell-nya, terima prompt percaya, lalu /exit."
+        + "\n       Sesudahnya jalankan lagi `bin/sesi.sh cek`: folder yang masih tercantum = kepercayaannya tidak tercatat"
+        + "\n       (terjadi di T-20261030-2.1) — jangan diulang, pakai jalur subagent."
         + "\n       Tidak mau/bisa? COO memakai jalur subagent (Tech Lead sebagai subagent — skill rudisone › backend-cli.md).");
     }
     return perlu && backend === "cli" ? 1 : 0;

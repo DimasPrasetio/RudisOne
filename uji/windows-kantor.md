@@ -17,6 +17,12 @@ Node 24.18 · 2026-10-30. Gejala menurut pengguna: kursi/peran kosong; tampilan 
 Sebab Kantor mati dua kali di device ini sebelum perbaikan tidak bisa dipastikan lagi (log lama sudah tertimpa); K6 dan K7
 adalah dua jalur yang terbukti bisa mematikannya, dan keduanya ditutup.
 
+**Batas jalur WMI:** server yang dinyalakan WMI tidak mewarisi env sesi — hanya port dan log yang diteruskan (argumen).
+Override uji (`RUDISONE_ROOT`, `RUDISONE_KANTOR_*`, `RUDISONE_SESI`, `RUDISONE_CLAUDE_BIN`) dan PATH khusus sesi tidak
+sampai; PATH yang dipakai PATH pengguna dari registry (`claude agents` butuh `claude` di sana — `/health` › sumber sesi
+CLI menunjukkannya). Perlu override → `RUDISONE_KANTOR_TANPA_WMI=1` (cara lama, ikut job) atau jalankan `kantor/server.mjs`
+langsung.
+
 ## Uji otomatis
 - `kantor/windows.test.mjs` (semua OS): COO VS Code + ai-title, Tech Lead sebagai subagent (folder `D:\` di register),
   peninjau selesai, worktree berpath `\`, TEAM.md/register/transkrip ber-CRLF, Tim 4, `/health`, data rusak. Terhadap

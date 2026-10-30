@@ -142,11 +142,13 @@ tidak menyentuh MySQL tanpa izin per kali. Agar Konstruksi tidak berhenti menung
    `templat/intake-proyek.md`: jenis MySQL (layanan Windows/macOS, Docker, XAMPP/Laragon, belum ada), versinya (pengguna
    menjalankan `mysql --version` atau `SELECT VERSION();` — 8.4+/9.x tidak memuat `mysql_native_password`, akun memakai
    `caching_sha2_password`), dan cara pengguna mengisi `.env` (menyunting berkasnya sendiri; nilai tidak dikirim ke chat).
-2. Setelah scaffold, Tech Lead melapor perintah **satu baris yang dijalankan pengguna sendiri** di folder proyek:
-   `node scripts/db-lokal.mjs` (skrip skill `rudis-monorepo`; nama sementara — ikuti nama & opsi di README proyek hasil
-   scaffold). Skrip meminta kata sandi admin MySQL secara interaktif, membuat **dua** database (`<app>` dan
-   `<app>_test`) serta satu akun berhak minimum hanya untuk keduanya, lalu menulis DSN ke `.env` pengguna. COO meneruskan
-   perintah itu persis (untuk PowerShell 5.1: tanpa `&&`).
+2. Setelah scaffold, Tech Lead melapor perintah **satu baris yang dijalankan pengguna sendiri** di terminal, di folder
+   proyek: `node scripts/db-local.mjs` (skrip skill `rudis-monorepo`, ikut ter-scaffold; opsi rinci di README proyek).
+   Skrip menanyakan sandi admin MySQL (masukan tersembunyi, tidak lewat chat), memeriksa `SELECT VERSION()`, membuat
+   **dua** database `<slug>_db` dan `<slug>_test` serta akun `<slug>_dev@'127.0.0.1'` (`caching_sha2_password` di
+   MySQL 8+, berhak hanya atas dua database itu) bersandi acak, lalu menulis `DB_DSN` dan `TEST_DB_DSN` ke `.env`
+   (gitignored; `.env.example` tidak berisi DSN sah). `--print-sql` = mode kering tanpa koneksi, untuk ditinjau
+   pengguna lebih dulu. COO meneruskan perintah itu persis (PowerShell 5.1: tanpa `&&`).
 3. Pengguna menjawab "sudah" → itu izin per kali untuk tes ber-database di tugas itu (kutip di brief). Belum ada MySQL →
    tes tanpa database jalan terus; kriteria yang butuh database dilaporkan "belum terverifikasi", bukan `[Terhambat]`.
 4. Agent tidak pernah menjalankan skrip itu, membaca `.env`, atau menguji penolakan lewat skrip berefek samping

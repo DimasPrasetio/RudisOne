@@ -527,10 +527,15 @@ function peranSubagent(s) {
  *  awal subagent = folder pemanggil (COO di induk proyek, mis. `d:\PENGEMBANGAN-RUDIS`), jadi tidak didahulukan. */
 function proyekSubagent(s) {
   const id = String(s.firstPrompt ?? "").match(/\bT-\d{8}-\d+(?:\.\d+)*\b/)?.[0];
-  const t = id && muatTugas().find((x) => x.id === id || id.startsWith(`${x.id}.`));
-  const folder = t?.folder?.replace(/\s*\(.*\)\s*$/, "").trim();
-  if (folder) return proyekDari("", folder.replace(/^~(?=[\\/]|$)/, HOME));
-  return proyekDari("", s.cwdWorktree ?? s.cwd ?? "");
+  // ID persis dulu, lalu induk terdekat (awalan terpanjang): sub-tugas T-x.2 tidak boleh jatuh ke folder induk T-x
+  const tugas = id ? muatTugas() : [];
+  const t = tugas.find((x) => x.id === id)
+    ?? tugas.filter((x) => id.startsWith(`${x.id}.`)).sort((a, b) => b.id.length - a.id.length)[0];
+  const folder = t?.folder?.replace(/\s*\(.*\)\s*$/, "").trim().replace(/^~(?=[\\/]|$)/, HOME);
+  // tugas platform RudisOne (folder = repo RudisOne sendiri, bukan worktree tim) → proyek "RudisOne"
+  const dariFolder = !folder ? null
+    : diRoot(folder) && !RE_WORKTREE.test(folder) ? path.basename(ROOT.replaceAll("\\", "/")) : proyekDari("", folder);
+  return dariFolder ?? proyekDari("", s.cwdWorktree ?? s.cwd ?? "");
 }
 function kursiSubagent(peran, induk, s, terisi) {
   if (!PERAN_TIM.includes(peran)) return peran;

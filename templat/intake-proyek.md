@@ -27,7 +27,7 @@ Tanggal: YYYY-MM-DD · Perkakas: <keluaran bin/perkakas.sh versi>
 |---|---|---|
 | Jenis MySQL di device | layanan OS · Docker · XAMPP/Laragon · belum ada | belum ada → tes ber-database "belum terverifikasi" |
 | Versi server | <mis. 8.4.x> (dari `mysql --version` / `SELECT VERSION();` oleh pengguna) | 8.4+/9.x: akun `caching_sha2_password` |
-| Cara mengisi `.env` | pengguna menjalankan `node scripts/db-lokal.mjs` sendiri / menyunting `.env` sendiri | nilai tidak lewat chat |
+| Cara mengisi `.env` | pengguna menjalankan `node scripts/db-local.mjs` sendiri (pratinjau: `--print-sql`) / menyunting `.env` sendiri | nilai tidak lewat chat |
 | Dua database + akun berhak minimum dibuat | ya, YYYY-MM-DD — "<kutipan 'sudah' pengguna>" | = izin per kali tes ber-database |
 
 ## Sebelum penerapan pertama — fakta deploy (saat pengguna meminta deploy)

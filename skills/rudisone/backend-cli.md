@@ -29,10 +29,14 @@ dalam repo yang sama induk berlaku. `bin/sesi.sh cek` membedakan: *dipercaya* (e
 yang dipercaya; folder non-git di bawah induk non-git ditandai `[..]` karena belum diuji), *batas repo* (induk dipercaya
 tetapi folder ini/leluhurnya repo sendiri), dan *belum*. Kunci `~/.claude.json` ditulis `D:/x` atau `d:/x`: dibandingkan
 tanpa beda huruf besar/kecil dan pemisah.
-Belum terbukti (butuh layar interaktif pengguna; agent tidak bisa melewati onboarding CLI): apakah `claude` interaktif di
-folder *batas repo* menampilkan prompt percaya (atau diam karena leluhur dipercaya — dugaan sebab entri `inventory` tidak
-pernah tercatat), dan apakah worktree ikut diterima setelah repo induknya dipercaya. Sampai terbukti, `sesi.sh cek`
-mendaftar repo **dan** tiap worktree-nya.
+Uji dengan pengguna (U4–U6): pengguna menjalankan `claude` di repo uji bersarang dan melaporkan prompt percaya **muncul**
+dan dijawab "Yes, proceed"; tetapi tidak ada entri yang tercatat di `~/.claude.json` (berkas tidak berubah, riwayat CLI
+tidak mencatat folder itu) dan `claude --bg` di repo itu maupun worktree-nya **tetap ditolak** — gejala yang sama dengan
+`inventory`. Sebabnya belum bisa dipastikan (tidak tersimpan vs. dijalankan di tempat/konfigurasi lain). Sebaliknya,
+pada device yang sama kepercayaan worktree `r4-lead-rudis-modules` (repo induk dipercaya persis) **tercatat** setelah
+pengguna menjalankan `claude` di sana. Maka prosedurnya: (1) pengguna menjalankan baris per shell untuk repo **dan** tiap
+worktree yang dicantumkan; (2) COO menjalankan ulang `bin/sesi.sh cek`; (3) folder yang masih tercantum → jangan diulang,
+langsung jalur subagent.
 
 ## Padanan
 | Desktop | cli | Catatan |
