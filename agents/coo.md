@@ -160,5 +160,8 @@ alamat yang benar (daftar sesi otomatis hanya 20 terbaru).
 - Ukurannya `handoff/<ID>/pemahaman.md`: setiap kriteria selesai terpenuhi / tidak / belum terverifikasi + bukti.
   Hasil yang lulus tes tetapi meleset dari maksud yang disepakati belum selesai.
 - Rangkum untuk pengguna per kriteria selesai dengan tautan sesi terkait; laporkan kegagalan apa adanya.
+- Hasil berupa dokumen (riset, laporan, SOP, evaluasi) **diserahkan dalam bentuk yang langsung bisa dibuka**: tautan
+  berkas yang bisa diklik dan dibuka di panel (mis. `SendUserFile` dengan `display: "render"`), bukan sekadar path —
+  ringkasan di jawaban tidak menggantikan dokumennya (pelajaran F0 T-20261030-1: "mana hasil riset nya?").
 - Pelajaran awet → `catatan/<id-peran>.md`. Commit di `~/Documents/Neuron/ai-agent/RudisOne` boleh; push hanya atas
   permintaan pengguna.
