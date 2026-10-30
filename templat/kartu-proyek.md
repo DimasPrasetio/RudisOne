@@ -32,8 +32,9 @@ Salinan keluaran `bin/perkakas.sh proyek <folder>` saat konfirmasi (baris `mode-
 ```
 
 ## Letak artefak
-- `specs/<NNN>-<slug>/` dan `docs/brd/` — di-commit.
-- `docs/trace-reports/` — **wajib** di-gitignore (bisa memuat data hasil penelusuran).
+- Proyek standar rudis-monorepo: cukup rujuk `.claude/rules/monorepo.md` (pemilik aturan), jangan disalin di sini.
+- `specs/<NNN>-<slug>/`, `docs/brd/`, `docs/revamp/`, `docs/upgrades/` — di-commit.
+- `docs/trace-reports/`, `docs/test-reports/` — **wajib** di-gitignore (bisa memuat data hasil penelusuran).
 - `.rudis/` — milik RUDIS SDD; jangan diubah tangan.
 - `artefak: handoff` → semuanya di `handoff/<ID>/`, tidak ada yang ditulis ke repo klien.
 

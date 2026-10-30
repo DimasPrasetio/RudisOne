@@ -82,7 +82,7 @@ bug selalu **mulai** dengan tracer (baris 5); perbaikannya pindah ke baris 3/4 b
 | Fase | Siapa | Yang dikerjakan |
 |---|---|---|
 | Analisis | **BSA** (read-only), diperiksa TL | Jalur per perubahan (§2) + kriteria jenis tertulis. Baris 2/8: draf spec **dengan tangan** (`spec-template.md` RUDIS + pertanyaan gaya clarify) di `handoff/<ID>/specs/<slug>/spec.md`; baris 5/6/7: Current/Expected/Unchanged (`templat/spesifikasi.md`, atau usulan perubahan spec lama). Baris 5: TL menjalankan `/rudis.tracer` di worktree-nya, BSA menganalisis laporannya. Mode A: tabel perakitan. Persetujuan Rancangan memuat tabel/jalur + ringkasan draf + asumsi berisiko. |
-| Konstruksi 1 (sekali per proyek) | **Tech Lead** | `bin/rudis-sdd.sh init --here --force --ai claude --script sh` di worktree → `.gitignore`: tambah `!.env.*.example`, `.rudis/audit.log`, `docs/trace-reports/` (K3) → `/rudis.constitution` dari templat mode (§1). **Mode B** sebelum constitution: `/rudis.brd` ter-scope ke modul yang akan disentuh (bukan seluruh repo); constitution as-is berstatus Draft sampai pengguna/lead klien mengesahkan; catat `baseline` gerbang mutu (§6) di kartu. |
+| Konstruksi 1 (sekali per proyek) | **Tech Lead** | `bin/rudis-sdd.sh init --here --force --ai claude --script sh` di worktree → `.gitignore`: tambah `!.env.*.example` (K3); proyek di luar standar terbaru juga `.rudis/audit.log`, `.rudis/audit/`, `.rudis/.current-feature`, `docs/trace-reports/`, `docs/test-reports/` (scaffold rudis-monorepo ≥ kernel/v7.1 sudah memuatnya) → `/rudis.constitution` dari templat mode (§1). **Mode B** sebelum constitution: `/rudis.brd` ter-scope ke modul yang akan disentuh (bukan seluruh repo); constitution as-is berstatus Draft sampai pengguna/lead klien mengesahkan; catat `baseline` gerbang mutu (§6) di kartu. |
 | Konstruksi 1 (per tugas) | **Tech Lead** | `bin/rudis-git.sh checkpoint <ID>` sebelum command yang mengubah kode. Baris 2/8: `/rudis.specify --number N` (draf BSA + jawaban COO; N unik dari register) → `/rudis.checklist`. Baris 3/4/6/7: command jalurnya, gerbang interaktif dijawab dari brief. Commit sesudahnya. |
 | Konstruksi 2 (rencana) | **Tech Lead** (C: BSA) | `/rudis.plan` argumen baku *"jangan bertanya; keputusan pemilik produk tandai NEEDS CLARIFICATION dengan default"* → `/rudis.tasks` → **BSA** `/rudis.analyze` (read-only). |
 | Konstruksi | **SE** per `T###` di brief | Sekali per worktree `printf '%s\n' <NNN-slug> > .rudis/.current-feature`. `/rudis.implement` hanya `T###` di brief; `STOP and ask` → `[Terhambat]`. Commit sesudah command. |
@@ -91,7 +91,8 @@ bug selalu **mulai** dengan tracer (baris 5); perbaikannya pindah ke baris 3/4 b
 
 Brief TL → SE/BSA menambah: mode, jalur, path spec, `<NNN-slug>`, `T###`, koneksi DB dev/snapshot, keputusan alat gerbang (§6).
 Kontrak, tabel, dan modul final dipindah ke pemiliknya (`packages/api-contract/`, `knowledge/API.md`, `DATABASE.md`,
-`MODULE_MAP.md`) di fase Polish; salinan di `specs/<NNN>/` dibekukan dengan satu baris penunjuk.
+`MODULE_MAP.md`) di fase Polish; folder `specs/<NNN>-<slug>/` lalu diberi `FROZEN.md` (tanggal + pemilik) dan beku sejak merge
+ke main — redesign/revamp/upgrade tidak menyuntingnya; perubahan masuk ke pemilik atau spec baru.
 
 ## 6. Gerbang mutu (baseline / kode baru)
 - **Baseline per alat** direkam pada HEAD checkpoint sebelum perubahan pertama; sha + alat dicatat di kartu (`baseline`).
@@ -123,12 +124,19 @@ Kontrak, tabel, dan modul final dipindah ke pemiliknya (`packages/api-contract/`
 - CVE warisan bukan BLOCKER tugas yang tidak terkait (laporkan; tugas upgrade terpisah).
 
 ## 8. Artefak
-| Artefak | Letak (dari kartu: `artefak: root\|handoff`) | Git |
+Proyek standar (Mode A, dan Mode B yang sudah berstandar): pemilik aturannya `.claude/rules/monorepo.md` di proyek itu
+(alasan: skill `rudis-monorepo` › `references/knowledge-gateway.md`, bagian RUDIS SDD output) — jangan disalin ke kartu.
+Proyek lain memakai nama yang sama:
+
+| Artefak | Letak | Git |
 |---|---|---|
-| Spec per fitur | `specs/<NNN>-<slug>/` | di-commit |
-| Peta as-is | `docs/brd/` | di-commit |
-| Laporan tracer | `docs/trace-reports/` | **di-gitignore**; dirujuk dari `handoff/<ID>/` |
-| Klien melarang | semua di `handoff/<ID>/` | — |
+| Spec per fitur | `specs/<NNN>-<slug>/` (`--number <NNN> --short-name <slug>` dari tabel perakitan/register) | di-commit; beku + `FROZEN.md` sesudah merge |
+| Perkakas RUDIS | `.rudis/` (memory/constitution.md, templates, scripts) | di-commit; `.rudis/audit.log`, `.rudis/audit/`, `.rudis/.current-feature` di-gitignore |
+| Peta as-is | `docs/brd/` — turunan, tidak pernah pemilik | di-commit |
+| Catatan run | `docs/revamp/<slug>/`, `docs/upgrades/` | di-commit |
+| Laporan tracer / tes | `docs/trace-reports/`, `docs/test-reports/` | **di-gitignore**; dirujuk dari `handoff/<ID>/` |
+| Prototipe | — (`/rudis.prototype` tidak dipakai) | — |
+| Klien melarang (`artefak: handoff`) | semua di `handoff/<ID>/` | — |
 
 Spec berisi **perilaku dan kontrak** (FR, AC, Current/Expected/Unchanged), bukan detail implementasi (cepat basi).
 
@@ -157,7 +165,8 @@ Command RUDIS ditulis untuk agent yang bicara langsung dengan pengguna (`clarify
 - **Celah alat:** Semgrep diff-aware tidak lintas berkas; .NET dan SpotBugs tanpa baseline sejati.
 - **GL_TOKEN:** token sesi device ditolak 401; tanpa PAT di Keychain `init` gagal. Paket template lokal = keputusan pengguna (U1).
 - **Penomoran paralel (K12):** selalu `--number N` dari register.
-- **K2 letak `specs/`:** sedang dimasukkan ke standar rudis-monorepo lewat T-20261030-6 bagian B; sampai diserahkan, ikuti kartu.
+- **K2 letak `specs/`:** masuk standar rudis-monorepo (T-20261030-6 bagian B, kernel/v7.1) — belum di main sampai pengguna
+  menyerahkannya; sementara itu ikuti tabel §8 (namanya sama).
 - **Biaya dokumen (K11):** ±2.000 baris per modul kecil; `clarify`/`checklist` boleh dilewati untuk baris kecil.
 - Allowlist marketplace: `rudis init` tidak menegakkan pin — periksa `.claude/settings.json` sesudahnya.
 
