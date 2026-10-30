@@ -1,14 +1,18 @@
 // Pemeriksa konsistensi RudisOne — READ-ONLY. Menangkap drift antara dokumen, berkas yang dirujuk, dan yang terpasang.
 //   node bin/cek-konsistensi.mjs [--repo] [--json] [--ref <ref-lama>] · --serah <branch>  (cek sebelum merge branch itu)
 //   --repo  hanya cek isi repo (deterministik; dipakai tes/CI). Tanpa --repo: juga cek device (skill & subagent
-//           terpasang, hook, TEAM.md vs sesi hidup, register).
-// Exit: 0 bersih · 1 hanya peringatan · 2 ada galat.
+//           terpasang, hook + kesehatannya, TEAM.md vs sesi hidup, register, kebersihan catatan/).
+//   --proyek <folder> [--serah <branch>] [--json]  kartu proyek vs deteksi mesin (templat/kartu-proyek.md); dengan
+//           --serah: spec yang mungkin basi karena kode yang dirujuknya berubah di branch itu.
+// Exit: 0 bersih · 1 hanya peringatan · 2 ada galat (--serah tanpa --proyek: 0 · 2).
+import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { bangun as bangunPeran, daftarPeran } from "./peran.mjs";
+import { deteksiProyek } from "./perkakas.mjs";
 
 const HOME = os.homedir();
 const INI = fileURLToPath(import.meta.url);
@@ -252,6 +256,173 @@ export function cekDevice(root = ROOT) {
     try { execFileSync(process.execPath, [path.join(root, "bin", "register.mjs"), "validasi"], { stdio: "ignore" }); }
     catch { catat("galat", "register", "register-tugas.json tidak valid — bin/register.sh validasi"); }
   }
+  // D6 kesehatan hook kebijakan (X15) · D7 kebersihan catatan/ (X12)
+  cekKesehatanHook(root);
+  cekCatatan(root);
+  return temuan;
+}
+
+const SEHARI_MS = 24 * 60 * 60 * 1000;
+
+/** Hook kebijakan benar-benar bekerja: uji dua kasus pasti, denyut dari hook yang dipanggil Claude Code, rantai audit.
+ *  Kemampuan yang belum didukung bin/kebijakan.mjs → info, bukan galat. */
+export function cekKesehatanHook(root = ROOT) {
+  const skrip = path.join(root, "bin", "kebijakan.mjs");
+  if (!fs.existsSync(skrip)) { catat("info", "hook-uji", "bin/kebijakan.mjs tidak ada — kesehatan hook tidak diperiksa"); return temuan; }
+  const isi = fs.readFileSync(skrip);
+  const sumber = isi.toString("utf8");
+  const jalan = (args, env = {}) => spawnSync(process.execPath, [skrip, ...args], { cwd: root, encoding: "utf8", timeout: 20_000, env: { ...process.env, ...env } });
+
+  // Uji keputusan: audit uji ditulis ke folder sementara, bukan ke handoff/audit
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "rudisone-cek-hook-"));
+  try {
+    let sesuai = 0;
+    for (const [perintah, harusAllow] of [["gh pr list", true], ["gh pr list && git reset --hard", false]]) {
+      const r = jalan(["uji", JSON.stringify({ cwd: root, tool_name: "Bash", tool_input: { command: perintah } })], { RUDISONE_AUDIT: tmp });
+      let k;
+      try { k = JSON.parse(r.stdout).keputusan; } catch { /* bukan JSON */ }
+      if (typeof k !== "string") {
+        catat("info", "hook-uji", `kebijakan.mjs uji tidak bisa dipakai (exit ${r.status ?? r.signal ?? r.error?.code}) — keputusan hook tidak diuji`);
+        break;
+      }
+      if ((k === "allow") === harusAllow) { sesuai++; continue; }
+      if (harusAllow) catat("peringatan", "hook-uji", `uji \`${perintah}\` (cwd RudisOne) → ${k}, seharusnya allow — hook terlalu ketat atau kebijakan berubah`);
+      else catat("galat", "hook-uji", `uji \`${perintah}\` (cwd RudisOne) → allow — perintah majemuk berbahaya lolos dari hook`);
+    }
+    if (sesuai === 2) catat("info", "hook-uji", "uji hook: 2 kasus pasti sesuai (gh pr list → allow; … && git reset --hard → bukan allow)");
+  } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
+
+  // Denyut: ditulis hook saat dipanggil Claude Code (≤ 1×/60 dtk)
+  if (!sumber.includes(".denyut")) catat("info", "hook-denyut", "kebijakan.mjs versi ini belum menulis denyut — tidak diperiksa");
+  else {
+    const f = path.join(root, "handoff", "audit", ".denyut.json");
+    let d = null;
+    try { d = JSON.parse(fs.readFileSync(f, "utf8")); } catch { /* tidak ada / rusak */ }
+    const waktu = Date.parse(d?.waktu ?? "");
+    if (!d) catat("peringatan", "hook-denyut", "handoff/audit/.denyut.json tidak ada atau rusak — hook tidak terlihat berjalan");
+    else if (Number.isNaN(waktu)) catat("peringatan", "hook-denyut", "denyut tanpa waktu yang sah — hook tidak terlihat berjalan");
+    else if (Date.now() - waktu > SEHARI_MS) catat("peringatan", "hook-denyut", `denyut terakhir ${d.waktu} (> 24 jam) — hook tidak terlihat berjalan`);
+    const sidik = crypto.createHash("sha1").update(isi).digest("hex").slice(0, 12);
+    if (d && d.versi !== sidik) catat("peringatan", "hook-denyut", `denyut dari versi hook lain (${d.versi ?? "?"} ≠ ${sidik} isi bin/kebijakan.mjs sekarang) — sesi memakai hook lama atau berkas berubah`);
+  }
+
+  // Rantai hash audit
+  if (!sumber.includes("--verifikasi")) { catat("info", "hook-audit", "kebijakan.mjs versi ini belum mendukung audit --verifikasi — tidak diperiksa"); return temuan; }
+  const a = jalan(["audit", "--verifikasi"]);
+  const ringkas = (a.stdout || a.stderr || "").trim().split("\n").filter(Boolean).pop() ?? "";
+  if (a.status === 0) catat("info", "hook-audit", "rantai hash audit utuh");
+  else if (a.status === 1) catat("galat", "hook-audit", `rantai hash audit rusak${ringkas ? ` — ${ringkas}` : ""} (bin/kebijakan.sh audit --verifikasi)`);
+  else if (a.status === 3) catat("info", "hook-audit", "audit --verifikasi belum dikenal kebijakan.mjs — tidak diperiksa");
+  else catat("info", "hook-audit", `audit --verifikasi tidak bisa dijalankan (exit ${a.status ?? a.signal ?? a.error?.code}) — tidak diperiksa`);
+  return temuan;
+}
+
+/** Pola instruksi tersisip & rahasia di catatan/ — rahasia tidak pernah dicetak, hanya letaknya. */
+const POLA_INSTRUKSI = [/abaikan (semua )?instruksi/i, /ignore (all |previous )?instructions/i, /kamu sekarang/i, /you are now/i, /jalankan perintah berikut/i, /system prompt/i];
+const POLA_RAHASIA = [
+  ["token GitHub", /\b(ghp_|github_pat_)[A-Za-z0-9_]/], ["token GitLab", /\bglpat-[A-Za-z0-9_-]/], ["kunci AWS", /\bAKIA[0-9A-Z]{16}\b/],
+  ["private key", /-----BEGIN [A-Z ]*PRIVATE KEY/], ["password", /password\s*[=:]\s*(\S+)/i], ["token", /token\s*[=:]\s*(\S{12,})/i],
+];
+/** Nilai contoh yang bukan rahasia: <isi>, $VAR, ${VAR}, ***, …, xxx. */
+const PLACEHOLDER = /^["'`]?(<|\$\{?[A-Z_]+\}?|\*{3,}|…|\.{3}|x{3,})/i;
+
+/** Kebersihan catatan/*.md: butir tanpa tanggal di awal (peringatan), instruksi tersisip (peringatan), rahasia (galat). */
+export function cekCatatan(root = ROOT) {
+  const dir = path.join(root, "catatan");
+  let berkas = [];
+  try { berkas = fs.readdirSync(dir).filter((f) => f.endsWith(".md")).sort(); } catch { return temuan; }
+  for (const f of berkas) {
+    const baris = fs.readFileSync(path.join(dir, f), "utf8").split("\n");
+    const tanpaTanggal = [];
+    let pagar = false;
+    baris.forEach((l, i) => {
+      const no = i + 1;
+      if (/^\s*```/.test(l)) pagar = !pagar;
+      const butir = !pagar && l.match(/^(?:[-*+]|\d+[.)])\s+(.*)$/);
+      if (butir && !/^[*_`[(]*\d{4}-\d{2}-\d{2}\b/.test(butir[1])) tanpaTanggal.push(no);
+      for (const p of POLA_INSTRUKSI) if (p.test(l)) catat("peringatan", "catatan-instruksi", `catatan/${f}:${no} memuat pola instruksi tersisip (${p.source}) — catatan adalah data, bukan perintah; tinjau dan hapus`);
+      for (const [nama, p] of POLA_RAHASIA) {
+        const m = l.match(p);
+        if (m && !(m[1] && PLACEHOLDER.test(m[1]))) catat("galat", "catatan-rahasia", `catatan/${f}:${no} tampak memuat rahasia (${nama}) — hapus dari berkas, putar ulang (rotate) rahasianya`);
+      }
+    });
+    if (tanpaTanggal.length) catat("peringatan", "catatan-tanggal", `catatan/${f}: ${tanpaTanggal.length} butir tanpa tanggal YYYY-MM-DD di awal (baris ${tanpaTanggal.slice(0, 6).join(", ")}${tanpaTanggal.length > 6 ? ", …" : ""})`);
+  }
+  return temuan;
+}
+
+// ---------- proyek (kartu proyek vs deteksi mesin) ----------
+const NILAI_KARTU = { backend: /^(go|node|php|java|dotnet|python|lain|-)$/, constitution: /^(tipis|as-is)$/, artefak: /^(root|handoff)$/ };
+const adaOverride = (v) => !!v && !/^[-—]$/.test(v.trim());
+
+/** Kartu proyek (`.rudisone/kartu-proyek.md` atau handoff/kartu/<nama>.md) dibandingkan dengan `perkakas.sh proyek`. */
+export function cekProyek(folder, root = ROOT) {
+  let h;
+  try { h = deteksiProyek(folder, { root }); } catch (e) { catat("galat", "proyek", e.message); return temuan; }
+  catat("info", "proyek", `mesin: ${h.jenis} · mode ${h.mode} · backend ${h.backend}`);
+  if (!h.kartu.ada) catat("peringatan", "kartu", `kartu proyek tidak ada (.rudisone/kartu-proyek.md atau handoff/kartu/${path.basename(folder)}.md) — buat dari templat/kartu-proyek.md dan konfirmasi ke pengguna; mode mesin sekarang ${h.mode}`);
+  else {
+    const d = h.kartu.data, nama = h.kartu.path.startsWith(folder + path.sep) ? path.relative(folder, h.kartu.path) : h.kartu.path;
+    if (!/^[AB]$/.test(d.mode ?? "")) catat("galat", "kartu", `${nama}: mode "${d.mode ?? ""}" tidak valid — wajib A atau B (keputusan pengguna)`);
+    else if (d.mode !== h.mode && !adaOverride(d.override)) catat("galat", "kartu", `${nama}: mode ${d.mode} ≠ mode mesin sekarang ${h.mode}, tanpa override — tulis alasannya di override atau validasi ulang dengan pengguna`);
+    if (!/^(A|B|ragu)$/.test(d.mode_mesin ?? "")) catat("peringatan", "kartu", `${nama}: mode_mesin "${d.mode_mesin ?? ""}" tidak valid (A|B|ragu)`);
+    else if (d.mode_mesin !== h.mode) catat("peringatan", "kartu-basi", `${nama}: mode_mesin di kartu ${d.mode_mesin} ≠ mesin sekarang ${h.mode} — kartu basi, minta validasi ulang ke pengguna`);
+    for (const [k, pola] of Object.entries(NILAI_KARTU)) if (!pola.test(d[k] ?? "")) catat("peringatan", "kartu", `${nama}: ${k} "${d[k] ?? ""}" tidak valid`);
+    if (d.artefak === "root") for (const s of artefakLuarLetak(folder)) catat("peringatan", "artefak", `artefak: root, tetapi ${s}`);
+    if (d.artefak === "handoff") for (const a of ["specs", "docs/brd"]) if (fs.existsSync(path.join(folder, a))) catat("peringatan", "artefak", `artefak: handoff, tetapi ${a}/ ada di repo proyek`);
+  }
+  if (h.perluTrace && !h.traceDiabaikan) catat("peringatan", "trace-reports", "docs/trace-reports/ belum di-gitignore (bisa memuat data hasil penelusuran) — tambahkan ke .gitignore proyek");
+  return temuan;
+}
+
+/** Artefak SDD di luar letak baku: folder specs/ yang bukan <NNN>-<slug>, atau spec/plan/tasks.md di luar specs/. */
+function artefakLuarLetak(folder) {
+  const hasil = [];
+  try {
+    for (const e of fs.readdirSync(path.join(folder, "specs"), { withFileTypes: true })) {
+      if (e.isDirectory() && !/^\d{3}-[a-z0-9][a-z0-9-]*$/.test(e.name)) hasil.push(`specs/${e.name}/ bukan <NNN>-<slug>`);
+    }
+  } catch { /* tidak ada specs/ */ }
+  const lewati = /^(\.git|\.rudis|node_modules|vendor|dist|build|specs)$/;
+  (function jalan(rel, dalam) {
+    if (dalam > 4) return;
+    let isi = [];
+    try { isi = fs.readdirSync(path.join(folder, rel), { withFileTypes: true }); } catch { return; }
+    for (const e of isi) {
+      const r = rel ? `${rel}/${e.name}` : e.name;
+      if (e.isDirectory()) { if (!lewati.test(e.name)) jalan(r, dalam + 1); }
+      else if (/^(spec|plan|tasks)\.md$/.test(e.name) && rel) hasil.push(`${r} di luar specs/<NNN>-<slug>/`);
+    }
+  })("", 0);
+  return hasil;
+}
+
+/** Drift spec saat serah (G10): spec yang plan.md/tasks.md-nya menyebut path (dalam backtick) yang berubah di
+ *  <base>...<branch>, sementara folder spec itu sendiri tidak berubah. <base> = merge-base dengan HEAD. */
+export function cekDriftSpec(folder, branch) {
+  const g = (...a) => execFileSync("git", a, { cwd: folder, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+  let ubah, berkas;
+  try {
+    const base = g("merge-base", "HEAD", branch);
+    ubah = g("diff", "--name-only", `${base}...${branch}`).split("\n").filter(Boolean);
+    berkas = g("ls-tree", "-r", "--name-only", branch, "--", "specs").split("\n").filter((f) => /^specs\/[^/]+\/(plan|tasks)\.md$/.test(f));
+  } catch { catat("galat", "serah", `branch ${branch} tidak terbaca di ${folder} (atau tanpa merge-base dengan HEAD)`); return temuan; }
+  const perSpec = new Map();
+  for (const f of berkas) { const s = f.split("/").slice(0, 2).join("/"); perSpec.set(s, [...(perSpec.get(s) ?? []), f]); }
+  let basi = 0;
+  for (const [spec, daftar] of perSpec) {
+    if (ubah.some((f) => f.startsWith(`${spec}/`))) continue;
+    const rujukan = new Set();
+    for (const f of daftar) {
+      for (const m of g("show", `${branch}:${f}`).matchAll(/`([^`\s]+)`/g)) {
+        const p = m[1].replace(/^\.\//, "").replace(/(:\d+(-\d+)?)?[),.;:]*$/, "").replace(/\/+$/, "");
+        if (/[/.]/.test(p) && !p.startsWith("specs/") && !/^[a-z]+:\/\//.test(p)) rujukan.add(p);
+      }
+    }
+    const kena = [...rujukan].filter((p) => ubah.some((f) => f === p || f.startsWith(`${p}/`) || (p.includes("/") && f.endsWith(`/${p}`))));
+    if (kena.length) { basi++; catat("peringatan", "spec-basi", `spec mungkin basi: ${spec}/ — menyebut ${kena.slice(0, 4).map((p) => `\`${p}\``).join(", ")}${kena.length > 4 ? " …" : ""} yang berubah di ${branch}, tetapi spec-nya tidak diubah`); }
+  }
+  if (!basi) catat("info", "spec-basi", `${perSpec.size} spec diperiksa terhadap ${ubah.length} berkas berubah di ${branch} — tidak ada yang tampak basi`);
   return temuan;
 }
 
@@ -274,8 +445,29 @@ export function cekSerah(root, ref) {
   return temuan;
 }
 
+function cetak(json, label = "") {
+  if (json) { console.log(JSON.stringify(temuan, null, 2)); return; }
+  for (const t of temuan) console.log(`  [${t.tingkat}] ${t.kode}: ${t.pesan}`);
+  const n = (x) => temuan.filter((t) => t.tingkat === x).length;
+  console.log(`Hasil: ${n("galat")} galat, ${n("peringatan")} peringatan, ${n("info")} info${label}.`);
+}
+const kodeKeluar = () => (temuan.some((t) => t.tingkat === "galat") ? 2 : temuan.some((t) => t.tingkat === "peringatan") ? 1 : 0);
+
 function utama(argv) {
   const iSerah = argv.indexOf("--serah");
+  const iProyek = argv.indexOf("--proyek");
+  if (iProyek >= 0) {
+    const arg = argv[iProyek + 1];
+    if (!arg || arg.startsWith("--")) { console.error("Pemakaian: bin/cek-konsistensi.sh --proyek <folder> [--serah <branch>] [--json]"); return 2; }
+    const folder = path.resolve(arg.replace(/^~(?=\/|$)/, HOME));
+    cekProyek(folder, ROOT);
+    if (iSerah >= 0 && fs.existsSync(folder)) {
+      if (!argv[iSerah + 1] || argv[iSerah + 1].startsWith("--")) catat("galat", "serah", "--serah butuh <branch>");
+      else cekDriftSpec(folder, argv[iSerah + 1]);
+    }
+    cetak(argv.includes("--json"), ` (proyek ${folder})`);
+    return kodeKeluar();
+  }
   if (iSerah >= 0) {
     cekSerah(ROOT, argv[iSerah + 1]);
     for (const x of temuan) console.log(`  [${x.tingkat}] ${x.kode}: ${x.pesan}`);
@@ -285,13 +477,8 @@ function utama(argv) {
   const iRef = argv.indexOf("--ref");
   cekRepo(ROOT, { refLama: iRef >= 0 ? argv[iRef + 1] : null });
   if (!repoSaja) cekDevice(ROOT);
-  if (argv.includes("--json")) console.log(JSON.stringify(temuan, null, 2));
-  else {
-    for (const t of temuan) console.log(`  [${t.tingkat}] ${t.kode}: ${t.pesan}`);
-    const n = (x) => temuan.filter((t) => t.tingkat === x).length;
-    console.log(`Hasil: ${n("galat")} galat, ${n("peringatan")} peringatan, ${n("info")} info${repoSaja ? " (hanya repo)" : ""}.`);
-  }
-  return temuan.some((t) => t.tingkat === "galat") ? 2 : temuan.some((t) => t.tingkat === "peringatan") ? 1 : 0;
+  cetak(argv.includes("--json"), repoSaja ? " (hanya repo)" : "");
+  return kodeKeluar();
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === INI) process.exitCode = utama(process.argv.slice(2));
