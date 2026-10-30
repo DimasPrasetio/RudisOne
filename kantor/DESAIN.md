@@ -101,6 +101,29 @@ cerita gerak) tetap. Denah 40 × 21:
 - Papan nama tim menampilkan proyeknya; tim tanpa proyek diredupkan dan disembunyikan dari panel & linimasa.
 - 20 titik santai (bar, sofa, pouf, meja bundar, bangku, berdiri) — cukup untuk semua kursi selain COO.
 
+## v6 — inti kecil + subagent, register JSON (2026-10-30, T-20261030-2 F3/F4)
+Organisasi kini "inti kecil + subagent": sesi tetap hanya COO, satu sesi IT Operations (Head of IT Operations atau
+System Administrator), dan Tech Lead tim yang punya proyek. Peran lain dipanggil sebagai subagent dari definisi
+peran `rudis-<id-peran>`. Denah dan bahasa visual tidak berubah; yang berubah arti kursi kosong.
+- **Subagent peran duduk di kursinya.** Server membaca `agentType` di `subagents/agent-<id>.meta.json`; nilai
+  `rudis-<id-peran>` (boleh berawalan plugin, `x:rudis-…`) → kursi peran itu (peran tim memakai tim pemanggil;
+  engineer: nomor "#n" di deskripsi/pembuka, selain itu kursi #1/#2 yang kosong). Bila meta tidak punya `agentType`,
+  dikenali dari pembuka "Kamu adalah <Jabatan> …". Subagent bertipe lain (general-purpose, Explore, …) tetap tampil
+  sebagai asisten di kursi pemanggil. Subagent berjalan = sedang bekerja; selesai → kursi kembali ke katalog,
+  tetapi langkahnya tetap ada di log & linimasa.
+- **Keadaan peran (`mode` di /state):** *aktif* (sesi hidup bekerja/berpikir/menunggu, atau subagent berjalan) ·
+  *siaga* (sesi hidup tapi santai — ke lounge seperti biasa) · *katalog* (tidak ada sesi; dipanggil saat perlu) ·
+  *absen* (hanya untuk kursi sesi tetap yang belum masuk). `status` lama tetap dikirim (`absen` untuk yang tidak
+  hadir) agar klien lama tidak rusak.
+- **Tampilan katalog:** redup dan netral — tag meja opasitas .4, avatar berlatar warna peran 14% (bukan garis putus
+  "offline"), simbol bertitik, teks "Dipanggil saat perlu · <peran>". Tidak ada merah. Legenda: Siaga · Katalog ·
+  "Sesi tetap belum masuk".
+- **Penanda subagent:** lencana kecil "subagent · <pemanggil>" di panel tim, baris aksi meja "subagent dari
+  <pemanggil>", dan "Subagent dari …" di rincian sesi. Privasi tetap: hanya deskripsi singkat (≤ 50 karakter) dari
+  meta.json dan nama alat/berkas, tidak pernah isi prompt.
+- **Register tugas:** papan "Tugas berjalan" membaca `handoff/register-tugas.json` (sumber kebenaran, ditulis
+  `bin/register.sh`) bila ada dan terbaca; selain itu (atau bila JSON rusak) tabel MD lama lewat `bacaRegister`.
+
 ## Token tambahan v4
 - **Zona (tint lantai 8–10%):** Pimpinan kayu `#C9A47A`/gelap `#5A4632`; Engineering `#7C5CD6`; IT Operations
   `#475BD1`; PMO `#E08A2E`; Staf `#1FA3AE`; Lounge karpet hangat `#E7DFD3`/gelap `#2A2620`.

@@ -17,6 +17,7 @@ process.env.RUDISONE_KANTOR_PROJECTS = path.join(tmp, "projects");
 process.env.RUDISONE_KANTOR_DESKTOP = path.join(tmp, "desktop");
 process.env.RUDISONE_KANTOR_TEAM_MD = path.join(tmp, "TEAM.md");
 process.env.RUDISONE_KANTOR_REGISTER = path.join(tmp, "register-tugas.md");
+process.env.RUDISONE_KANTOR_REGISTER_JSON = path.join(tmp, "register-tugas.json");   // belum ada → MD lama dipakai
 
 const now = Date.now();
 const iso = (msAgo) => new Date(now - msAgo).toISOString();
@@ -122,6 +123,23 @@ transkrip("s-headless", [{ type: "agent-setting", agentSetting: "financial-contr
 
 fs.writeFileSync(path.join(desk, "local_pm.json"), JSON.stringify({ sessionId: "local_pm", cliSessionId: "s-pm", isArchived: false, title: "Program Manager" }));
 fs.writeFileSync(path.join(desk, "local_riset.json"), JSON.stringify({ sessionId: "local_riset", cliSessionId: "s-riset", isArchived: true, title: "Research Analyst · lama" }));
+
+// Model "inti kecil + subagent": subagent peran (agentType rudis-<id-peran>) duduk di kursi peran itu
+asisten("s-lead2", "se-a", { agentType: "rudis-software-engineer", description: "Kerjakan diskon", finished: false },
+  [pembuka(5e3, "Kamu adalah Software Engineer di RudisOne."), pakaiAlat(2e3, "sa1", "Edit", { file_path: "/x/toko-b/diskon.ts" })]);
+asisten("s-lead2", "se-b", { agentType: "rudis-software-engineer", description: "Tes diskon", finished: false },
+  [pakaiAlat(3e3, "sb1", "Bash", { command: "npm test", description: "Tes diskon" })]);
+asisten("s-coo", "strat1", { agentType: "rudisone:rudis-head-of-strategy", description: "Kaji harga", finished: false },
+  [pakaiAlat(4e3, "hs1", "WebSearch", { query: "harga" })]);
+// subagent peran yang sudah selesai: tidak menduduki kursi, tidak tampil sebagai asisten, log tetap tercatat
+asisten("s-coo", "hr1", { agentType: "rudis-hr-business-partner", description: "Draf JD", finished: true },
+  [pakaiAlat(200e3, "hr1", "Write", { file_path: "/x/jd.md" }), hasilAlat(190e3, "hr1")]);
+// meta tanpa agentType → dikenali dari pembuka "Kamu adalah <Jabatan> …"
+asisten("s-coo", "pm1", { description: "Rekap rilis", finished: false },
+  [pembuka(6e3, "Kamu adalah Program Manager di RudisOne. Rekap rilis."), pakaiAlat(1e3, "pm1", "Read", { file_path: "/x/rilis.md" })]);
+// subagent general-purpose tetap asisten walau pembukanya menyebut jabatan
+asisten("s-coo", "gp1", { agentType: "general-purpose", description: "Asisten riset", finished: false },
+  [pembuka(6e3, "Kamu adalah Research Analyst di RudisOne."), pakaiAlat(1e3, "gp1", "WebSearch", { query: "x" })]);
 
 const kepalaRegister = ["## Aktif", "", "| ID | Tugas | Folder | Divisi | Pemilik | Prioritas | Status | Diperbarui |", "|---|---|---|---|---|---|---|---|"];
 fs.writeFileSync(path.join(tmp, "register-tugas.md"), [...kepalaRegister,
@@ -249,6 +267,72 @@ test("nama & id peran baru: agent-setting id, judul, 'Kamu adalah …' berspasi,
   assert.equal(ag("Software Engineer #2 · Tim 3").status, "bekerja");     // judul "Software Engineer #2 · toko"
   assert.ok(st.tim.some((x) => x.n === 3 && x.proyek === "toko"));
   assert.ok(KURSI.includes("Head of IT Operations") && !KURSI.some((k) => /Agent|ChiefAI|TechLead/.test(k)));
+});
+
+test("register-tugas.json dibaca bila ada (tanpa MD pun); JSON rusak → kembali ke MD lama", async () => {
+  const fileJson = path.join(tmp, "register-tugas.json"), fileMd = path.join(tmp, "register-tugas.md");
+  const t = (id, judul, prioritas, status, dibuat, extra = {}) => ({ id, judul, folder: "~/Documents/toko/", divisi: "Engineering · Tim 3",
+    pemilik: "Tech Lead · toko", prioritas, status, fase: "Konstruksi", kunci: ["repo:toko"], bergantung: [], perkakas: "—",
+    dibuat, diperbarui: dibuat, ...extra });
+  fs.writeFileSync(fileJson, JSON.stringify({ versi: 1, diperbarui: new Date().toISOString(), tugas: [
+    t("T-20261030-1", "Normal lama", "normal", "berjalan", "2026-10-30T01:00:00.000Z"),
+    t("T-20261030-2", "Segera", "segera", "antre", "2026-10-30T03:00:00.000Z"),
+    t("T-20261030-3", "Sudah selesai", "segera", "selesai", "2026-10-30T00:00:00.000Z", { selesai_pada: "2026-10-30" }),
+    t("T-20261030-3.1", "Sub-tugas", "normal", "berjalan", "2026-10-30T02:00:00.000Z"),
+  ] }));
+  const tugas = buildState().tugas;
+  assert.deepEqual(tugas.map((x) => x.id), ["T-20261030-2", "T-20261030-1", "T-20261030-3.1"]);
+  assert.equal(tugas[0].tugas, "Segera");
+  assert.equal(tugas[0].folder, "~/Documents/toko");
+  assert.equal(tugas[0].pemilik, "Tech Lead · toko");
+  assert.match(tugas[0].diperbarui, /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/);
+  fs.writeFileSync(fileMd, [...kepalaRegister, "| T-20261024-8 | Dari MD | `~/x` | IT Operations | Head of IT Operations | normal | berjalan | 2026-10-24 10:00 |"].join("\n"));
+  fs.writeFileSync(fileJson, "{ rusak");
+  assert.deepEqual(buildState().tugas.map((x) => x.id), ["T-20261024-8"]);
+});
+
+test("subagent peran (agentType rudis-<id-peran>) bekerja di kursi peran itu, bukan sebagai asisten", () => {
+  const se1 = ag("Software Engineer #1 · Tim 2"), se2 = ag("Software Engineer #2 · Tim 2");
+  assert.equal(se1.present, true);
+  assert.equal(se1.mode, "aktif");
+  assert.equal(se1.status, "bekerja");
+  assert.equal(se1.label, "Menulis");
+  assert.deepEqual(se1.subagent, { dari: "Tech Lead · Tim 2", id: "se-a", deskripsi: "Kerjakan diskon" });
+  assert.equal(se2.subagent?.id, "se-b");                            // subagent engineer kedua → kursi #2 yang kosong
+  assert.equal(se2.label, "Menjalankan tes");
+  const hs = ag("Head of Strategy");                                  // tipe berawalan plugin, dipanggil COO
+  assert.equal(hs.mode, "aktif");
+  assert.equal(hs.subagent?.dari, "COO");
+  assert.ok(st.feed.some((f) => f.agent === "Head of Strategy" && f.label === "Riset di web"));
+  for (const id of ["se-a", "se-b", "strat1", "hr1", "pm1"]) assert.ok(!st.asisten.some((x) => x.id === id), id);
+});
+test("subagent peran: selesai → kursi katalog lagi (log tetap); tanpa agentType → dari 'Kamu adalah'; general-purpose → asisten", () => {
+  const hr = ag("HR Business Partner");
+  assert.equal(hr.present, false);
+  assert.equal(hr.mode, "katalog");
+  assert.ok(st.feed.some((f) => f.agent === "HR Business Partner" && f.label === "Menulis"));
+  const pm = ag("Program Manager");                                   // sesi lama santai + subagent berjalan → aktif
+  assert.equal(pm.mode, "aktif");
+  assert.equal(pm.subagent?.dari, "COO");
+  assert.equal(pm.sessions.length, 2);
+  const gp = st.asisten.find((x) => x.id === "gp1");
+  assert.equal(gp?.induk, "COO");
+  assert.equal(ag("Research Analyst").present, false);
+});
+test("keadaan peran: aktif / siaga / katalog (dipanggil saat perlu) / absen hanya untuk sesi tetap", () => {
+  assert.equal(ag("COO").mode, "siaga");                              // sesi tetap hidup, diam
+  assert.equal(ag("COO").tetap, true);
+  assert.equal(ag("System Administrator").mode, "aktif");
+  assert.equal(ag("System Administrator").tetap, true);               // sesi IT Operations yang hidup
+  assert.equal(ag("Head of IT Operations").mode, "katalog");          // satu sesi IT Operations cukup
+  const tw = ag("Technical Writer");
+  assert.equal(tw.mode, "katalog");
+  assert.equal(tw.label, "Dipanggil saat perlu");
+  assert.equal(tw.status, "absen");                                   // kompatibel dengan klien lama
+  assert.equal(ag("Business Systems Analyst · Tim 3").mode, "katalog");
+  assert.equal(ag("Tech Lead · Tim 3").tetap, true);                  // tim 3 punya proyek
+  for (const a of st.agents) assert.ok(["aktif", "siaga", "katalog", "absen"].includes(a.mode), a.name);
+  assert.ok(st.agents.filter((a) => a.mode === "absen").every((a) => a.tetap));
 });
 
 test.after(() => fs.rmSync(tmp, { recursive: true, force: true }));
