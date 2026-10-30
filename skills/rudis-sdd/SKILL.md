@@ -155,9 +155,11 @@ Command RUDIS ditulis untuk agent yang bicara langsung dengan pengguna (`clarify
 - `bin/perkakas.sh siapkan|cek` (clone ke `~/Documents/Neuron/ai-agent/rudis`; `pull --ff-only` ditunda selama ada tugas
   Engineering berjalan). Versi: `bin/perkakas.sh versi` → `… sdd@<sha>`; rilis template `init`/`update` (selalu terbaru, K8)
   dicatat terpisah.
-- PAT **tidak pernah** diminta di chat, dicetak, ditulis ke berkas, atau dimasukkan ke argumen. Perkakas membacanya dari
-  Keychain `rudisone-rudis-sdd`. Belum ada / 401 → berhenti untuk bagian itu; laporkan ke COO perintah untuk pengguna
-  (scope `read_api` + `read_repository`): `security add-generic-password -s rudisone-rudis-sdd -a "$USER" -w` (perbarui: `-U`).
+- PAT **tidak pernah** diminta di chat, dicetak, ditulis agent ke berkas, atau dimasukkan ke argumen. Perkakas membacanya
+  dari penyimpan `rudisone-rudis-sdd` per OS: macOS Keychain; Linux/WSL2 berkas 0600 `~/.config/rudisone/rahasia/` (diisi
+  pengguna). Belum ada / 401 → berhenti untuk bagian itu; laporkan ke COO perintah yang dicetak perkakas untuk pengguna
+  (scope `read_api` + `read_repository`): macOS `security add-generic-password -s rudisone-rudis-sdd -a "$USER" -w`
+  (perbarui: `-U`); Linux/WSL2 `bin/perkakas.sh pat rudisone-rudis-sdd`.
 
 ## 11. Risiko terbuka (sebut di laporan bila menyentuh tugasmu)
 - **Belum teruji di repo nyata:** jalur Mode B (brd/tracer/redesign/revamp/upgrade di bawah RudisOne), `implement`
@@ -165,7 +167,7 @@ Command RUDIS ditulis untuk agent yang bicara langsung dengan pengguna (`clarify
   `jalur_awal` vs `jalur_akhir` (perkiraan riset: ±1 dari 5 salah jalur awal).
 - **brd di monolit berlapis teknis** (`controllers/ models/ views/`): asumsi "modul = folder domain" bisa salah — periksa peta.
 - **Celah alat:** Semgrep diff-aware tidak lintas berkas; .NET dan SpotBugs tanpa baseline sejati.
-- **GL_TOKEN:** token sesi device ditolak 401; tanpa PAT di Keychain `init` gagal. Paket template lokal = keputusan pengguna (U1).
+- **GL_TOKEN:** token sesi device ditolak 401; tanpa PAT di penyimpannya (Keychain/berkas rahasia) `init` gagal. Paket template lokal = keputusan pengguna (U1).
 - **Penomoran paralel (K12):** selalu `--number N` dari register.
 - **K2 letak `specs/`:** masuk standar rudis-monorepo (T-20261030-6 bagian B, kernel/v7.1) — belum di main sampai pengguna
   menyerahkannya; sementara itu ikuti tabel §8 (namanya sama).

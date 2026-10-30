@@ -82,6 +82,25 @@ TEAM.md, catatan/, handoff/, konfigurasi/server.json  per device, TIDAK di-commi
 ```
 
 ## Pasang di device baru
+RudisOne berjalan di **macOS**, **Linux**, dan **Windows lewat WSL2** (jalur Linux; Windows native tidak didukung).
+
+| | macOS | Linux (Ubuntu/Debian) | Windows (WSL2) |
+|---|---|---|---|
+| Shell & alat | bawaan (bash, git dari Xcode CLT) | `sudo apt install git curl` | `wsl --install -d Ubuntu` (PowerShell admin), lalu semua langkah di terminal **Ubuntu** seperti Linux |
+| Node.js ≥ 18 | `brew install node` | nvm atau paket NodeSource | sama dengan Linux, di dalam WSL |
+| GitHub CLI `gh` (login) | `brew install gh` | paket resmi cli.github.com | sama dengan Linux |
+| Claude Code | installer resmi Claude Code | installer resmi Claude Code | di dalam WSL (bukan Claude Code Windows) |
+| uv/uvx (RUDIS SDD) | `brew install uv` | `curl -LsSf https://astral.sh/uv/install.sh \| sh` | sama dengan Linux |
+| PAT rudis-sdd | Keychain | berkas 0600 `~/.config/rudisone/rahasia/` | sama dengan Linux |
+
+- **WSL2:** clone ke filesystem WSL (`~/Documents/…` = `/home/<user>/Documents/…`), **bukan** `/mnt/c/…`: di sana symlink
+  dan mode berkas (`chmod 600`, bit executable) tidak andal dan git jauh lebih lambat. Buka sesi Claude Code dari terminal
+  WSL (atau VS Code › WSL), bukan dari Windows.
+- **Symlink:** repo memuat symlink (`.claude/agents/coo.md`, `ruang/*/.claude/agents/*.md`) dan `install.sh` menautkan
+  skill & subagent ke `~/.claude`. macOS/Linux/WSL mendukungnya bawaan; pastikan `git config --get core.symlinks` tidak
+  `false` (bila `false`: `git config core.symlinks true && git checkout -- .`).
+- Daftar uji Windows/WSL2 untuk rekan: `handoff/T-20261030-10/uji-windows.md` (per device, tidak di-commit; minta COO).
+
 1. `git clone https://github.com/DimasPrasetio/RudisOne.git ~/Documents/Neuron/ai-agent/RudisOne` (repo publik; harus di path ini —
    peran dan aturan merujuk `~/Documents/Neuron/ai-agent/RudisOne`).
 2. `~/Documents/Neuron/ai-agent/RudisOne/install.sh` — membuat `handoff/`, memeriksa symlink, konfigurasi server
@@ -95,8 +114,13 @@ TEAM.md, catatan/, handoff/, konfigurasi/server.json  per device, TIDAK di-commi
    `~/.ssh/config` beserta kuncinya kamu siapkan sendiri), playbook server bila ada, MCP DNS, dan domain, lalu
    menyimpannya di `konfigurasi/server.json` atas persetujuanmu (`penyedia.md` › Konfigurasi server). Opsional:
    izin deploy tetap — lihat bagian di bawah.
-5. Buka sesi di folder proyek mana pun dan ketik **`/rudisone`** — COO siap; sesi lain dibentuk saat ada tugasnya.
-6. Periksa drift kapan saja: `~/Documents/Neuron/ai-agent/RudisOne/bin/cek-konsistensi.sh` (0 bersih · 1 peringatan · 2 galat).
+5. RUDIS SDD (repo privat git.neuron.id) butuh PAT GitLab (`read_repository` + `read_api`), diketik saat diminta —
+   tidak pernah di argumen atau di repo. `install.sh`/`bin/perkakas.sh siapkan` menampilkan perintah yang sesuai OS:
+   macOS `security add-generic-password -s rudisone-rudis-sdd -a "$USER" -w` (Keychain); Linux/WSL2
+   `~/Documents/Neuron/ai-agent/RudisOne/bin/perkakas.sh pat rudisone-rudis-sdd` (berkas 0600 di
+   `~/.config/rudisone/rahasia/`). Perintah yang sama memperbarui PAT yang ditolak.
+6. Buka sesi di folder proyek mana pun dan ketik **`/rudisone`** — COO siap; sesi lain dibentuk saat ada tugasnya.
+7. Periksa drift kapan saja: `~/Documents/Neuron/ai-agent/RudisOne/bin/cek-konsistensi.sh` (0 bersih · 1 peringatan · 2 galat).
 
 ## Izin deploy tetap (opsional, per device, dipasang pengguna sendiri)
 Agar System Administrator bisa deploy satu app terdaftar tanpa bertanya, buat

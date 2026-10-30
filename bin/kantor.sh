@@ -39,4 +39,5 @@ fi
 [ "$AKSI" = "demo" ] && URL="$URL/?demo=1"
 echo "Kantor RudisOne: $URL"
 [ "$AKSI" = "--tanpa-browser" ] || [ "$AKSI" = "mulai-ulang" ] && exit 0
-open "$URL" 2>/dev/null || xdg-open "$URL" 2>/dev/null || true
+# macOS: open · Linux: xdg-open · WSL2: wslview (paket wslu) — gagal semua → buka URL di atas secara manual
+open "$URL" 2>/dev/null || xdg-open "$URL" 2>/dev/null || wslview "$URL" 2>/dev/null || true
