@@ -12,6 +12,7 @@ import path from "node:path";
 import { execFileSync, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { bangun as bangunPeran, daftarPeran } from "./peran.mjs";
+import { periksaTautan } from "./lib/tautan.mjs";
 import { deteksiProyek } from "./perkakas.mjs";
 import { agentsCli, backendSesi, folderDesktop, normalAgents } from "./sesi.mjs";
 
@@ -219,16 +220,19 @@ export function cekDevice(root = ROOT) {
   // D1 skill & subagent terpasang (tautan ke repo ini)
   const tautKe = (p) => { try { return fs.realpathSync(p); } catch { return null; } };
   const rootAsli = tautKe(root) ?? root;
+  // tautan bisa symlink/junction ke repo ini, atau salinan terlacak (Windows tanpa hak symlink) — lihat lib/tautan.mjs
+  const periksaPasang = (p, kategori, namaTampil, perintah) => {
+    const st = periksaTautan(p, rootAsli);
+    if (!st.ada) catat("peringatan", kategori, `${namaTampil} belum terpasang — ${perintah}`);
+    else if (st.milik === "salinan") { if (!st.mutakhir) catat("peringatan", kategori, `${namaTampil} salinan lama/berubah — jalankan install.sh (node install.mjs)`); }
+    else if (st.milik !== "symlink") catat("peringatan", kategori, `${namaTampil} menunjuk ke luar repo ini (${tautKe(p) ?? p})`);
+  };
   for (const s of fs.readdirSync(path.join(root, "skills"))) {
     if (!fs.existsSync(path.join(root, "skills", s, "SKILL.md"))) continue;
-    const t = tautKe(path.join(SKILLS_USER, s));
-    if (!t) catat("peringatan", "skill-terpasang", `skill ${s} belum terpasang di ~/.claude/skills — jalankan install.sh dari checkout utama`);
-    else if (!t.startsWith(rootAsli + path.sep)) catat("peringatan", "skill-terpasang", `~/.claude/skills/${s} menunjuk ke luar repo ini (${t})`);
+    periksaPasang(path.join(SKILLS_USER, s), "skill-terpasang", `skill ${s} di ~/.claude/skills`, "jalankan install.sh dari checkout utama");
   }
   for (const id of daftarPeran(root)) {
-    const t = tautKe(path.join(AGENTS_USER, `rudis-${id}.md`));
-    if (!t) catat("peringatan", "subagent-terpasang", `subagent rudis-${id} belum tertaut di ~/.claude/agents — jalankan install.sh`);
-    else if (!t.startsWith(rootAsli + path.sep)) catat("peringatan", "subagent-terpasang", `~/.claude/agents/rudis-${id}.md menunjuk ke luar repo ini (${t})`);
+    periksaPasang(path.join(AGENTS_USER, `rudis-${id}.md`), "subagent-terpasang", `subagent rudis-${id} di ~/.claude/agents`, "jalankan install.sh");
   }
   // D2 skill sistem lain (mis. TimAgent) — tidak disentuh, hanya diberitahukan
   try {

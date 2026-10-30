@@ -8,12 +8,13 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { deteksiProyek, jenisProyek, normalSumber, periksaAllowlist, rencanaSdd, sumberDiizinkan, tugasEngineeringBerjalan } from "./perkakas.mjs";
+import { jalankanSh, palsu, zipFolder } from "./lib/uji-util.mjs";
 
 const SKRIP = path.join(path.dirname(fileURLToPath(import.meta.url)), "perkakas.mjs");
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "perkakas-uji-"));
 const HOME = path.join(tmp, "home");
 const ENV = {
-  ...process.env, HOME,
+  ...process.env, HOME, USERPROFILE: HOME,
   GIT_AUTHOR_NAME: "Uji", GIT_AUTHOR_EMAIL: "uji@contoh", GIT_COMMITTER_NAME: "Uji", GIT_COMMITTER_EMAIL: "uji@contoh",
   RUDISONE_PERKAKAS_MANIFEST: path.join(tmp, "perkakas.json"),
   RUDISONE_PERKAKAS_STATE: path.join(tmp, "state.json"),
@@ -43,7 +44,8 @@ function rilisSkill(isiSkill) {
   const paket = path.join(kerjaSkill, "dist", "rudis-monorepo.skill");
   fs.mkdirSync(path.dirname(paket), { recursive: true });
   fs.rmSync(paket, { force: true });
-  sh("zip", ["-qr", paket, "rudis-monorepo"], staging);
+  zipFolder(staging, "rudis-monorepo", paket);
+  tulis(path.join(kerjaSkill, "dist", "rudis-monorepo", "SKILL.md"), isiSkill);   // salinan terurai: install.sh uji tidak butuh unzip
   tulis(path.join(kerjaSkill, "SKILL.md"), isiSkill);
   sh("git", ["add", "-A"], kerjaSkill);
   sh("git", ["commit", "-qm", `rilis ${isiSkill}`], kerjaSkill);
@@ -65,7 +67,7 @@ tulis(path.join(kerjaSkill, "install.sh"), `#!/usr/bin/env bash
 set -euo pipefail
 DIR="$(cd "$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
 rm -rf "$HOME/.claude/skills/rudis-monorepo"; mkdir -p "$HOME/.claude/skills"
-unzip -q "$DIR/dist/rudis-monorepo.skill" -d "$HOME/.claude/skills"
+cp -r "$DIR/dist/rudis-monorepo" "$HOME/.claude/skills/"
 `);
 rilisSkill("versi-1");
 commitLib("auth");
@@ -310,22 +312,23 @@ const PAT_UJI = "pat-uji-rahasia-123";
 const KC = path.join(tmp, "keychain"), UVX_LOG = path.join(tmp, "uvx.log"), KC_LOG = path.join(tmp, "keychain.log");
 fs.mkdirSync(KC, { recursive: true });
 // Keychain palsu: `find-generic-password -s <layanan> [-w]`; item = berkas KC/<layanan>. Log hanya argumen.
-tulis(ENV.RUDISONE_KEYCHAIN_BIN, `#!/bin/sh
-echo "$*" >> "${KC_LOG}"
-[ "$1" = "find-generic-password" ] && [ "$2" = "-s" ] || exit 2
-[ -f "${KC}/$3" ] || exit 44
-[ "$4" = "-w" ] && cat "${KC}/$3"
-exit 0
+ENV.RUDISONE_KEYCHAIN_BIN = palsu(tmp, "keychain-palsu", `import fs from "node:fs";
+const a = process.argv.slice(2);
+fs.appendFileSync(${JSON.stringify(KC_LOG)}, a.join(" ") + "\\n");
+if (a[0] !== "find-generic-password" || a[1] !== "-s") process.exit(2);
+const f = ${JSON.stringify(KC)} + "/" + a[2];
+if (!fs.existsSync(f)) process.exit(44);
+if (a[3] === "-w") process.stdout.write(fs.readFileSync(f));
+process.exit(0);
 `);
 // uvx palsu: mencatat argumen dan apakah GL_TOKEN = PAT uji (nilainya tidak pernah ditulis).
-tulis(ENV.RUDISONE_UVX_BIN, `#!/bin/sh
-[ "$1" = "--version" ] && { echo "uvx 0.0.0-uji"; exit 0; }
-printf '%s\\n' "$@" > "${UVX_LOG}"
-if [ -z "$GL_TOKEN" ]; then echo "GL_TOKEN=kosong"; elif [ "$GL_TOKEN" = "${PAT_UJI}" ]; then echo "GL_TOKEN=cocok"; else echo "GL_TOKEN=lain"; fi >> "${UVX_LOG}"
-exit 0
+ENV.RUDISONE_UVX_BIN = palsu(tmp, "uvx-palsu", `import fs from "node:fs";
+const a = process.argv.slice(2);
+if (a[0] === "--version") { console.log("uvx 0.0.0-uji"); process.exit(0); }
+fs.writeFileSync(${JSON.stringify(UVX_LOG)}, a.join("\\n") + "\\n");
+const t = process.env.GL_TOKEN;
+fs.appendFileSync(${JSON.stringify(UVX_LOG)}, (!t ? "GL_TOKEN=kosong" : t === ${JSON.stringify(PAT_UJI)} ? "GL_TOKEN=cocok" : "GL_TOKEN=lain") + "\\n");
 `);
-fs.chmodSync(ENV.RUDISONE_KEYCHAIN_BIN, 0o755);
-fs.chmodSync(ENV.RUDISONE_UVX_BIN, 0o755);
 const simpanPat = (isi = PAT_UJI) => fs.writeFileSync(path.join(KC, SDD_NYATA.auth.keychain), `${isi}\n`);
 const hapusPat = () => fs.rmSync(path.join(KC, SDD_NYATA.auth.keychain), { force: true });
 
@@ -417,13 +420,13 @@ test("override RUDISONE_LOKAL_RUDIS_SDD: clone & versi di folder lain, lokal baw
 test("bin/rudis-sdd.sh: init selalu --no-marketplace; GL_TOKEN dari Keychain hanya ke proses anak", () => {
   const wrapper = path.join(ROOT, "bin", "rudis-sdd.sh");
   const env = { ...ENV, RUDISONE_PERKAKAS_MANIFEST: M_SDD };
-  let r = spawnSync(wrapper, ["init", "--here", "--force", "--ai", "claude", "--script", "sh"], { env, encoding: "utf8" });
+  let r = jalankanSh(wrapper, ["init", "--here", "--force", "--ai", "claude", "--script", "sh"], { env, encoding: "utf8" });
   assert.equal(r.status, 0, r.stderr);
   assert.deepEqual(bacaUvx(), ["--from", SDD, "rudis", "init", "--no-marketplace", "--here", "--force", "--ai", "claude", "--script", "sh", "GL_TOKEN=kosong"]);
   assert.match(r.stderr, /GL_TOKEN tidak ada di Keychain \(rudisone-rudis-sdd\).*security add-generic-password -s rudisone-rudis-sdd -a "\$USER" -w/);
 
   simpanPat();
-  r = spawnSync(wrapper, ["init", "--here", "--no-marketplace"], { env, encoding: "utf8" });
+  r = jalankanSh(wrapper, ["init", "--here", "--no-marketplace"], { env, encoding: "utf8" });
   assert.equal(r.status, 0, r.stderr);
   assert.deepEqual(bacaUvx(), ["--from", SDD, "rudis", "init", "--here", "--no-marketplace", "GL_TOKEN=cocok"]);
   assert.ok(!(r.stdout + r.stderr).includes(PAT_UJI), "PAT tidak boleh tercetak");
@@ -613,23 +616,26 @@ test("repo privat: PAT tidak ada → perintah Keychain + exit 1 tanpa menghentik
 const LINUX = { RUDISONE_OS: "linux" };
 const RAHASIA = ENV.RUDISONE_RAHASIA_DIR, BERKAS_PAT = path.join(RAHASIA, SDD_NYATA.auth.keychain);
 const SKRIP_SH = path.join(ROOT, "bin", "perkakas.sh");
-const simpanPatLinux = (isi = PAT_UJI) => spawnSync(SKRIP_SH, ["pat", SDD_NYATA.auth.keychain],
+const simpanPatLinux = (isi = PAT_UJI) => jalankanSh(SKRIP_SH, ["pat", SDD_NYATA.auth.keychain],
   { env: { ...ENV, ...LINUX }, input: `${isi}\n`, encoding: "utf8" });
+const POSIX = process.platform !== "win32";   // mode berkas POSIX (0600/0700) hanya bermakna di macOS/Linux
 
 test("Linux: bin/perkakas.sh pat menyimpan PAT dari stdin ke berkas 0600 (folder 0700), tanpa mencetaknya", () => {
   fs.rmSync(RAHASIA, { recursive: true, force: true });
   let r = simpanPatLinux();
   assert.equal(r.status, 0, r.stderr);
   assert.equal(fs.readFileSync(BERKAS_PAT, "utf8"), `${PAT_UJI}\n`);
-  assert.equal(fs.statSync(BERKAS_PAT).mode & 0o777, 0o600);
-  assert.equal(fs.statSync(RAHASIA).mode & 0o777, 0o700);
+  if (POSIX) {
+    assert.equal(fs.statSync(BERKAS_PAT).mode & 0o777, 0o600);
+    assert.equal(fs.statSync(RAHASIA).mode & 0o777, 0o700);
+  }
   assert.ok(!(r.stdout + r.stderr).includes(PAT_UJI), "PAT tidak boleh tercetak");
   r = simpanPatLinux("pat-kedua");
   assert.equal(fs.readFileSync(BERKAS_PAT, "utf8"), "pat-kedua\n", "perbarui menimpa");
   for (const salah of [[], ["pat"], ["pat", "../x"], ["pat", ".x"], ["pat", "a b"]]) {
-    assert.equal(spawnSync(SKRIP_SH, salah.length ? salah : ["pat"], { env: { ...ENV, ...LINUX }, input: "x\n" }).status, 3, salah.join(" "));
+    assert.equal(jalankanSh(SKRIP_SH, salah.length ? salah : ["pat"], { env: { ...ENV, ...LINUX }, input: "x\n" }).status, 3, salah.join(" "));
   }
-  assert.equal(spawnSync(SKRIP_SH, ["pat", "kosong"], { env: { ...ENV, ...LINUX }, input: "\n" }).status, 1);
+  assert.equal(jalankanSh(SKRIP_SH, ["pat", "kosong"], { env: { ...ENV, ...LINUX }, input: "\n" }).status, 1);
   assert.equal(fs.existsSync(path.join(RAHASIA, "kosong")), false);
   fs.rmSync(RAHASIA, { recursive: true, force: true });
 });
@@ -638,7 +644,7 @@ test("Linux: rudis-sdd.sh menampilkan perintah pat; GL_TOKEN dari berkas 0600 sa
   fs.rmSync(RAHASIA, { recursive: true, force: true });
   const wrapper = path.join(ROOT, "bin", "rudis-sdd.sh");
   const env = { ...ENV, ...LINUX, RUDISONE_PERKAKAS_MANIFEST: M_SDD };
-  let r = spawnSync(wrapper, ["init", "--here"], { env, encoding: "utf8" });
+  let r = jalankanSh(wrapper, ["init", "--here"], { env, encoding: "utf8" });
   assert.equal(r.status, 0, r.stderr);
   assert.equal(bacaUvx().at(-1), "GL_TOKEN=kosong");
   assert.match(r.stderr, /GL_TOKEN tidak ada di berkas rahasia \(.*rahasia\/rudisone-rudis-sdd, mode 0600\)/);
@@ -646,13 +652,15 @@ test("Linux: rudis-sdd.sh menampilkan perintah pat; GL_TOKEN dari berkas 0600 sa
   assert.doesNotMatch(r.stderr, /security add-generic-password/);
 
   assert.equal(simpanPatLinux().status, 0);
-  r = spawnSync(wrapper, ["init", "--here"], { env, encoding: "utf8" });
+  r = jalankanSh(wrapper, ["init", "--here"], { env, encoding: "utf8" });
   assert.equal(bacaUvx().at(-1), "GL_TOKEN=cocok");
   assert.ok(!(r.stdout + r.stderr).includes(PAT_UJI));
 
-  fs.chmodSync(BERKAS_PAT, 0o644);
-  r = spawnSync(wrapper, ["init", "--here"], { env, encoding: "utf8" });
-  assert.equal(bacaUvx().at(-1), "GL_TOKEN=kosong", "berkas yang terbaca orang lain tidak dipakai");
+  if (POSIX) {
+    fs.chmodSync(BERKAS_PAT, 0o644);
+    r = jalankanSh(wrapper, ["init", "--here"], { env, encoding: "utf8" });
+    assert.equal(bacaUvx().at(-1), "GL_TOKEN=kosong", "berkas yang terbaca orang lain tidak dipakai");
+  }
   fs.rmSync(RAHASIA, { recursive: true, force: true });
 });
 
@@ -685,13 +693,22 @@ test("tanpa RUDISONE_OS: penyimpan & perintah PAT mengikuti OS sebenarnya (darwi
   fs.rmSync(RAHASIA, { recursive: true, force: true });
   const env = { ...ENV, RUDISONE_PERKAKAS_MANIFEST: M_SDD };
   delete env.RUDISONE_OS;
-  const r = spawnSync(path.join(ROOT, "bin", "rudis-sdd.sh"), ["init", "--here"], { env, encoding: "utf8" });
+  const r = jalankanSh(path.join(ROOT, "bin", "rudis-sdd.sh"), ["init", "--here"], { env, encoding: "utf8" });
   assert.equal(r.status, 0, r.stderr);
   if (process.platform === "darwin") assert.match(r.stderr, /GL_TOKEN tidak ada di Keychain \(rudisone-rudis-sdd\).*security add-generic-password/);
-  else {
+  else if (process.platform === "win32") {
+    // Windows: penyimpan terenkripsi DPAPI (bukan berkas polos), dan `pat` menyimpannya di folder RUDISONE_RAHASIA_DIR
+    assert.match(r.stderr, /GL_TOKEN tidak ada di penyimpan terenkripsi Windows \(.*rudisone-rudis-sdd\.dpapi.*\).*perkakas\.mjs pat rudisone-rudis-sdd/);
+    const p = jalankanSh(SKRIP_SH, ["pat", SDD_NYATA.auth.keychain], { env, input: `${PAT_UJI}\n`, encoding: "utf8" });
+    assert.equal(p.status, 0, p.stderr);
+    const berkas = path.join(RAHASIA, `${SDD_NYATA.auth.keychain}.dpapi`);
+    assert.ok(fs.existsSync(berkas));
+    assert.ok(!fs.readFileSync(berkas, "utf8").includes(PAT_UJI), "DPAPI: isi berkas terenkripsi, bukan PAT polos");
+    assert.ok(!(p.stdout + p.stderr).includes(PAT_UJI));
+  } else {
     assert.match(r.stderr, /GL_TOKEN tidak ada di berkas rahasia \(.*\).*bin\/perkakas\.sh pat rudisone-rudis-sdd/);
-    // `pat` di bash memakai uname: Linux → berkas, bukan Keychain
-    const p = spawnSync(SKRIP_SH, ["pat", SDD_NYATA.auth.keychain], { env, input: `${PAT_UJI}\n`, encoding: "utf8" });
+    // `pat` memakai OS sebenarnya: Linux → berkas, bukan Keychain
+    const p = jalankanSh(SKRIP_SH, ["pat", SDD_NYATA.auth.keychain], { env, input: `${PAT_UJI}\n`, encoding: "utf8" });
     assert.equal(p.status, 0, p.stderr);
     assert.equal(fs.statSync(BERKAS_PAT).mode & 0o777, 0o600);
   }

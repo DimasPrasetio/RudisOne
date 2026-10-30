@@ -2,7 +2,7 @@
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { cariBash, jalankan, WINDOWS } from "./platform.mjs";
+import { cariBash, jalankan, tarZip, WINDOWS } from "./platform.mjs";
 
 /** Executable palsu bernama `nama` di `dir` yang menjalankan `kodeJs` (modul ESM; argumen di process.argv.slice(2)).
  *  Mengembalikan path peluncurnya: skrip sh (macOS/Linux) atau .cmd (Windows). */
@@ -31,7 +31,7 @@ export function jalankanSh(skrip, args = [], opsi = {}) {
 export function zipFolder(induk, namaFolder, keluar) {
   fs.mkdirSync(path.dirname(keluar), { recursive: true });
   let r = spawnSync("zip", ["-qr", keluar, namaFolder], { cwd: induk });
-  if (r.error || r.status !== 0) r = spawnSync("tar", ["-a", "-cf", keluar, namaFolder], { cwd: induk });
+  if (r.error || r.status !== 0) r = spawnSync(tarZip(), ["-a", "-cf", keluar, namaFolder], { cwd: induk });
   if (r.error || r.status !== 0) throw new Error(`gagal membuat zip: ${r.error?.message ?? r.stderr}`);
 }
 

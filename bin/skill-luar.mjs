@@ -5,12 +5,12 @@
 //   plugin    `claude plugin marketplace add <sumber>` + `claude plugin install <plugin>` (lisensi Anthropic:
 //             tidak pernah disalin ke repo sendiri — selalu dari marketplace resmi)
 //   platform  bawaan aplikasi Claude (mis. konektor Claude Docs); tidak bisa dipasang → pakai `alternatif`
-import { jalankan as jalankanProses } from "./lib/platform.mjs";
+import { cariBash, jalankan as jalankanProses, posix } from "./lib/platform.mjs";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-const rumah = (p) => p.replace(/^~(?=\/|$)/, os.homedir());
+const rumah = (p) => path.normalize(p.replace(/^~(?=\/|$)/, os.homedir()));   // normalize: pemisah path sama di semua OS
 /** Folder konfigurasi Claude Code (~/.claude), bisa dialihkan untuk uji. */
 export const folderClaude = () => process.env.RUDISONE_CLAUDE_DIR || process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), ".claude");
 const binClaude = () => process.env.RUDISONE_CLAUDE_BIN || "claude";
@@ -82,10 +82,10 @@ function pasangGit(e, catat, dir) {
     catat(p.ok ? "ok" : "..", `${e.id}: ${p.ok ? "repo lokal diperbarui" : `pull dilewati (${baris1(p.err)}) — memakai versi lokal`}`);
   }
   const tujuan = path.join(dir, "skills", e.skill[0]);
-  const r = jalankan("bash", [path.join(lokal, e.pasang), tujuan], lokal);
+  const r = jalankan(cariBash() ?? "bash", [posix(path.join(lokal, e.pasang)), tujuan], lokal);
   if (!r.ok) return catat("!!", `${e.id}: ${e.pasang} gagal — ${baris1(r.err || r.out)}`), false;
   if (e.prasyarat) {
-    const s = jalankan("bash", [path.join(tujuan, e.prasyarat)], tujuan);
+    const s = jalankan(cariBash() ?? "bash", [posix(path.join(tujuan, e.prasyarat))], tujuan);
     catat(s.ok ? "ok" : "!!", `${e.id}: prasyarat ${s.ok ? "siap" : `belum lengkap — ${baris1(s.err || s.out)}`}`);
   }
   return true;

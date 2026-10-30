@@ -1,6 +1,7 @@
 // Pembantu lintas OS (macOS, Linux, Windows) untuk perkakas RudisOne. Hanya bergantung pada Node.
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
 export const WINDOWS = process.platform === "win32";
@@ -57,4 +58,20 @@ export function cariBash() {
     }
   }
   return null;
+}
+
+/** Path untuk tampilan: di bawah folder rumah ditulis `~/…`; selalu garis miring ke depan (aman ditempel ke Git Bash). */
+export function tampilPath(p) {
+  const h = os.homedir();
+  return posix(p === h || p.startsWith(h + path.sep) || p.startsWith(h + "/") ? `~${p.slice(h.length)}` : p);
+}
+
+/** tar yang bisa membuka/membuat zip: di Windows bsdtar bawaan sistem (System32\tar.exe), bukan GNU tar milik Git Bash
+ *  yang menganggap `C:` nama host; di OS lain `tar` biasa. */
+export function tarZip() {
+  if (WINDOWS) {
+    const bsd = path.join(process.env.SystemRoot || "C:\Windows", "System32", "tar.exe");
+    if (fs.existsSync(bsd)) return bsd;
+  }
+  return "tar";
 }

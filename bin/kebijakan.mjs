@@ -19,6 +19,7 @@ import os from "node:os";
 import path from "node:path";
 import readline from "node:readline";
 import { execFileSync } from "node:child_process";
+import { jalankan as jalankanProses } from "./lib/platform.mjs";
 import { fileURLToPath } from "node:url";
 import { bacaKonfig, FILE_KONFIG } from "./konfig.mjs";
 
@@ -1008,7 +1009,7 @@ function tugasTerakhir(transcript) {
 }
 
 // ---------- keputusan ----------
-const RILIS_CEK = process.env.RUDISONE_RILIS_CEK || path.join(ROOT, "bin", "rilis-cek.sh");
+const RILIS_CEK = process.env.RUDISONE_RILIS_CEK || path.join(ROOT, "bin", "rilis-cek.mjs");
 /** Syarat deploy jenjang 2: catatan rilis-cek "SIAP DEPLOY" ≤ N jam DAN pemeriksaan ulang langsung saat ini (GitHub
  *  lewat bin/rilis-cek.sh). Catatan audit bisa ditulis agent sendiri, jadi tidak pernah cukup sendirian (F2). Galat,
  *  timeout, atau belum siap → ditanya. */
@@ -1021,8 +1022,10 @@ function rilisSiap(repo, sha, K) {
     && r.sha && r.sha.length >= 7 && (sha.startsWith(r.sha) || r.sha.startsWith(sha)) && Date.parse(r.waktu) >= batas);
   if (!tercatat) return false;
   try {
-    const out = execFileSync(RILIS_CEK, [repo, sha], { timeout: 20000, stdio: ["ignore", "pipe", "ignore"] }).toString();
-    return /Hasil: SIAP DEPLOY/.test(out);
+    // modul .mjs dijalankan lewat Node (tanpa shebang/bash, jalan di Windows); pengganti uji berupa executable biasa
+    const [cmd, args] = RILIS_CEK.endsWith(".mjs") ? [process.execPath, [RILIS_CEK, repo, sha]] : [RILIS_CEK, [repo, sha]];
+    const r = jalankanProses(cmd, args, { timeout: 20000, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+    return r.status === 0 && /Hasil: SIAP DEPLOY/.test(String(r.stdout ?? ""));
   } catch { return false; }
 }
 
