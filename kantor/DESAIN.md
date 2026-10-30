@@ -102,7 +102,7 @@ cerita gerak) tetap. Denah 40 × 21:
 - 20 titik santai (bar, sofa, pouf, meja bundar, bangku, berdiri) — cukup untuk semua kursi selain COO.
 
 ## v6 — inti kecil + subagent, register JSON (2026-10-30, T-20261030-2 F3/F4)
-Organisasi kini "inti kecil + subagent": sesi tetap hanya COO, satu sesi IT Operations (Head of IT Operations atau
+Organisasi kini "inti kecil + subagent": sesi tetap hanya COO, IT Operations (Head of IT Operations dan
 System Administrator), dan Tech Lead tim yang punya proyek. Peran lain dipanggil sebagai subagent dari definisi
 peran `rudis-<id-peran>`. Denah dan bahasa visual tidak berubah; yang berubah arti kursi kosong.
 - **Subagent peran duduk di kursinya.** Server membaca `agentType` di `subagents/agent-<id>.meta.json`; nilai

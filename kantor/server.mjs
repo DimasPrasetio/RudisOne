@@ -468,7 +468,7 @@ function sessionStatus(s, now) {
   return { status: "santai", label: "Santai", detail: "", icon: "santai", since: s.lastTs };
 }
 
-/** Dua kursi IT Operations; satu sesi tetap (Head of IT Operations bila keduanya belum hadir). */
+/** Dua kursi IT Operations — keduanya sesi inti (protokol.md › Model sesi). */
 const PERAN_IT_OPS = ["Head of IT Operations", "System Administrator"];
 /** Tipe agent subagent peran: `rudis-<id-peran>` (boleh berawalan plugin, mis. `rudisone:rudis-software-engineer`). */
 const RE_TIPE_PERAN = /^(?:[\w.-]+:)?rudis-([a-z][a-z-]*)$/;
@@ -582,11 +582,10 @@ export function buildState(now = Date.now()) {
     asisten.push({ id: s.asisten.id, induk, status: selesai ? "selesai" : "aktif", jenis: s.asisten.meta.agentType ?? "",
       deskripsi, label: st.label, icon: st.icon, mulai: s.mulai ?? s.lastTs });
   }
-  // Model sesi "inti kecil + subagent": sesi tetap hanya COO, satu sesi IT Operations, dan Tech Lead tim yang punya proyek.
+  // Model sesi "inti kecil + subagent": sesi tetap hanya COO, IT Operations, dan Tech Lead tim yang punya proyek.
   const timAktif = new Set(timProyek.values());
-  const itOpsHadir = PERAN_IT_OPS.filter((n) => byAgent.get(n).length);
-  const tetap = (name) => name === "COO"
-    || (PERAN_IT_OPS.includes(name) && (itOpsHadir.length ? itOpsHadir.includes(name) : name === PERAN_IT_OPS[0]))
+  // IT Operations: Head of IT Operations dan System Administrator sama-sama sesi inti (izin server melekat ke ruang/).
+  const tetap = (name) => name === "COO" || PERAN_IT_OPS.includes(name)
     || (/^Tech Lead · Tim \d$/.test(name) && timAktif.has(Number(name.slice(-1))));
   const agents = KURSI.map((name) => {
     const sessions = byAgent.get(name).sort((a, b) => (RANK[b.status] - RANK[a.status]) || (b.lastTs - a.lastTs));
