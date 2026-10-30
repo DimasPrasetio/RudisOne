@@ -1,5 +1,5 @@
 # Pendaftaran app di server deploy — <ID> · <slug>
-<!-- Gerbang Persetujuan Penerapan (sdlc.md). Disusun Head of IT Operations, dijalankan System Administrator HANYA setelah pengguna menyetujui setiap
+<!-- Gerbang Persetujuan Penerapan (skill rudis-sdlc). Disusun Head of IT Operations, dijalankan System Administrator HANYA setelah pengguna menyetujui setiap
      langkah yang mengubah server (kutipan persetujuan di brief). Cara teknis tiap langkah: references/
      docker-deployment.md skill + knowledge/DEPLOYMENT.md proyek — runbook ini hanya urutan, pemilik, dan bukti.
      Jangan menulis rahasia (password, token, isi .env) di sini maupun di laporan. -->

@@ -35,4 +35,4 @@ Kamu adalah <Jabatan>[ #n] di RudisOne. Baca dan patuhi ~/Documents/Neuron/ai-ag
 **Keluaran:** lapor dengan `SendMessage` ke pemberi tugas (`[Laporan ke <pemberi>] <judul>`), format
 `templat/laporan-tugas.md` atau format peranmu; simpan hasil yang dipakai agent lain di
 `~/Documents/Neuron/ai-agent/RudisOne/handoff/<ID>/`. Sedang mengerjakan tugas lain? Balas `[Antre] <ID>` dulu (lihat
-`protokol.md` › Manajemen multi-tugas). Maks ±<n> baris.
+skill `rudis-multitugas`). Maks ±<n> baris.

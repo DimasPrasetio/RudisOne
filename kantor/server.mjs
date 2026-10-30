@@ -18,6 +18,8 @@ const ROOT = process.env.RUDISONE_ROOT || path.resolve(HERE, "..");
 const PROJECTS = process.env.RUDISONE_KANTOR_PROJECTS || path.join(HOME, ".claude", "projects");
 const TEAM_MD = process.env.RUDISONE_KANTOR_TEAM_MD || path.join(ROOT, "TEAM.md");
 const REGISTER = process.env.RUDISONE_KANTOR_REGISTER || path.join(ROOT, "handoff", "register-tugas.md");
+/** Sumber kebenaran register (bin/register.sh); bila belum ada, Kantor membaca register-tugas.md lama. */
+const REGISTER_JSON = process.env.RUDISONE_KANTOR_REGISTER_JSON || path.join(ROOT, "handoff", "register-tugas.json");
 const PORT = Number(process.env.RUDISONE_KANTOR_PORT || 7421);
 /** Server MCP DNS dari konfigurasi per device (bila ada) — aktivitasnya tampil sebagai "Mengurus domain". */
 const MCP_DNS = bacaKonfig()?.dns?.mcp_server ?? null;
@@ -413,19 +415,43 @@ export function bacaRegister(teks) {
   const urutan = { segera: 0, tinggi: 1 };
   return hasil.sort((a, b) => (urutan[a.prioritas] ?? 2) - (urutan[b.prioritas] ?? 2)).slice(0, 30);
 }
-let tugasCache = { mtime: -1, isi: [] };
+const dua = (n) => String(n).padStart(2, "0");
+const waktuLokal = (iso) => { const d = new Date(iso); return Number.isNaN(+d) ? "" : `${d.getFullYear()}-${dua(d.getMonth() + 1)}-${dua(d.getDate())} ${dua(d.getHours())}:${dua(d.getMinutes())}`; };
+/** Tugas belum selesai dari register-tugas.json (bin/register.mjs), dalam bentuk yang sama dengan bacaRegister. */
+export function tugasDariJson(reg) {
+  if (!reg || !Array.isArray(reg.tugas)) throw new Error("register JSON tanpa larik tugas");
+  const urutan = { segera: 0, tinggi: 1 };
+  return reg.tugas
+    .filter((t) => t && /^T-\d{8}-\d+/.test(t.id ?? "") && !SELESAI.test(t.status ?? ""))
+    .sort((a, b) => ((urutan[a.prioritas] ?? 2) - (urutan[b.prioritas] ?? 2)) || String(a.dibuat ?? "").localeCompare(String(b.dibuat ?? "")))
+    .map((t) => ({ id: t.id, tugas: clip(t.judul, 90), folder: bersih(t.folder).replace(/\/+$/, ""), divisi: bersih(t.divisi),
+      pemilik: bersih(t.pemilik), prioritas: bersih(t.prioritas), status: bersih(t.status), fase: bersih(t.fase),
+      perkakas: bersih(t.perkakas), diperbarui: waktuLokal(t.diperbarui) }))
+    .slice(0, 30);
+}
+let tugasCache = { kunci: "", isi: [] };
+/** register-tugas.json bila ada (dan terbaca), selain itu register-tugas.md lama. */
 function muatTugas() {
-  try {
-    const st = fs.statSync(REGISTER);
-    if (st.mtimeMs !== tugasCache.mtime) tugasCache = { mtime: st.mtimeMs, isi: bacaRegister(fs.readFileSync(REGISTER, "utf8")) };
-  } catch { tugasCache = { mtime: -1, isi: [] }; }
+  for (const [file, urai] of [[REGISTER_JSON, (t) => tugasDariJson(JSON.parse(t))], [REGISTER, bacaRegister]]) {
+    let st;
+    try { st = fs.statSync(file); } catch { continue; }
+    const kunci = `${file}|${st.mtimeMs}|${st.size}`;
+    if (kunci === tugasCache.kunci) return tugasCache.isi;
+    try { tugasCache = { kunci, isi: urai(fs.readFileSync(file, "utf8")) }; return tugasCache.isi; } catch { /* rusak → sumber berikutnya */ }
+  }
+  tugasCache = { kunci: "", isi: [] };
   return tugasCache.isi;
 }
 
 // ---------- penurunan status ----------
 /** "Kamu adalah Tech Lead di RudisOne…", "Kamu adalah **Software Engineer #2** di RudisOne …" */
 const RE_KAMU_ADALAH = new RegExp(`Kamu adalah\\s+\\**\\s*(${POLA_NAMA})(?![\\w-])`);
+/** Peran dari nama worktree tim (`…/.claude/worktrees/r<n>-<peran>-…`). Didahulukan atas agentSetting: worktree DI
+ *  DALAM repo RudisOne mewarisi `.claude/settings.json` repo ("agent": "coo"), padahal sesinya Tech Lead/engineer. */
+const PERAN_WORKTREE = { lead: "Tech Lead", bsa: "Business Systems Analyst", se1: "Software Engineer", se2: "Software Engineer" };
 function agentOf(s) {
+  const wt = String(s.cwd ?? "").match(/\/\.claude\/worktrees\/r[1-3]-(lead|bsa|se1|se2)-/)?.[1];
+  if (wt) return PERAN_WORKTREE[wt];
   const setting = kanonik(s.agentSetting);   // id teknis, mis. "system-administrator"
   if (setting && AGENTS.includes(setting)) return setting;
   const byTitle = namaDiAwal(s.title ?? "");
@@ -445,6 +471,33 @@ function sessionStatus(s, now) {
   if ((s.lastKind === "pikir" || s.lastKind === "tugas") && now - s.lastTs < THINK_MS)
     return { status: "berpikir", label: s.lastKind === "tugas" ? "Menerima tugas" : "Berpikir", detail: "", icon: "pikir", since: s.lastTs };
   return { status: "santai", label: "Santai", detail: "", icon: "santai", since: s.lastTs };
+}
+
+/** Dua kursi IT Operations — keduanya sesi inti (protokol.md › Model sesi). */
+const PERAN_IT_OPS = ["Head of IT Operations", "System Administrator"];
+/** Tipe agent subagent peran: `rudis-<id-peran>` (boleh berawalan plugin, mis. `rudisone:rudis-software-engineer`). */
+const RE_TIPE_PERAN = /^(?:[\w.-]+:)?rudis-([a-z][a-z-]*)$/;
+/** Peran RudisOne sebuah subagent: dari `agentType` di <id>.meta.json; bila field itu tidak ada (meta lama/hilang),
+ *  dari pembuka prompt "Kamu adalah <Jabatan> …". Tipe lain (general-purpose, Explore, …) → null (asisten biasa). */
+function peranSubagent(s) {
+  const tipe = s.asisten.meta.agentType;
+  if (typeof tipe === "string" && tipe) {
+    const id = tipe.match(RE_TIPE_PERAN)?.[1];
+    return id && Object.hasOwn(ALIAS, id) ? ALIAS[id] : null;
+  }
+  const n = kanonik(s.firstPrompt?.match(RE_KAMU_ADALAH)?.[1]);
+  return n && AGENTS.includes(n) ? n : null;
+}
+/** Kursi subagent peran: peran tim memakai tim pemanggilnya (atau proyek folder kerja); engineer memakai nomor di
+ *  deskripsi/pembuka ("#2"), selain itu kursi engineer pertama yang masih kosong (`terisi` = byAgent). */
+function kursiSubagent(peran, induk, s, terisi) {
+  if (!PERAN_TIM.includes(peran)) return peran;
+  const n = Number(induk.match(/· Tim (\d)$/)?.[1] ?? 0) || nomorTim(proyekDari("", s.cwd ?? ""));
+  if (peran !== "Software Engineer") return `${peran} · Tim ${n}`;
+  const k = `${s.asisten.meta.description ?? ""} ${s.firstPrompt ?? ""}`.match(POLA_NOMOR_ENGINEER)?.[1];
+  if (k) return `Software Engineer #${Math.min(2, Math.max(1, Number(k)))} · Tim ${n}`;
+  const kursi = [1, 2].map((x) => `Software Engineer #${x} · Tim ${n}`);
+  return kursi.find((x) => !terisi?.get(x)?.length) ?? kursi[0];
 }
 
 export function buildState(now = Date.now()) {
@@ -476,13 +529,8 @@ export function buildState(now = Date.now()) {
     dikenal.push({ s, d, title, agent });
   }
   // Lintasan 2: status per agent dan log kejadian.
-  for (const { s, d, title, agent } of dikenal) {
-    if (d?.archived || now - s.lastTs > IN_OFFICE_MS) continue; // diarsipkan / sudah lama
-    let st = sessionStatus(s, now);
-    if (d?.awaiting && st.status !== "menunggu") // sesi berhenti menunggu keputusan pengguna (mis. izin)
-      st = { status: "menunggu", label: "Menunggu keputusan Anda", detail: "", icon: "tunggu", since: s.lastTs };
-    byAgent.get(agent).push({ title, cwd: s.cwd?.replace(HOME, "~") ?? "", lastTs: s.lastTs, ...st });
-    // linimasa: jumlah pemakaian alat per menit selama 60 menit terakhir
+  /** Linimasa (pemakaian alat per menit, 60 menit) dan log kejadian satu transkrip untuk satu kursi. */
+  const catat = (s, agent) => {
     const jalur = timeline.get(agent);
     for (const e of s.events) {
       if (e.kind !== "alat") continue;
@@ -503,32 +551,66 @@ export function buildState(now = Date.now()) {
         feed.push({ ts: e.ts, agent, label: `Menerima pesan dari ${from}`, detail: "", icon: "pesan", from });
       }
     }
+  };
+  for (const { s, d, title, agent } of dikenal) {
+    if (d?.archived || now - s.lastTs > IN_OFFICE_MS) continue; // diarsipkan / sudah lama
+    let st = sessionStatus(s, now);
+    if (d?.awaiting && st.status !== "menunggu") // sesi berhenti menunggu keputusan pengguna (mis. izin)
+      st = { status: "menunggu", label: "Menunggu keputusan Anda", detail: "", icon: "tunggu", since: s.lastTs };
+    byAgent.get(agent).push({ title, cwd: s.cwd?.replace(HOME, "~") ?? "", lastTs: s.lastTs, ...st });
+    catat(s, agent);
   }
+  // Lintasan 3: subagent sesi RudisOne. Subagent peran (tipe `rudis-<id-peran>`) duduk dan bekerja di kursi peran itu
+  // (penanda "subagent dari <pemanggil>"); subagent lain tampil sebagai asisten di kursi pemanggilnya.
+  const cliKeKursi = new Map(dikenal.map(({ s, agent }) => [s.cli, agent]));
+  const asisten = [];
+  const subagen = [...files.values()].filter((s) => s.asisten).sort((a, b) => (a.mulai ?? a.lastTs) - (b.mulai ?? b.lastTs));
+  for (const s of subagen) {
+    const induk = cliKeKursi.get(s.asisten.induk);
+    if (!induk) continue;
+    const selesai = !!s.asisten.meta.finished;
+    const deskripsi = clip(s.asisten.meta.description ?? "", 50);
+    const peran = peranSubagent(s);
+    if (peran) {
+      const berjalan = !selesai && now - s.lastTs <= TOOL_STALE_MS;
+      const kursi = kursiSubagent(peran, induk, s, berjalan ? byAgent : null);
+      catat(s, kursi);                       // linimasa & log tetap tercatat setelah subagent selesai
+      if (!berjalan) continue;               // selesai → kursi kembali ke katalog
+      let st = sessionStatus(s, now);
+      if (st.status === "santai") st = { status: "berpikir", label: "Berpikir", detail: "", icon: "pikir", since: s.lastTs };  // subagent berjalan = bekerja
+      byAgent.get(kursi).push({ title: deskripsi || "subagent", cwd: s.cwd?.replace(HOME, "~") ?? "", lastTs: s.lastTs, ...st,
+        subagent: { dari: induk, id: s.asisten.id, deskripsi } });
+      continue;
+    }
+    if (selesai ? now - s.lastTs > 90e3 : now - s.lastTs > TOOL_STALE_MS) continue;
+    const st = sessionStatus(s, now);
+    asisten.push({ id: s.asisten.id, induk, status: selesai ? "selesai" : "aktif", jenis: s.asisten.meta.agentType ?? "",
+      deskripsi, label: st.label, icon: st.icon, mulai: s.mulai ?? s.lastTs });
+  }
+  // Model sesi "inti kecil + subagent": sesi tetap hanya COO, IT Operations, dan Tech Lead tim yang punya proyek.
+  const timAktif = new Set(timProyek.values());
+  // IT Operations: Head of IT Operations dan System Administrator sama-sama sesi inti (izin server melekat ke ruang/).
+  const tetap = (name) => name === "COO" || PERAN_IT_OPS.includes(name)
+    || (/^Tech Lead · Tim \d$/.test(name) && timAktif.has(Number(name.slice(-1))));
   const agents = KURSI.map((name) => {
     const sessions = byAgent.get(name).sort((a, b) => (RANK[b.status] - RANK[a.status]) || (b.lastTs - a.lastTs));
     const top = sessions[0];
     const timelineAgent = timeline.get(name);
-    return top
-      ? { name, present: true, status: top.status, label: top.label, detail: top.detail, icon: top.icon,
-          since: top.since, lastTs: Math.max(...sessions.map((x) => x.lastTs)), sessions, timeline: timelineAgent }
-      : { name, present: false, status: "absen", label: "Belum masuk", detail: "", icon: "absen", since: 0, lastTs: 0,
-          sessions: [], timeline: timelineAgent };
+    const kursiTetap = tetap(name);
+    if (!top) {
+      return kursiTetap
+        ? { name, present: false, status: "absen", mode: "absen", tetap: true, label: "Belum masuk", detail: "", icon: "absen",
+            since: 0, lastTs: 0, subagent: null, sessions: [], timeline: timelineAgent }
+        : { name, present: false, status: "absen", mode: "katalog", tetap: false, label: "Dipanggil saat perlu", detail: "", icon: "absen",
+            since: 0, lastTs: 0, subagent: null, sessions: [], timeline: timelineAgent };
+    }
+    const mode = sessions.some((x) => x.subagent || x.status !== "santai") ? "aktif" : "siaga";
+    return { name, present: true, status: top.status, mode, tetap: kursiTetap, label: top.label, detail: top.detail, icon: top.icon,
+      since: top.since, lastTs: Math.max(...sessions.map((x) => x.lastTs)), subagent: sessions.find((x) => x.subagent)?.subagent ?? null,
+      sessions, timeline: timelineAgent };
   });
   feed.sort((a, b) => b.ts - a.ts);
   const tim = [...timProyek].map(([proyek, n]) => ({ n, proyek })).sort((a, b) => a.n - b.n);
-  // asisten (subagent) yang sedang bekerja atau baru selesai, dipetakan ke kursi pemanggilnya
-  const cliKeKursi = new Map(dikenal.map(({ s, agent }) => [s.cli, agent]));
-  const asisten = [];
-  for (const s of files.values()) {
-    if (!s.asisten) continue;
-    const induk = cliKeKursi.get(s.asisten.induk);
-    if (!induk) continue;
-    const selesai = !!s.asisten.meta.finished;
-    if (selesai ? now - s.lastTs > 90e3 : now - s.lastTs > TOOL_STALE_MS) continue;
-    const st = sessionStatus(s, now);
-    asisten.push({ id: s.asisten.id, induk, status: selesai ? "selesai" : "aktif", jenis: s.asisten.meta.agentType ?? "",
-      deskripsi: clip(s.asisten.meta.description ?? "", 50), label: st.label, icon: st.icon, mulai: s.mulai ?? s.lastTs });
-  }
   asisten.sort((a, b) => a.mulai - b.mulai);
   return { now, agents, feed: feed.slice(0, 80), tugas: muatTugas(), tim, asisten: asisten.slice(0, 30) };
 }

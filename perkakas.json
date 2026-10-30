@@ -18,8 +18,51 @@
       "repo": "https://github.com/DimasPrasetio/rudis-modules.git",
       "lokal": "~/Documents/Neuron/ai-agent/rudis-modules",
       "hooks": ".githooks"
+    },
+    {
+      "id": "rudis-sdd",
+      "jenis": "cli",
+      "label": "sdd",
+      "untuk": "RUDIS SDD (CLI rudis, command /rudis.*) — hanya baris tabel perakitan bangun / pasang + sesuaikan; skill rudis-sdd",
+      "repo": "https://git.neuron.id/research/rudis.git",
+      "lokal": "~/Documents/Neuron/ai-agent/rudis",
+      "jalan": ["uvx", "--from", "{lokal}", "rudis"],
+      "auth": {
+        "keychain": "rudisone-rudis-sdd",
+        "pengguna": "oauth2",
+        "gl_token_untuk": ["init", "update"]
+      },
+      "tanpa_marketplace": {
+        "flag": "--no-marketplace",
+        "perintah": ["init"],
+        "bukti": "src/rudis_cli/__init__.py"
+      },
+      "marketplace": {
+        "bawaan": "https://git.neuron.id/research/rudis-marketplace-tooling.git",
+        "env": "RUDIS_MARKETPLACE_URL",
+        "flag": "--marketplace-url",
+        "perintah": ["skill", "governance", "profile", "utilities"],
+        "khusus": {
+          "utilities catalog": { "bawaan": "https://github.com/iqbaldzlfkr/neudela.git", "env": "RUDIS_NEUDELA_REPO" }
+        }
+      },
+      "dilarang": {
+        "run": "U2 — rudis run berjalan tanpa izin tulis dan tetap melapor sukses; pakai command /rudis.<langkah> per langkah (S1). Termasuk run ultimate (S1), run deploy/operate (milik IT Operations, analisis §2.2)",
+        "tui": "antarmuka interaktif; init lewat TUI bisa melewati --no-marketplace"
+      },
+      "dasar": "handoff/T-20261029-1/analisis-kelayakan.md (S1–S8, K4, K7, K8)"
     }
   ],
+  "kebijakan_marketplace": {
+    "default": "tanpa-marketplace",
+    "aturan": [
+      "Plugin/skill/marketplace pihak ketiga hanya dari allowlist di bawah; selain itu ditolak (rudis init selalu --no-marketplace lewat bin/rudis-sdd.sh).",
+      "Setiap entri di-pin ke sha commit penuh (40 hex) dan auto_update false; pembaruan = ganti pin atas keputusan pemilik.",
+      "Sebelum pasang, tinjau hooks/, .mcp.json, dan bin/ di sumber pada sha pin; utamakan skill tanpa skrip.",
+      "Entri baru hanya atas keputusan pemilik (pengguna); kutip keputusannya di 'disetujui'. Cek: bin/perkakas.sh marketplace cek [<sumber>]."
+    ],
+    "allowlist": []
+  },
   "skill_luar": [
     {
       "id": "docx-neuron",

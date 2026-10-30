@@ -1,3 +1,8 @@
+---
+name: rudis-sdlc
+description: SDLC RudisOne untuk membangun software dengan perkakas resmi Rudis (skill rudis-monorepo + pustaka rudis-modules) — routing jalur, fase Jalur Aplikasi dan siapa R/S/C, empat gerbang persetujuan pengguna (Inisiasi, Rancangan, Rilis, Penerapan), proyek baru, perkakas.sh siapkan/versi/proyek, artefak proyek, desain di proyek Rudis, dan Jalur Platform (ubah skill/pustaka, promote modul). Muat untuk setiap tugas Engineering yang membangun/mengubah aplikasi, memasang/upgrade modul, audit standar, deploy standar, atau mengubah skill/pustaka.
+---
+
 # SDLC RudisOne — membangun software dengan perkakas resmi Rudis
 
 Pemilik: COO. Skill `rudis-monorepo` dan pustaka `rudis-modules` adalah perkakas resmi pembuat software RudisOne
@@ -34,7 +39,7 @@ RudisOne, dan salinan kedua akan berbeda diam-diam.
   `core.hooksPath` pada clone baru. Mengubah repo sumber tetap lewat Jalur Platform.
 
 ### Versi tercatat
-Kolom **Perkakas** register tugas = keluaran `bin/perkakas.sh versi` (mis. `rudis@b444853 lib@43e552f`) saat tugas
+Kolom **Perkakas** register tugas = keluaran `bin/perkakas.sh versi` (mis. `rudis@b444853 lib@43e552f`, ditambah `sdd@<sha>` bila RUDIS SDD terpasang) saat tugas
 Engineering dimulai atau dilanjutkan dari parkir; `—` untuk tugas yang tidak memakai perkakas. Akhiran `+lokal`
 berarti versi itu belum ada di origin.
 
@@ -62,11 +67,15 @@ berarti versi itu belum ada di origin.
 | Analisis & perakitan | Tech Lead | Business Systems Analyst (kemampuan, tabel perakitan, MODULE_MAP, API); C: Financial Controller/HR Business Partner bila domainnya | `module-library.md` §1–3, `backend-modular-monolith.md`, `api-standard.md` | `templat/tabel-perakitan.md` → `analysis/` proyek | **Persetujuan Rancangan** |
 | Desain UI | Tech Lead | Research Analyst (paralel dengan Analisis) | `design-research.md` | draf → `knowledge/DESIGN.md` proyek | ikut **Persetujuan Rancangan** |
 | Konstruksi | Tech Lead | Software Engineer #1/#2, asisten | Langkah 1 (scaffold), `module-library.md` §4–6, referensi stack, `frontend.md` | branch `rudis/<ID>` | — |
-| Pengujian | Tech Lead | Software Engineer #1 (tinjauan silang), BSA (cocok spesifikasi) | Final Checklist | laporan divisi + checklist terisi | — |
+| Pengujian | Tech Lead | peninjau berkonteks bersih (subagent `rudis-software-engineer`, tinjauan silang), BSA (cocok spesifikasi) | Final Checklist | laporan divisi + checklist terisi | — |
 | Rilis & penerapan | Head of IT Operations | System Administrator; Tech Lead (sha + catatan rilis) | `docker-deployment.md` | `templat/onboarding-app.md`, `templat/laporan-deploy.md` | **Persetujuan Rilis**, **Persetujuan Penerapan** |
 | Operasi & pemeliharaan | Head of IT Operations (operasi) · Tech Lead (kode) | — | `module-library.md` (status/upgrade), `backend-go.md` › Kernel versions | tugas baru per perubahan | sesuai jenisnya |
 
 Kolom **Fase** register tugas mencatat fase aktif tugas (mis. `Konstruksi`); Program Manager memakainya untuk status lintas proyek.
+
+**Spesifikasi SDD (RUDIS).** Setelah Persetujuan Rancangan, baris tabel perakitan berjenis *bangun* atau *pasang +
+sesuaikan* dikerjakan dengan skill `rudis-sdd` (dimuat Tech Lead/BSA/SE hanya untuk baris itu). Baris *pasang* biasa,
+bug kecil, dan perubahan kecil tidak lewat SDD.
 
 ### Gerbang keputusan pengguna (ditanyakan COO)
 - **Persetujuan Inisiasi** — lewat **penyelarasan persepsi berkedalaman mendalam** (skill `rudis-grill-me`, `agents/coo.md` ›
@@ -77,7 +86,7 @@ Kolom **Fase** register tugas mencatat fase aktif tugas (mis. `Konstruksi`); Pro
 - **Persetujuan Rancangan** — tabel perakitan (pasang / pasang + sesuaikan / bangun per kemampuan) dan arah desain
   ringkas (preset, elemen khas, 2–3 keputusan utama).
 - **Persetujuan Rilis** — serah ke branch utama, commit, membuat repo GitHub (repo privat oleh COO = jenjang 2; push = jenjang 3,
-  `protokol.md` › Aset, akses & batas kewenangan), push: aturan biasa (kutipan
+  skill `rudis-operasi`), push: aturan biasa (kutipan
   permintaan per aksi).
 - **Persetujuan Penerapan** — pendaftaran app pertama (DB + user, `.env`, akses GHCR, nginx, DNS, certbot) dan setiap deploy:
   rencana persis + dampak + rollback dari IT Operations, per aksi.
@@ -97,8 +106,8 @@ COO menanyakannya di gerbang yang sesuai dan meneruskan jawabannya apa adanya.
 3. Setelah pemahaman bersama (= Persetujuan Inisiasi) disepakati (giliran yang dipicu pengguna): COO membuat folder proyek, `git init -b main`, dan satu
    commit kosong (`git commit --allow-empty -m "chore: mulai proyek <nama>"`) — worktree butuh satu commit. Hanya
    ini yang COO tulis di folder proyek.
-4. COO membentuk tim lengkap untuk folder itu (`agents/coo.md` › Organisasi otomatis langkah 4), lalu brief
-   ke Tech Lead untuk Analisis–Pengujian.
+4. COO membentuk sesi Tech Lead untuk folder itu (`agents/coo.md` › Organisasi inti), lalu brief
+   ke Tech Lead untuk Analisis–Pengujian (BSA dan SE dipanggil Tech Lead sebagai subagent).
 5. Tech Lead men-scaffold di worktree-nya, di branch `rudis/<ID>`, dengan `--dir <worktree> --force` dan fakta
    deploy dari intake (fakta yang belum ada dibiarkan menjadi penanda, sesuai skill).
 6. Repo GitHub dibuat hanya saat pengguna meminta push pertama (Persetujuan Rilis) — oleh COO (`gh repo create`, privat).
@@ -114,7 +123,7 @@ Alur `references/design-research.md` milik skill yang berlaku (brief di `knowled
 pustaka); skill `rudis-riset-desain` RudisOne dipakai untuk proyek lain dan untuk langkah verifikasi visualnya.
 
 ## 4. Jalur Platform — platform (skill & pustaka)
-- **Tim platform** dibentuk saat ada tugas, di folder repo yang diubah (`~/Documents/Neuron/ai-agent/rudis-monorepo` atau
+- **Tim platform** (sesi Tech Lead + subagent) dibentuk saat ada tugas, di folder repo yang diubah (`~/Documents/Neuron/ai-agent/rudis-monorepo` atau
   `~/Documents/Neuron/ai-agent/rudis-modules`), memakai satu dari tiga slot tim; tawarkan arsip setelah selesai.
 - Wajib dibaca dulu: `AGENTS.md` repo itu — arsitektur **terkunci**. Perubahan pada bagian terkunci (kernel,
   kontrak frontend, aturan pustaka, menambah lapisan) adalah keputusan pengguna: Tech Lead menulis usulan + dampak,
