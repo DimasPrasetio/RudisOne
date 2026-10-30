@@ -183,7 +183,8 @@ export function cekPemetaan(root = ROOT, ref = null) {
     catch { catat("peringatan", "pemetaan", `inventaris aturan dari ${ref} tidak bisa dibuat (git?) — cakupan 100% tidak diperiksa`); return; }
     const hilang = unit.filter((u) => !kode.has(u.kode));
     if (hilang.length) catat("galat", "pemetaan", `${hilang.length} aturan lama tanpa pemetaan: ${hilang.slice(0, 8).map((u) => u.kode).join(", ")}${hilang.length > 8 ? " …" : ""}`);
-    const lebih = [...kode].filter((k) => !unit.some((u) => u.kode === k));
+    // N-nnn = aturan BARU sesudah migrasi (tidak ada di inventaris lama); jangkarnya tetap diperiksa di atas
+    const lebih = [...kode].filter((k) => !/^N-/.test(k) && !unit.some((u) => u.kode === k));
     if (lebih.length) catat("peringatan", "pemetaan", `${lebih.length} kode pemetaan tidak ada di inventaris ${ref}: ${lebih.slice(0, 8).join(", ")}`);
   }
 }
