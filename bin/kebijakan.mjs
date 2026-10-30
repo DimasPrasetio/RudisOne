@@ -585,18 +585,25 @@ const SUB_CLAUDE = new Set(["agents", "attach", "auth", "auto-mode", "config", "
   "mcp", "migrate-installer", "plugin", "plugins", "project", "respawn", "rm", "setup-token", "stop", "ultrareview", "update", "upgrade"]);
 /** Lapis gagal-tertutup: teks perintah yang menyebut `claude` di posisi perintah dengan aksi sesi/bypass, tetapi bentuknya
  *  tidak dikenali pengurai (bash -c, sudo, xargs, kata kunci shell, $( ), opsi pembungkus bernilai, --bg=…) → jenjang 3. */
-const CLAUDE_SESI_MENTAH = new RegExp("(?:(?:^|[\\n;&|({`!]|\\$\\(|\\b(?:then|do|else)\\s|-c\\s*[\"'])\\s*"
+const AWAL_CLAUDE = "(?:(?:^|[\\n;&|({`!]|\\$\\(|\\b(?:then|do|else)\\s|-c\\s*[\"'])\\s*"
   + "|\\b(?:sudo|xargs|setsid|exec|env|nohup|g?timeout|stdbuf|nice|command|time|caffeinate)\\s(?:[^;&|\\n`)]*\\s)?)"
-  + "(?:[^\\s;&|()`'\"]*\\/)?claude(?:\\.exe)?\\s+(?:[^;&|\\n`)]*\\s)?(?:--bg|--background|stop|kill|respawn|rm|attach)\\b");
+  + "(?:[^\\s;&|()`'\"]*\\/)?claude(?:\\.exe)?\\s+";
+const CLAUDE_SESI_MENTAH = new RegExp(`${AWAL_CLAUDE}(?:[^;&|\\n\`)]*\\s)?(?:--bg|--background|stop|kill|respawn|rm|attach)\\b`);
+const CLAUDE_BYPASS_MENTAH = new RegExp(`${AWAL_CLAUDE}[^;&|\\n\`)]*bypass`, "i");
+const HEREDOC = /<<-?\s*(['"]?)([A-Za-z_]\w*)\1[^\n]*\n([\s\S]*?)(?:\n[ \t]*\2[ \t]*(?=\n|$)|$)/g;
+const keShell = (semua, off) => /(?:^|[;&|(]\s*)(?:\S*\/)?(?:ba|z|da|k)?sh(?:\s+-\S+)*\s*$/
+  .test(semua.slice(semua.lastIndexOf("\n", off) + 1, off).trimEnd());
+/** Potongan badan heredoc (dipecah seperti pengurai: baris, ;, &&, ||, |) yang diberikan ke program selain shell. */
+function badanHeredoc(cmd) {
+  const b = [];
+  for (const m of cmd.matchAll(HEREDOC)) if (!keShell(cmd, m.index)) b.push(...m[3].split(/\n|&&|\|\||[;&|]/).map((x) => x.trim()).filter(Boolean));
+  return b;
+}
 /** Teks yang benar-benar dijalankan shell dari satu segmen: isi kutip (pesan commit, JSON, argumen grep) dan badan heredoc
  *  dibuang, KECUALI argumen `-c` (bash -c "…"), isi `$( )`/backtick di dalam kutip ganda, dan heredoc ke shell (bash <<EOF). */
 export function teksKode(t) {
   // badan heredoc dibuang, kecuali heredoc yang diberikan ke shell (`bash <<EOF`, `… | sh <<EOF`)
-  t = t.replace(/<<-?\s*(['"]?)([A-Za-z_]\w*)\1[^\n]*\n[\s\S]*?(?:\n[ \t]*\2[ \t]*(?=\n|$)|$)/g, (m, _q, _d, off, semua) => {
-    const awalBaris = semua.lastIndexOf("\n", off) + 1;
-    const keShell = /(?:^|[;&|(]\s*)(?:\S*\/)?(?:ba|z|da|k)?sh(?:\s+-\S+)*\s*$/.test(semua.slice(awalBaris, off).trimEnd());
-    return keShell ? m : m.slice(0, m.indexOf("\n") + 1);
-  });
+  t = t.replace(HEREDOC, (m, _q, _d, _b, off, semua) => (keShell(semua, off) ? m : m.slice(0, m.indexOf("\n") + 1)));
   let out = "";
   for (let i = 0; i < t.length; i++) {
     const c = t[i];
@@ -650,7 +657,8 @@ function klasifikasiClaude(args, dasarAman, ctx) {
         if (k === "-n" || k === "--name") namaSesi = v;
         // hanya path absolut harfiah yang persis sama: CLI tidak mengekspansi `~`, dan path relatif/symlink diselesaikan CLI
         // dari cwd fisik yang tidak selalu sama dengan cwd yang dilacak hook (cd gagal, cd lewat symlink)
-        if (k === "--settings") { if (v.startsWith("/") && normal(v) === normal(SETTINGS_SESI)) pengaman++; else settingsLain++; }
+        // `..` diselesaikan CLI secara fisik (lewat symlink) → hanya bentuk ternormal tanpa `.`/`..`/`//`
+        if (k === "--settings") { if (v.startsWith("/") && path.normalize(v) === v && normal(v) === normal(SETTINGS_SESI)) pengaman++; else settingsLain++; }
         continue;
       }
       if (a.startsWith("-")) { asing = a; break; }
@@ -794,8 +802,11 @@ function analisisBash(input, K) {
   ctx.awal = ctx.cwd;
   const hasil = [];
   let sebut = null, ubahSendiri = false;
+  // urai memecah badan heredoc menjadi segmen; baris badan heredoc ke program selain shell bukan perintah claude
+  const badan = badanHeredoc(cmd);
   for (const s of u.segmen) {
-    const h = klasifikasiSegmen(s, K, ctx);
+    let h = klasifikasiSegmen(s, K, ctx);
+    if (h.claude) { const t = s.teks.trim(), n = badan.indexOf(t); if (t && n >= 0) { badan.splice(n, 1); h = { aman: false }; } }
     hasil.push(h);
     if (h.ubahSendiri) ubahSendiri = true;
     // T-20261030-6 A9: hanya TARGET PENULISAN nyata yang diperiksa (pengalihan keluar, tee, sed/perl -i, cp/mv/rm/…,
@@ -818,7 +829,7 @@ function analisisBash(input, K) {
   // dihitung atas teks kode seluruh perintah (heredoc ke program lain & isi kutip bukan kode): lebih banyak kemunculan daripada
   // segmen claude yang sudah diurai → ada bentuk yang lolos dari pengurai
   const sesiMentah = (k) => [...k.matchAll(new RegExp(CLAUDE_SESI_MENTAH.source, "g"))].length
-    + [...k.matchAll(/(?:^|[\s;&|(`/])claude(?:\.exe)?\s[^\n;&|]*bypass/gi)].length;
+    + [...k.matchAll(new RegExp(CLAUDE_BYPASS_MENTAH.source, "gi"))].length;
   if (sesiMentah(teksKode(cmd)) > u.segmen.reduce((n, s, i) => n + (hasil[i].claude ? sesiMentah(teksKode(s.teks)) : 0), 0))
     aksi.push({ kemampuan: "sesi", jenjang: 3, aksi: "perintah claude untuk sesi latar dalam bentuk yang tidak dikenali" });
   const aman = !u.kompleks && !u.ekspansi && hasil.length > 0 && hasil.every((h) => h.aman);

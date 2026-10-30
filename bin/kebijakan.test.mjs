@@ -841,7 +841,9 @@ test("backend sesi cli: claude --bg/stop/kill/respawn/logs hanya COO; rm/attach/
     "env -u FOO claude --bg x", "timeout -s KILL 60 claude --bg x", "stdbuf -o L claude --bg x", "exec -a n claude --bg x",
     "env -C /tmp claude --bg x", `bash -c "claude --bg x"`, "sudo claude --bg x", "xargs claude --bg < /dev/null", "setsid claude --bg x",
     "if true; then claude --bg x; fi", "! claude --bg x", "{ claude --bg x; }", "echo $(claude --bg x)",
-    `claude -p --settings '{"permissions":{"defaultMode":"bypass\u0050ermissions"}}' hi`, "claude -p --settings /tmp/s.json hi"]) {
+    `claude -p --settings '{"permissions":{"defaultMode":"bypass\u0050ermissions"}}' hi`, "claude -p --settings /tmp/s.json hi",
+    `claude --bg --name y --settings ${ROOT}/x/../konfigurasi/sesi-cli.settings.json 'x'`, `claude --bg --settings ${PENGAMAN.replace("/konfigurasi/", "/./konfigurasi/")} x`,
+    `claude --bg --settings ${PENGAMAN.replace("/konfigurasi/", "//konfigurasi/")} x`, "cat <<EOF > /tmp/x\nhai\nEOF\nclaude rm x"]) {
     assert.equal(kep(bash(COO, c)), "ask", c);
   }
   // red-team: tidak pernah allow (alur biasa atau ask) bila digandeng/disamarkan
@@ -854,7 +856,9 @@ test("backend sesi cli: claude --bg/stop/kill/respawn/logs hanya COO; rm/attach/
   // perintah teks biasa yang hanya MENYEBUT claude/bypass tidak ditanya (tanpa prompt baru)
   for (const c of [`grep -n "claude --bg" README.md`, "grep -rn bypassPermissions bin/", "cat ~/.claude/settings.json | grep bypass",
     "git log --oneline -3", `git commit -qm "feat: backend (claude --bg, claude stop)"`, "python3 - <<'EOF'\nx = 'claude --bg; claude rm'\nEOF",
-    `bin/kebijakan.sh uji "{\\"command\\":\\"claude rm x\\"}"`]) assert.notEqual(kep(bash(COO, c)), "ask", c);
+    `bin/kebijakan.sh uji "{\\"command\\":\\"claude rm x\\"}"`, "cat <<EOF > /tmp/x.md\nclaude stop a\nEOF",
+    "git commit -F - <<'EOF'\nfix: claude --bg; claude rm dilarang\nEOF", "grep -rn claude docs/bypass.md", "grep -n claude a.md -e bypassPermissions"])
+    for (const cwd of [COO, path.join(ROOT, "ruang", "research-analyst")]) assert.notEqual(kep(bash(cwd, c)), "ask", c);
   // …tetapi yang benar-benar dijalankan shell tetap ditanya
   for (const c of ["bash <<'EOF'\nclaude --bg x\nEOF", `bash -c 'claude --bg x'`, `echo "$(claude --bg x)"`, "echo \"`claude rm x`\""])
     assert.equal(kep(bash(path.join(ROOT, "ruang", "research-analyst"), c)), "ask", c);
