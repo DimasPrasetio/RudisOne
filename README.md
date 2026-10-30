@@ -99,11 +99,15 @@ RudisOne berjalan di **macOS**, **Linux**, dan **Windows lewat WSL2** (jalur Lin
 - **Symlink:** repo memuat symlink (`.claude/agents/coo.md`, `ruang/*/.claude/agents/*.md`) dan `install.sh` menautkan
   skill & subagent ke `~/.claude`. macOS/Linux/WSL mendukungnya bawaan; pastikan `git config --get core.symlinks` tidak
   `false` (bila `false`: `git config core.symlinks true && git checkout -- .`).
-- **Batas di Linux/WSL2 (belum diverifikasi di mesin sungguhan):** Claude Desktop tidak tersedia untuk Linux, sedangkan
-  pembentukan sesi inti (Tech Lead, IT Operations) dan pesan antar-sesi COO memakai alat sesi Claude Desktop. Dengan
-  Claude Code CLI saja, COO bekerja lewat subagent `rudis-<peran>` (sesi lain dibuka manual di terminal), dan Kantor hanya
-  menampilkan sesi dari transkrip (`~/.claude/projects`), tanpa metadata sesi Desktop. Tes, pemeriksa, perkakas, dan hook
-  berjalan sama.
+- **Backend sesi** (`bin/sesi.sh backend`, dicatat `install.sh` di `konfigurasi/sesi.json`): macOS/Windows → `desktop`
+  (alat sesi Claude Desktop); Linux/WSL2 → `cli`: COO membentuk sesi Tech Lead/IT Operations dengan `claude --bg`, bertukar
+  pesan dengan `SendMessage` ke nama sesi, membaca status dari `claude agents --json`, menghentikan dengan `claude stop`
+  (`skills/rudisone/backend-cli.md`). Syarat backend cli: Claude Code **≥ 2.1.300**, dan setiap folder sesi dipercaya
+  sekali — `bin/sesi.sh cek` mencetak daftar `cd <folder> && claude` (terima prompt, `/exit`), termasuk worktree Tech Lead
+  baru. Prompt izin sesi latar dijawab dengan `claude attach <nama>` (COO memberi perintahnya; Kantor menandai sesinya).
+  Pengaman sesi latar dipasang per sesi (`--settings konfigurasi/sesi-cli.settings.json`: tanpa isolasi worktree otomatis,
+  deny `git push`/`gh pr create`/`claude rm`, bypass mati) — settings pengguna tidak diubah. **Belum diuji di mesin Linux
+  sungguhan** (simulasi + `claude` tiruan).
 - Daftar uji Linux & Windows/WSL2 untuk rekan (langkah + hasil yang diharapkan, keluarannya dikirim ke COO): `uji/linux-wsl.md`.
 
 1. `git clone https://github.com/DimasPrasetio/RudisOne.git ~/Documents/Neuron/ai-agent/RudisOne` (repo publik; harus di path ini —

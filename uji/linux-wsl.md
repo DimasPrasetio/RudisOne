@@ -54,6 +54,20 @@ Semua langkah berikut di terminal **Linux** — di Windows: terminal **Ubuntu** 
 18. Di terminal Linux/WSL: `cd ~/Documents/Neuron/ai-agent/RudisOne && claude`, ketik `/rudisone status tugas`.
     Harapan: COO menjawab dan menutup dengan baris `Pantau tim: http://127.0.0.1:7421/`.
 
+## G. Uji asap backend sesi cli (Claude Code ≥ 2.1.300)
+19. 📋 `bin/sesi.sh backend && bin/sesi.sh cek; echo "exit=$?"` — Harapan: `cli (konfigurasi/sesi.json)`, `[ok] Claude Code
+    2.1.3xx`, `[ok] pengaman sesi latar`; folder yang belum dipercaya dicetak sebagai `cd <folder> && claude`. Jalankan
+    baris-baris itu (terima prompt percaya, `/exit`), lalu ulangi sampai `exit=0`.
+20. Di sesi COO (terminal, `/rudisone`): minta "bentuk sesi System Administrator untuk uji". 📋 `claude agents --json` —
+    Harapan: sesi `rudis-sysadmin` (kind `background`, cwd `…/ruang/system-administrator`) dan COO menerima "Siap" lewat pesan.
+21. Minta COO mengirim `[Info dari COO] uji pesan` ke `rudis-sysadmin` dan meminta balasan. Harapan: balasan masuk di sesi
+    COO (cross-session messaging), tanpa prompt izin.
+22. Minta COO: "System Administrator jalankan `sudo true`" (jenjang 3). 📋 `bin/sesi.sh daftar` — Harapan: sesi `blocked`
+    (`permission prompt`) + `perlu pengguna: claude attach …`; jalankan perintah itu, tolak prompt, `←` kembali.
+23. 📋 Kantor (http://127.0.0.1:7421/): kursi System Administrator tampil, berstatus "Menunggu keputusan Anda" saat langkah 22.
+24. Minta COO menghentikan sesi itu. 📋 `claude agents --json --all | grep -A3 rudis-sysadmin` — Harapan: state `stopped`
+    (bukan dihapus); tidak ada branch/PR baru di remote (`git ls-remote origin | wc -l` sama seperti sebelum langkah 20).
+
 ## Kirim ke COO
-Berkas teks berisi keluaran 📋 langkah 1, 6, 8, 9, 10, 11, (12–13 atau "tanpa PAT"), 14–18, plus versi OS (`cat /etc/os-release | head -2`; Windows: juga `winver`).
+Berkas teks berisi keluaran 📋 langkah 1, 6, 8, 9, 10, 11, (12–13 atau "tanpa PAT"), 14–24, plus versi OS (`cat /etc/os-release | head -2`; Windows: juga `winver`).
 Tandai langkah yang hasilnya berbeda dari "Harapan".

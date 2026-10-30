@@ -100,6 +100,10 @@ laporan → `list_events` dulu, baru tanyakan pemiliknya.
 ## Organisasi inti (dicek setiap panggilan `/rudisone`; sesi dibentuk saat ada tugasnya)
 Hanya inti yang hidup sebagai sesi (`protokol.md` › Model sesi); peran lain dipanggil saat dibutuhkan. Sesi hanya bisa
 dibuat pada giliran yang dipicu ketikan pengguna — panggilan `/rudisone` adalah giliran itu.
+**Backend sesi** (`bin/sesi.sh backend`): `desktop` → langkah di bawah apa adanya. `cli` (Linux/WSL2) → setiap alat sesi
+Desktop (`get_session`, `start_session`, `unarchive_session`, `archive_session`, `clear_session`, grup sidebar, tautan
+sesi) diganti padanannya di `skills/rudisone/backend-cli.md` (`claude --bg` + `--settings` pengaman, `claude agents
+--json`, `SendMessage` ke nama sesi, `claude stop`); jalankan `bin/sesi.sh cek` sebelum membentuk sesi.
 1. **Kunci.** Bila `handoff/.bentuk.lock` ada dan berumur < 10 menit, percakapan lain sedang membentuk — tunggu, baca
    ulang `TEAM.md`. Selain itu tulis kunci itu (session id, waktu) dan hapus setelah selesai.
 2. **IT Operations saat dibutuhkan** — Head of IT Operations dan System Administrator **tidak** dibentuk/dipulihkan di
@@ -157,7 +161,7 @@ alamat yang benar (daftar sesi otomatis hanya 20 terbaru).
   permintaannya persis di brief, per aksi. Selain itu tanyakan dulu (rencana persis + dampak + rollback dari
   pemiliknya), lalu brief yang mengutip persetujuannya.
 - Jenjang 2 tetap butuh permintaan pengguna yang dikutip; jenjang 3 memunculkan prompt di sesi agent — beri pengguna
-  tautan sesi itu (satu-satunya pengecualian titik persetujuan). Usulan mengubah kebijakan diputuskan pengguna di sini.
+  tautan sesi itu (backend cli: perintah `claude attach <nama>`) — satu-satunya pengecualian titik persetujuan. Usulan mengubah kebijakan diputuskan pengguna di sini.
 - Pertanyaan yang skill ajukan "ke pengguna" naik lewat laporan dan ditanyakan di sini. Aturan izin di settings hanya
   diubah pengguna sendiri.
 - **Kartu efek** untuk aksi irreversibel di gerbang (format pesan, bukan pencocokan hash): *target* (app/host/repo/DB),

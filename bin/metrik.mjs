@@ -21,11 +21,11 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { agentsCli, backendSesi, folderDesktop, normalAgents } from "./sesi.mjs";
 
 const HOME = os.homedir();
 const PROJECTS = () => process.env.RUDISONE_METRIK_PROJECTS || path.join(HOME, ".claude", "projects");
-const DESKTOP = () => process.env.RUDISONE_METRIK_DESKTOP
-  || path.join(HOME, "Library", "Application Support", "Claude", "claude-code-sessions");
+const DESKTOP = () => process.env.RUDISONE_METRIK_DESKTOP || folderDesktop();
 
 const AUDIT = () => process.env.RUDISONE_AUDIT || path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "handoff", "audit");
 /** Anggaran keputusan pengguna per jenis tugas (T-20261030-6 · F8): sasaran, bukan aturan keras. */
@@ -141,6 +141,11 @@ export function pesanMasuk(o) {
 /** Peta metadata Desktop: cliSessionId → {title, localId} dan localId → title. Format internal aplikasi; boleh tidak ada. */
 export function muatDesktop(dir = DESKTOP()) {
   const cli = new Map(), lokal = new Map();
+  // backend cli: judul dari `claude agents --json --all` (termasuk sesi latar yang sudah selesai)
+  if (!process.env.RUDISONE_METRIK_DESKTOP && backendSesi().backend === "cli") {
+    for (const e of normalAgents(agentsCli())) { cli.set(e.cli, { title: e.title, localId: e.localId }); lokal.set(e.localId, e.title); }
+    return { cli, lokal };
+  }
   const ls = (d) => { try { return fs.readdirSync(d); } catch { return []; } };
   for (const a of ls(dir)) for (const o of ls(path.join(dir, a))) for (const n of ls(path.join(dir, a, o))) {
     if (!/^local_.*\.json$/.test(n)) continue;

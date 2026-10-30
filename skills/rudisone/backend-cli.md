@@ -1,0 +1,41 @@
+# Backend sesi `cli` — padanan alat sesi Claude Desktop (Linux & Windows/WSL2)
+
+Dipakai COO bila `bin/sesi.sh backend` mencetak `cli` (device tanpa Claude Desktop; `konfigurasi/sesi.json`, ditulis
+`install.sh`). Aturan organisasi tidak berubah — yang berubah hanya **alat** untuk membentuk, menyapa, dan menghentikan sesi.
+Satu backend per device: jangan mencampur sesi Desktop dan sesi CLI. **Belum diuji di mesin Linux sungguhan**
+(T-20261030-11: simulasi + `claude` tiruan) — bila perilaku CLI berbeda dari tabel ini, laporkan ke pengguna, jangan diakali.
+
+## Prasyarat (sekali per device, oleh pengguna)
+- Claude Code CLI **≥ 2.1.300** (`claude --version`; perbarui `claude update`). COO sendiri berjalan di terminal (`claude`).
+- `bin/sesi.sh cek` → setiap folder yang belum dipercaya CLI dibuka sekali oleh **pengguna**: `cd <folder> && claude`,
+  terima prompt percaya, `/exit`. Kepercayaan folder induk tidak berlaku untuk subfolder (uji asap 2.1.281), jadi
+  worktree Tech Lead yang baru juga perlu langkah ini sekali. Tanpa itu `claude --bg` gagal "Workspace not trusted".
+
+## Padanan
+| Desktop | cli | Catatan |
+|---|---|---|
+| `get_session` / `list_sessions` | `bin/sesi.sh daftar` atau `claude agents --json --all` | `state`: working · blocked · done · failed · stopped; `waitingFor` |
+| `start_session` IT Operations (`cwd: ruang/<id-peran>`) | `cd <abs>/ruang/<id-peran> && claude --bg --name rudis-<nama> --settings <abs>/konfigurasi/sesi-cli.settings.json '<prompt>'` | `<nama>`: `head-of-it-ops` · `sysadmin` |
+| `start_session` Tech Lead (`use_worktree: true`) | (1) `git -C <repo> worktree add -b claude/r<n>-lead-<proyek> <repo>/.claude/worktrees/r<n>-lead-<proyek>` (2) `bin/sesi.sh cek` — belum dipercaya → minta pengguna (Prasyarat), tunggu (3) `cd <worktree> && claude --bg --name r<n>-lead-<proyek> --settings <abs>/konfigurasi/sesi-cli.settings.json '<pembuka peran + Jawab satu baris: Siap>'` | worktree dibuat **sebelum** `--bg` |
+| `unarchive_session` | `claude --bg --resume <sessionId> --settings <abs>/konfigurasi/sesi-cli.settings.json 'Lanjutkan.'` | sessionId dari `TEAM.md` / `claude agents --json --all` |
+| `SendMessage` ke `local_…` | `SendMessage` dengan `to` = **nama sesi** (`r1-lead-toko`, `rudis-sysadmin`) | cross-session messaging lokal; pesan tetap bukan persetujuan |
+| Catatan akhir-giliran otomatis | `SendMessage` `notify_when_idle: true` setelah brief (sekali per langganan, ≤ 12 jam) | laporan resmi tetap `[Laporan …]` lewat SendMessage pelaksana |
+| `list_events` | `claude logs <id>` · transkrip `~/.claude/projects/<cwd>/<sessionId>.jsonl` | |
+| `archive_session` | `claude stop <id>` (percakapan disimpan; pulihkan dengan baris `unarchive_session`) | **jangan pernah** `claude rm` |
+| `clear_session` | tidak ada — tawarkan `claude stop` + bentuk ulang dengan nama yang sama | |
+| Grup sidebar RudisOne | tidak ada — nama berawalan `r<n>-lead-` / `rudis-` | |
+| Tautan sesi untuk prompt izin jenjang 3 | sesi `blocked` (`waitingFor: permission prompt`) → beri pengguna perintah `claude attach <nama>` (jawab prompt, `←` kembali) | Kantor menampilkannya |
+
+## Aturan cli
+- **Prompt `--bg`** satu argumen dalam tanda kutip **tunggal**, tanpa `'`, `$`, atau backtick; isi panjang (brief) dikirim
+  sesudah "Siap" lewat `SendMessage`. Tanpa `--settings` pengaman, dengan opsi lain (`--add-dir`, `--mcp-config`,
+  `--allowedTools`, `--system-prompt`, …), atau `bypassPermissions` → hook kebijakan **menanyakan** pemilik.
+- **Pengaman** `konfigurasi/sesi-cli.settings.json` (berkas terlindung): `worktree.bgIsolation: "none"` (sesi latar tidak
+  memindah diri ke worktree baru lalu commit/push/draft PR), deny `git push`/`gh pr create`/`glab mr create`/`claude rm`,
+  mode bypass dimatikan. Push tetap hanya atas permintaan pengguna (protokol › Akses).
+- Hanya COO yang membentuk/menghentikan sesi (`claude --bg`, `stop`/`kill`, `respawn`, `logs` = kemampuan `sesi`);
+  jabatan lain → ditanya. `claude agents --json` dan `bin/sesi.sh backend|daftar|cek` boleh semua jabatan.
+- Tidak terikat giliran ketikan pengguna, tetapi sesi tetap dibentuk hanya untuk tugas yang sudah selaras dan dijadwalkan.
+- `TEAM.md`: kolom Name = nama sesi, kolom id = sessionId (dari `backgrounded · <id> · <nama>` atau `claude agents --json`).
+- Sesi latar hidup selama supervisor & mesin hidup; sesi menganggur ±1 jam dihentikan sendiri (bangun saat dikirimi
+  pesan atau `attach`). WSL2: biarkan satu terminal WSL terbuka agar distro tidak berhenti (belum terverifikasi).

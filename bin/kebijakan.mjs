@@ -510,6 +510,9 @@ function klasifikasiSegmen(s, K, ctx) {
     return { aman: false, ubahSendiri: !BACA_SENDIRI[skrip].includes(subp),
       bacaSendiri: BACA_SENDIRI[skrip].includes(subp) && alihOk && prefiks.every((p) => /^RUDISONE_[A-Z_]+=/.test(p)) };
   }
+  // Backend sesi cli (T-20261030-11): dikenali dari nama program di path mana pun (agar pembatasan tidak lolos lewat
+  // ~/.local/bin/claude), tetapi hanya boleh ikut diloloskan bila dipanggil dengan nama standar.
+  if (nama === "claude") { const h = klasifikasiClaude(args, dasarAman, ctx); return programStandar(prog) ? h : { ...h, aman: false }; }
   if (!programStandar(prog)) return { aman: false };
   const cli = Object.entries(K.penyedia).find(([, p]) => p.jenis === "cli" && p.perintah === nama);
   if (cli) {
@@ -558,6 +561,67 @@ function klasifikasiSegmen(s, K, ctx) {
       && !ARG_BERBAHAYA[nama]?.(args) && !ARG_BERBAHAYA_LOKAL[nama]?.(args);
     return { aman };
   }
+  return { aman: false };
+}
+
+// ---------- backend sesi cli: perintah `claude` (T-20261030-11) ----------
+// Membentuk/menghentikan sesi latar = kemampuan "sesi" (hanya COO, jenjang 1). `claude --bg` hanya dikenali aman dengan
+// opsi dari daftar tetap DAN tepat satu `--settings` = pengaman RudisOne (bgIsolation none, deny push/rm, bypass mati).
+// Selalu ditanya (jenjang 3, semua jabatan): bypassPermissions, `claude rm` (menghapus worktree), `claude attach` (milik
+// pengguna di terminalnya), `respawn --all`, opsi di luar daftar. `claude agents --json` = baca, semua jabatan.
+const SETTINGS_SESI = path.join(ROOT, "konfigurasi", "sesi-cli.settings.json");
+const BAHAYA_CLAUDE = /^--(dangerously-skip-permissions|allow-dangerously-skip-permissions)(=|$)|bypassPermissions/i;
+const MODE_AMAN = new Set(["default", "auto", "acceptEdits", "plan", "manual", "dontAsk"]);
+const OPSI_BG = new Set(["-n", "--name", "--agent", "-r", "--resume", "--model", "--permission-mode", "--settings"]);
+function klasifikasiClaude(args, dasarAman, ctx) {
+  const tanya = (aksi) => ({ aman: false, aksi: [{ kemampuan: "sesi", jenjang: 3, aksi }] });
+  if (args.some((a) => BAHAYA_CLAUDE.test(a))) return tanya("claude dengan bypassPermissions — tidak pernah dipakai RudisOne");
+  const sub = args[0] ?? "";
+  if (sub === "rm") return tanya("claude rm — menghapus sesi & worktree; RudisOne memakai claude stop");
+  if (sub === "attach") return tanya("claude attach — dijalankan pengguna di terminalnya sendiri");
+  if (sub === "agents") {
+    const r = args.slice(1);
+    let ok = r.includes("--json");
+    for (let i = 0; ok && i < r.length; i++) {
+      if (r[i] === "--json" || r[i] === "--all") continue;
+      if (r[i] === "--cwd" && r[i + 1] !== undefined && !r[i + 1].startsWith("-")) { i++; continue; }
+      ok = false;
+    }
+    return ok ? { aman: dasarAman, aksi: [{ kemampuan: "sesi-baca", jenjang: 1, aksi: "claude agents --json" }] } : { aman: false };
+  }
+  if (["stop", "kill", "respawn", "logs"].includes(sub)) {
+    const ok = args.length === 2 && /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(args[1]);
+    return { aman: dasarAman && ok, aksi: [{ kemampuan: "sesi", jenjang: ok ? 1 : 3, aksi: `claude ${args.join(" ")}`.slice(0, 80) }] };
+  }
+  if (args.includes("--bg") || args.includes("--background")) {
+    let pengaman = 0, settingsLain = 0, prompt = 0, asing = null, namaSesi = "";
+    for (let i = 0; i < args.length && !asing; i++) {
+      const a = args[i];
+      if (a === "--bg" || a === "--background") continue;
+      const sama = a.startsWith("--") ? a.indexOf("=") : -1;
+      const k = sama > 0 ? a.slice(0, sama) : a;
+      if (OPSI_BG.has(k)) {
+        const v = sama > 0 ? a.slice(sama + 1) : args[++i];
+        if (v === undefined || v === "" || v.startsWith("-")) { asing = `${k} tanpa nilai`; break; }
+        if (k === "--permission-mode" && !MODE_AMAN.has(v)) asing = `${k} ${v}`;
+        if (k === "-n" || k === "--name") namaSesi = v;
+        if (k === "--settings") {
+          const p = rumah(v);
+          const abs = path.isAbsolute(p) ? p : ctx.cwd ? path.resolve(ctx.cwd, p) : null;
+          if (abs && normal(asli(abs) ?? abs) === normal(asli(SETTINGS_SESI) ?? SETTINGS_SESI)) pengaman++; else settingsLain++;
+        }
+        continue;
+      }
+      if (a.startsWith("-")) { asing = a; break; }
+      prompt++;
+    }
+    if (!asing && prompt > 1) asing = "lebih dari satu argumen prompt (kutip prompt dengan tanda kutip tunggal)";
+    if (asing) return tanya(`claude --bg dengan opsi di luar daftar aman (${asing})`);
+    if (pengaman !== 1 || settingsLain) return tanya("claude --bg tanpa tepat satu --settings pengaman RudisOne (konfigurasi/sesi-cli.settings.json)");
+    return { aman: dasarAman, aksi: [{ kemampuan: "sesi", jenjang: 1, aksi: `bentuk sesi latar ${namaSesi}`.trim() }] };
+  }
+  if (args.length === 1 && ["--version", "-v", "--help", "-h"].includes(sub))
+    return { aman: dasarAman, aksi: [{ kemampuan: "sesi-baca", jenjang: 1, aksi: "claude --version" }] };
   return { aman: false };
 }
 

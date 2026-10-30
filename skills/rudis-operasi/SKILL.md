@@ -32,7 +32,7 @@ Alat dan akun yang dipakai RudisOne adalah **aset perusahaan**: hanya sesi Rudis
 sesi saat dibutuhkan) yang memakainya dengan aturan ini; sesi pribadi pengguna tidak tersentuh. Daftar aset:
 `penyedia.md`. Aturan mesin: `kebijakan-akses.json`, dibaca hook `bin/kebijakan.mjs` di setiap panggilan `Bash`,
 `Write`/`Edit` dan alat MCP. Jabatan dibaca dari folder **awal** sesi (baris pertama transkrip) atau pembuka peran di pesan
-**pertama** — `cd` ke `ruang/<id>` lain tidak mengubah jabatan. Setiap kemampuan (DNS, hosting, server, data production, rilis, repositori) punya daftar jabatan yang boleh
+**pertama** — `cd` ke `ruang/<id>` lain tidak mengubah jabatan. Setiap kemampuan (DNS, hosting, server, data production, rilis, repositori, sesi latar backend cli) punya daftar jabatan yang boleh
 memakainya; jabatan lain selalu ditanya, walau sekadar membaca.
 
 ## 4. Jenjang 2 dan 3

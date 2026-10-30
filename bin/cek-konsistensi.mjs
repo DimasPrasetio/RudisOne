@@ -13,6 +13,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { bangun as bangunPeran, daftarPeran } from "./peran.mjs";
 import { deteksiProyek } from "./perkakas.mjs";
+import { agentsCli, backendSesi, folderDesktop, normalAgents } from "./sesi.mjs";
 
 const HOME = os.homedir();
 const INI = fileURLToPath(import.meta.url);
@@ -20,12 +21,12 @@ const ROOT = process.env.RUDISONE_ROOT || path.resolve(path.dirname(INI), "..");
 const RUMAH = "~/Documents/Neuron/ai-agent/RudisOne";
 const SKILLS_USER = process.env.RUDISONE_SKILLS_USER || path.join(HOME, ".claude", "skills");
 const AGENTS_USER = process.env.RUDISONE_AGENTS_USER || path.join(HOME, ".claude", "agents");
-const DESKTOP = process.env.RUDISONE_KANTOR_DESKTOP || path.join(HOME, "Library", "Application Support", "Claude", "claude-code-sessions");
+const DESKTOP = folderDesktop();
 export const BATAS_INTI = 200;
 /** Batas isi skill yang dipertahankan setelah kompaksi (≈5.000 token; perkiraan 1 token ≈ 4 byte). */
 const BATAS_SKILL_BYTE = 20_000;
 /** Berkas per device / di luar repo: tidak wajib ada di repo. */
-const PER_DEVICE = /^(handoff\/|catatan\/|TEAM\.md$|konfigurasi\/(server\.json|infra\.md)$|register-tugas\.(json|md)$|(?:^|.*\/)\.claude\/settings\.local\.json$)/;
+const PER_DEVICE = /^(handoff\/|catatan\/|TEAM\.md$|konfigurasi\/(server\.json|infra\.md|sesi\.json)$|register-tugas\.(json|md)$|(?:^|.*\/)\.claude\/settings\.local\.json$)/;
 /** Nama `rudis-…` yang sah selain skill & subagent: perkakas resmi (perkakas.json) dan nama sesi singkat (≤ 24 karakter). */
 const NAMA_SESI_SINGKAT = ["rudis-head-of-it-ops", "rudis-sysadmin", "rudis-fin-controller", "rudis-hr-bp",
   // keluaran `bin/perkakas.sh proyek` (jenis proyek), bukan skill
@@ -192,6 +193,13 @@ export function cekPemetaan(root = ROOT, ref = null) {
 // ---------- device ----------
 function sesiDesktop() {
   const m = new Map();
+  // backend cli: sesi dari `claude agents --json --all`, dikenali lewat session id dan nama (`--name`)
+  if (backendSesi().backend === "cli") {
+    const d = agentsCli();
+    if (!d) return null;
+    for (const e of normalAgents(d)) { const v = { arsip: e.archived, judul: e.title ?? "" }; m.set(e.cli, v); m.set(e.localId, v); }
+    return m;
+  }
   let akun = [];
   try { akun = fs.readdirSync(DESKTOP); } catch { return null; }
   for (const a of akun) {
@@ -246,12 +254,14 @@ export function cekDevice(root = ROOT) {
     let bagian = "";
     for (const baris of teks.split("\n")) {
       if (/^## /.test(baris)) { bagian = baris; continue; }
-      const m = baris.match(/^\|\s*([^|]+?)\s*\|.*?`(local_[0-9a-f-]{8,})`/);
+      // id sesi Desktop `local_…`, atau (backend cli) session id UUID / nama sesi di kolom Name
+      const m = baris.match(/^\|\s*([^|]+?)\s*\|.*?`(local_[0-9a-f-]{8,}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})`/);
       if (!m) continue;
       const [, peran, id] = m;
-      if (!sesi) { catat("info", "team", "metadata sesi Desktop tidak terbaca — TEAM.md tidak dicocokkan"); break; }
+      const asal = backendSesi().backend === "cli" ? "claude agents --json --all" : "sesi Desktop";
+      if (!sesi) { catat("info", "team", `metadata ${asal} tidak terbaca — TEAM.md tidak dicocokkan`); break; }
       const s = sesi.get(id);
-      if (!s) catat("peringatan", "team", `TEAM.md: ${peran} → ${id} tidak ditemukan di sesi Desktop`);
+      if (!s) catat("peringatan", "team", `TEAM.md: ${peran} → ${id} tidak ditemukan di ${asal}`);
       else if (s.arsip) {
         const saatPerlu = /^## (IT Operations|Sesi saat dibutuhkan)\b/.test(bagian);
         catat(saatPerlu ? "info" : "peringatan", "team", `TEAM.md: ${peran} → ${id} terarsip${saatPerlu ? " (dipulihkan saat dibutuhkan)" : ""}`);

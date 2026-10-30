@@ -15,6 +15,9 @@ process.env.RUDISONE_ROOT = ROOT;
 process.env.RUDISONE_SERVER = path.join(tmp, "tidak-ada-server.json");
 process.env.RUDISONE_KANTOR_PROJECTS = path.join(tmp, "projects");
 process.env.RUDISONE_KANTOR_DESKTOP = path.join(tmp, "desktop");
+// Fixture metadata berformat Desktop → backend dipaku desktop (backend cli: kantor/sesi-cli.test.mjs).
+process.env.RUDISONE_SESI = path.join(tmp, "sesi.json");
+fs.writeFileSync(process.env.RUDISONE_SESI, JSON.stringify({ backend: "desktop" }));
 process.env.RUDISONE_KANTOR_TEAM_MD = path.join(tmp, "TEAM.md");
 process.env.RUDISONE_KANTOR_REGISTER = path.join(tmp, "register-tugas.md");
 process.env.RUDISONE_KANTOR_REGISTER_JSON = path.join(tmp, "register-tugas.json");   // belum ada → MD lama dipakai

@@ -71,7 +71,7 @@ for d in "$ROOT"/skills/*/; do
   else fail "~/.claude/skills/$n sudah dipakai sistem lain ($(readlink "$tujuan" || echo "bukan tautan")) — tidak disentuh, periksa manual"; fi
 done
 
-for s in server-cek rilis-cek pasca-deploy perkakas kebijakan konfig register peran inti cek-konsistensi; do
+for s in server-cek rilis-cek pasca-deploy perkakas kebijakan konfig register peran inti cek-konsistensi sesi; do
   if [ -x "$ROOT/bin/$s.sh" ]; then pass "perkakas bin/$s.sh"
   else fail "bin/$s.sh tidak executable (jalankan: chmod +x $ROOT/bin/*.sh)"; fi
 done
@@ -96,6 +96,17 @@ command -v gh >/dev/null 2>&1 && pass "GitHub CLI (gh) — dipakai rilis-cek.sh"
 
 if command -v claude >/dev/null 2>&1; then pass "Claude Code CLI: $(command -v claude)"
 else fail "Claude Code CLI tidak ditemukan (opsional bila hanya memakai Claude Desktop)"; fi
+
+# Backend sesi per device (protokol.md › Model sesi): desktop (macOS/Windows) · cli (Linux/WSL2, tanpa Claude Desktop).
+# konfigurasi/sesi.json ditulis sekali (tidak pernah ditimpa; ubah manual bila perlu). Backend cli: versi CLI ≥ 2.1.300,
+# pengaman sesi latar, dan folder yang harus dipercaya sekali oleh pengguna (skills/rudisone/backend-cli.md).
+if command -v node >/dev/null 2>&1; then
+  pass "backend sesi: $(node "$ROOT/bin/sesi.mjs" deteksi --tulis)"
+  if [ "$(node "$ROOT/bin/sesi.mjs" backend | cut -d' ' -f1)" = cli ]; then
+    if node "$ROOT/bin/sesi.mjs" cek | tail -n +2 | sed 's/^/  /'; [ "${PIPESTATUS[0]}" -eq 0 ]; then pass "backend sesi cli siap"
+    else fail "backend sesi cli perlu perhatian (lihat baris di atas) — sesi Tech Lead/IT Operations belum bisa dibentuk"; fi
+  fi
+fi
 
 # Server & DNS: fakta per device di konfigurasi/server.json (penyedia.md › Konfigurasi server), bukan di repo.
 if "$ROOT/bin/konfig.sh" cek >/dev/null 2>&1; then

@@ -9,6 +9,9 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const SINI = path.dirname(fileURLToPath(import.meta.url));
+// Fixture sesi di uji ini berformat Desktop → backend dipaku desktop (di Linux deteksi bawaannya cli; diuji di sesi.test.mjs).
+process.env.RUDISONE_SESI = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "cek-sesi-")), "sesi.json");
+fs.writeFileSync(process.env.RUDISONE_SESI, JSON.stringify({ backend: "desktop" }));
 const REPO = path.resolve(SINI, "..");
 const SKRIP = path.join(SINI, "cek-konsistensi.mjs");
 
