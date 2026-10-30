@@ -79,3 +79,10 @@ test("pemetaan: jangkar dengan \\| dan baris baru di sumber tetap cocok", () => 
   }));
   assert.deepEqual(kodeTemuan(h), []);
 });
+
+test("repo ini: --repo bersih (rujukan, path, skill, inti, subagent, pemetaan 100% terhadap 3b1c888)", () => {
+  const p = spawnSync(process.execPath, [SKRIP, "--repo", "--json", "--ref", "3b1c888"], { cwd: REPO, env: { ...process.env, RUDISONE_ROOT: REPO }, encoding: "utf8" });
+  const t = JSON.parse(p.stdout || "[]");
+  assert.deepEqual(t.filter((x) => x.tingkat !== "info"), []);
+  assert.equal(p.status, 0);
+});
