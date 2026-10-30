@@ -70,8 +70,24 @@ export function tampilPath(p) {
  *  yang menganggap `C:` nama host; di OS lain `tar` biasa. */
 export function tarZip() {
   if (WINDOWS) {
-    const bsd = path.join(process.env.SystemRoot || "C:\Windows", "System32", "tar.exe");
+    const bsd = path.join(process.env.SystemRoot || "C:\\Windows", "System32", "tar.exe");
     if (fs.existsSync(bsd)) return bsd;
   }
   return "tar";
+}
+
+const _drive = new Map();
+const adaDrive = (huruf) => {
+  const k = huruf.toLowerCase();
+  if (!_drive.has(k)) { try { _drive.set(k, fs.existsSync(`${k.toUpperCase()}:\\`)); } catch { _drive.set(k, false); } }
+  return _drive.get(k);
+};
+/** Path gaya Git Bash/MSYS (`/c/Users/x`, `/cygdrive/c/x`) → bentuk Windows (`C:/Users/x`). Hanya bila drive itu ada;
+ *  di macOS/Linux dan untuk path lain: tidak berubah. */
+export function dariBash(p) {
+  const s = String(p ?? "");
+  if (!WINDOWS) return s;
+  const m = s.match(/^\/(?:cygdrive\/)?([A-Za-z])(?=\/|$)(.*)$/);
+  if (m && adaDrive(m[1])) return `${m[1].toUpperCase()}:${m[2] || "/"}`;
+  return s;
 }

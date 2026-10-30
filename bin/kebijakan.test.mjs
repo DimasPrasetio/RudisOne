@@ -5,7 +5,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { palsu } from "./lib/uji-util.mjs";
 
 const SINI = path.dirname(fileURLToPath(import.meta.url));
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "kebijakan-"));
@@ -18,17 +19,29 @@ fs.writeFileSync(KONFIG, JSON.stringify({
   dns: { mcp_server: "hostinger-api", domain: ["contoh.test"] },
 }));
 // rilis-cek palsu: SIAP bila berkas <skrip>.siap ada (pemeriksaan ulang langsung saat deploy, T-20261030-5)
-const RILIS = path.join(tmp, "rilis-cek-palsu.sh");
-fs.writeFileSync(RILIS, '#!/bin/sh\nif [ -f "$0.siap" ]; then echo "Hasil: SIAP DEPLOY"; exit 0; fi\necho "Hasil: BELUM SIAP"; exit 1\n', { mode: 0o755 });
+const RILIS = path.join(tmp, process.platform === "win32" ? "rilis-cek-palsu.cmd" : "rilis-cek-palsu");
+palsu(tmp, "rilis-cek-palsu", `import fs from "node:fs";
+if (fs.existsSync(${JSON.stringify(RILIS + ".siap")})) { console.log("Hasil: SIAP DEPLOY"); process.exit(0); }
+console.log("Hasil: BELUM SIAP"); process.exit(1);
+`);
 // register fixture: worktree tim hanya bermakna di folder proyek terdaftar (T-20261030-6 A3)
 const REGISTER = path.join(tmp, "register-tugas.json");
 fs.writeFileSync(REGISTER, JSON.stringify({ versi: 1, tugas: [{ id: "T-1", folder: "/x/toko (branch rudis/T-1)" }] }));
 // lokasi kredensial gh di luar bawaan (T-20261030-12): GH_CONFIG_DIR & XDG_CONFIG_HOME/gh
 const GH = path.join(tmp, "ghconf"), XDG = path.join(tmp, "xdg");
 fs.mkdirSync(GH, { recursive: true }); fs.mkdirSync(path.join(XDG, "gh"), { recursive: true });
-fs.symlinkSync(GH, path.join(tmp, "tautan"));
+// symlink butuh Developer Mode/admin di Windows; tanpa itu uji yang bergantung padanya dilewati (ADA_SYMLINK)
+let ADA_SYMLINK = true;
+const taut = (target, tautan) => { try { fs.symlinkSync(target, tautan, "junction"); } catch (e) { if (["EPERM", "EACCES"].includes(e.code)) ADA_SYMLINK = false; else throw e; } };
 fs.mkdirSync(path.join(GH, "sub"), { recursive: true });
-fs.symlinkSync(path.join(GH, "sub"), path.join(tmp, "tautan-sub"));   // tautan-sub/.. = GH (fisik), bukan tmp (teks)
+taut(GH, path.join(tmp, "tautan"));
+taut(path.join(GH, "sub"), path.join(tmp, "tautan-sub"));   // tautan-sub/.. = GH (fisik), bukan tmp (teks)
+// Windows: HOME asli sering mengandung spasi (C:\Users\Nama Depan) dan memecah token perintah → pakai HOME sementara.
+if (process.platform === "win32") {
+  const rumahUji = path.join(tmp, "rumah");
+  fs.mkdirSync(rumahUji, { recursive: true });
+  process.env.USERPROFILE = rumahUji; process.env.HOME = rumahUji;
+}
 const HOME_REL = os.homedir().replace(/^\//, "");
 Object.assign(process.env, {
   GH_CONFIG_DIR: GH, XDG_CONFIG_HOME: XDG,
@@ -47,7 +60,12 @@ const SA = path.join(ROOT, "ruang", "system-administrator");
 const COO = ROOT;
 const SHA = "0123456789abcdef0123456789abcdef01234567";
 let n = 0;
-const bash = (cwd, command, extra = {}) => ({ session_id: `s${++n}`, cwd, tool_name: "Bash", tool_input: { command }, hook_event_name: "PreToolUse", ...extra });
+// Bash tool di Windows = Git Bash: path di perintah berbentuk C:/…, bukan C:\… (di bash `\` adalah escape). Hanya path di bawah
+// folder uji yang diluruskan; cwd tetap bentuk asli OS (seperti yang dikirim Claude Code ke hook).
+const lurusPath = (s) => (process.platform === "win32"
+  ? s.replace(new RegExp(`(?:${[tmp, tmp.replaceAll("\\", "/")].map((x) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})[^\\s'"]*`, "g"), (m) => m.replaceAll("\\", "/"))
+  : s);
+const bash = (cwd, command, extra = {}) => ({ session_id: `s${++n}`, cwd, tool_name: "Bash", tool_input: { command: lurusPath(command) }, hook_event_name: "PreToolUse", ...extra });
 const mcp = (cwd, tool, input) => ({ session_id: `s${++n}`, cwd, tool_name: `mcp__hostinger-api__${tool}`, tool_input: input, hook_event_name: "PreToolUse" });
 const kep = (i) => putuskan(i, K).keputusan;
 
@@ -462,11 +480,13 @@ test("F2: symlink dan hardlink ke berkas terlindung tetap terlindung", () => {
   const old = process.env.RUDISONE_KEBIJAKAN;
   // berkas terlindung di daftar: RUDISONE_KEBIJAKAN (kebijakan-akses.json repo) — buat tautan ke sana
   const sym = path.join(tmp, "tautan-sym.json"), hard = path.join(tmp, "tautan-hard.json");
-  fs.symlinkSync(old, sym);
+  let symOk = true;   // symlink berkas butuh Developer Mode/admin di Windows; hardlink NTFS tidak
+  try { fs.symlinkSync(old, sym); } catch (e) { if (["EPERM", "EACCES"].includes(e.code)) symOk = false; else throw e; }
   const kep2 = (f) => putuskan({ session_id: "l", cwd: "/x", tool_name: "Write", tool_input: { file_path: f, content: "" }, hook_event_name: "PreToolUse" }, K2).keputusan;
-  assert.equal(kep2(sym), "ask");
-  try { fs.linkSync(old, hard); assert.equal(kep2(hard), "ask"); } finally { fs.rmSync(hard, { force: true }); }
-  fs.rmSync(sym);
+  if (symOk) assert.equal(kep2(sym), "ask");
+  try { fs.linkSync(old, hard); } catch (e) { if (e.code !== "EXDEV") throw e; }   // beda drive/volume: hardlink tidak mungkin
+  try { if (fs.existsSync(hard)) assert.equal(kep2(hard), "ask"); } finally { fs.rmSync(hard, { force: true }); }
+  if (symOk) fs.rmSync(sym);
   assert.equal(kep2(asli), null);
 });
 
@@ -599,7 +619,7 @@ test("tinjauan: baca server yang sah tetap allow (regresi)", () => {
 });
 
 // ===================== T-20261030-5 · temuan peninjau (putaran 2) =====================
-test("tinjauan N1: firmlink /System/Volumes/Data dan /.vol/<dev>/<ino> tetap terlindung", () => {
+test("tinjauan N1: firmlink /System/Volumes/Data dan /.vol/<dev>/<ino> tetap terlindung", { skip: process.platform === "win32" && "khusus macOS" }, () => {
   const tulis = (f) => putuskan({ session_id: "n1", cwd: "/x", tool_name: "Write", tool_input: { file_path: f, content: "" }, hook_event_name: "PreToolUse" }, K).keputusan;
   for (const f of [`/System/Volumes/Data${path.join(ROOT, "kebijakan-akses.json")}`, `/System/Volumes/Data${path.join(ROOT, "bin", "server-cek.sh")}`,
     `/System/Volumes/Data${path.join(os.homedir(), ".zshrc")}`, `/System/Volumes/Data${path.join(os.homedir(), ".claude", "projects", "-x", "a.jsonl")}`,
@@ -683,7 +703,7 @@ test("A3: rantai hash audit — sisipan/suntingan terdeteksi, CLI audit --verifi
   const cli = (...a) => { try { return { kode: 0, out: execFileSync(process.execPath, [path.join(SINI, "kebijakan.mjs"), ...a], { env: { ...process.env, RUDISONE_AUDIT: dir } }).toString() }; } catch (e) { return { kode: e.status, out: String(e.stdout) }; } };
   const f = path.join(dir, `${new Date().toISOString().slice(0, 7)}.jsonl`);
   fs.writeFileSync(f, JSON.stringify({ waktu: "2026-10-01T00:00:00Z", jenis: "lama" }) + "\n");   // baris lama tanpa rantai: sah
-  execFileSync(process.execPath, ["-e", `process.env.RUDISONE_AUDIT=${JSON.stringify(dir)};import(${JSON.stringify(path.join(SINI, "kebijakan.mjs"))}).then(m=>{m.tambahAudit({jenis:"a"});m.tambahAudit({jenis:"b"});m.tambahAudit({jenis:"c"});})`], { env: { ...process.env, RUDISONE_AUDIT: dir } });
+  execFileSync(process.execPath, ["-e", `process.env.RUDISONE_AUDIT=${JSON.stringify(dir)};import(${JSON.stringify(pathToFileURL(path.join(SINI, "kebijakan.mjs")).href)}).then(m=>{m.tambahAudit({jenis:"a"});m.tambahAudit({jenis:"b"});m.tambahAudit({jenis:"c"});})`], { env: { ...process.env, RUDISONE_AUDIT: dir } });
   let r = cli("audit", "--verifikasi");
   assert.equal(r.kode, 0, r.out);
   assert.match(r.out, /1 lama tanpa rantai, rantai utuh/);
@@ -759,14 +779,16 @@ test("U3 H1/H2: perkakas jenjang 1 hanya yang asli di ROOT/bin (realpath kernel)
   fs.mkdirSync(path.join(tmp, "jahat", "bin"), { recursive: true });
   fs.writeFileSync(path.join(tmp, "jahat", "bin", "server-cek.sh"), "#!/bin/sh\necho JAHAT\n", { mode: 0o755 });
   const SA_R = path.join(R, "ruang", "system-administrator");
-  try { fs.symlinkSync(jahat, path.join(SA_R, "lnk")); } catch { /* sudah ada */ }
+  try { fs.symlinkSync(jahat, path.join(SA_R, "lnk"), "junction"); } catch { /* sudah ada */ }   // junction: folder, tanpa hak admin di Windows
   const uji = (cwd, command) => JSON.parse(execFileSync(process.execPath, [path.join(SINI, "kebijakan.mjs"), "uji", JSON.stringify({ cwd, tool_name: "Bash", tool_input: { command } })],
     { env: { ...process.env, RUDISONE_ROOT: R } }).toString()).keputusan;
-  assert.equal(uji(SA_R, `${R}/bin/server-cek.sh`), "allow");                                     // asli & bersih
-  assert.notEqual(uji(SA_R, `${SA_R}/lnk/../../../bin/server-cek.sh`), "allow");                  // symlink + .. (H2)
-  assert.notEqual(uji(SA_R, `cd -P ${SA_R}/lnk/../../.. && bin/server-cek.sh`), "allow");          // cd -P (H2)
+  // path di perintah bash: garis miring ke depan dan dikutip (path temp Windows bisa memuat spasi setelah realpath)
+  const Rb = `"${R.replaceAll("\\", "/")}"`.replace(/"$/, ""), SAb = `"${SA_R.replaceAll("\\", "/")}`;
+  assert.equal(uji(SA_R, `${Rb}/bin/server-cek.sh"`), "allow");                                    // asli & bersih
+  assert.notEqual(uji(SA_R, `${SAb}/lnk/../../../bin/server-cek.sh"`), "allow");                  // symlink + .. (H2)
+  assert.notEqual(uji(SA_R, `cd -P ${SAb}/lnk/../../.." && bin/server-cek.sh`), "allow");          // cd -P (H2)
   fs.writeFileSync(path.join(R, "bin", "server-cek.sh"), "#!/bin/sh\necho DITIMPA\n");          // ditimpa lewat ~+ (H1)
-  assert.notEqual(uji(SA_R, `${R}/bin/server-cek.sh`), "allow");
+  assert.notEqual(uji(SA_R, `${Rb}/bin/server-cek.sh"`), "allow");
   assert.notEqual(uji(SA_R, "cd ~+/../.. && cp /tmp/x bin/server-cek.sh"), "allow");
 });
 
@@ -813,7 +835,7 @@ test("U3 L2: denyut hanya dari peristiwa hook nyata; disableAllHooks dilaporkan 
 });
 
 test("backend sesi cli: claude --bg/stop/kill/respawn/logs hanya COO; rm/attach/bypass/opsi asing selalu ditanya; red-team majemuk", () => {
-  const PENGAMAN = path.join(ROOT, "konfigurasi", "sesi-cli.settings.json");
+  const PENGAMAN = path.join(ROOT, "konfigurasi", "sesi-cli.settings.json").replaceAll(path.sep === "\\" ? "\\" : "\0", "/");   // di perintah bash: C:/…
   const TL = "/x/toko/.claude/worktrees/r1-lead-toko", RA = path.join(ROOT, "ruang", "research-analyst");
   const bg = (sisa = "") => `cd /x/toko/.claude/worktrees/r1-lead-toko && claude --bg --name r1-lead-toko --settings ${PENGAMAN}${sisa} 'Kamu adalah Tech Lead. Jawab satu baris: Siap'`;
   // COO: bentuk, pulihkan, status, hentikan → allow (tanpa prompt baru)
@@ -892,6 +914,8 @@ test("T-20261030-12: berkas kredensial (gh & lainnya) tidak pernah allow lewat c
     `cat ${path.join(tmp, "tautan-sub")}/../hosts.yml`, `cd -P ${path.join(tmp, "tautan-sub")}/.. && cat hosts.yml`,
     "cat /.vol/16777232/12345/hosts.yml", "cd ~/.config && cat /proc/self/cwd/gh/hosts.yml", "cd ~/.config && cat /proc/thread-self/cwd/gh/hosts.yml",
     "cd ~/.config && cat /dev/fd/../../proc/self/cwd/gh/hosts.yml", "cat /proc/self/root/home/u/.config/gh/hosts.yml", "cd ~/.config && cat /dev/fd/3"]) {
+    // `../` berulang + path rumah mutlak hanya bermakna di POSIX (di Windows `C:` tidak bisa jadi komponen path relatif)
+    if (process.platform === "win32" && c.includes("../".repeat(12))) continue;
     for (const cwd of [COO, SA]) assert.notEqual(kep(bash(cwd, g(c))), "allow", `${cwd}: ${c}`);
   }
   // pekerjaan biasa tetap lolos seperti sebelumnya

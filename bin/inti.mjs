@@ -13,6 +13,7 @@ import os from "node:os";
 import path from "node:path";
 import readline from "node:readline";
 import { fileURLToPath } from "node:url";
+import { posix } from "./lib/platform.mjs";
 
 const HOME = os.homedir();
 const INI = fileURLToPath(import.meta.url);
@@ -20,6 +21,8 @@ const ROOT = process.env.RUDISONE_ROOT || path.resolve(path.dirname(INI), "..");
 const SETTINGS = process.env.RUDISONE_SETTINGS_USER || path.join(HOME, ".claude", "settings.json");
 const RUMAH = "~/Documents/Neuron/ai-agent/RudisOne";
 const PENANDA = `"${INI}"`;   // path absolut skrip ini — hook sistem lain tidak dianggap milik kita
+const INI_LURUS = posix(INI);   // Windows: perintah hook ditulis dengan `/`; bentuk `\` lama tetap dikenali
+const dikenaliMilik = (c) => { const s = String(c ?? ""); return s.includes(PENANDA) || s.includes(`"${INI_LURUS}"`); };
 const MATCHER = "compact|resume";
 /** Batas baca transkrip (byte dari akhir dan awal) — cukup untuk pembuka peran & ID tugas terakhir. */
 const BATAS = 2_000_000;
@@ -97,9 +100,9 @@ export function putuskan(input) {
 
 // ---------- pemasangan (dijalankan pengguna) ----------
 function entriHook() {
-  return { matcher: MATCHER, hooks: [{ type: "command", command: `"${process.execPath}" "${INI}" hook`, timeout: 10 }] };
+  return { matcher: MATCHER, hooks: [{ type: "command", command: `"${posix(process.execPath)}" "${INI_LURUS}" hook`, timeout: 10 }] };
 }
-const milikKita = (e) => (e?.hooks ?? []).some((h) => String(h?.command ?? "").includes(PENANDA));
+const milikKita = (e) => (e?.hooks ?? []).some((h) => dikenaliMilik(h?.command));
 function bacaSettings() { try { return JSON.parse(fs.readFileSync(SETTINGS, "utf8")); } catch (e) { if (e.code === "ENOENT") return {}; throw e; } }
 export function statusPasang() { return (bacaSettings().hooks?.SessionStart ?? []).some(milikKita); }
 async function konfirmasi(pesan, opsi) {
