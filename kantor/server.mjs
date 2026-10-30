@@ -37,7 +37,7 @@ const diRoot = (cwd) => { const a = path.resolve(cwd), b = path.resolve(ROOT); r
 /** Tanda sesi RudisOne di pesan masuk: /rudisone, atau pembuka peran "Kamu adalah … di RudisOne". */
 const TANDA_RUDISONE = /<command-name>\/rudisone<\/command-name>|Kamu adalah\s[^\n]{1,80}?\sdi RudisOne\b/;
 /** Worktree tim engineering RudisOne: <repo>/.claude/worktrees/r<n>-<peran>-<proyek>. */
-const RE_WORKTREE = /\/\.claude\/worktrees\/r[1-3]-/;
+const RE_WORKTREE = /[\\/]\.claude[\\/]worktrees[\\/]r[1-3]-/;
 /** Sesi milik RudisOne — sistem agent lain di device yang sama (nama peran sama) tidak ikut ditampilkan. */
 function milikRudisOne(s, d) {
   if (d && teamMap.has(d.localId)) return true;
@@ -88,8 +88,8 @@ function nomorTim(proyek) {
 /** Nama proyek sebuah sesi: dari folder kerjanya (akar repo, juga dari worktree), atau akhiran judul bila proyeknya dikenal. */
 function proyekDari(teks = "", cwd = "") {
   if (cwd && !diRoot(cwd)) {
-    const akar = cwd.split(`${path.sep}.claude${path.sep}worktrees${path.sep}`)[0];
-    return path.basename(akar);
+    const akar = cwd.split(/[\\/]\.claude[\\/]worktrees[\\/]/)[0];
+    return path.basename(akar.replaceAll("\\", "/"));
   }
   const akhiran = String(teks).split(" · ").slice(1).join(" · ").trim();
   return akhiran && timProyek.has(akhiran) ? akhiran : null;

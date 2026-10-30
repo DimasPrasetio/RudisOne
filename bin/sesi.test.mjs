@@ -6,6 +6,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { palsu } from "./lib/uji-util.mjs";
 
 const SKRIP = path.join(path.dirname(fileURLToPath(import.meta.url)), "sesi.mjs");
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "sesi-uji-"));
@@ -17,8 +18,13 @@ fs.writeFileSync(path.join(ROOT, "handoff", "register-tugas.json"), JSON.stringi
 const CLAUDE_JSON = path.join(tmp, "claude.json");
 const AGENTS = path.join(tmp, "agents.json"), VERSI = path.join(tmp, "versi.txt"), LOG = path.join(tmp, "claude.log");
 // claude tiruan: --version dari VERSI, `agents --json [--all]` dari AGENTS; argumen dicatat
-const PALSU = path.join(tmp, "claude-palsu.sh");
-fs.writeFileSync(PALSU, `#!/bin/sh\necho "$*" >> "${LOG}"\n[ "$1" = "--version" ] && { cat "${VERSI}"; exit 0; }\n[ "$1" = "agents" ] && [ "$2" = "--json" ] && { cat "${AGENTS}"; exit 0; }\nexit 9\n`, { mode: 0o755 });
+const PALSU = palsu(tmp, "claude-palsu", `import fs from "node:fs";
+const a = process.argv.slice(2);
+fs.appendFileSync(${JSON.stringify(LOG)}, a.join(" ") + "\\n");
+if (a[0] === "--version") { process.stdout.write(fs.readFileSync(${JSON.stringify(VERSI)})); process.exit(0); }
+if (a[0] === "agents" && a[1] === "--json") { process.stdout.write(fs.readFileSync(${JSON.stringify(AGENTS)})); process.exit(0); }
+process.exit(9);
+`);
 const ENV = { ...process.env, RUDISONE_ROOT: ROOT, RUDISONE_CLAUDE_BIN: PALSU, RUDISONE_CLAUDE_JSON: CLAUDE_JSON,
   RUDISONE_SESI: path.join(ROOT, "konfigurasi", "sesi.json"), RUDISONE_REGISTER: path.join(ROOT, "handoff", "register-tugas.json") };
 delete ENV.RUDISONE_KANTOR_DESKTOP;
@@ -40,7 +46,7 @@ test("deteksi & folder Desktop per OS; konfigurasi/sesi.json menang atas deteksi
   assert.equal(m.folderDesktop("darwin", {}, "/Users/u"), "/Users/u/Library/Application Support/Claude/claude-code-sessions");
   assert.equal(m.folderDesktop("linux", {}, "/home/u"), "/home/u/.config/Claude/claude-code-sessions");
   assert.equal(m.folderDesktop("linux", { XDG_CONFIG_HOME: "/x" }, "/home/u"), "/x/Claude/claude-code-sessions");
-  assert.equal(m.folderDesktop("win32", { APPDATA: "C:/A" }, "C:/u"), path.join("C:/A", "Claude", "claude-code-sessions"));
+  assert.equal(m.folderDesktop("win32", { APPDATA: "C:/A" }, "C:/u"), path.win32.join("C:/A", "Claude", "claude-code-sessions"));
   assert.equal(m.folderDesktop("linux", { RUDISONE_KANTOR_DESKTOP: "/o" }), "/o");
   fs.rmSync(ENV.RUDISONE_SESI, { force: true });
   assert.match(sesi("backend").stdout, new RegExp(`^${m.deteksi()} \\(deteksi OS`));

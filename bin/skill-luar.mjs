@@ -5,7 +5,7 @@
 //   plugin    `claude plugin marketplace add <sumber>` + `claude plugin install <plugin>` (lisensi Anthropic:
 //             tidak pernah disalin ke repo sendiri — selalu dari marketplace resmi)
 //   platform  bawaan aplikasi Claude (mis. konektor Claude Docs); tidak bisa dipasang → pakai `alternatif`
-import { spawnSync } from "node:child_process";
+import { jalankan as jalankanProses } from "./lib/platform.mjs";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -17,7 +17,7 @@ const binClaude = () => process.env.RUDISONE_CLAUDE_BIN || "claude";
 const baris1 = (t) => t.split("\n").filter(Boolean).pop() ?? "";
 
 function jalankan(cmd, args, cwd) {
-  const r = spawnSync(cmd, args, { cwd, encoding: "utf8", timeout: 300_000,
+  const r = jalankanProses(cmd, args, { cwd, encoding: "utf8", timeout: 300_000,
     env: { ...process.env, GIT_TERMINAL_PROMPT: "0" } });
   return { ok: r.status === 0, out: (r.stdout || "").trim(), err: (r.stderr || r.error?.message || "").trim() };
 }

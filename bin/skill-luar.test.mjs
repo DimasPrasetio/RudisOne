@@ -5,6 +5,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
+import { palsu } from "./lib/uji-util.mjs";
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "skill-luar-"));
 const CLAUDE = path.join(tmp, "claude");
@@ -21,18 +22,20 @@ const g = (...a) => execFileSync("git", ["-C", SUMBER, ...a], { stdio: "ignore" 
 g("init", "-q", "-b", "main"); g("add", "-A"); g("-c", "user.name=u", "-c", "user.email=u@x", "commit", "-qm", "awal");
 
 // CLI claude palsu: marketplace add → known_marketplaces.json; plugin install → installed_plugins.json + SKILL.md.
-const BIN = path.join(tmp, "claude-palsu.sh");
-fs.writeFileSync(BIN, `#!/bin/sh
-D="${CLAUDE}/plugins"; mkdir -p "$D"
-case "$1 $2" in
-  "--version ") echo "9.9.9 (Claude Code)";;
-  "plugin marketplace") echo "{\\"anthropic-agent-skills\\":{}}" > "$D/known_marketplaces.json"; echo "$4" >> "${tmp}/panggilan";;
-  "plugin install") P="$D/cache/document-skills"; for s in docx pdf pptx xlsx frontend-design; do mkdir -p "$P/skills/$s"; echo x > "$P/skills/$s/SKILL.md"; done
-    echo "{\\"version\\":2,\\"plugins\\":{\\"$3\\":[{\\"installPath\\":\\"$P\\"}]}}" > "$D/installed_plugins.json"; echo "install $3" >> "${tmp}/panggilan";;
-  *) exit 1;;
-esac
+const BIN = palsu(tmp, "claude-palsu", `import fs from "node:fs";
+import path from "node:path";
+const a = process.argv.slice(2);
+const D = path.join(${JSON.stringify(CLAUDE)}, "plugins"); fs.mkdirSync(D, { recursive: true });
+const panggilan = (t) => fs.appendFileSync(${JSON.stringify(path.join(tmp, "panggilan"))}, t + "\\n");
+if (a[0] === "--version") { console.log("9.9.9 (Claude Code)"); process.exit(0); }
+if (a[0] === "plugin" && a[1] === "marketplace") {
+  fs.writeFileSync(path.join(D, "known_marketplaces.json"), JSON.stringify({ "anthropic-agent-skills": {} }) + "\\n"); panggilan(a[3]); process.exit(0); }
+if (a[0] === "plugin" && a[1] === "install") {
+  const P = path.join(D, "cache", "document-skills");
+  for (const s of ["docx", "pdf", "pptx", "xlsx", "frontend-design"]) { fs.mkdirSync(path.join(P, "skills", s), { recursive: true }); fs.writeFileSync(path.join(P, "skills", s, "SKILL.md"), "x\\n"); }
+  fs.writeFileSync(path.join(D, "installed_plugins.json"), JSON.stringify({ version: 2, plugins: { [a[2]]: [{ installPath: P }] } }) + "\\n"); panggilan("install " + a[2]); process.exit(0); }
+process.exit(1);
 `);
-fs.chmodSync(BIN, 0o755);
 process.env.RUDISONE_CLAUDE_BIN = BIN;
 
 const { cariSkill, cariEntri, pastikan, laporan } = await import("./skill-luar.mjs");

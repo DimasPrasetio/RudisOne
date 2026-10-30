@@ -6,6 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { jalankanSh } from "./lib/uji-util.mjs";
 
 const SINI = path.dirname(fileURLToPath(import.meta.url));
 const SKRIP = path.join(SINI, "register.mjs");
@@ -296,10 +297,10 @@ test("penulisan bersamaan: 12 proses tambah paralel → semua tugas ada, JSON va
 
 test("bin/register.sh meneruskan ke register.mjs", () => {
   const l = lokasi();
-  const r = spawnSync(path.join(SINI, "register.sh"), ["tampil"], { encoding: "utf8", env: { ...process.env, RUDISONE_REGISTER_JSON: l.json, RUDISONE_REGISTER_MD: l.md } });
+  const r = jalankanSh(path.join(SINI, "register.sh"), ["tampil"], { encoding: "utf8", env: { ...process.env, RUDISONE_REGISTER_JSON: l.json, RUDISONE_REGISTER_MD: l.md } });
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.stdout, /tidak ada tugas aktif/);
-  assert.equal(spawnSync(path.join(SINI, "register.sh"), ["tidak-dikenal"], { encoding: "utf8" }).status, 2);
+  assert.equal(jalankanSh(path.join(SINI, "register.sh"), ["tidak-dikenal"], { encoding: "utf8" }).status, 2);
 });
 
 test.after(() => fs.rmSync(tmp, { recursive: true, force: true }));

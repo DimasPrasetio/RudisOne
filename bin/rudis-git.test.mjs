@@ -6,6 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { jalankanSh } from "./lib/uji-util.mjs";
 import { checkpoint, rollback, daftar, main } from "./rudis-git.mjs";
 
 const SINI = path.dirname(fileURLToPath(import.meta.url));
@@ -14,7 +15,7 @@ const g = (cwd, ...a) => execFileSync("git", a, { cwd, encoding: "utf8", stdio: 
 const UTAMA = path.join(tmp, "proyek"), WT = path.join(tmp, "wt");
 fs.mkdirSync(UTAMA);
 g(UTAMA, "init", "-q", "-b", "main");
-g(UTAMA, "config", "user.email", "uji@contoh.test"); g(UTAMA, "config", "user.name", "uji"); g(UTAMA, "config", "commit.gpgsign", "false");
+g(UTAMA, "config", "user.email", "uji@contoh.test"); g(UTAMA, "config", "user.name", "uji"); g(UTAMA, "config", "commit.gpgsign", "false"); g(UTAMA, "config", "core.autocrlf", "false");
 fs.writeFileSync(path.join(UTAMA, "a.txt"), "v1\n");
 fs.writeFileSync(path.join(UTAMA, ".gitignore"), "rahasia.txt\n");
 g(UTAMA, "add", "-A"); g(UTAMA, "commit", "-q", "-m", "awal");
@@ -76,8 +77,9 @@ test("rollback ditolak: bukan checkpoint, bukan leluhur, tanpa path, path di lua
 });
 
 test("pembungkus shell memanggil modul", () => {
-  const out = execFileSync(path.join(SINI, "rudis-git.sh"), ["daftar", "T-20261030-6"], { cwd: WT, encoding: "utf8" });
-  assert.match(out, /checkpoint\(T-20261030-6\)/);
+  const r = jalankanSh(path.join(SINI, "rudis-git.sh"), ["daftar", "T-20261030-6"], { cwd: WT, encoding: "utf8" });
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /checkpoint\(T-20261030-6\)/);
 });
 
 test("U3 M6: berkas rahasia umum ditolak checkpoint; contoh/template boleh", () => {

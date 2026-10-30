@@ -11,7 +11,7 @@
 // Exit: 0 baik · 1 perlu perhatian · 3 argumen salah.
 // Override (uji): RUDISONE_ROOT, RUDISONE_SESI (berkas konfigurasi), RUDISONE_CLAUDE_BIN, RUDISONE_CLAUDE_JSON (~/.claude.json),
 //   RUDISONE_KANTOR_DESKTOP (folder metadata Desktop).
-import { spawnSync } from "node:child_process";
+import { jalankan } from "./lib/platform.mjs";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -41,16 +41,17 @@ export function backendSesi() {
 /** Folder metadata sesi Claude Desktop per OS (format internal aplikasi; boleh tidak ada). Linux: dugaan, belum terverifikasi. */
 export function folderDesktop(platform = process.platform, env = process.env, home = HOME) {
   if (env.RUDISONE_KANTOR_DESKTOP) return env.RUDISONE_KANTOR_DESKTOP;
-  if (platform === "darwin") return path.join(home, "Library", "Application Support", "Claude", "claude-code-sessions");
-  if (platform === "win32") return path.join(env.APPDATA || path.join(home, "AppData", "Roaming"), "Claude", "claude-code-sessions");
-  return path.join(env.XDG_CONFIG_HOME || path.join(home, ".config"), "Claude", "claude-code-sessions");
+  // join menurut OS tujuan (bukan OS yang menjalankan), agar hasilnya sama dengan yang dihitung di OS itu
+  if (platform === "darwin") return path.posix.join(home, "Library", "Application Support", "Claude", "claude-code-sessions");
+  if (platform === "win32") return path.win32.join(env.APPDATA || path.win32.join(home, "AppData", "Roaming"), "Claude", "claude-code-sessions");
+  return path.posix.join(env.XDG_CONFIG_HOME || path.posix.join(home, ".config"), "Claude", "claude-code-sessions");
 }
 
 // ---- backend cli: `claude agents --json` (antarmuka resmi untuk dibaca dari sesi lain) --------------------------------
 
 /** Daftar sesi dari `claude agents --json [--all]`, atau null bila CLI tidak ada / gagal. */
 export function agentsCli({ semua = true, timeout = 8000 } = {}) {
-  const r = spawnSync(BIN(), ["agents", "--json", ...(semua ? ["--all"] : [])], { encoding: "utf8", timeout, stdio: ["ignore", "pipe", "ignore"] });
+  const r = jalankan(BIN(), ["agents", "--json", ...(semua ? ["--all"] : [])], { encoding: "utf8", timeout, stdio: ["ignore", "pipe", "ignore"] });
   if (r.status !== 0) return null;
   try { const j = JSON.parse(r.stdout); return Array.isArray(j) ? j : null; } catch { return null; }
 }
@@ -93,7 +94,7 @@ export function normalAgents(daftar) {
 // ---- versi & kepercayaan folder ---------------------------------------------------------------------------------
 
 export function versiClaude() {
-  const r = spawnSync(BIN(), ["--version"], { encoding: "utf8", timeout: 8000, stdio: ["ignore", "pipe", "ignore"] });
+  const r = jalankan(BIN(), ["--version"], { encoding: "utf8", timeout: 8000, stdio: ["ignore", "pipe", "ignore"] });
   return r.status === 0 ? (r.stdout.match(/\d+\.\d+\.\d+/)?.[0] ?? null) : null;
 }
 /** a ≥ b untuk versi x.y.z. */
@@ -134,7 +135,7 @@ export function belumDipercaya(folder = folderSesi()) {
 
 // ---- perintah -------------------------------------------------------------------------------------------------------
 
-const tampil = (p) => (p.startsWith(`${HOME}/`) ? `~${p.slice(HOME.length)}` : p);
+const tampil = (p) => (p.startsWith(HOME + path.sep) || p.startsWith(HOME + "/") ? `~${p.slice(HOME.length).replaceAll("\\", "/")}` : p);
 
 function main(argv) {
   const [sub = "backend", ...rest] = argv;
