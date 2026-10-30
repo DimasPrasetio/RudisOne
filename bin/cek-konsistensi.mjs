@@ -1,5 +1,5 @@
 // Pemeriksa konsistensi RudisOne — READ-ONLY. Menangkap drift antara dokumen, berkas yang dirujuk, dan yang terpasang.
-//   node bin/cek-konsistensi.mjs [--repo] [--json]
+//   node bin/cek-konsistensi.mjs [--repo] [--json] [--ref <ref-lama>] · --serah <branch>  (cek sebelum merge branch itu)
 //   --repo  hanya cek isi repo (deterministik; dipakai tes/CI). Tanpa --repo: juga cek device (skill & subagent
 //           terpasang, hook, TEAM.md vs sesi hidup, register).
 // Exit: 0 bersih · 1 hanya peringatan · 2 ada galat.
@@ -137,6 +137,17 @@ export function cekRepo(root = ROOT, opsi = {}) {
     }
   }
 
+  // R8 — berkas per device yang masih dilacak git padahal di-.gitignore (mis. catatan/ sebelum serah migrasi v5):
+  // merge berikutnya bisa batal atau menghapusnya dari disk → README › Serah migrasi v5 ke main
+  try {
+    const out = execFileSync("git", ["ls-files", "-ci", "--exclude-standard"], { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+    if (out) {
+      const daftar = out.split("\n");
+      const folder = [...new Set(daftar.map((f) => f.split("/")[0]))];
+      catat("peringatan", "git-abaikan", `${daftar.length} berkas di-.gitignore tetapi masih dilacak git (${folder.join(", ")}) — keluarkan dari indeks dulu: git rm -r --cached ${folder.join(" ")} && git commit (README › Serah migrasi v5 ke main)`);
+    }
+  } catch { /* bukan repo git */ }
+
   // R7 — pemetaan aturan lama → lokasi baru (100%)
   cekPemetaan(root, ref);
   return temuan;
@@ -243,7 +254,32 @@ export function cekDevice(root = ROOT) {
   return temuan;
 }
 
+/** Sebelum serah: berkas yang masih dilacak di checkout ini tetapi di-.gitignore oleh branch yang akan di-merge.
+ *  Merge biasa akan batal (perubahan lokal) atau menghapus berkas itu dari disk. */
+export function cekSerah(root, ref) {
+  let abaikan;
+  try { abaikan = execFileSync("git", ["show", `${ref}:.gitignore`], { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }); }
+  catch { catat("galat", "serah", `${ref}:.gitignore tidak terbaca`); return temuan; }
+  const tmp = path.join(os.tmpdir(), `rudisone-serah-${process.pid}.gitignore`);
+  fs.writeFileSync(tmp, abaikan);
+  try {
+    const out = execFileSync("git", ["ls-files", "-ci", `--exclude-from=${tmp}`], { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+    if (out) {
+      const folder = [...new Set(out.split("\n").map((f) => f.split("/")[0]))];
+      const ubah = execFileSync("git", ["status", "--porcelain", "--", ...folder], { cwd: root, encoding: "utf8" }).trim();
+      catat("galat", "serah", `${out.split("\n").length} berkas dilacak di sini tetapi di-.gitignore oleh ${ref} (${folder.join(", ")}${ubah ? `; ${ubah.split("\n").length} berubah lokal` : ""}) — merge langsung akan batal atau menghapusnya dari disk. Dulu: git rm -r -q --cached ${folder.join(" ")} && git commit, baru merge`);
+    } else catat("info", "serah", `tidak ada berkas dilacak yang di-.gitignore oleh ${ref} — aman di-merge dari sisi ini`);
+  } finally { fs.rmSync(tmp, { force: true }); }
+  return temuan;
+}
+
 function utama(argv) {
+  const iSerah = argv.indexOf("--serah");
+  if (iSerah >= 0) {
+    cekSerah(ROOT, argv[iSerah + 1]);
+    for (const x of temuan) console.log(`  [${x.tingkat}] ${x.kode}: ${x.pesan}`);
+    return temuan.some((x) => x.tingkat === "galat") ? 2 : 0;
+  }
   const repoSaja = argv.includes("--repo");
   const iRef = argv.indexOf("--ref");
   cekRepo(ROOT, { refLama: iRef >= 0 ? argv[iRef + 1] : null });

@@ -141,6 +141,18 @@ device; device lain cukup `git pull` lalu `install.sh`. Peran & subagent ditautk
 sesi berikutnya. Sesi inti yang sedang berjalan: minta COO mengirim instruksi "baca ulang peranmu". `catatan/` dan
 `TEAM.md` per device dan tidak ikut git.
 
+## Serah migrasi v5 ke main (sekali, atas permintaan pemilik)
+Branch `rudis/T-20261030-2` mengeluarkan `catatan/` dari git. Di checkout utama `catatan/*.md` masih dilacak dan bisa
+punya perubahan lokal, jadi **jangan merge langsung** — merge akan batal atau menghapus berkas ingatan dari disk.
+Urutan aman (`agents/tech-lead.md` › Serah ke branch utama):
+```bash
+cd ~/Documents/Neuron/ai-agent/RudisOne
+git rm -r -q --cached catatan && git commit -m "chore: catatan/ per device, keluar dari git (T-20261030-2)"
+git merge --no-ff refs/heads/rudis/T-20261030-2
+./install.sh
+```
+`bin/cek-konsistensi.sh` dan `install.sh` memperingatkan bila `catatan/` masih dilacak.
+
 ## Rollback ke pola lama (organisasi penuh sebagai sesi, protokol v4)
 Migrasi v5 (T-20261030-2) masuk sebagai satu merge commit, jadi bisa dibalik utuh:
 1. `git -C ~/Documents/Neuron/ai-agent/RudisOne revert -m 1 <sha-merge-T-20261030-2>` (atau `git checkout 3b1c888 -- .`

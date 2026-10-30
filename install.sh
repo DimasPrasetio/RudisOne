@@ -23,6 +23,10 @@ else TAUT=0; fail "repo ada di $ROOT — pindahkan/clone ke ~/Documents/Neuron/a
 
 mkdir -p "$ROOT/handoff" && touch "$ROOT/handoff/.gitkeep" && pass "folder handoff/ siap"
 mkdir -p "$ROOT/catatan" && pass "folder catatan/ siap (ingatan per peran, per device — tidak di-commit)"
+# Berkas per device yang masih dilacak git (mis. catatan/ sebelum serah migrasi v5) — merge bisa menghapusnya dari disk.
+dilacak="$(git -C "$ROOT" ls-files -ci --exclude-standard 2>/dev/null | cut -d/ -f1 | sort -u | tr '\n' ' ')"
+if [ -n "$dilacak" ]; then fail "berkas per device masih dilacak git: ${dilacak}— sebelum merge: git rm -r --cached ${dilacak}&& git commit (README › Serah migrasi v5 ke main)"
+else pass "berkas per device tidak dilacak git"; fi
 
 check_link() { # $1 = symlink, $2 = id peran
   if [ -L "$1" ] && head -3 "$1" 2>/dev/null | grep -q "^name: $2\$"; then pass "peran $2 tertaut"
