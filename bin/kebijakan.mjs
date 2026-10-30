@@ -12,6 +12,7 @@
 //   lepas [--ya]    hapus hook dari ~/.claude/settings.json
 //   cek             status pemasangan · tampil  ringkasan kebijakan · audit [n]  n catatan audit terakhir
 //   uji '<json>'    simulasikan satu panggilan alat, mis. uji '{"cwd":"<RudisOne>/ruang/system-administrator","tool_name":"Bash","tool_input":{"command":"ssh <alias> uptime"}}'
+import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -25,6 +26,7 @@ const INI = fileURLToPath(import.meta.url);
 const ROOT = process.env.RUDISONE_ROOT || path.resolve(path.dirname(INI), "..");
 const FILE_KEBIJAKAN = process.env.RUDISONE_KEBIJAKAN || path.join(ROOT, "kebijakan-akses.json");
 const DIR_AUDIT = process.env.RUDISONE_AUDIT || path.join(ROOT, "handoff", "audit");
+const FILE_REGISTER = process.env.RUDISONE_REGISTER || path.join(ROOT, "handoff", "register-tugas.json");
 const SETTINGS = process.env.RUDISONE_SETTINGS_USER || path.join(HOME, ".claude", "settings.json");
 const PENANDA = `"${INI}"`;   // path absolut skrip ini — hook sistem lain yang juga bernama bin/kebijakan.mjs bukan milik kita
 
@@ -164,12 +166,25 @@ export function kenaliSesi(input, K) {
 }
 
 /** Jabatan menurut folder AWAL sesi (bukan folder sekarang). */
+/** Worktree tim hanya bermakna di folder proyek yang terdaftar: repo RudisOne sendiri, atau `folder` tugas mana pun di
+ *  register (ditulis COO lewat bin/register.sh; Write/Edit langsung ke register = berkas terlindung). Path lain yang
+ *  kebetulan memuat `.claude/worktrees/r1-lead-…` tidak memberi jabatan (L3b). */
+export function proyekTerdaftar(akar) {
+  const n = (p) => { const r = path.resolve(rumah(p)); return process.platform === "darwin" ? r.toLowerCase() : r; };
+  const a = n(akar);
+  if (a === n(ROOT)) return true;
+  try {
+    const reg = JSON.parse(fs.readFileSync(FILE_REGISTER, "utf8"));
+    return (reg.tugas ?? []).some((t) => { const f = String(t.folder ?? "").replace(/\s*\(.*\)\s*$/, "").trim(); return f && n(f) === a; });
+  } catch { return false; }
+}
+
 function jabatanDariFolder(cwd, K) {
   if (!cwd) return null;
   const c = rumah(cwd);
   // Worktree tim didahulukan: worktree repo RudisOne sendiri berada DI DALAM ROOT (.claude/worktrees/r<n>-…).
   const wt = c.match(POLA_WORKTREE);
-  if (wt) return WORKTREE[wt[1]];
+  if (wt && proyekTerdaftar(c.slice(0, wt.index))) return WORKTREE[wt[1]];
   if (di(c, ROOT)) {
     const rel = path.relative(ROOT, path.resolve(c)).split(path.sep);
     return rel[0] === "ruang" && K.jabatan[rel[1]] ? rel[1] : "coo";
@@ -348,7 +363,8 @@ function mysqlBaca(w) {
   const q = stmt.trim().replace(/;\s*$/, "");
   // komentar (/* */, #, --) bisa memisahkan kata kunci: INTO/**/OUTFILE — ditolak seluruhnya
   return /^(select|show|describe|desc|explain)\b/i.test(q) && !/[;\\#]|\/\*|--/.test(q)
-    && !/\binto\s+(outfile|dumpfile)\b/i.test(q) && !/\b(load_file|sleep|benchmark|get_lock)\s*\(/i.test(q);
+    && !/\binto\b/i.test(q) && !/\bfor\s+(update|share)\b|\block\s+in\s+share\s+mode\b/i.test(q)
+    && !/\b(load_file|sleep|benchmark|get_lock)\s*\(/i.test(q);
 }
 
 /** Perintah lokal yang boleh ikut dalam perintah majemuk yang diloloskan — irisan daftar bawaan hook dengan
@@ -384,7 +400,15 @@ function klasifikasiRemote(remote, prov, K) {
     return !baca.some((r) => r.test(t));
   });
   const kemampuan = u.segmen.some((s) => path.basename(s.kata[0]?.nilai ?? "") === "mysql") ? "data-produksi" : "server";
-  if (!tidakBaca.length && !u.kompleks && !u.ekspansi) return [{ kemampuan, jenjang: 1, aksi: `baca server ${prov}` }];
+  if (!tidakBaca.length && !u.kompleks && !u.ekspansi) {
+    const my = u.segmen.find((s) => path.basename(s.kata[0]?.nilai ?? "") === "mysql");
+    if (!my) return [{ kemampuan, jenjang: 1, aksi: `baca server ${prov}` }];
+    const w = my.kata.map((x) => x.nilai);
+    // bentuk keluaran untuk menghitung baris di PostToolUse: vertikal (-E/\G) atau tanpa baris kepala (-N)
+    return [{ kemampuan, jenjang: 1, jenis: "baca-data", aksi: `baca data prod ${prov}`, bacaData: true,
+      vertikal: w.some((x) => /^-[A-Za-z]*E/.test(x) && !x.startsWith("--") || x === "--vertical") || /\\G\s*$/.test(w.join(" ")),
+      tanpaKepala: w.some((x) => /^-[A-Za-z]*N/.test(x) && !x.startsWith("--") || x === "--skip-column-names") }];
+  }
   return [{ kemampuan, jenjang: 3, aksi: `perintah server ${prov}: ${(tidakBaca[0]?.teks ?? remote).slice(0, 80)}` }];
 }
 
@@ -506,7 +530,7 @@ const NAMA_TERLINDUNG = [
   // ~/.claude: hanya bagian yang memengaruhi izin/identitas — bukan tool-results, plans, memory, worktrees
   /\.claude\/?$/i, /\.claude\.json/i, /\.claude\/(agents|skills|commands|shell-snapshots|hooks)(\/|$)/i, /\.claude\/projects\/.*\.jsonl$/i,
   /(^|\/)settings(\.local)?\.json/i, /\.mcp\.json/i,
-  /(^|\/)\.(zshrc|zshenv|zprofile|bashrc|bash_profile|profile)$/i,
+  /(^|\/)\.(zshrc|zshenv|zprofile|bashrc|bash_profile|profile)$/i, /register-tugas\.json/i,
 ];
 /** Program yang menghapus/memindah/menimpa: menyebut folder LELUHUR berkas terlindung (mv bin x, rm -rf handoff, rm -rf ~)
  *  juga terlindung. git hanya untuk subperintah yang menimpa berkas kerja. */
@@ -524,7 +548,7 @@ function asli(p) {
 let _terlindung = null;
 function daftarTerlindung() {
   if (_terlindung) return _terlindung;
-  const berkas = [path.join(ROOT, "kebijakan-akses.json"), FILE_KEBIJAKAN, INI, FILE_KONFIG, path.join(HOME, ".claude.json"),
+  const berkas = [path.join(ROOT, "kebijakan-akses.json"), FILE_KEBIJAKAN, INI, FILE_KONFIG, path.join(HOME, ".claude.json"), FILE_REGISTER,
     ...[".zshrc", ".zshenv", ".zprofile", ".bashrc", ".bash_profile", ".profile"].map((f) => path.join(HOME, f))];
   const folder = [path.join(ROOT, "bin"), path.join(ROOT, "konfigurasi"), path.join(ROOT, "agen"), path.join(ROOT, "skills"), DIR_AUDIT,
     ...["shell-snapshots", "agents", "skills", "commands"].map((f) => path.join(HOME, ".claude", f))];
@@ -653,6 +677,52 @@ const RAHASIA = [/((?:pass(?:word)?|passwd|token|secret|api[_-]?key|authorizatio
 export function samarkan(s) { let t = String(s); for (const r of RAHASIA) t = t.replace(r, "$1***"); return t.length > 400 ? `${t.slice(0, 400)}…` : t; }
 
 function berkasAudit(tgl = new Date()) { return path.join(DIR_AUDIT, `${tgl.toISOString().slice(0, 7)}.jsonl`); }
+
+// ---- rantai hash audit (L3b): setiap baris memuat sha256(rantai sebelumnya + isi). Menyunting/menghapus/menyisipkan
+// baris di tengah terdeteksi `audit --verifikasi`; baris lama tanpa rantai hanya sah sebelum baris berantai pertama.
+const rantaiDari = (prev, rec) => crypto.createHash("sha256").update(`${prev}\n${JSON.stringify(rec)}`).digest("hex");
+function rantaiTerakhir(f) {
+  try {
+    const st = fs.statSync(f), n = Math.min(st.size, 65536), b = Buffer.alloc(n), fd = fs.openSync(f, "r");
+    fs.readSync(fd, b, 0, n, st.size - n); fs.closeSync(fd);
+    const ls = b.toString("utf8").split("\n").filter((l) => l.trim());
+    for (let i = ls.length - 1; i >= 0; i--) { try { const r = JSON.parse(ls[i]); if (r.rantai) return r.rantai; } catch { /* potongan */ } }
+  } catch { /* belum ada */ }
+  return "0";
+}
+function denganKunci(fn) {
+  const kunci = path.join(DIR_AUDIT, ".kunci");
+  for (let i = 0; i < 50; i++) {
+    let fd; try { fd = fs.openSync(kunci, "wx"); } catch {
+      try { if (Date.now() - fs.statSync(kunci).mtimeMs > 5000) fs.rmSync(kunci, { force: true }); } catch { /* sudah hilang */ }
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 20); continue;
+    }
+    try { return fn(); } finally { fs.closeSync(fd); fs.rmSync(kunci, { force: true }); }
+  }
+  return fn();   // kunci macet: tetap catat (rantai bisa terputus, terdeteksi verifikasi)
+}
+export function tambahAudit(rec) {
+  fs.mkdirSync(DIR_AUDIT, { recursive: true });
+  denganKunci(() => { const f = berkasAudit(); fs.appendFileSync(f, `${JSON.stringify({ ...rec, rantai: rantaiDari(rantaiTerakhir(f), rec) })}\n`); });
+}
+/** [{ berkas, baris, lama, rusak: [nomor baris] }] untuk semua berkas audit. */
+export function verifikasiAudit() {
+  let daftar = [];
+  try { daftar = fs.readdirSync(DIR_AUDIT).filter((f) => /^\d{4}-\d{2}\.jsonl$/.test(f)).sort(); } catch { return []; }
+  return daftar.map((nama) => {
+    const ls = fs.readFileSync(path.join(DIR_AUDIT, nama), "utf8").split("\n").filter((l) => l.trim());
+    let prev = "0", mulai = false, lama = 0; const rusak = [];
+    ls.forEach((l, i) => {
+      let r; try { r = JSON.parse(l); } catch { rusak.push(i + 1); return; }
+      if (!r.rantai) { if (mulai) rusak.push(i + 1); else lama++; return; }
+      const { rantai, ...isi } = r;
+      mulai = true;
+      if (rantaiDari(prev, isi) !== rantai) rusak.push(i + 1);
+      prev = rantai;
+    });
+    return { berkas: nama, baris: ls.length, lama, rusak };
+  });
+}
 export function bacaAudit(bulan = 2) {
   const out = []; const now = new Date();
   for (let i = bulan - 1; i >= 0; i--) {
@@ -686,7 +756,9 @@ const RILIS_CEK = process.env.RUDISONE_RILIS_CEK || path.join(ROOT, "bin", "rili
 function rilisSiap(repo, sha, K) {
   if (!repo || !sha) return false;
   const batas = Date.now() - (K.jenjang2.deploy.rilis_cek_maks_jam ?? 24) * 3600e3;
-  const tercatat = bacaAudit().some((r) => r.jenis === "rilis-cek" && r.hasil === "SIAP DEPLOY" && r.repo?.toLowerCase() === repo.toLowerCase()
+  // hanya catatan berantai dari berkas audit yang utuh (catatan yang disisipkan/disunting tidak dipercaya)
+  if (verifikasiAudit().some((v) => v.rusak.length)) return false;
+  const tercatat = bacaAudit().some((r) => r.rantai && r.jenis === "rilis-cek" && r.hasil === "SIAP DEPLOY" && r.repo?.toLowerCase() === repo.toLowerCase()
     && r.sha && r.sha.length >= 7 && (sha.startsWith(r.sha) || r.sha.startsWith(sha)) && Date.parse(r.waktu) >= batas);
   if (!tercatat) return false;
   try {
@@ -734,6 +806,15 @@ export function putuskan(input, K) {
   return { keputusan: "allow", alasan: `RudisOne · ${nama}: jenjang ${maks} — ${aksi.map((a) => a.aksi).join("; ")}`, sesi, aksi };
 }
 
+/** Jumlah baris data yang masuk ke transkrip dari keluaran mysql (batch: satu baris per record, minus kepala;
+ *  vertikal: penanda "*** n. row ***"). Baris peringatan klien diabaikan. Dihitung dari yang benar-benar dikembalikan
+ *  ke agent (setelah | head dsb.) — itulah yang masuk konteks/vendor (X6). */
+export function hitungBaris(out, a = {}) {
+  const baris = String(out ?? "").split("\n").filter((l) => l.trim() && !/^(mysql: \[Warning\]|Warning:|ERROR \d+)/.test(l));
+  if (a.vertikal) return baris.filter((l) => /^\*+ \d+\. row \*+$/.test(l.trim())).length;
+  return Math.max(0, baris.length - (a.tanpaKepala ? 0 : 1));
+}
+
 export function catatSesudah(input, K) {
   const { aksi, ringkasan, terlindung } = klasifikasi(input, K);
   const sesi = kenaliSesi(input, K);
@@ -742,7 +823,8 @@ export function catatSesudah(input, K) {
   const rekam = [];
   if (terlindung) rekam.push({ jenis: "berkas-terlindung", jenjang: 3, kemampuan: null, aksi: `ubah ${terlindung}`.slice(0, 200) });
   if (sesi.rudisOne) for (const a of aksi) {
-    if (a.perkakas === "rilis-cek") rekam.push({ jenis: "rilis-cek", repo: a.args?.[0] ?? null, sha: a.args?.[1] ?? null, hasil: /SIAP DEPLOY/.test(out) ? "SIAP DEPLOY" : "belum siap" });
+    if (a.bacaData) rekam.push({ jenis: "baca-data", jenjang: 1, kemampuan: a.kemampuan, aksi: a.aksi, baris: hitungBaris(out, a) });
+    else if (a.perkakas === "rilis-cek") rekam.push({ jenis: "rilis-cek", repo: a.args?.[0] ?? null, sha: a.args?.[1] ?? null, hasil: /SIAP DEPLOY/.test(out) ? "SIAP DEPLOY" : "belum siap" });
     else if (a.jenjang >= 2) rekam.push({ jenis: a.jenis ?? "ubah", jenjang: a.jenjang, kemampuan: a.kemampuan, aksi: a.aksi });
   }
   if (!rekam.length) return null;
@@ -750,7 +832,7 @@ export function catatSesudah(input, K) {
     ...(sesi.subagent ? { subagent: input.agent_type, induk: sesi.induk } : {}), tugas: tugasTerakhir(transkripInduk(input.transcript_path)),
     cwd: input.cwd ?? null, alat: input.tool_name, ringkasan: samarkan(ringkasan) };
   fs.mkdirSync(DIR_AUDIT, { recursive: true });
-  for (const r of rekam) fs.appendFileSync(berkasAudit(), `${JSON.stringify({ ...dasar, ...r })}\n`);
+  for (const r of rekam) tambahAudit({ ...dasar, ...r });
   return rekam;
 }
 
@@ -829,6 +911,15 @@ function tampil(K) {
   console.log("Jenjang 1 = baca (tanpa tanya) · jenjang 3 = ubah berisiko / di luar daftar (selalu ke pemilik).");
 }
 
+/** Denyut (D1): hook yang benar-benar dipanggil Claude Code menulis `<audit>/.denyut.json` paling sering 1×/60 dtk.
+ *  cek-konsistensi & `cek` membacanya — bukti hook berjalan tanpa mengubah settings. */
+export const VERSI_HOOK = (() => { try { return crypto.createHash("sha1").update(fs.readFileSync(INI)).digest("hex").slice(0, 12); } catch { return "?"; } })();
+export const FILE_DENYUT = path.join(DIR_AUDIT, ".denyut.json");
+function denyut() {
+  try { if (Date.now() - fs.statSync(FILE_DENYUT).mtimeMs < 60_000) return; } catch { /* belum ada */ }
+  try { fs.mkdirSync(DIR_AUDIT, { recursive: true }); fs.writeFileSync(FILE_DENYUT, JSON.stringify({ waktu: new Date().toISOString(), versi: VERSI_HOOK })); } catch { /* opsional */ }
+}
+
 async function bacaStdin() { let s = ""; for await (const c of process.stdin) s += c; return s; }
 
 export async function main(argv) {
@@ -837,6 +928,7 @@ export async function main(argv) {
     try {
       const input = JSON.parse(await bacaStdin());
       const K = muatKebijakan();
+      denyut();
       if (input.hook_event_name === "PreToolUse") {
         const p = putuskan(input, K);
         if (p.keputusan) process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: p.keputusan, permissionDecisionReason: p.alasan } }));
@@ -851,10 +943,21 @@ export async function main(argv) {
     console.log(ok ? `Kebijakan RudisOne terpasang di ${SETTINGS}.` : `Belum terpasang — pemilik menjalankan: ${ROOT}/bin/kebijakan.sh pasang`);
     if (ok && !matcherMutakhir()) { ok = false; console.log(`Hook terpasang versi lama (matcher tanpa Write/Edit — berkas terlindung tidak dijaga) — pemilik menjalankan: ${ROOT}/bin/kebijakan.sh pasang`); }
     if (ok && !programHookAda()) { ok = false; console.log(`Program yang dipanggil hook tidak ditemukan (Node berpindah versi?) — pemilik menjalankan ulang: ${ROOT}/bin/kebijakan.sh lepas && ${ROOT}/bin/kebijakan.sh pasang`); }
+    try {
+      const d = JSON.parse(fs.readFileSync(FILE_DENYUT, "utf8"));
+      const jam = (Date.now() - Date.parse(d.waktu)) / 3600e3;
+      console.log(`Denyut hook: ${d.waktu} (${jam.toFixed(1)} jam lalu)${d.versi !== VERSI_HOOK ? ` — dari versi lain (${d.versi} ≠ ${VERSI_HOOK})` : ""}`);
+    } catch { console.log("Denyut hook: belum ada — hook belum terlihat dipanggil Claude Code sejak versi ini."); }
     try { muatKebijakan(); console.log(`Kebijakan terbaca: ${FILE_KEBIJAKAN}`); } catch (e) { console.log(`Kebijakan rusak: ${e.message}`); return 1; }
     return ok ? 0 : 1;
   }
   if (perintah === "tampil") { tampil(muatKebijakan()); return 0; }
+  if (perintah === "audit" && opsi[0] === "--verifikasi") {
+    const hasil = verifikasiAudit();
+    for (const v of hasil) console.log(`${v.berkas}: ${v.baris} baris, ${v.lama} lama tanpa rantai, ${v.rusak.length ? `RUSAK di baris ${v.rusak.join(", ")}` : "rantai utuh"}`);
+    if (!hasil.length) console.log("Belum ada berkas audit.");
+    return hasil.some((v) => v.rusak.length) ? 1 : 0;
+  }
   if (perintah === "audit") {
     const n = Number(opsi[0] ?? 20);
     for (const r of bacaAudit().slice(-n)) console.log(`${r.waktu}  ${(r.jabatan ?? "?").padEnd(22)} ${r.tugas ?? "—"}  ${r.jenis === "rilis-cek" ? `rilis-cek ${r.repo} ${r.sha} → ${r.hasil}` : `[j${r.jenjang}] ${r.aksi}`}`);

@@ -101,7 +101,6 @@
     "^systemctl\\s+(status|is-active|is-enabled|list-units|list-timers)\\b",
     "^journalctl\\b",
     "^ss\\s+-",
-    "^curl\\b",
     "^openssl\\s+(s_client|x509)\\b",
     "^(echo|sort|uniq|cut|tr|jq|column|true)\\b",
     "^sed\\s+-n\\s+(['\"]?)(\\d+(,\\d+)?|/[^/'\"]*/)p\\1(\\s|$)",
