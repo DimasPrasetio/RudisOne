@@ -890,7 +890,8 @@ test("T-20261030-12: berkas kredensial (gh & lainnya) tidak pernah allow lewat c
     `cd / | cat ${"../".repeat(12)}${HOME_REL}/.config/gh/hosts.yml`, `cd /tmp & cat ${"../".repeat(12)}${HOME_REL}/.config/gh/hosts.yml`,
     "cd ~/.config && date -fgh/hosts.yml", "cd ~/.config && grep -fgh/hosts.yml README.md", "cd ~/.config && grep -nfgh/hosts.yml x",
     `cat ${path.join(tmp, "tautan-sub")}/../hosts.yml`, `cd -P ${path.join(tmp, "tautan-sub")}/.. && cat hosts.yml`,
-    "cat /.vol/16777232/12345/hosts.yml"]) {
+    "cat /.vol/16777232/12345/hosts.yml", "cd ~/.config && cat /proc/self/cwd/gh/hosts.yml", "cd ~/.config && cat /proc/thread-self/cwd/gh/hosts.yml",
+    "cd ~/.config && cat /dev/fd/../../proc/self/cwd/gh/hosts.yml", "cat /proc/self/root/home/u/.config/gh/hosts.yml", "cd ~/.config && cat /dev/fd/3"]) {
     for (const cwd of [COO, SA]) assert.notEqual(kep(bash(cwd, g(c))), "allow", `${cwd}: ${c}`);
   }
   // pekerjaan biasa tetap lolos seperti sebelumnya

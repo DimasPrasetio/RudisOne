@@ -410,12 +410,13 @@ function jalurFisik(cwd, p) {
   return cur;
 }
 /** Apakah path argumen `x` (dibaca dari folder `cwd`) berada di lokasi kredensial. Folder tak diketahui + path relatif → ya.
- *  macOS `/.vol/<dev>/<inode>` membuka berkas lewat nomor inode → selalu dianggap rahasia. */
+ *  Selalu rahasia: macOS `/.vol/<dev>/<inode>` (buka lewat nomor inode), Linux `/proc/…` & `/dev/fd/…` (`/proc/self/cwd`,
+ *  `/proc/self/root` menunjuk folder proses PEMBACA, bukan proses hook ini). */
 function jalurRahasia(x, cwd) {
   const p = rumah(x);
   if (!path.isAbsolute(p) && !cwd) return true;
   const abs = path.resolve(cwd ?? "/", p), fisik = jalurFisik(cwd ?? "/", p);
-  return [abs, asli(abs), fisik].filter(Boolean).map(normal).some((a) => a === "/.vol" || a.startsWith("/.vol/")
+  return [abs, asli(abs), fisik].filter(Boolean).map(normal).some((a) => /^\/(\.vol|proc|dev\/fd)(\/|$)/.test(a)
     || lokasiRahasia().some((l) => dalam(a, l)));
 }
 /** Program dipanggil dengan nama telanjang (dicari di PATH) atau dari folder sistem — bukan ./gh atau /tmp/x/cat. */
