@@ -397,12 +397,26 @@ function lokasiRahasia() {
     .concat([path.join(cfg, "gh"), path.join(cfg, "rudisone", "rahasia"), process.env.GH_CONFIG_DIR].filter(Boolean));
   return (_lokasiRahasia = [...new Set(xs.flatMap((x) => [path.resolve(rumah(x)), asli(path.resolve(rumah(x)))].filter(Boolean)).map(normal))]);
 }
-/** Apakah path argumen `x` (dibaca dari folder `cwd`) berada di lokasi kredensial. Folder tak diketahui + path relatif → ya. */
+/** Path seperti dibuka kernel: komponen demi komponen, symlink diikuti SEBELUM `..` diterapkan (path.resolve memotong `..`
+ *  secara teks — `L/../x` dengan L symlink membuka induk TUJUAN L). */
+function jalurFisik(cwd, p) {
+  let cur = "/";
+  for (const k of (path.isAbsolute(p) ? p : `${cwd}/${p}`).split("/")) {
+    if (!k || k === ".") continue;
+    if (k === "..") { cur = path.dirname(cur); continue; }
+    const berikut = path.join(cur, k);
+    try { cur = fs.realpathSync.native(berikut); } catch { cur = berikut; }
+  }
+  return cur;
+}
+/** Apakah path argumen `x` (dibaca dari folder `cwd`) berada di lokasi kredensial. Folder tak diketahui + path relatif → ya.
+ *  macOS `/.vol/<dev>/<inode>` membuka berkas lewat nomor inode → selalu dianggap rahasia. */
 function jalurRahasia(x, cwd) {
   const p = rumah(x);
   if (!path.isAbsolute(p) && !cwd) return true;
-  const abs = path.resolve(cwd ?? "/", p);
-  return [abs, asli(abs)].filter(Boolean).map(normal).some((a) => lokasiRahasia().some((l) => dalam(a, l)));
+  const abs = path.resolve(cwd ?? "/", p), fisik = jalurFisik(cwd ?? "/", p);
+  return [abs, asli(abs), fisik].filter(Boolean).map(normal).some((a) => a === "/.vol" || a.startsWith("/.vol/")
+    || lokasiRahasia().some((l) => dalam(a, l)));
 }
 /** Program dipanggil dengan nama telanjang (dicari di PATH) atau dari folder sistem — bukan ./gh atau /tmp/x/cat. */
 const programStandar = (prog) => !prog.includes("/") || /^\/(usr\/(local\/)?bin|bin|usr\/sbin|sbin|opt\/homebrew\/bin)\/[^/]+$/.test(prog);
@@ -581,11 +595,14 @@ function klasifikasiSegmen(s, K, ctx) {
     const dibaca = [...args, ...s.alih.filter((a) => a.op.endsWith("<")).map((a) => a.target)];
     // T-20261030-12: selain teks argumen, path yang BENAR-BENAR dibaca (diselesaikan dari folder sekarang, `.`/`..`/`//`
     // dirapikan, symlink diikuti) tidak boleh berada di lokasi kredensial — `cd ~/.config && cat gh/hosts.yml` dsb.
-    const nilai = dibaca.map((x) => (x.startsWith("-") ? (x.includes("=") ? x.slice(x.indexOf("=") + 1) : null) : x)).filter(Boolean);
+    // nilai opsi: `--opt=val`, dan opsi pendek yang menempel (`-fFILE`, `-nfFILE`) → setiap sisa sesudah huruf opsi
+    const nilai = dibaca.flatMap((x) => (x.startsWith("--") ? (x.includes("=") ? [x.slice(x.indexOf("=") + 1)] : [])
+      : x.startsWith("-") ? [...x.slice(2)].map((_, i) => x.slice(2 + i)) : [x])).filter(Boolean);
+    const folder = ctx.mungkin ?? [null], bukanBerkas = ["echo", "true", "sleep"].includes(nama);   // argumennya bukan berkas
     const aman = dasarAman
       && !dibaca.some((x) => rahasia.test(x))
-      && !nilai.some((x) => jalurRahasia(x, ctx.cwd))
-      && !(nama !== "cd" && (!ctx.cwd || jalurRahasia(ctx.cwd, ctx.cwd)))
+      && (bukanBerkas || !nilai.some((x) => folder.some((c) => jalurRahasia(x, c))))
+      && (bukanBerkas || nama === "cd" || !folder.some((c) => !c || jalurRahasia(c, c)))
       && !ARG_BERBAHAYA[nama]?.(args) && !ARG_BERBAHAYA_LOKAL[nama]?.(args);
     return { aman };
   }
@@ -823,6 +840,9 @@ function analisisBash(input, K) {
   // cwd berjalan: `cd <path harfiah>` diikuti; cd lain (variabel, -, pushd/popd) → tidak diketahui (null)
   const ctx = { cwd: input.cwd ? rumah(input.cwd) : HOME };
   ctx.awal = ctx.cwd;
+  // Folder yang MUNGKIN aktif (T-20261030-12): cd bisa gagal (`cd x; …`, `cd x || …`) atau berjalan di subshell (`cd x | …`,
+  // `cd x &`), jadi folder sebelumnya tidak pernah dibuang; null = tak diketahui.
+  ctx.mungkin = ctx.cwd ? [ctx.cwd] : null;
   const hasil = [];
   let sebut = null, ubahSendiri = false;
   // urai memecah badan heredoc menjadi segmen; baris badan heredoc ke program selain shell bukan perintah claude
@@ -844,6 +864,10 @@ function analisisBash(input, K) {
     else if (k0 === "cd") {
       const arg = s.kata.slice(1).filter((x) => !/^-[LP]$/.test(x.nilai));
       ctx.cwd = arg.length === 0 ? HOME : arg.length === 1 && ctx.cwd && !arg[0].ekspansi && !arg[0].glob && arg[0].nilai !== "-" ? path.resolve(ctx.cwd, rumah(arg[0].nilai)) : null;
+      if (!ctx.cwd || !ctx.mungkin) ctx.mungkin = null;
+      else if (arg.length === 0) ctx.mungkin.push(HOME);
+      // cd logis (`..` teks) dan fisik (cd -P, `..` lewat symlink) dari setiap folder yang mungkin
+      else ctx.mungkin = [...new Set([...ctx.mungkin, ...ctx.mungkin.flatMap((c) => [path.resolve(c, rumah(arg[0].nilai)), jalurFisik(c, rumah(arg[0].nilai))])])];
     }
   }
   const aksi = hasil.flatMap((h) => h.aksi ?? []);

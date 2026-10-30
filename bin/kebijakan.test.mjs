@@ -27,6 +27,9 @@ fs.writeFileSync(REGISTER, JSON.stringify({ versi: 1, tugas: [{ id: "T-1", folde
 const GH = path.join(tmp, "ghconf"), XDG = path.join(tmp, "xdg");
 fs.mkdirSync(GH, { recursive: true }); fs.mkdirSync(path.join(XDG, "gh"), { recursive: true });
 fs.symlinkSync(GH, path.join(tmp, "tautan"));
+fs.mkdirSync(path.join(GH, "sub"), { recursive: true });
+fs.symlinkSync(path.join(GH, "sub"), path.join(tmp, "tautan-sub"));   // tautan-sub/.. = GH (fisik), bukan tmp (teks)
+const HOME_REL = os.homedir().replace(/^\//, "");
 Object.assign(process.env, {
   GH_CONFIG_DIR: GH, XDG_CONFIG_HOME: XDG,
   RUDISONE_REGISTER: REGISTER,
@@ -881,10 +884,17 @@ test("T-20261030-12: berkas kredensial (gh & lainnya) tidak pernah allow lewat c
     // pola rahasia lain, cara yang sama
     "cd ~ && cat .aws/credentials", "cd ~/.aws && cat credentials", "cd ~/.docker && cat config.json", "cd ~/.kube && cat config",
     "cd ~/.ssh && cat id_ed25519", "cd ~/.ssh/.. && cat .ssh/known_hosts", "cd ~ && head .netrc", "cd ~/.gnupg && ls",
-    "cd ~/.config/rudisone && cat rahasia/rudisone-rudis-sdd", "cd ~/Library && cat Keychains/login.keychain-db"]) {
+    "cd ~/.config/rudisone && cat rahasia/rudisone-rudis-sdd", "cd ~/Library && cat Keychains/login.keychain-db",
+    // tinjauan putaran 1: cd gagal/subshell, opsi pendek menempel, `..` di belakang symlink, /.vol
+    `cd /nonexist-xyz; cat ${"../".repeat(12)}${HOME_REL}/.config/./gh/hosts.yml`, `cd /nonexist-xyz || cat ${"../".repeat(12)}${HOME_REL}/.config//gh/hosts.yml`,
+    `cd / | cat ${"../".repeat(12)}${HOME_REL}/.config/gh/hosts.yml`, `cd /tmp & cat ${"../".repeat(12)}${HOME_REL}/.config/gh/hosts.yml`,
+    "cd ~/.config && date -fgh/hosts.yml", "cd ~/.config && grep -fgh/hosts.yml README.md", "cd ~/.config && grep -nfgh/hosts.yml x",
+    `cat ${path.join(tmp, "tautan-sub")}/../hosts.yml`, `cd -P ${path.join(tmp, "tautan-sub")}/.. && cat hosts.yml`,
+    "cat /.vol/16777232/12345/hosts.yml"]) {
     for (const cwd of [COO, SA]) assert.notEqual(kep(bash(cwd, g(c))), "allow", `${cwd}: ${c}`);
   }
   // pekerjaan biasa tetap lolos seperti sebelumnya
-  for (const c of [`cd ${ROOT} && cat README.md`, "ls ~/.config", "head -3 bin/x.sh", "cat ~/.config/lain/x.json", "cd ~/proyek && wc -l a.txt"])
+  for (const c of [`cd ${ROOT} && cat README.md`, "ls ~/.config", "head -3 bin/x.sh", "cat ~/.config/lain/x.json", "cd ~/proyek && wc -l a.txt",
+    "cd /tmp && ls && cd - && echo ok"])
     assert.equal(kep(bash(COO, g(c))), "allow", c);
 });
