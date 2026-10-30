@@ -6,7 +6,7 @@
 //   siapkan  (default) clone bila belum ada · pull --ff-only bila bersih · pasang ulang skill bila beda dari paketnya
 //   cek      laporkan keadaan tanpa mengubah apa pun (git fetch tetap jalan)
 //   versi    satu baris untuk kolom "Perkakas" register tugas, mis. rudis@b444853 lib@43e552f sdd@e216888
-//   proyek   jenis <folder>: rudis-pustaka · rudis-deploy · lain
+//   proyek   <folder> [--json]: rudis-pustaka · rudis-deploy · lain, lalu mode-mesin A|B|ragu, backend, bukti, kartu
 //   pastikan skill luar <skill> tersedia; bila belum, dipasang dari sumber resminya (exit 0 · 1 · 2 alternatif · 3)
 //   skill    keadaan semua skill luar (perkakas.json › skill_luar) tanpa memasang apa pun
 //   marketplace cek [<sumber>]  validasi allowlist (perkakas.json › kebijakan_marketplace); dengan <sumber>: 0 diizinkan · 1 tidak
@@ -101,11 +101,134 @@ export function tugasEngineeringBerjalan(teks) {
     .map((t) => t.id);
 }
 
-/** rudis-pustaka (memakai pustaka modul) · rudis-deploy (standar deploy saja) · lain. */
+/** rudis-pustaka (memakai pustaka modul) · rudis-deploy (standar deploy saja) · lain — baris pertama `proyek` (kompatibel). */
 export function jenisProyek(folder) {
   if (fs.existsSync(path.join(folder, "modules.lock.json"))) return "rudis-pustaka";
   if (fs.existsSync(path.join(folder, "infra", "deploy"))) return "rudis-deploy";
   return "lain";
+}
+
+// ---- Deteksi mode proyek berbukti (kartu proyek: templat/kartu-proyek.md) -------------------------------------
+
+/** Letak kartu proyek: `<folder>/.rudisone/kartu-proyek.md`, atau cadangan `handoff/kartu/<nama-folder>.md` di RudisOne. */
+export function letakKartu(folder, root = process.env.RUDISONE_ROOT || ROOT) {
+  return [path.join(folder, ".rudisone", "kartu-proyek.md"), path.join(root, "handoff", "kartu", `${path.basename(path.resolve(folder))}.md`)];
+}
+
+/** Frontmatter kartu (`key: value` satu baris) → { path, data }, atau null bila kartu tidak ada. */
+export function bacaKartu(folder, root) {
+  const p = letakKartu(folder, root).find((f) => fs.existsSync(f));
+  if (!p) return null;
+  const data = {};
+  const fm = fs.readFileSync(p, "utf8").match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  for (const l of (fm?.[1] ?? "").split(/\r?\n/)) {
+    const m = l.match(/^([\w-]+):\s*(.*?)\s*$/);
+    if (m) data[m[1]] = m[2].replace(/^(["'])(.*)\1$/, "$2");
+  }
+  return { path: p, data };
+}
+
+const adaDi = (dir, ...p) => fs.existsSync(path.join(dir, ...p));
+function bacaJson(f) { try { return JSON.parse(fs.readFileSync(f, "utf8")); } catch { return null; } }
+const repoGit = (dir) => jalankan("git", ["-C", dir, "rev-parse", "--is-inside-work-tree"]).ok;
+
+/** Bahasa backend satu folder → { backend, berkas } atau null. package.json tanpa @nestjs/core/express → "lain". */
+export function backendFolder(dir) {
+  if (adaDi(dir, "go.mod")) return { backend: "go", berkas: "go.mod" };
+  if (adaDi(dir, "package.json")) {
+    const j = bacaJson(path.join(dir, "package.json")) ?? {};
+    const dep = { ...j.dependencies, ...j.devDependencies, ...j.peerDependencies };
+    if (dep["@nestjs/core"] || dep.express) return { backend: "node", berkas: `package.json (${dep["@nestjs/core"] ? "@nestjs/core" : "express"})` };
+  }
+  if (adaDi(dir, "composer.json")) return { backend: "php", berkas: "composer.json" };
+  for (const f of ["pom.xml", "build.gradle", "build.gradle.kts"]) if (adaDi(dir, f)) return { backend: "java", berkas: f };
+  let cs;
+  try { cs = fs.readdirSync(dir).find((f) => f.endsWith(".csproj")); } catch { /* bukan folder */ }
+  if (cs) return { backend: "dotnet", berkas: cs };
+  for (const f of ["pyproject.toml", "requirements.txt"]) if (adaDi(dir, f)) return { backend: "python", berkas: f };
+  if (adaDi(dir, "package.json")) return { backend: "lain", berkas: "package.json tanpa @nestjs/core/express" };
+  return null;
+}
+
+/** Subfolder app (D5): `apps/*`, `packages/*`, dan subfolder tingkat 1 yang punya go.mod/package.json sendiri. */
+function folderApp(folder) {
+  const abaikan = /^(\.|node_modules$|vendor$|dist$|build$|infra$|docs$|specs$|apps$|packages$)/;
+  const subdir = (rel) => { try { return fs.readdirSync(path.join(folder, rel), { withFileTypes: true }).filter((e) => e.isDirectory()); } catch { return []; } };
+  const hasil = [];
+  for (const induk of ["apps", "packages"]) for (const e of subdir(induk)) hasil.push(`${induk}/${e.name}`);
+  for (const e of subdir("")) if (!abaikan.test(e.name)) hasil.push(e.name);
+  return hasil.filter((rel) => adaDi(folder, rel, "go.mod") || adaDi(folder, rel, "package.json"));
+}
+
+/** Keadaan modules.lock.json: ada, ter-track git (true/false; null = bukan repo git), JSON valid, modul aktif/detached. */
+function keadaanLock(folder) {
+  if (!adaDi(folder, "modules.lock.json")) return { ada: false };
+  const track = repoGit(folder) ? jalankan("git", ["-C", folder, "ls-files", "--error-unmatch", "--", "modules.lock.json"]).ok : null;
+  const j = bacaJson(path.join(folder, "modules.lock.json"));
+  const valid = !!j && typeof j === "object" && !Array.isArray(j) && (j.modules === undefined || (typeof j.modules === "object" && j.modules !== null));
+  const modul = valid ? Object.values(j.modules ?? {}) : [];
+  const detached = modul.filter((m) => m?.status === "detached").length;
+  return { ada: true, track, valid, aktif: modul.length - detached, detached };
+}
+
+/** Apakah docs/trace-reports/ diabaikan git (check-ignore bila repo git; selain itu baris di .gitignore). */
+export function traceDiabaikan(folder) {
+  if (repoGit(folder)) return jalankan("git", ["-C", folder, "check-ignore", "-q", "--no-index", "docs/trace-reports/x"]).ok;
+  try { return /^\/?docs\/trace-reports(\/\*{0,2})?\/?\s*$/m.test(fs.readFileSync(path.join(folder, ".gitignore"), "utf8")); } catch { return false; }
+}
+
+/** Hasil deteksi berbukti untuk `perkakas.sh proyek`. Folder tidak ada → Error berkode ENOENT (CLI: exit 3, D1).
+ *  mode: ragu (D3/D4/D5/D6) · A (lock sah, ter-track, ≥1 modul aktif, backend go) · B (selain itu; pustaka hanya Go). */
+export function deteksiProyek(folder, { root } = {}) {
+  let st = null;
+  try { st = fs.statSync(folder); } catch { /* tidak ada */ }
+  if (!st?.isDirectory()) { const e = new Error(`folder tidak ada: ${folder}`); e.code = "ENOENT"; throw e; }
+  const bukti = [], ragu = [];
+  const lock = keadaanLock(folder);
+  const trackTeks = lock.track === null ? "bukan repo git (track tidak bisa diperiksa)" : lock.track ? "di-track git" : "TIDAK di-track git";
+  if (!lock.ada) bukti.push("modules.lock.json: tidak ada");
+  else if (!lock.valid) bukti.push(`modules.lock.json: ada, ${trackTeks}, JSON rusak`);
+  else bukti.push(`modules.lock.json: ada, ${trackTeks}, JSON valid, ${lock.aktif} modul aktif, ${lock.detached} detached`);
+  for (const d of ["infra/deploy", "apps/api", "apps/web"]) bukti.push(`${d}: ${adaDi(folder, d) ? "ada" : "tidak ada"}`);
+
+  const asal = adaDi(folder, "apps", "api") ? "apps/api" : ".";
+  const be = backendFolder(path.join(folder, asal));
+  const backend = be?.backend ?? "-";
+  bukti.push(be ? `backend: ${be.backend} dari ${asal === "." ? "" : `${asal}/`}${be.berkas}` : `backend: tidak terdeteksi di ${asal}`);
+  const app = folderApp(folder).filter((rel) => rel !== asal)
+    .map((rel) => ({ rel, be: backendFolder(path.join(folder, rel)) })).filter((a) => a.be && a.be.backend !== "lain");
+  for (const a of app) bukti.push(`app: ${a.rel} → ${a.be.backend} (${a.be.berkas})`);
+  const ragam = new Set([...(be && be.backend !== "lain" ? [be.backend] : []), ...app.map((a) => a.be.backend)]);
+
+  let nSpec = 0;
+  try { nSpec = fs.readdirSync(path.join(folder, "specs"), { withFileTypes: true }).filter((e) => e.isDirectory()).length; } catch { /* tidak ada */ }
+  bukti.push(`.rudis/: ${adaDi(folder, ".rudis") ? "ada" : "tidak ada"}`);
+  bukti.push(`specs/: ${adaDi(folder, "specs") ? `ada (${nSpec} folder)` : "tidak ada"}`);
+  bukti.push(`docs/brd/: ${adaDi(folder, "docs", "brd") ? "ada" : "tidak ada"}`);
+  const traceAbai = traceDiabaikan(folder);
+  const perluTrace = adaDi(folder, ".rudis") || adaDi(folder, "docs", "trace-reports");
+  if (perluTrace && !traceAbai) bukti.push("peringatan: docs/trace-reports/ belum di-gitignore");
+
+  if (lock.ada && !lock.valid) ragu.push("lock rusak (D6)");
+  else if (lock.ada && lock.track === false) ragu.push("lock tidak di-track git (D6)");
+  else if (lock.ada && lock.track === null) ragu.push("lock di luar repo git (D6)");
+  else if (lock.ada && lock.aktif < 1) ragu.push("tidak ada modul aktif di lock — semua detached/kosong (D4)");
+  if (!lock.ada && adaDi(folder, "infra", "deploy") && adaDi(folder, "apps", "api") && backend === "go") ragu.push("struktur standar + backend go tanpa lock (D3)");
+  if (ragam.size > 1) ragu.push(`beberapa backend: ${[...ragam].join(", ")} (D5)`);
+  const mode = ragu.length ? "ragu" : lock.ada && backend === "go" ? "A" : "B";
+  for (const r of ragu) bukti.push(`ragu: ${r}`);
+  if (mode === "B" && lock.ada) bukti.push(`catatan: perakitan pustaka hanya Go — backend ${backend} = B kecuali kartu berkata lain`);
+
+  const k = bacaKartu(folder, root);
+  const kartu = k ? { ada: true, path: k.path, mode: k.data.mode ?? "", data: k.data } : { ada: false };
+  return { folder, jenis: jenisProyek(folder), mode, backend, bukti, kartu, traceDiabaikan: traceAbai, perluTrace };
+}
+
+/** Teks keluaran `perkakas.sh proyek`: baris pertama = jenis lama (kompatibel), lalu mode, backend, bukti, kartu. */
+export function teksProyek(h) {
+  const kartu = !h.kartu.ada ? "kartu: tidak ada"
+    : `kartu: ada (mode ${/^[AB]$/.test(h.kartu.mode) ? h.kartu.mode : `tidak valid "${h.kartu.mode}"`}) — ${h.kartu.path}`;
+  return [h.jenis, `mode-mesin: ${h.mode}`, `backend: ${h.backend}`, ...h.bukti.map((b) => `bukti: ${b}`), kartu].join("\n");
 }
 
 function sidikFolder(dir) {
@@ -361,8 +484,10 @@ function main(argv) {
 
   if (aksi === "versi") { console.log(daftar.map(versi).join(" ")); return 0; }
   if (aksi === "proyek") {
-    if (!arg) { console.error("Pemakaian: bin/perkakas.sh proyek <folder>"); return 3; }
-    console.log(jenisProyek(path.resolve(rumah(arg)))); return 0;
+    if (!arg) { console.error("Pemakaian: bin/perkakas.sh proyek <folder> [--json]"); return 3; }
+    let h;
+    try { h = deteksiProyek(path.resolve(rumah(arg))); } catch (e) { console.error(`[proyek] ${e.message}`); return 3; }
+    console.log(opsi.includes("--json") ? JSON.stringify(h, null, 2) : teksProyek(h)); return 0;
   }
   if (aksi === "pastikan") {
     if (!arg) { console.error("Pemakaian: bin/perkakas.sh pastikan <skill>"); return 3; }
