@@ -133,7 +133,7 @@ WSL2 (jalur Linux). Windows native: lihat bagian **Windows native** di bawah tab
   deny `git push`/`gh pr create`/`claude rm`, bypass mati) — settings pengguna tidak diubah. **Belum diuji di mesin Linux
   sungguhan** (simulasi + `claude` tiruan).
 - **macOS terverifikasi ulang setelah dukungan Windows** (Claude Desktop, Claude Code CLI, ekstensi VS Code; `b3a10e3`) — jangan
-  diuji ulang untuk versi ini; temuan terbuka & pemicu uji ulang: `uji/macos.md`.
+  diuji ulang untuk versi ini; temuan T1–T4 sudah diperbaiki; pemicu uji ulang: `uji/macos.md`.
 - **Windows native terverifikasi** untuk Claude Code CLI dan Claude Desktop (bukti, lingkungan, dan yang belum teruji): `uji/windows-hasil.md`.
 - Daftar uji Linux & Windows/WSL2 untuk rekan (langkah + hasil yang diharapkan, keluarannya dikirim ke COO): `uji/linux-wsl.md`.
 

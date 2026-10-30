@@ -1,14 +1,14 @@
 # Status uji RudisOne di macOS — TERVERIFIKASI ULANG setelah dukungan Windows
 
-> **Pernyataan.** RudisOne versi `main` per **30 Oktober 2026**, commit `b3a10e3` (dukungan Windows native, PR #1), ditambah
-> commit yang hanya memuat dokumen ini, **sudah diuji ulang dan bisa dipasang serta dipakai di macOS** lewat tiga antarmuka
+> **Pernyataan.** RudisOne versi `main` per **30 Oktober 2026**, commit `b3a10e3` (dukungan Windows native, PR #1) ditambah
+> perbaikan T1–T4 (`183f3e7`, T-20261030-15) dan commit yang hanya memuat dokumen ini, **sudah diuji ulang dan bisa dipasang serta dipakai di macOS** lewat tiga antarmuka
 > Claude: **Claude Desktop**, **Claude Code CLI**, dan **ekstensi Claude Code untuk VS Code**. Verifikasi sebelumnya
 > (commit `8d86ef2`, sebelum perubahan lintas-OS) tetap tercatat di riwayat git dokumen ini.
 >
 > **Untuk device lain dan agent yang membaca dokumen ini:** jangan merekomendasikan atau mengulang uji di macOS untuk versi
 > ini. Uji berikutnya dipusatkan di **Linux/WSL2** ([`linux-wsl.md`](linux-wsl.md)) dan sisa uji **Windows**
-> ([`windows.md`](windows.md)). Ada **temuan terbuka** di bawah. Temuan itu tidak menghalangi pemakaian, tetapi perlu
-> diperbaiki di kode.
+> ([`windows.md`](windows.md)). Empat temuan uji ulang (T1–T4) **sudah diperbaiki** dan diverifikasi di Mac; jalur
+> Windows-nya diperkuat tetapi perlu satu putaran `node --test bin/` di Windows sungguhan.
 
 ## Lingkungan uji
 | Komponen | Versi |
@@ -24,35 +24,29 @@
 | Area | Hasil | Cara uji |
 |---|---|---|
 | Pull di checkout lama | ✅ lulus | `git pull --ff-only` dari `7ff3683` ke `b3a10e3`. Symlink peran lama berganti menjadi salinan. `node bin/peran.mjs cek` melaporkan "CLAUDE.md, subagent peran (11) & salinan peran ruang (11) mutakhir". |
-| Tes otomatis | ✅ 216 lolos, 0 gagal, 3 dilewati (dari 219) | `node --test bin/ kantor/ uji/suite/` di Node 20, dan `node --test --test-concurrency=1 "bin/*.test.mjs" "kantor/*.test.mjs" "uji/suite/*.test.mjs"` di Node 22. Ketiga tes yang dilewati khusus Windows. Pohon git tetap bersih. |
+| Tes otomatis | ✅ 220 lolos, 0 gagal, 4 dilewati (dari 224; setelah perbaikan T1–T4) | `node --test bin/ kantor/ uji/suite/` di Node 20, dan `node --test --test-concurrency=1 "bin/*.test.mjs" "kantor/*.test.mjs" "uji/suite/*.test.mjs"` di Node 22. Tes yang dilewati khusus Windows. Kantor 7421 tetap `ok` sebelum dan sesudah suite. Pohon git tetap bersih. |
 | Pemasangan di device bersih | ✅ lulus | HOME kosong, lalu `git clone` dari GitHub dan `./install.sh` (kini pembungkus `install.mjs`): 58 ok. Diulang: semuanya "sudah mutakhir". Subagent dan skill tertaut sebagai **symlink**. `cek-konsistensi`: 0 galat; peringatannya hanya yang wajar untuk device baru. |
-| Pemasangan ulang di device ini | ✅ lulus | `./install.sh`: 59 ok. Tautan lama dibiarkan apa adanya; tautan milik sistem lain (`~/TimAgent`) tidak disentuh; `settings.json` tidak diubah. Backend tercatat `auto`. |
-| Pemeriksa konsistensi | ✅ 0 galat | `node bin/cek-konsistensi.mjs` (peringatan: lihat temuan T1) |
+| Pemasangan ulang di device ini | ✅ lulus | `./install.sh`: 60 ok; hook tidak lagi dilaporkan "belum terpasang". Tautan lama dibiarkan apa adanya; tautan milik sistem lain (`~/TimAgent`) tidak disentuh; `settings.json` tidak diubah. Backend tercatat `auto`. |
+| Pemeriksa konsistensi | ✅ 0 galat | `node bin/cek-konsistensi.mjs` |
 | Rahasia (PAT) | ✅ lulus | Keychain memakai nama layanan dan argumen `security` yang sama seperti sebelumnya, jadi PAT yang sudah tersimpan tetap terbaca. rudis-sdd tersinkron lewat PAT itu. |
-| Hook kebijakan akses | ✅ aktif | Denyut hook tercatat, dan rantai hash audit utuh. Perintah biasa (`git status`, `node --test`, `cat`) tidak menimbulkan prompt baru. |
-| Kantor | ✅ lulus | `bin/kantor.sh --tanpa-browser`: `/health` → `ok`, halaman "Kantor RudisOne" termuat (temuan T4) |
+| Hook kebijakan akses | ✅ aktif | `node bin/kebijakan.mjs cek` → exit 0 dengan `~/.claude/settings.json` asli (tanpa pasang ulang). Denyut hook tercatat, dan rantai hash audit utuh. Perintah biasa (`git status`, `node --test`, `cat`) tidak menimbulkan prompt baru. |
+| Kantor | ✅ lulus | `bin/kantor.sh --tanpa-browser`: `/health` → `ok`, halaman "Kantor RudisOne" termuat. `berhenti` dari checkout lain menolak mematikan Kantor ini. |
 | **Claude Desktop** | ✅ lulus | COO dari sesi Desktop: `bin/sesi.sh backend` → `auto`. Alat sesi Desktop tersedia, jadi backend efektifnya `desktop`. |
 | **Claude Code CLI** | ✅ lulus | Folder proyek kosong: `claude -p "<uji asap>" --add-dir <RudisOne>`. Skill `rudisone` termuat, `sesi.sh backend` → `auto`, COO memilih backend **cli** karena alat Desktop tidak ada, dan `register.sh tampil` berjalan. |
 | **Ekstensi VS Code** | ✅ lulus | Uji yang sama dengan mesin bawaan ekstensi 2.1.304 memberi hasil yang sama: COO memilih backend **cli**. |
 
-## Temuan terbuka (perlu perbaikan kode; tidak menghalangi pemakaian)
-- **T1 — hook dilaporkan "versi lama" di instalasi Mac/Linux yang sudah ada.**
-  - Penyebab: `MATCHER` di `bin/kebijakan.mjs` kini memuat `PowerShell`, dan matcher yang terpasang dibandingkan persis.
-  - Akibat: `kebijakan.mjs cek` keluar dengan exit 1, `install.sh` mencetak "[!!] belum terpasang", dan `cek-konsistensi` memberi peringatan.
-  - Hook lama sebenarnya tetap melindungi Bash, Write/Edit, dan MCP. Alat PowerShell tidak ada di macOS.
-  - Pemulihan oleh pemilik: `bin/kebijakan.sh pasang`, sekali per device.
-- **T2 — pintu masuk `.mjs` lolos dari pemeriksaan jabatan.**
-  - Hook hanya mengenali perkakas sebagai `bin/<nama>.sh`.
-  - `node bin/server-cek.mjs`, `node bin/rilis-cek.mjs`, dan `node bin/pasca-deploy.mjs` dinilai "bukan aksi infrastruktur": tanpa cek jabatan dan tanpa audit.
-  - Padahal `bin/server-cek.sh` → `ask` untuk Research Analyst.
-- **T3 — `kantor.mjs berhenti` mematikan PID dari berkas pid tanpa memastikan prosesnya Kantor.**
-  - Bila berkas pid basi (crash atau reboot), proses lain milik pengguna yang mendapat PID yang sama bisa ikut dimatikan.
-- **T4 — menjalankan suite tes mematikan Kantor yang sedang dipakai.**
-  - Tes `portabel.test.mjs` › `kantor.mjs` memakai port acak, tetapi `berhenti` menjalankan `pkill -f <server.mjs>` tanpa melihat port. Kantor di 7421 ikut mati, dan log bersama `kantor-rudisone.log` tertimpa.
-  - Direproduksi: health `ok` → tes → `rc=7`. Pemulihan: `bin/kantor.sh --tanpa-browser`.
-- **Catatan versi CLI:** Claude Code CLI 2.1.281 di Mac ini < 2.1.300. Jalur `cli` (COO membentuk sesi latar `claude --bg` dari terminal) baru bisa dipakai setelah `claude update`. Desktop dan VS Code 2.1.304 tidak terdampak.
+## Temuan uji ulang — SUDAH DIPERBAIKI (T-20261030-15, `e140f8c`…`183f3e7`)
+Ditemukan saat uji ulang `b3a10e3`, diperbaiki dengan tes regresi (gagal di kode lama, lulus sekarang), diverifikasi COO di Mac.
+| # | Temuan | Perbaikan | Bukti di Mac |
+|---|---|---|---|
+| T1 | Hook terpasang dinilai "versi lama" karena `MATCHER` menambah `PowerShell` | Matcher dinilai per OS: `PowerShell` wajib hanya di Windows; pesan menyebut bagian yang kurang | `kebijakan.mjs cek` exit 0 dengan settings asli; simulasi `RUDISONE_OS=win32` → exit 1 |
+| T2 | `node bin/{server-cek,rilis-cek,pasca-deploy}.mjs` lolos dari cek jabatan & audit | Pintu masuk `.mjs` (absolut/relatif, `node`/`nodejs`) dikenali sama dengan `.sh` | `kebijakan uji` Research Analyst: `.sh` dan `.mjs` sama-sama `ask`; System Administrator sama-sama `allow` |
+| T3 | `kantor berhenti` mematikan PID dari berkas pid tanpa verifikasi | Berkas pid tidak dipercaya; hanya proses dengan path `server.mjs` checkout ini + penanda port (atau pendengar port itu) yang dimatikan; pesan jujur | `berhenti` dari worktree lain → "tidak terbukti Kantor dari checkout ini — tidak dimatikan" |
+| T4 | Suite tes mematikan Kantor yang sedang dipakai | Akibat T3 + log per port | Kantor 7421 `ok` sebelum dan sesudah suite penuh |
 
 ## Catatan pemakaian di macOS (bukan kegagalan)
+- **Versi CLI:** Claude Code CLI 2.1.281 di Mac uji < 2.1.300. Jalur `cli` (COO membentuk sesi latar `claude --bg` dari
+  terminal) baru bisa dipakai setelah `claude update`. Desktop dan VS Code 2.1.304 tidak terdampak.
 - **Backend `auto`.**
   - Dari Claude Desktop, COO membentuk sesi Tech Lead/IT Operations dengan alat sesi Desktop.
   - Dari CLI atau VS Code, COO memakai `claude --bg`, yang butuh Claude Code ≥ 2.1.300 dan folder sesi yang sudah dipercaya sekali (`bin/sesi.sh cek`). Pembentukan sesi `claude --bg` dari CLI/VS Code di Mac belum dijalankan end-to-end.
@@ -66,5 +60,4 @@
 ## Kapan uji macOS perlu diulang
 Hanya bila sebuah perubahan menyentuh jalur yang berlaku di macOS: `install.mjs`/`install.sh`, `bin/lib/*` (terutama
 `rahasia.mjs` untuk Keychain dan `tautan.mjs`), `bin/kebijakan.mjs`, `bin/sesi.mjs`, `bin/kantor.mjs`, atau `kantor/`.
-Cukup jalankan di Mac `node --test bin/ kantor/ uji/suite/` dan `node bin/cek-konsistensi.mjs`, lalu nyalakan ulang Kantor
-(`bin/kantor.sh --tanpa-browser`) selama T4 belum diperbaiki.
+Cukup jalankan di Mac `node --test bin/ kantor/ uji/suite/` dan `node bin/cek-konsistensi.mjs`.
