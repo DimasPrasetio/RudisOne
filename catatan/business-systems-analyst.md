@@ -1,2 +1,0 @@
-# Catatan Business Systems Analyst
-
