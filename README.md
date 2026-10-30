@@ -104,7 +104,7 @@ RudisOne berjalan di **macOS**, **Linux**, dan **Windows lewat WSL2** (jalur Lin
   Claude Code CLI saja, COO bekerja lewat subagent `rudis-<peran>` (sesi lain dibuka manual di terminal), dan Kantor hanya
   menampilkan sesi dari transkrip (`~/.claude/projects`), tanpa metadata sesi Desktop. Tes, pemeriksa, perkakas, dan hook
   berjalan sama.
-- Daftar uji Linux & Windows/WSL2 untuk rekan: `handoff/T-20261030-10/uji-windows.md` (per device, tidak di-commit; minta COO).
+- Daftar uji Linux & Windows/WSL2 untuk rekan (langkah + hasil yang diharapkan, keluarannya dikirim ke COO): `uji/linux-wsl.md`.
 
 1. `git clone https://github.com/DimasPrasetio/RudisOne.git ~/Documents/Neuron/ai-agent/RudisOne` (repo publik; harus di path ini —
    peran dan aturan merujuk `~/Documents/Neuron/ai-agent/RudisOne`).
