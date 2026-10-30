@@ -81,3 +81,13 @@ test("Windows: /proc, /dev/fd dan /.vol (Git Bash/MSYS) tetap dianggap lokasi ra
     assert.notEqual(kep({ session_id: `w${++n}`, cwd: SA, tool_name: "Bash", tool_input: { command: `gh pr list && ${c}` }, hook_event_name: "PreToolUse" }), "allow", c);
   }
 });
+
+test("Windows: `node bin\\<perkakas>.mjs` relatif ber-backslash dikenali sama seperti bin/<perkakas>.sh (T2)", { skip: !WIN && "khusus Windows" }, () => {
+  const sh = putuskan(alat(ROOT, "Bash", { command: "bin/server-cek.sh" }), K);
+  assert.ok(sh.aksi?.length, "bin/server-cek.sh dikenali");
+  for (const c of ["node 'bin\\server-cek.mjs'", "node '.\\bin\\server-cek.mjs'", "node.exe bin/server-cek.mjs", "nodejs bin/server-cek.mjs"]) {
+    const m = putuskan(alat(ROOT, "Bash", { command: c }), K);
+    assert.equal(m.keputusan, sh.keputusan, c);
+    assert.deepEqual(m.aksi, sh.aksi, c);
+  }
+});

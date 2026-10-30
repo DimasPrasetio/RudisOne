@@ -502,7 +502,9 @@ function perkakasAsli(prog, ctx) {
   if (path.isAbsolute(p)) mentah = p;
   // relatif hanya dari folder AWAL perintah (input.cwd, folder fisik proses) — sesudah `cd` di perintah yang sama, cwd
   // tidak bisa dipastikan (cd logis vs fisik, symlink) → bukan perkakas
-  else if (/^(\.\/)?bin\/[^/]+$/.test(p) && ctx.cwd && ctx.cwd === ctx.awal) mentah = `${rumah(ctx.awal)}/${p}`;
+  // Windows: `node bin\server-cek.mjs` / `.\bin\…` juga dijalankan node.exe → dikenali sama dengan bentuk `/`
+  else if ((path.sep === "\\" ? /^(\.[\\/])?bin[\\/][^\\/]+$/ : /^(\.\/)?bin\/[^/]+$/).test(p) && ctx.cwd && ctx.cwd === ctx.awal)
+    mentah = `${rumah(ctx.awal)}/${path.sep === "\\" ? p.replaceAll("\\", "/") : p}`;
   else return false;
   // Windows: Win32 menyelesaikan `..` secara leksikal sedangkan bash (MSYS) bisa menyelesaikannya secara fisik lewat
   // junction/symlink (dibuat tanpa hak admin) — kedua hasil bisa beda, jadi path ber-`..` bukan perkakas resmi.
@@ -550,7 +552,7 @@ function klasifikasiSegmen(s, K, ctx) {
   // tetap dikenali (cek jabatan berlaku) tetapi tidak pernah ikut diloloskan dan tidak dicatat sebagai hasil perkakas.
   const perkakasDikenal = (n) => Boolean(K.perkakas_baca[n] || K.perkakas_perintah?.[n]);
   let pk = nama.match(/^([a-z-]+)\.sh$/)?.[1], pkProg = prog, pkArgs = args, pkAman = dasarAman, pkMurni = true;
-  if (!pk && /^node(\.exe)?$/i.test(nama)) {
+  if (!pk && /^node(js)?(\.exe)?$/i.test(nama)) {
     const i = args.findIndex((x) => perkakasDikenal(path.basename(x).match(/^([a-z-]+)\.mjs$/)?.[1] ?? "") && perkakasAsli(x, ctx));
     if (i >= 0) {
       pk = path.basename(args[i]).slice(0, -4); pkProg = args[i]; pkArgs = args.slice(i + 1);

@@ -181,6 +181,7 @@ test("kantor.mjs: nyala (tanpa browser), tidak memulai ulang bila kode sama, mul
   }
   await new Promise((ok) => setTimeout(ok, 800));
   assert.equal(await sehat(), null, "server sudah berhenti");
+  fs.rmSync(path.join(process.env.TMPDIR || os.tmpdir(), `kantor-rudisone-${port}.log`), { force: true });
 });
 
 // T3/T4: `kantor berhenti` hanya mematikan server Kantor checkout ini untuk port yang diminta.
@@ -236,7 +237,10 @@ test("T4: berhenti/mulai-ulang Kantor uji tidak mematikan Kantor di port lain da
       assert.match(r.stdout, new RegExp(`Kantor \\(port ${p2}\\) dimatikan — pid ${lain.pid}\\.`), r.stdout);
       assert.ok(await tunggu(async () => (await sehatDi(p2)) === null));
     }
-  } finally { lain.kill(); kantor(p1, "berhenti"); fs.rmSync(logLain, { force: true }); }
+  } finally {
+    lain.kill(); kantor(p1, "berhenti");
+    for (const p of [p1, p2]) fs.rmSync(path.join(process.env.TMPDIR || os.tmpdir(), `kantor-rudisone-${p}.log`), { force: true });
+  }
 });
 
 test("install.mjs di HOME sementara: peran, subagent & skill tertaut; konsisten dengan jalur salinan (Windows tanpa symlink)", () => {

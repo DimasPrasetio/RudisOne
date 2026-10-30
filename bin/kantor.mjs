@@ -49,26 +49,31 @@ function pendengarPort() {
   return null;
 }
 
+// Windows: path tidak peka huruf besar-kecil dan pemisahnya bisa / atau \ → dibandingkan dalam bentuk baku
+const baku = (t) => (WINDOWS ? String(t).replaceAll("/", "\\").toLowerCase() : String(t));
+const SERVER_BAKU = baku(SERVER);
 /** Server Kantor RudisOne milik checkout ini untuk port ini: baris perintahnya menjalankan SERVER dan (memuat PENANDA,
  *  atau — server versi lama tanpa penanda — prosesnya memang mendengarkan port ini). Bukan dari berkas pid: pid basi
  *  bisa sudah dipakai proses lain (T3), dan pencocokan nama skrip saja ikut mengenai Kantor di port lain (T4). */
 function prosesKantor() {
   let calon;   // [{ pid, cmd, dengar }]
   if (WINDOWS) {
-    const jalur = SERVER.replaceAll("'", "''");
-    const ps = `$d=@(Get-NetTCPConnection -LocalPort ${Number(PORT)} -State Listen -ErrorAction SilentlyContinue | ForEach-Object { $_.OwningProcess }); `
-      + `Get-CimInstance Win32_Process -Filter "Name='node.exe'" | Where-Object { $_.CommandLine -and $_.CommandLine.Contains('${jalur}') } | `
+    // keluaran UTF-8 (PowerShell 5.1 bawaan memakai codepage OEM → path non-ASCII rusak); PowerShell hanya menyaring
+    // kasar (nama berkas), pencocokan path persis di JS
+    const ps = `[Console]::OutputEncoding=[Text.Encoding]::UTF8; `
+      + `$d=@(Get-NetTCPConnection -LocalPort ${Number(PORT)} -State Listen -ErrorAction SilentlyContinue | ForEach-Object { $_.OwningProcess }); `
+      + `Get-CimInstance Win32_Process -Filter "Name='node.exe'" | Where-Object { $_.CommandLine -and $_.CommandLine.ToLowerInvariant().Contains('server.mjs') } | `
       + `ForEach-Object { "$($_.ProcessId)\t$([int]($d -contains $_.ProcessId))\t$($_.CommandLine)" }`;
     const r = spawnSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", ps], { encoding: "utf8", windowsHide: true });
     calon = String(r.stdout ?? "").split(/\r?\n/).filter(Boolean).map((b) => { const [pid, d, ...c] = b.split("\t"); return { pid: Number(pid), dengar: d === "1", cmd: c.join("\t") }; });
   } else {
     const r = spawnSync("ps", ["-A", "-ww", "-o", "pid=", "-o", "command="], { encoding: "utf8" });
     calon = String(r.stdout ?? "").split("\n").map((b) => b.trim().match(/^(\d+)\s+(.*)$/)).filter(Boolean)
-      .map((m) => ({ pid: Number(m[1]), cmd: m[2] })).filter((p) => p.cmd.includes(SERVER));
+      .map((m) => ({ pid: Number(m[1]), cmd: m[2] })).filter((p) => p.cmd.includes(SERVER_BAKU));
     const dengar = calon.some((p) => !p.cmd.includes("--kantor-port=")) ? pendengarPort() ?? [] : [];
     for (const p of calon) p.dengar = dengar.includes(p.pid);
   }
-  return calon.filter((p) => p.pid !== process.pid && p.cmd.includes(SERVER)
+  return calon.filter((p) => p.pid !== process.pid && baku(p.cmd).includes(SERVER_BAKU)
     && (` ${p.cmd} `.includes(` ${PENANDA} `) || (!p.cmd.includes("--kantor-port=") && p.dengar))).map((p) => p.pid);
 }
 

@@ -993,6 +993,8 @@ test("T2: `node bin/<perkakas>.mjs` dikenali sama seperti `bin/<perkakas>.sh` â€
   assert.equal(kep(bash(RA, "node /x/lain/bin/server-cek.mjs")), null);
   assert.equal(kep(bash(SA, "node bin/server-cek.mjs")), null);
   assert.equal(kep(bash(RA, `node ${ROOT}/bin/metrik.mjs tugas T-1`)), null);
+  // nama biner Node lain (Debian/Ubuntu lama: nodejs) dikenali sama
+  assert.equal(kep(bash(RA, `nodejs ${ROOT}/bin/server-cek.mjs`)), "ask");
   // audit: hasil rilis-cek lewat .mjs tercatat seperti lewat .sh; bentuk ber-opsi tidak dicatat sebagai hasil perkakas
   const audit = (c) => catatSesudah({ ...bash(COO, c), hook_event_name: "PostToolUse", tool_response: { stdout: "Hasil: SIAP DEPLOY" } }, K);
   const r1 = audit(`node bin/rilis-cek.mjs contoh/app-t2 ${SHA}`);
