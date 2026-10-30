@@ -311,6 +311,8 @@ export function impor({ dari = berkasMd(), timpa = false, json = berkasJson(), m
     if (galat.length) { const e = new Error(`hasil impor tidak valid — perbaiki ${dari} lalu ulangi:\n  - ${galat.join("\n  - ")}`); e.galat = galat; throw e; }
     // MD tulisan tangan disimpan sebelum ditimpa versi bangkitan
     if (fs.existsSync(md) && !fs.readFileSync(md, "utf8").includes(PENANDA_BANGKIT)) fs.copyFileSync(md, `${md}.sebelum-impor`);
+    // JSON lama tidak pernah hilang: --timpa menyalinnya dulu (impor dari MD tidak membawa bukti/jam persis)
+    if (fs.existsSync(json)) fs.copyFileSync(json, `${json}.sebelum-impor-${new Date().toISOString().replace(/[:.]/g, "-")}`);
     tulisAtomik(json, `${JSON.stringify(reg, null, 2)}\n`);
     tulisAtomik(md, bangkitkanMd(reg));
     return { jumlah: tugas.length, peringatan };

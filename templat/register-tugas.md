@@ -13,7 +13,7 @@
      Prioritas: segera · tinggi · normal. ID: T-YYYYMMDD-n (sub-tugas T-YYYYMMDD-n.k). Kunci = sumber daya yang tidak
      boleh disentuh dua tugas sekaligus (repo:area/berkas, branch, prod-db:<app>, deploy:<app>, dok:<path>); kunci-cek
      menganggap repo:x bentrok dengan repo:x:a (awalan pada batas ":" atau "/"). Fase = fase SDLC tugas Engineering
-     (Inisiasi … Operasi, sdlc.md) atau —. Perkakas = keluaran `bin/perkakas.sh versi` saat tugas Engineering
+     (Inisiasi … Operasi, skill rudis-sdlc) atau —. Perkakas = keluaran `bin/perkakas.sh versi` saat tugas Engineering
      dimulai/dilanjutkan, — bila tugas tidak memakai perkakas rudis (tugas berjalan selain "—" menunda pembaruan
      perkakas). Tugas selesai/dibatalkan pindah ke tabel "Selesai" dengan sendirinya (selesai_pada diisi).
 

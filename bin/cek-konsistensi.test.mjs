@@ -86,3 +86,11 @@ test("repo ini: --repo bersih (rujukan, path, skill, inti, subagent, pemetaan 10
   assert.deepEqual(t.filter((x) => x.tingkat !== "info"), []);
   assert.equal(p.status, 0);
 });
+
+test("pencocokan bagian tidak longgar: judul satu kata + kata palsu, dan judul di dalam pagar kode", () => {
+  const h = periksa(repoMini((t) => {
+    t("skills/rudis-contoh/SKILL.md", "---\nname: rudis-contoh\ndescription: contoh\n---\n# Contoh\n## Akun\nx\n```\n# Hantu\n```\n## Langkah\n1. a\n");
+    t("agents/coo.md", "---\nname: coo\ndescription: d\n---\nLihat skill `rudis-contoh` › Akun palsu xyz dan skill `rudis-contoh` › Hantu.\n");
+  }));
+  assert.deepEqual(kodeTemuan(h), ["rujukan", "rujukan"]);
+});

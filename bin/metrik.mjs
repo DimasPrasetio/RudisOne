@@ -274,7 +274,8 @@ const ringkasJawaban = (js) => ({ jumlah: js.length, pilih_rekomendasi: js.filte
 
 /** Hitung metrik satu ID. → objek JSON (per sesi + total). */
 export function metrikTugas(id, { sejak = null, atribusi = "dasar", tarif = muatTarif(), biaya = true } = {}) {
-  if (!POLA_ID.test(id)) throw new Error(`ID tidak valid: ${id}`);
+  if (!/^T-\d{8}-\d+$/.test(id)) throw new Error(`ID tidak valid (pakai ID induk T-YYYYMMDD-n): ${id}`);
+  const memuat = (s) => new RegExp(`${id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\d])`).test(String(s ?? ""));
   const sejakMs = sejak ? Date.parse(`${sejak}T00:00:00Z`) : null;
   const desktop = muatDesktop();
   const sesiList = [];
@@ -291,14 +292,14 @@ export function metrikTugas(id, { sejak = null, atribusi = "dasar", tarif = muat
     const judul = d?.title ?? sesi.judul ?? sesi.agentSetting ?? null;
     // pesan ber-ID (lepas dari atribusi): keluar = SendMessage yang baris pertamanya memuat ID; masuk = lintas sesi ber-ID
     for (const s of segmen) {
-      if (s.masuk && s.masuk.isi?.includes(id) && dalamRentang(s.mulai)) pertamaMemuatId = Math.min(pertamaMemuatId, s.mulai);
-      if (s.masuk?.jenis === "lintas-sesi" && barisPertama(s.masuk.isi).includes(id) && dalamRentang(s.mulai))
+      if (s.masuk && memuat(s.masuk.isi) && dalamRentang(s.mulai)) pertamaMemuatId = Math.min(pertamaMemuatId, s.mulai);
+      if (s.masuk?.jenis === "lintas-sesi" && memuat(barisPertama(s.masuk.isi)) && dalamRentang(s.mulai))
         pesanMasukLintas.push({ sesi: b.cli, judul, dari: desktop.lokal.get(s.masuk.dari) ?? s.masuk.dari, ts: new Date(s.mulai).toISOString(),
           baris_pertama: potong(barisPertama(s.masuk.isi)), revisi: /^\s*\[Revisi/i.test(s.masuk.isi), perlu_revisi: /^\s*\[Hasil tinjauan\][^\n]*PERLU REVISI/.test(barisPertama(s.masuk.isi)) });
       for (const a of s.alat) {
         if (a.nama !== "SendMessage" || !dalamRentang(a.ts)) continue;
         const pesan = String(a.input.message ?? "");
-        if (!barisPertama(pesan).includes(id)) continue;
+        if (!memuat(barisPertama(pesan))) continue;
         pesanKeluar.push({ sesi: b.cli, judul, ke: desktop.lokal.get(a.input.to) ?? a.input.to ?? null, ts: new Date(a.ts).toISOString(),
           baris_pertama: potong(barisPertama(pesan)), revisi: /^\s*\[Revisi/i.test(pesan), perlu_revisi: /^\s*\[Hasil tinjauan\][^\n]*PERLU REVISI/.test(barisPertama(pesan)) });
       }

@@ -280,7 +280,12 @@ function cekMarketplace(kebijakan, sumber) {
  *  - `dilarang` (seluruh `run`, tui) ditolak; --gitlab-token ditolak (PAT di argumen terlihat di `ps`).
  *  - --help/-h diteruskan apa adanya. */
 export function rencanaSdd(t, kebijakan, args, { env = process.env, lokal } = {}) {
-  const bantuan = args.includes("--help") || args.includes("-h");
+  // Gagal tertutup: opsi global sebelum subperintah (mis. `--verbose run ultimate`) bisa melewati pemeriksaan per subperintah.
+  if (args[0]?.startsWith("-") && !(args.length === 1 && ["--help", "-h"].includes(args[0])))
+    return { tolak: `opsi sebelum subperintah (${args[0]}) tidak didukung pembungkus — tulis subperintahnya dulu, mis. \`init --here …\`` };
+  // Bantuan hanya bila --help/-h satu-satunya opsi; selain itu argumen diperiksa seperti biasa.
+  const opsi = args.filter((a) => a.startsWith("-"));
+  const bantuan = opsi.length === 1 && ["--help", "-h"].includes(opsi[0]);
   const p1 = args[0] ?? "", p2 = args[1] && !args[1].startsWith("-") ? args[1] : "";
   const kunci = `${p1} ${p2}`.trim();
   const catatan = [], argv = [...args];

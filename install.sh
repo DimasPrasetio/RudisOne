@@ -13,8 +13,13 @@ fail() { printf '  [!!]   %s\n' "$1"; warn=$((warn + 1)); }
 
 echo "RudisOne — pemeriksaan di $(hostname)"
 
+# Tautan ke ~/.claude hanya dibuat dari lokasi rumah: tautan dari worktree/salinan lain akan patah saat folder itu
+# dihapus, dan install.sh dari lokasi rumah menganggapnya milik sistem lain. RUDISONE_INSTALL_PAKSA=1 hanya untuk uji
+# dengan HOME sementara.
+TAUT=1
 if [ "$ROOT" = "$HOME/Documents/Neuron/ai-agent/RudisOne" ]; then pass "lokasi repo: ~/Documents/Neuron/ai-agent/RudisOne"
-else fail "repo ada di $ROOT — pindahkan/clone ke ~/Documents/Neuron/ai-agent/RudisOne (peran merujuk path itu)"; fi
+elif [ "${RUDISONE_INSTALL_PAKSA:-0}" = 1 ]; then fail "repo ada di $ROOT (bukan lokasi rumah) — tautan tetap dibuat karena RUDISONE_INSTALL_PAKSA=1"
+else TAUT=0; fail "repo ada di $ROOT — pindahkan/clone ke ~/Documents/Neuron/ai-agent/RudisOne (peran merujuk path itu); skill & subagent TIDAK ditautkan dari lokasi ini"; fi
 
 mkdir -p "$ROOT/handoff" && touch "$ROOT/handoff/.gitkeep" && pass "folder handoff/ siap"
 mkdir -p "$ROOT/catatan" && pass "folder catatan/ siap (ingatan per peran, per device — tidak di-commit)"
@@ -36,8 +41,9 @@ for a in "${AGENTS[@]}"; do check_link "$ROOT/ruang/$a/.claude/agents/$a.md" "$a
 # ditautkan ke ~/.claude/agents agar bisa dipanggil dari sesi di folder mana pun.
 if node "$ROOT/bin/peran.mjs" cek >/dev/null 2>&1; then pass "definisi subagent peran mutakhir (agen/)"
 else fail "agen/ basi — jalankan: $ROOT/bin/peran.sh bangun"; fi
-mkdir -p "$HOME/.claude/agents"
+[ "$TAUT" = 1 ] && mkdir -p "$HOME/.claude/agents"
 for f in "$ROOT"/agen/rudis-*.md; do
+  [ "$TAUT" = 1 ] || break
   [ -e "$f" ] || continue
   n="$(basename "$f")"; tujuan="$HOME/.claude/agents/$n"
   if [ ! -e "$tujuan" ] && [ ! -L "$tujuan" ]; then ln -s "$f" "$tujuan" && pass "subagent ${n%.md} tertaut"
@@ -51,8 +57,9 @@ for l in "$HOME"/.claude/agents/rudis-*.md; do
 done
 
 # Skill tim → ~/.claude/skills (symlink, agar tersedia di semua sesi termasuk sesi tugas di folder proyek)
-mkdir -p "$HOME/.claude/skills"
+[ "$TAUT" = 1 ] && mkdir -p "$HOME/.claude/skills"
 for d in "$ROOT"/skills/*/; do
+  [ "$TAUT" = 1 ] || break
   n="$(basename "$d")"; tujuan="$HOME/.claude/skills/$n"
   # hanya membuat tautan baru atau memperbarui tautan milik repo ini — skill sistem lain tidak pernah ditimpa
   if [ ! -e "$tujuan" ] && [ ! -L "$tujuan" ]; then ln -s "${d%/}" "$tujuan" && pass "skill $n tertaut"

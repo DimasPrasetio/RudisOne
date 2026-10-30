@@ -47,7 +47,8 @@ const normal = (s) => String(s).toLowerCase().replace(/[`*"“”]/g, "").replac
 
 /** Judul (#…) sebuah berkas Markdown, dinormalkan. */
 function judul(teks) {
-  return [...String(teks).matchAll(/^#{1,6}\s+(.+)$/gm)].flatMap((m) => { const h = normal(m[1].replace(/\s*\(.*$/, "")); return [h, h.split(" — ")[0]]; });
+  const tanpaKode = String(teks).replace(/^\s*```[\s\S]*?^\s*```/gm, "");   // "# …" di dalam pagar kode bukan judul
+  return [...tanpaKode.matchAll(/^#{1,6}\s+(.+)$/gm)].flatMap((m) => { const h = normal(m[1].replace(/\s*\(.*$/, "")); return [h, h.split(" — ")[0]]; });
 }
 
 /** Target rujukan "X.md › Bagian" / "skill `nama` › Bagian" → path relatif berkas sasaran (atau null). */
@@ -56,6 +57,14 @@ function sasaranRujukan(nama, root) {
   const rel = nama.replace(/^~\/Documents\/Neuron\/ai-agent\/RudisOne\//, "");
   for (const c of [rel, `agents/${path.basename(rel)}`]) if (fs.existsSync(path.join(root, c))) return c;
   return null;
+}
+
+/** Nama berkas .md di akar repo pada ref lama (default: main sebelum migrasi) — untuk menangkap rujukan ke berkas yang dipindah. */
+function berkasAkarLama(root, ref) {
+  try {
+    const out = execFileSync("git", ["ls-tree", "--name-only", ref || "3b1c888"], { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+    return new Set(out.split("\n").filter((f) => /^[\w-]+\.md$/.test(f) && !/^(TEAM|README|CLAUDE)\.md$/.test(f)));
+  } catch { return new Set(); }
 }
 
 export function cekRepo(root = ROOT, opsi = {}) {
@@ -86,6 +95,7 @@ export function cekRepo(root = ROOT, opsi = {}) {
   const peranId = [...daftarPeran(root), "coo"];
   const namaSah = new Set([...skills, ...perkakas, ...peranId.map((p) => `rudis-${p}`), ...NAMA_SESI_SINGKAT]);
   const cacheJudul = new Map();
+  const akarLama = berkasAkarLama(root, ref);
   for (const rel of berkasMd(root)) {
     const teks = baca(root, rel);
     // R4 nama rudis-… yang dirujuk (dalam backtick)
@@ -95,16 +105,22 @@ export function cekRepo(root = ROOT, opsi = {}) {
     // R5 path berkas repo yang dirujuk
     for (const m of teks.matchAll(/`((?:~\/Documents\/Neuron\/ai-agent\/RudisOne\/)?(?:agents|bin|skills|templat|kantor|ruang|agen|uji|konfigurasi)\/[^`\s<>*{}|]+|[A-Za-z][\w-]*\.(?:md|json|sh|mjs))`/g)) {
       let p = m[1].replace(/^~\/Documents\/Neuron\/ai-agent\/RudisOne\//, "").replace(/[),.;:]+$/, "");
-      if (PER_DEVICE.test(p) || /\.(md|json|sh|mjs)$/.test(p) === false && !p.endsWith("/")) { if (!fs.existsSync(path.join(root, p)) && !PER_DEVICE.test(p) && p.includes("/")) catat("peringatan", "path", `${rel}: \`${m[1]}\` tidak ada`); continue; }
+      if (PER_DEVICE.test(p)) continue;
       if (!p.includes("/")) {
-        // nama berkas tanpa folder: cukup ada di akar atau di folder yang lazim
-        if (!["", "agents", "templat", "bin"].some((d) => fs.existsSync(path.join(root, d, p)))) continue;   // berkas proyek lain (README.md, AGENTS.md, …)
+        // nama berkas tanpa folder: diperiksa bila dulu ada di akar repo (mis. sdlc.md yang dipindah ke skill);
+        // nama lain dianggap berkas proyek lain (README.md, AGENTS.md, …)
+        if (akarLama.has(p) && !fs.existsSync(path.join(root, p))) catat("galat", "path", `${rel}: \`${p}\` sudah tidak ada di akar repo (dipindah?)`);
         continue;
       }
       if (!fs.existsSync(path.join(root, p))) catat("galat", "path", `${rel}: \`${m[1]}\` tidak ada`);
     }
+    // R5b nama berkas akar lama tanpa backtick (mis. "sdlc.md ›", "(sdlc.md)")
+    for (const nama of akarLama) {
+      if (fs.existsSync(path.join(root, nama))) continue;
+      if (new RegExp(`(?<![\\w\`/.-])${nama.replace(/\./g, "\\.")}(?![\\w\`])`).test(teks)) catat("galat", "path", `${rel}: menyebut ${nama}, yang sudah tidak ada di akar repo`);
+    }
     // R6 rujukan bagian "X.md` › Bagian" dan "skill `nama` › Bagian"
-    const pola = /(?:`([\w~/.-]+\.md)`|\b([\w-]+\.md)|skill `(rudis-[a-z-]+)`)\s*›\s*"?([A-Za-z][^`"(),.;:\n—|]*)/g;
+    const pola = /(?:`([\w~/.-]+\.md)`|\b([\w-]+\.md)|skill `(rudis-[a-z-]+)`)\s*›\s*"?([A-Za-z](?:(?!\s+skill\s+`)[^`"(),.;:\n—|])*)/g;
     for (const m of teks.matchAll(pola)) {
       const nama = m[3] ? `skill:${m[3]}` : (m[1] ?? m[2]);
       const target = sasaranRujukan(nama, root);
@@ -112,7 +128,8 @@ export function cekRepo(root = ROOT, opsi = {}) {
       if (!cacheJudul.has(target)) cacheJudul.set(target, judul(baca(root, target)));
       const r = normal(m[4]).replace(/\s+(langkah|bagian|baris|tabel)\b.*$/, "");
       if (r.length < 4) continue;
-      const ok = cacheJudul.get(target).some((h) => h.startsWith(r) || r.startsWith(h) || h.includes(r));
+      // cocok: judul diawali rujukan, rujukan = judul (≥ 2 kata atau ≥ 7 huruf) + kata tambahan, atau judul memuat rujukan ≥ 6 huruf
+      const ok = cacheJudul.get(target).some((h) => h.startsWith(r) || (r.startsWith(`${h} `) && (h.split(" ").length >= 2 || h.length >= 7)) || (r.length >= 6 && h.includes(r)));
       if (!ok) catat("galat", "rujukan", `${rel}: "${nama.replace(/^skill:/, "skill ")} › ${m[4].trim()}" — bagian tidak ada di ${target}`);
     }
   }
