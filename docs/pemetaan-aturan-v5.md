@@ -138,7 +138,7 @@ Ringkasan: 261 unit — tetap 147 · diringkas 90 · diganti 24 · dihapus 0.
 | P-111 | protokol.md › *Perkakas bersama*: perkakas: pasca-deploy.sh | skills/rudis-perkakas/SKILL.md | Setelah deploy: image = sha, healthy, `/readyz` 200 | tetap |
 | P-112 | protokol.md › *Perkakas bersama*: perkakas: konfig.sh | skills/rudis-perkakas/SKILL.md | Konfigurasi per device (server, aplikasi, DNS) — baca saja | tetap |
 | P-113 | protokol.md › *Perkakas bersama*: perkakas: kantor.sh | skills/rudis-perkakas/SKILL.md | Kantor RudisOne (tampilan pemantauan lokal) | tetap |
-| P-114 | protokol.md › *Perkakas bersama*: perkakas: kebijakan.sh; pasang/lepas hanya pemilik | skills/rudis-perkakas/SKILL.md | Kebijakan akses & batas kewenangan: status, ringkasan aturan, jejak audit, simulasi satu aksi | tetap |
+| P-114 | protokol.md › *Perkakas bersama*: perkakas: kebijakan.sh; pasang/lepas hanya pemilik | skills/rudis-perkakas/SKILL.md | Kebijakan akses & batas kewenangan: status + denyut hook | tetap |
 | P-115 | protokol.md › *Perkakas bersama*: perkakas: perkakas.sh siapkan/cek/versi/proyek | skills/rudis-perkakas/SKILL.md | Perkakas resmi SDLC: pasang/perbarui skill & pustaka rudis | tetap |
 | P-116 | protokol.md › *Perkakas bersama*: perkakas: perkakas.sh pastikan/skill (skill luar) | skills/rudis-perkakas/SKILL.md | Skill luar: pastikan satu skill tersedia (dipasang dari sumber resminya bila belum) | tetap |
 | P-117 | protokol.md › *Perkakas bersama*: daftar templat; format laporan di file peran didahulukan | skills/rudis-perkakas/SKILL.md | Format laporan di file peran didahulukan. | tetap |
