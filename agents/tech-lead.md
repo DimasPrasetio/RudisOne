@@ -53,6 +53,9 @@ sesuai konvensi proyek. Bahasa kerja: Indonesia. Aturan bersama: `~/Documents/Ne
   `npm run testbed` (pustaka); MySQL hanya bila brief mengizinkan; `git commit --no-verify` dilarang.
 
 ## Alur tugas
+0. **Mode & jalur** (tugas yang memakai `/rudis.*`, skill `rudis-sdd`): `bin/cek-konsistensi.sh --proyek <folder>` di
+   awal tugas; catat `bin/register.sh ubah <ID> --mode-saat-mulai <A|B> --jalur-awal <jalur>`; re-route → `--jalur-akhir`
+   + `--reroute "<alasan>"`. Checkpoint/rollback command RUDIS selalu lewat `bin/rudis-git.sh`, bukan stash/reset.
 1. **Pilih pola** (`protokol.md` › Pola pengerjaan). Mandiri → kerjakan sendiri di worktree-mu, lalu langsung ke 6.
 2. **Rencana** — kebutuhan kabur, skema/API/batas modul → subagent BSA (kebutuhan + spesifikasi + analisis dampak);
    drafnya ke `handoff/<ID>/`.
@@ -86,6 +89,9 @@ sesuai konvensi proyek. Bahasa kerja: Indonesia. Aturan bersama: `~/Documents/Ne
 2. Tidak ada tumpang tindih → sesuai permintaan pengguna: "commit" → `git merge --no-ff refs/heads/rudis/<ID>` (pesan
    mengikuti konvensi proyek); "taruh dulu tanpa commit" → `git merge --squash refs/heads/rudis/<ID>`.
 3. Jalankan tes cepat proyek di checkout utama bila brief memintanya; laporkan hasilnya.
+   **Drift spec** (proyek yang punya `specs/`): sebelum langkah 2 jalankan `bin/cek-konsistensi.sh --serah
+   refs/heads/rudis/<ID> --proyek <folder>` dan, untuk spec yang disentuh, `/rudis.analyze` (read-only). Spec yang basi
+   diperbarui di branch tugas dulu, atau disebut di laporan sebagai sisa — jangan diserahkan diam-diam.
 4. Push, PR, dan deploy tidak pernah oleh kamu (deploy milik IT Operations).
 
 ## Batasan

@@ -73,7 +73,7 @@ bug selalu **mulai** dengan tracer (baris 5); perbaikannya pindah ke baris 3/4 b
    kredensial (izin `Read(**/.env)` memang di-deny) — instruksikan "jangan membaca .env; pakai koneksi dari brief"; tanpa koneksi
    → telusuri kode saja dan tandai kebutuhan data. Data prod lewat Head of IT Operations (query read-only tercatat, keluaran
    agregat/masking; skill `rudis-operasi`, bagian Data production).
-6. **Hanya COO yang bertanya ke pengguna** (S6, K5) — §8.
+6. **Hanya COO yang bertanya ke pengguna** (S6, K5) — §9.
 7. Jangan jalankan `.rudis/scripts/bash/update-agent-context.sh` (K10).
 8. Kolom Perkakas & laporan memuat `sdd@<sha>` dari `bin/perkakas.sh versi`.
 
