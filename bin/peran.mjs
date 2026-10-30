@@ -1,6 +1,7 @@
 // Definisi subagent per peran RudisOne (protokol.md › Model sesi). Sumber tunggal: agents/<id-peran>.md + protokol.md;
 // berkas agen/rudis-<id-peran>.md DIBANGKITKAN dari keduanya (jangan diedit tangan) lalu ditautkan install.sh ke
 // ~/.claude/agents/ agar bisa dipanggil `Agent` dengan subagent_type "rudis-<id-peran>" dari sesi mana pun.
+// Juga membangkitkan CLAUDE.md akar (salinan protokol.md) — lihat bangkitkanClaudeMd.
 // Pemakaian: node bin/peran.mjs bangun | cek | daftar
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -70,9 +71,27 @@ ${sumberInti.replace(/^# .*\n/, "").trim()}
 `;
 }
 
+/** CLAUDE.md akar repo = protokol inti disalin utuh. Impor `@protokol.md` tidak dipakai: impor di CLAUDE.md folder
+ *  leluhur tidak diikuti saat sesi dimulai di subfolder (`ruang/<id-peran>`, worktree) — teruji 2026-10-30. */
+export function bangkitkanClaudeMd(root = ROOT) {
+  const inti = fs.readFileSync(path.join(root, "protokol.md"), "utf8");
+  const sidik = crypto.createHash("sha1").update(inti).digest("hex").slice(0, 12);
+  return `<!-- DIBANGKITKAN oleh bin/peran.mjs dari protokol.md (sidik ${sidik}). Jangan diedit: ubah protokol.md lalu jalankan bin/peran.sh bangun.
+     Termuat otomatis untuk setiap sesi di folder ini dan subfoldernya (COO, ruang/, worktree RudisOne) dan dimuat ulang setelah kompaksi.
+     Peranmu: nilai "agent" di .claude/settings.json folder sesimu, atau pembuka brief. -->
+${inti}`;
+}
+
 export function bangun(root = ROOT, tulis = true) {
   const dir = path.join(root, "agen");
   const hasil = [];
+  {
+    const f = path.join(root, "CLAUDE.md");
+    const isi = bangkitkanClaudeMd(root);
+    const lama = fs.existsSync(f) ? fs.readFileSync(f, "utf8") : null;
+    if (lama !== isi && tulis) fs.writeFileSync(f, isi);
+    hasil.push({ id: "CLAUDE.md", berkas: "CLAUDE.md", status: lama === isi ? "sama" : lama === null ? "baru" : "basi" });
+  }
   if (tulis) fs.mkdirSync(dir, { recursive: true });
   const ada = new Set(fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => /^rudis-.*\.md$/.test(f)) : []);
   for (const id of daftarPeran(root)) {
@@ -80,25 +99,25 @@ export function bangun(root = ROOT, tulis = true) {
     const isi = bangkitkan(id, root);
     const lama = fs.existsSync(f) ? fs.readFileSync(f, "utf8") : null;
     ada.delete(`rudis-${id}.md`);
-    if (lama === isi) { hasil.push({ id, status: "sama" }); continue; }
+    if (lama === isi) { hasil.push({ id, berkas: `agen/rudis-${id}.md`, status: "sama" }); continue; }
     if (tulis) fs.writeFileSync(f, isi);
-    hasil.push({ id, status: lama === null ? "baru" : "basi" });
+    hasil.push({ id, berkas: `agen/rudis-${id}.md`, status: lama === null ? "baru" : "basi" });
   }
-  for (const sisa of ada) { if (tulis) fs.rmSync(path.join(dir, sisa)); hasil.push({ id: sisa.slice(6, -3), status: "yatim" }); }
+  for (const sisa of ada) { if (tulis) fs.rmSync(path.join(dir, sisa)); hasil.push({ id: sisa.slice(6, -3), berkas: `agen/${sisa}`, status: "yatim" }); }
   return hasil;
 }
 
 function utama(argv) {
   const [cmd = "cek"] = argv;
   if (cmd === "bangun") {
-    for (const r of bangun()) if (r.status !== "sama") console.log(`  ${r.status === "yatim" ? "dihapus" : r.status === "baru" ? "dibuat" : "diperbarui"}  agen/rudis-${r.id}.md`);
-    console.log(`Subagent peran siap: ${daftarPeran().length} berkas di agen/.`);
+    for (const r of bangun()) if (r.status !== "sama") console.log(`  ${r.status === "yatim" ? "dihapus" : r.status === "baru" ? "dibuat" : "diperbarui"}  ${r.berkas}`);
+    console.log(`Siap: CLAUDE.md + ${daftarPeran().length} subagent peran di agen/.`);
     return 0;
   }
   if (cmd === "cek") {
     const salah = bangun(ROOT, false).filter((r) => r.status !== "sama");
-    if (!salah.length) { console.log(`Subagent peran mutakhir (${daftarPeran().length}).`); return 0; }
-    for (const r of salah) console.log(`  ${r.status}: agen/rudis-${r.id}.md`);
+    if (!salah.length) { console.log(`CLAUDE.md & subagent peran mutakhir (${daftarPeran().length}).`); return 0; }
+    for (const r of salah) console.log(`  ${r.status}: ${r.berkas}`);
     console.log("Jalankan: bin/peran.sh bangun");
     return 1;
   }

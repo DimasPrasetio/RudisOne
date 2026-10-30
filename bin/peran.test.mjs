@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 
 const SINI = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(SINI, "..");
-const { bangkitkan, bangun, daftarPeran, pisahFrontmatter, jabatanDari } = await import("./peran.mjs");
+const { bangkitkan, bangkitkanClaudeMd, bangun: bangunSemua, daftarPeran, pisahFrontmatter, jabatanDari } = await import("./peran.mjs");
 
 function repoMini() {
   const r = fs.mkdtempSync(path.join(os.tmpdir(), "peran-"));
@@ -19,6 +19,8 @@ function repoMini() {
   fs.writeFileSync(path.join(r, "agents", "research-analyst.md"), "---\nname: research-analyst\ndescription: Peneliti \"bersitasi\"\ncolor: cyan\n---\n\nPeran: **Research Analyst** di RudisOne.\n");
   return r;
 }
+
+const bangun = (r, tulis) => bangunSemua(r, tulis).filter((x) => x.id !== "CLAUDE.md");
 
 test("frontmatter & jabatan terbaca", () => {
   const { fm, isi } = pisahFrontmatter("---\nname: x\ndescription: d: e\n---\nPeran: **Head of Strategy** di RudisOne.\n");
@@ -54,4 +56,15 @@ test("bangun → cek mutakhir; sumber berubah → basi; berkas yatim dihapus", (
 test("repo ini: agen/ mutakhir terhadap agents/ + protokol.md", () => {
   const out = execFileSync(process.execPath, [path.join(SINI, "peran.mjs"), "cek"], { env: { ...process.env, RUDISONE_ROOT: REPO }, encoding: "utf8" });
   assert.match(out, /mutakhir/);
+});
+
+test("CLAUDE.md = salinan protokol.md (tanpa impor @) dan ikut diperiksa", () => {
+  const r = repoMini();
+  const c = bangkitkanClaudeMd(r);
+  assert.match(c, /^<!-- DIBANGKITKAN/);
+  assert.ok(c.endsWith("# Protokol inti\n\nAturan A.\n"));
+  assert.doesNotMatch(c, /^@/m);
+  assert.equal(bangunSemua(r).find((x) => x.id === "CLAUDE.md").status, "baru");
+  fs.appendFileSync(path.join(r, "protokol.md"), "Aturan C.\n");
+  assert.equal(bangunSemua(r, false).find((x) => x.id === "CLAUDE.md").status, "basi");
 });

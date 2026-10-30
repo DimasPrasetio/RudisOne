@@ -35,7 +35,7 @@ function berkasMd(root) {
   const jalan = (d) => {
     for (const e of fs.readdirSync(path.join(root, d), { withFileTypes: true })) {
       const rel = d ? `${d}/${e.name}` : e.name;
-      if (e.isDirectory()) { if (!/^(\.git|node_modules|handoff|catatan|agen|\.claude)$/.test(e.name)) jalan(rel); }
+      if (e.isDirectory()) { if (!/^(\.git|node_modules|handoff|catatan|agen|\.claude|docs)$/.test(e.name)) jalan(rel); }
       else if (e.name.endsWith(".md")) hasil.push(rel);
     }
   };
@@ -64,7 +64,6 @@ export function cekRepo(root = ROOT, opsi = {}) {
   const inti = baca(root, "protokol.md");
   const nBaris = inti.split("\n").length - (inti.endsWith("\n") ? 1 : 0);
   if (nBaris > BATAS_INTI) catat("galat", "inti-ukuran", `protokol.md ${nBaris} baris > ${BATAS_INTI}`);
-  if (!fs.existsSync(path.join(root, "CLAUDE.md")) || !/^@protokol\.md\s*$/m.test(baca(root, "CLAUDE.md"))) catat("galat", "inti-muat", "CLAUDE.md tidak mengimpor @protokol.md");
   if (/^Kamu adalah \*\*/m.test(inti)) catat("peringatan", "persona", "protokol.md memuat kalimat persona");
 
   // R2 — skill: frontmatter, nama = folder, ukuran
@@ -78,7 +77,8 @@ export function cekRepo(root = ROOT, opsi = {}) {
   }
 
   // R3 — subagent terbangkit
-  for (const r of bangunPeran(root, false)) if (r.status !== "sama") catat("galat", "subagent", `agen/rudis-${r.id}.md ${r.status} — jalankan bin/peran.sh bangun`);
+  // R3 — CLAUDE.md (pemuat inti) & subagent terbangkit
+  for (const r of bangunPeran(root, false)) if (r.status !== "sama") catat("galat", r.id === "CLAUDE.md" ? "inti-muat" : "subagent", `${r.berkas} ${r.status} — jalankan bin/peran.sh bangun`);
 
   // R4–R6 — rujukan di semua Markdown
   let perkakas = [];
