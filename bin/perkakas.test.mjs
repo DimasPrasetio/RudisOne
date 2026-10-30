@@ -7,7 +7,7 @@ import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { jenisProyek, normalSumber, periksaAllowlist, rencanaSdd, sumberDiizinkan, tugasEngineeringBerjalan } from "./perkakas.mjs";
+import { deteksiProyek, jenisProyek, normalSumber, periksaAllowlist, rencanaSdd, sumberDiizinkan, tugasEngineeringBerjalan } from "./perkakas.mjs";
 
 const SKRIP = path.join(path.dirname(fileURLToPath(import.meta.url)), "perkakas.mjs");
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "perkakas-uji-"));
@@ -103,6 +103,134 @@ test("jenis proyek dari isi folder", () => {
   assert.equal(jenisProyek(p), "rudis-deploy");
   tulis(path.join(p, "modules.lock.json"), "{}");
   assert.equal(jenisProyek(p), "rudis-pustaka");
+});
+
+// ---- Mode proyek berbukti (D1–D6 di handoff/T-20261030-4/riset.md §3.1) -------------------------------------
+const LOCK = (modul) => JSON.stringify({ lockVersion: 1, preset: null, modules: modul });
+/** Proyek fixture: `isi` = { relpath: isi }; git = repo git dengan semua berkas di-add (tanpa commit). */
+function proyekFixture(nama, isi, { git = true, abaikan = [] } = {}) {
+  const p = path.join(tmp, "mode", nama);
+  fs.rmSync(p, { recursive: true, force: true });
+  fs.mkdirSync(p, { recursive: true });
+  for (const [rel, teks] of Object.entries(isi)) tulis(path.join(p, rel), teks);
+  if (git) {
+    sh("git", ["init", "-q", "-b", "main"], p);
+    sh("git", ["add", "-A", "--", ".", ...abaikan.map((f) => `:!${f}`)], p);
+  }
+  return p;
+}
+const STANDAR_GO = { "infra/deploy/compose.yml": "x", "apps/api/go.mod": "module app\n", "apps/web/package.json": '{"dependencies":{"react":"19.0.0"}}' };
+const deteksi = (p) => deteksiProyek(p, { root: tmp });
+
+test("mode A: lock ter-track, valid, ≥1 modul aktif, backend go — bukti lengkap", () => {
+  const p = proyekFixture("a", { ...STANDAR_GO, "modules.lock.json": LOCK({ auth: { version: "1.0.0" }, users: { status: "detached" } }) });
+  const h = deteksi(p);
+  assert.equal(h.jenis, "rudis-pustaka");
+  assert.equal(h.mode, "A");
+  assert.equal(h.backend, "go");
+  assert.ok(h.bukti.includes("modules.lock.json: ada, di-track git, JSON valid, 1 modul aktif, 1 detached"), h.bukti.join("\n"));
+  assert.ok(h.bukti.includes("backend: go dari apps/api/go.mod"));
+  assert.ok(h.bukti.includes("infra/deploy: ada"));
+  assert.deepEqual(h.kartu, { ada: false });
+});
+
+test("mode B: NestJS standar tanpa lock, dan lock pada backend non-Go (pustaka hanya Go)", () => {
+  const nest = { "infra/deploy/compose.yml": "x", "apps/api/package.json": '{"dependencies":{"@nestjs/core":"10"}}', "apps/web/package.json": "{}" };
+  let h = deteksi(proyekFixture("b", nest));
+  assert.equal(h.jenis, "rudis-deploy");
+  assert.equal(h.mode, "B");
+  assert.equal(h.backend, "node");
+  h = deteksi(proyekFixture("b-lock", { ...nest, "modules.lock.json": LOCK({ "ui-kit": {} }) }));
+  assert.equal(h.mode, "B");
+  assert.ok(h.bukti.some((b) => /pustaka hanya Go/.test(b)), h.bukti.join("\n"));
+  for (const [berkas, be] of [["composer.json", "php"], ["pom.xml", "java"], ["App.csproj", "dotnet"], ["requirements.txt", "python"], ["package.json", "lain"]]) {
+    const r = deteksi(proyekFixture(`b-${be}`, { [berkas]: "{}" }, { git: false }));
+    assert.equal(r.backend, be, berkas);
+    assert.equal(r.mode, "B");
+    assert.equal(r.jenis, "lain");
+  }
+});
+
+test("D1: folder tidak ada → galat (exit 3, stderr), bukan `lain` diam-diam", () => {
+  assert.throws(() => deteksi(path.join(tmp, "mode", "salah-ketik")), { code: "ENOENT" });
+  const r = perkakas("proyek", path.join(tmp, "mode", "salah-ketik"));
+  assert.equal(r.status, 3);
+  assert.equal(r.stdout, "");
+  assert.match(r.stderr, /folder tidak ada/);
+});
+
+test("D2: proyek baru (folder kosong) → B tanpa kartu; mode A untuk proyek baru diputuskan di kartu", () => {
+  const h = deteksi(proyekFixture("d2", {}, { git: false }));
+  assert.equal(h.jenis, "lain");
+  assert.equal(h.mode, "B");
+  assert.equal(h.backend, "-");
+});
+
+test("D3: scaffold standar + go tanpa lock → ragu", () => {
+  const h = deteksi(proyekFixture("d3", STANDAR_GO));
+  assert.equal(h.jenis, "rudis-deploy");
+  assert.equal(h.mode, "ragu");
+  assert.ok(h.bukti.some((b) => /^ragu: .*\(D3\)/.test(b)), h.bukti.join("\n"));
+});
+
+test("D4: semua modul detached (atau lock kosong) → ragu", () => {
+  let h = deteksi(proyekFixture("d4", { ...STANDAR_GO, "modules.lock.json": LOCK({ auth: { status: "detached" } }) }));
+  assert.equal(h.mode, "ragu");
+  assert.ok(h.bukti.some((b) => /\(D4\)/.test(b)));
+  h = deteksi(proyekFixture("d4-kosong", { ...STANDAR_GO, "modules.lock.json": "{}" }));
+  assert.equal(h.mode, "ragu");
+});
+
+test("D5: beberapa app dengan backend berbeda → ragu; web React tidak dihitung backend", () => {
+  const h = deteksi(proyekFixture("d5", { ...STANDAR_GO, "modules.lock.json": LOCK({ auth: {} }),
+    "apps/worker/package.json": '{"dependencies":{"express":"4"}}' }));
+  assert.equal(h.mode, "ragu");
+  assert.ok(h.bukti.includes("app: apps/worker → node (package.json (express))"), h.bukti.join("\n"));
+  assert.ok(h.bukti.some((b) => /beberapa backend: go, node \(D5\)/.test(b)));
+  const sub = deteksi(proyekFixture("d5-sub", { "layanan-a/go.mod": "module a", "layanan-b/composer.json": "{}", "layanan-b/package.json": '{"dependencies":{"express":"4"}}' }, { git: false }));
+  assert.equal(sub.mode, "ragu");
+});
+
+test("D6: lock tidak di-track, rusak, atau di luar repo git → ragu", () => {
+  const isi = { ...STANDAR_GO, "modules.lock.json": LOCK({ auth: {} }) };
+  let h = deteksi(proyekFixture("d6-track", isi, { abaikan: ["modules.lock.json"] }));
+  assert.equal(h.mode, "ragu");
+  assert.ok(h.bukti.some((b) => /TIDAK di-track git/.test(b)));
+  h = deteksi(proyekFixture("d6-rusak", { ...isi, "modules.lock.json": "{rusak" }));
+  assert.equal(h.mode, "ragu");
+  assert.ok(h.bukti.some((b) => /JSON rusak/.test(b)));
+  h = deteksi(proyekFixture("d6-nongit", isi, { git: false }));
+  assert.equal(h.mode, "ragu");
+  assert.ok(h.bukti.some((b) => /lock di luar repo git \(D6\)/.test(b)));
+});
+
+test("artefak RUDIS: docs/trace-reports/ belum di-gitignore → bukti peringatan; kartu terbaca", () => {
+  const p = proyekFixture("artefak", { ...STANDAR_GO, "modules.lock.json": LOCK({ auth: {} }), ".rudis/x": "", "specs/001-a/spec.md": "",
+    ".rudisone/kartu-proyek.md": "---\nmode: A\nmode_mesin: A\noverride: -\n---\n# Kartu\n" });
+  let h = deteksi(p);
+  assert.ok(h.bukti.includes("peringatan: docs/trace-reports/ atau docs/test-reports/ belum di-gitignore"));
+  assert.ok(h.bukti.includes("specs/: ada (1 folder)"));
+  assert.equal(h.kartu.mode, "A");
+  tulis(path.join(p, ".gitignore"), "docs/trace-reports/\n");
+  assert.ok(deteksiProyek(p).bukti.some((b) => /test-reports/.test(b)));   // test-reports juga wajib
+  tulis(path.join(p, ".gitignore"), "docs/trace-reports/\ndocs/test-reports/\n");
+  h = deteksi(p);
+  assert.ok(!h.bukti.some((b) => /trace-reports/.test(b)));
+});
+
+test("CLI proyek: baris pertama jenis lama, lalu mode/backend/bukti/kartu; --json", () => {
+  const p = proyekFixture("cli", { ...STANDAR_GO, "modules.lock.json": LOCK({ auth: {} }) });
+  const r = perkakas("proyek", p);
+  assert.equal(r.status, 0, r.stderr);
+  const baris = r.stdout.trim().split("\n");
+  assert.equal(baris[0], "rudis-pustaka");
+  assert.equal(baris[1], "mode-mesin: A");
+  assert.equal(baris[2], "backend: go");
+  assert.ok(baris.slice(3, -1).every((b) => b.startsWith("bukti: ")));
+  assert.match(baris.at(-1), /^kartu: tidak ada$/);
+  const j = JSON.parse(perkakas("proyek", p, "--json").stdout);
+  assert.equal(j.mode, "A");
+  assert.equal(j.jenis, "rudis-pustaka");
 });
 
 test("cek di device kosong tidak mengubah apa pun", () => {

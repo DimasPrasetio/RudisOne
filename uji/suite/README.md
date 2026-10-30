@@ -59,7 +59,10 @@ override `--keluar` atau env `RUDISONE_UJI_KELUAR`):
   skill varian, atau bila `~/.claude/CLAUDE.md` ada. `.claude/` di leluhur (mis. `RudisOne/.claude/settings.json`
   `{"agent":"coo"}`) tidak termuat karena `proyek-contoh` adalah akar git sendiri (diperiksa lewat event init:
   agen `coo` tidak terdaftar, skill varian terdaftar).
-- Skill pengguna lain (`~/.claude/skills`: grill-me, timagent, rudis-monorepo, …) ikut termuat — sama untuk semua varian.
+- Sejak T-20261030-6 setiap jalan memakai `--setting-sources project,local`: skill, hook, izin, dan memori **pengguna**
+  (`~/.claude/…`) tidak termuat, sehingga varian hanya diuji dengan skill-nya sendiri (login tetap dipakai). Hasil
+  sebelum T-20261030-6 dibuat dengan skill pengguna ikut termuat — bandingkan hanya label yang dijalankan dengan kondisi
+  yang sama.
 - Biaya nyata: tiap jalan memanggil model. Pakai `--kering` untuk memeriksa persiapan, `--tugas`/`--ulang 1` untuk
   percobaan kecil.
 

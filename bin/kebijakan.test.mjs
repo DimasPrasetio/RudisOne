@@ -20,7 +20,11 @@ fs.writeFileSync(KONFIG, JSON.stringify({
 // rilis-cek palsu: SIAP bila berkas <skrip>.siap ada (pemeriksaan ulang langsung saat deploy, T-20261030-5)
 const RILIS = path.join(tmp, "rilis-cek-palsu.sh");
 fs.writeFileSync(RILIS, '#!/bin/sh\nif [ -f "$0.siap" ]; then echo "Hasil: SIAP DEPLOY"; exit 0; fi\necho "Hasil: BELUM SIAP"; exit 1\n', { mode: 0o755 });
+// register fixture: worktree tim hanya bermakna di folder proyek terdaftar (T-20261030-6 A3)
+const REGISTER = path.join(tmp, "register-tugas.json");
+fs.writeFileSync(REGISTER, JSON.stringify({ versi: 1, tugas: [{ id: "T-1", folder: "/x/toko (branch rudis/T-1)" }] }));
 Object.assign(process.env, {
+  RUDISONE_REGISTER: REGISTER,
   RUDISONE_RILIS_CEK: RILIS,
   RUDISONE_ROOT: ROOT,
   RUDISONE_KEBIJAKAN: path.join(SINI, "..", "kebijakan-akses.json"),
@@ -339,7 +343,7 @@ test("F1: yang memang baca tetap diloloskan (tidak menambah prompt yang tidak pe
     [COO, `${ROOT}/bin/rilis-cek.sh contoh/app-uji ${SHA}`], [COO, "gh pr list | sort -r | uniq -c"],
     [SA, "ssh vps-uji 'docker ps --format \"{{.Names}}\" && df -h' 2>&1 | tail -20"],
     [SA, "ssh -o BatchMode=yes -o ConnectTimeout=5 vps-uji uptime"], [SA, "ssh -T -p 22 vps-uji 'docker logs --tail 50 app'"],
-    [SA, "ssh vps-uji \"sed -n '1,20p' /var/log/syslog\""], [SA, "ssh vps-uji 'curl -s -o /dev/null -w \"%{http_code}\" https://contoh.test'"],
+    [SA, "ssh vps-uji \"sed -n '1,20p' /var/log/syslog\""],
     [SA, "ssh vps-uji 'journalctl -u nginx --since today | tail -50'"], [SA, "ssh vps-uji 'find /var/log -name \"*.gz\" -mtime +7'"],
   ]) assert.equal(kep(bash(cwd, c)), "allow", c);
 });
@@ -411,11 +415,15 @@ test("F2: catatan rilis-cek palsu tidak meloloskan deploy (pemeriksaan ulang lan
   const deploy = `ssh vps-uji 'cd ~/app-uji && ./deploy.sh ${sha2}'`;
   fs.rmSync(`${RILIS}.siap`, { force: true });
   const f = path.join(process.env.RUDISONE_AUDIT, `${new Date().toISOString().slice(0, 7)}.jsonl`);
-  fs.appendFileSync(f, JSON.stringify({ waktu: new Date().toISOString(), jenis: "rilis-cek", repo: "contoh/app-uji", sha: sha2, hasil: "SIAP DEPLOY" }) + "\n");
-  assert.equal(kep(bash(SA, deploy)), "ask");                                    // catatan ada, GitHub bilang belum
+  // catatan sah lewat hook PostToolUse (berantai), GitHub bilang belum → ask; GitHub siap → allow
+  catatSesudah({ ...bash(COO, `bin/rilis-cek.sh contoh/app-uji ${sha2}`), hook_event_name: "PostToolUse", tool_response: { stdout: "SIAP DEPLOY" } }, K);
+  assert.equal(kep(bash(SA, deploy)), "ask");
   fs.writeFileSync(`${RILIS}.siap`, "");
-  assert.equal(kep(bash(SA, deploy)), "allow");                                  // keduanya terpenuhi
+  assert.equal(kep(bash(SA, deploy)), "allow");
   assert.equal(kep(bash(SA, `${deploy} && rm -rf /tmp/x`)), "ask");              // jenjang 2 digandeng perintah lain
+  // catatan palsu disisipkan agent (tanpa rantai) → rantai rusak → tidak ada catatan yang dipercaya, walau GitHub SIAP
+  fs.appendFileSync(f, JSON.stringify({ waktu: new Date().toISOString(), jenis: "rilis-cek", repo: "contoh/app-uji", sha: sha2, hasil: "SIAP DEPLOY" }) + "\n");
+  assert.equal(kep(bash(SA, deploy)), "ask");
 });
 
 test("F2: Write/Edit/MultiEdit/NotebookEdit ke berkas terlindung → ask di sesi mana pun", () => {
@@ -454,14 +462,16 @@ test("F2: symlink dan hardlink ke berkas terlindung tetap terlindung", () => {
 test("F2: Bash yang mengubah berkas terlindung → ask; yang hanya membaca tidak", () => {
   for (const c of [
     "echo x > ~/.claude/settings.json", "sed -i.bak s/a/b/ kebijakan-akses.json", "tee kebijakan-akses.json < /tmp/x",
-    "cp /tmp/x kebijakan-akses.json", "node -e \"require('fs').writeFileSync('kebijakan-akses.json','{}')\"",
+    "cp /tmp/x kebijakan-akses.json",
     "echo '{}' >> handoff/audit/2026-10.jsonl", "cd handoff && echo x >> audit/2026-10.jsonl", "echo x >> 2026-10.jsonl",
     "printf x > konfigurasi/server.json", "ln -s /tmp/x bin/kebijakan.mjs", "cat /tmp/x > 'kebij'\"akan-akses.json\"",
     "echo x > k\\ebijakan-akses.json", "bin/kebijakan.sh lepas --ya", `${ROOT}/bin/kebijakan.sh pasang --ya`,
     "node bin/kebijakan.mjs lepas --ya", "bin/inti.sh pasang", "echo 'alias gh=rm' >> ~/.zshrc",
     "rm -rf ~/.claude/shell-snapshots", "echo x > ruang/system-administrator/.claude/settings.local.json",
-    "cat kebijakan-akses.json $(echo) ", "git -C . add kebijakan-akses.json",
   ]) assert.equal(kep(bash(COO, c)), "ask", c);
+  // A9: penulisan yang tidak bisa ditentukan (interpreter, git add) atau sekadar menyebut → alur biasa, bukan ask/allow
+  for (const c of ["node -e \"require('fs').writeFileSync('kebijakan-akses.json','{}')\"", "cat kebijakan-akses.json $(echo) ",
+    "git -C . add kebijakan-akses.json"]) assert.equal(kep(bash(COO, c)), null, c);
   // dari cwd yang sudah di folder terlindung (cd pada panggilan sebelumnya)
   assert.equal(kep(bash(path.join(ROOT, "konfigurasi"), "echo x > server.json")), "ask");
   assert.equal(kep(bash(process.env.RUDISONE_AUDIT, "echo x >> 2026-10.jsonl")), "ask");
@@ -572,7 +582,6 @@ test("tinjauan M1: Skill rudisone yang dipanggil model sendiri tidak menjadikan 
 test("tinjauan: baca server yang sah tetap allow (regresi)", () => {
   for (const c of ["ssh vps-uji 'grep -rn server_name /etc/nginx'", "ssh vps-uji \"sed -n '/server_name/p' /etc/nginx/nginx.conf\"",
     "ssh vps-uji \"mysql -u ro -N app_uji_db -e 'select count(*) from users'\"", "ssh vps-uji \"mysql app_uji_db -e 'SHOW TABLES;'\"",
-    "ssh vps-uji 'curl -sS -o /dev/null -w \"%{http_code}\" --max-time 5 https://contoh.test'", "ssh vps-uji 'curl -sI https://contoh.test'",
     "ssh vps-uji hostname", "ssh vps-uji 'date +%F'", "ssh vps-uji 'ls /var/log/*.log'", "ssh vps-uji 'docker logs --tail 20 app 2>&1 | grep -i error'"]) {
     assert.equal(kep(bash(SA, c)), "allow", c);
   }
@@ -601,4 +610,193 @@ test("tinjauan N2–N5 & rendah: komentar mysql, skema curl, gh auth -at, openss
   ]) assert.notEqual(kep(bash(cwd, c)), "allow", c);
   assert.equal(kep(bash(COO, "tar -xf /tmp/evil.tar -Cbin")), "ask");
   assert.equal(kep(bash(COO, "gh repo create contoh/baru --private")), "allow");          // jenjang 2 sah tetap jalan
+});
+
+// ===================== T-20261030-5.1 · positif palsu di hook yang terpasang =====================
+test("positif palsu: tool-results/plans di ~/.claude dan cd ke handoff tidak ditanya; perusak tetap ditanya", () => {
+  const H = os.homedir();
+  for (const c of [
+    `F=${H}/.claude/projects/-x/abc/tool-results/webfetch-1.pdf; pdftotext -layout "$F" /tmp/s/a.txt`,
+    `python3 -c 'print(1)' ${H}/.claude/projects/-x/abc/tool-results/out.txt`, `cat ${H}/.claude/plans/x.md | python3 -m json.tool`,
+    `cd ${ROOT}/handoff && sed -n 96,140p T-1/riset.md`, `cd ${ROOT} && npm test`, `node --test ${ROOT}/handoff/x.test.mjs`,
+  ]) assert.notEqual(kep(bash(COO, c)), "ask", c);
+  for (const c of [`cd ${ROOT} && rm -rf ${path.relative(ROOT, path.dirname(process.env.RUDISONE_AUDIT)) || "."}`, `cd ${ROOT}/bin && cp /tmp/x server-cek.sh`,
+    `cd ${H} && rm -rf .claude`, `echo x > ${H}/.claude/settings.json`, `cp /tmp/x ${H}/.claude/agents/rudis-x.md`, `cd ${H}/.claude && rm -rf projects`]) {
+    assert.equal(kep(bash(COO, c)), "ask", c);
+  }
+  assert.notEqual(kep(bash(COO, "cd /tmp/evil && bin/rilis-cek.sh contoh/app-uji 0123456")), "allow");
+  // sesudah `cd` di perintah yang sama, bin/… relatif bukan perkakas lagi (cwd fisik tidak pasti, U3 H2) — alur biasa
+  assert.equal(kep(bash(path.join(ROOT, "ruang", "x"), `cd ${ROOT} && bin/rilis-cek.sh contoh/app-uji 0123456`)), null);
+  assert.equal(kep(bash(ROOT, "bin/rilis-cek.sh contoh/app-uji 0123456")), "allow");
+});
+
+
+// ===================== T-20261030-6 · A1 (F3) & A3 (L3b, D1) =====================
+test("A1: curl keluar dari baca server; INTO/locking ditolak; SELECT prod tercatat dengan jumlah baris", async () => {
+  const { hitungBaris } = await import("./kebijakan.mjs");
+  for (const c of ["ssh vps-uji 'curl -sI https://contoh.test'", "ssh vps-uji 'curl -s -o /dev/null -w \"%{http_code}\" https://contoh.test'",
+    "ssh vps-uji \"mysql app -e 'select * from users into outfile \\\"/tmp/x\\\"'\"", "ssh vps-uji \"mysql app -e 'select 1 into dumpfile \\\"/tmp/x\\\"'\"",
+    "ssh vps-uji \"mysql app -e 'select id into @v from users'\"", "ssh vps-uji \"mysql app -e 'select * from users for update'\"",
+    "ssh vps-uji \"mysql app -e 'select * from users lock in share mode'\""]) assert.equal(kep(bash(SA, c)), "ask", c);
+  assert.equal(hitungBaris("id\tnama\n1\ta\n2\tb\n"), 2);
+  assert.equal(hitungBaris("1\ta\n2\tb\n", { tanpaKepala: true }), 2);
+  assert.equal(hitungBaris("mysql: [Warning] Using a password\nid\n7\n"), 1);
+  assert.equal(hitungBaris("*************************** 1. row ***************************\nid: 1\n*************************** 2. row ***************************\nid: 2\n", { vertikal: true }), 2);
+  const t = transkrip("a1", [{ type: "user", cwd: SA, message: { content: "[Tugas dari Head of IT Operations] T-20261030-9 · cek data" } }]);
+  const sebelum = bacaAudit().length;
+  catatSesudah({ ...bash(SA, "ssh vps-uji \"mysql -N app -e 'select email from users limit 3'\"", { transcript_path: t }), hook_event_name: "PostToolUse",
+    tool_response: { stdout: "a@x\nb@x\nc@x\n" } }, K);
+  const r = bacaAudit().at(-1);
+  assert.equal(bacaAudit().length, sebelum + 1);
+  assert.deepEqual([r.jenis, r.jenjang, r.kemampuan, r.baris, r.tugas], ["baca-data", 1, "data-produksi", 3, "T-20261030-9"]);
+  catatSesudah({ ...bash(SA, "ssh vps-uji uptime"), hook_event_name: "PostToolUse", tool_response: { stdout: "up" } }, K);
+  assert.equal(bacaAudit().length, sebelum + 1);                                // baca server biasa tetap tidak diaudit
+});
+
+test("A3: worktree tim hanya di folder proyek terdaftar; register terlindung", async () => {
+  const { kenaliSesi, proyekTerdaftar } = await import("./kebijakan.mjs");
+  assert.equal(proyekTerdaftar("/x/toko"), true);
+  assert.equal(proyekTerdaftar(ROOT), true);
+  assert.equal(proyekTerdaftar("/tmp/x"), false);
+  assert.equal(kenaliSesi(bash("/x/toko/.claude/worktrees/r1-lead-toko", "ls"), K).jabatan, "tech-lead");
+  assert.equal(kenaliSesi(bash("/tmp/x/.claude/worktrees/r1-lead-x", "ls"), K).rudisOne, false);
+  assert.equal(kenaliSesi(bash("/x/toko/sub/.claude/worktrees/r1-lead-x", "ls"), K).rudisOne, false);
+  assert.equal(putuskan({ session_id: "r", cwd: "/x", tool_name: "Write", tool_input: { file_path: REGISTER, content: "{}" }, hook_event_name: "PreToolUse" }, K).keputusan, "ask");
+  assert.equal(kep(bash(COO, "echo '{}' > handoff/register-tugas.json")), "ask");
+  assert.notEqual(kep(bash(COO, "cat handoff/register-tugas.json | jq .tugas")), "ask");
+});
+
+test("A3: rantai hash audit — sisipan/suntingan terdeteksi, CLI audit --verifikasi", async () => {
+  const { verifikasiAudit, tambahAudit } = await import("./kebijakan.mjs");
+  const dir = fs.mkdtempSync(path.join(tmp, "audit-rantai-"));
+  const cli = (...a) => { try { return { kode: 0, out: execFileSync(process.execPath, [path.join(SINI, "kebijakan.mjs"), ...a], { env: { ...process.env, RUDISONE_AUDIT: dir } }).toString() }; } catch (e) { return { kode: e.status, out: String(e.stdout) }; } };
+  const f = path.join(dir, `${new Date().toISOString().slice(0, 7)}.jsonl`);
+  fs.writeFileSync(f, JSON.stringify({ waktu: "2026-10-01T00:00:00Z", jenis: "lama" }) + "\n");   // baris lama tanpa rantai: sah
+  execFileSync(process.execPath, ["-e", `process.env.RUDISONE_AUDIT=${JSON.stringify(dir)};import(${JSON.stringify(path.join(SINI, "kebijakan.mjs"))}).then(m=>{m.tambahAudit({jenis:"a"});m.tambahAudit({jenis:"b"});m.tambahAudit({jenis:"c"});})`], { env: { ...process.env, RUDISONE_AUDIT: dir } });
+  let r = cli("audit", "--verifikasi");
+  assert.equal(r.kode, 0, r.out);
+  assert.match(r.out, /1 lama tanpa rantai, rantai utuh/);
+  const ls = fs.readFileSync(f, "utf8").trim().split("\n");
+  fs.writeFileSync(f, [ls[0], ls[1], ls[2].replace('"b"', '"x"'), ls[3]].join("\n") + "\n");                   // suntingan
+  r = cli("audit", "--verifikasi");
+  assert.equal(r.kode, 1);
+  assert.match(r.out, /RUSAK di baris 3/);
+  fs.writeFileSync(f, [ls[0], ls[1], JSON.stringify({ jenis: "sisipan" }), ls[2], ls[3]].join("\n") + "\n"); // sisipan tanpa rantai
+  assert.equal(cli("audit", "--verifikasi").kode, 1);
+  fs.writeFileSync(f, [ls[0], ls[1], ls[3]].join("\n") + "\n");                                                // hapus baris
+  assert.equal(cli("audit", "--verifikasi").kode, 1);
+  assert.equal(typeof verifikasiAudit, "function");
+  assert.equal(typeof tambahAudit, "function");
+});
+
+test("D1: hook yang dipanggil menulis denyut (≤1×/60 dtk) dengan versi; cek melaporkannya", () => {
+  const dir = fs.mkdtempSync(path.join(tmp, "audit-denyut-"));
+  const env = { ...process.env, RUDISONE_AUDIT: dir };
+  execFileSync(process.execPath, [path.join(SINI, "kebijakan.mjs"), "hook"], { input: JSON.stringify(bash("/x/pribadi", "ls")), env });
+  const d = JSON.parse(fs.readFileSync(path.join(dir, ".denyut.json"), "utf8"));
+  assert.match(d.versi, /^[0-9a-f]{12}$/);
+  const t1 = fs.statSync(path.join(dir, ".denyut.json")).mtimeMs;
+  execFileSync(process.execPath, [path.join(SINI, "kebijakan.mjs"), "hook"], { input: JSON.stringify(bash("/x/pribadi", "ls")), env });
+  assert.equal(fs.statSync(path.join(dir, ".denyut.json")).mtimeMs, t1);          // throttle
+  let out = ""; try { out = execFileSync(process.execPath, [path.join(SINI, "kebijakan.mjs"), "cek"], { env }).toString(); } catch (e) { out = String(e.stdout); }
+  assert.match(out, /Denyut hook: .*jam lalu/);
+});
+
+// ===================== T-20261030-6 A9 · berkas terlindung hanya untuk PENULISAN nyata =====================
+test("A9: membaca/menjalankan/menguji/menyebut berkas terlindung → bukan ask", () => {
+  const H = os.homedir(), AUD = process.env.RUDISONE_AUDIT;
+  for (const c of [
+    "node --test bin/*.test.mjs kantor/*.test.mjs", "bin/kebijakan.sh cek", `${ROOT}/bin/kebijakan.sh audit --verifikasi`,
+    `grep -n permissions ${H}/.claude/settings.json`, `python3 -c "import json;print(json.load(open('${H}/.claude/settings.json')).keys())"`,
+    "sed -n 1,40p bin/kebijakan.mjs", `cat ${AUD}/2026-10.jsonl | tail -3`, "bin/register.sh ubah T-20261030-6 --status berjalan",
+    "node bin/kebijakan.mjs uji '{\"tool_name\":\"Bash\"}'", `wc -l ${ROOT}/kebijakan-akses.json`, `git -C ${ROOT} log -3 -- bin/kebijakan.mjs`,
+    `git -C ${ROOT} diff --stat 570dba4..HEAD -- bin/ kebijakan-akses.json`, `ls ${H}/.claude/agents ${H}/.claude/skills`,
+    `node -e "console.log(require('fs').readFileSync('${ROOT}/kebijakan-akses.json','utf8').length)"`, `head -5 ${H}/.claude/projects/-x/a.jsonl`,
+    `cp ${ROOT}/kebijakan-akses.json /tmp/salinan.json`, `cd ${ROOT} && node --test bin/`, "shasum bin/kebijakan.mjs kebijakan-akses.json",
+  ]) assert.notEqual(kep(bash(COO, c)), "ask", c);
+});
+
+test("A9: penulisan nyata ke berkas/folder terlindung → ask", () => {
+  const H = os.homedir(), AUD = process.env.RUDISONE_AUDIT;
+  for (const c of [
+    "echo x > kebijakan-akses.json", `echo '{}' >> ${AUD}/2026-10.jsonl`, `printf x | tee ${H}/.claude/settings.json`,
+    "sed -i '' s/a/b/ bin/kebijakan.mjs", "perl -pi -e s/a/b/ kebijakan-akses.json", `cp /tmp/x ${ROOT}/bin/server-cek.sh`,
+    `cp /tmp/settings.json ${H}/.claude/`, `mv /tmp/x ${H}/.zshrc`, `mv ${ROOT}/bin /tmp/b`, `rm -f ${ROOT}/kebijakan-akses.json`,
+    `install -m 644 /tmp/x ${ROOT}/konfigurasi/server.json`, `ln -sf /tmp/x ${ROOT}/bin/kebijakan.mjs`, `truncate -s 0 ${AUD}/2026-10.jsonl`,
+    `chmod 777 ${ROOT}/bin/kebijakan.mjs`, `git -C ${ROOT} checkout HEAD~3 -- bin/kebijakan.mjs`, `git -C ${ROOT} restore kebijakan-akses.json`,
+    "git rm bin/kebijakan.mjs", `dd if=/dev/zero of=${ROOT}/kebijakan-akses.json count=1`, `tar -xf /tmp/e.tar -C ${ROOT}/bin`,
+    `rm -rf ${H}/.claude/projects`, "bin/kebijakan.sh lepas --ya",
+  ]) assert.equal(kep(bash(COO, c)), "ask", c);
+});
+
+test("A9: skill/command proyek di repo (bukan ~/.claude) bukan berkas terlindung", () => {
+  for (const c of ["mkdir -p p/.claude/skills/x && printf x > p/.claude/skills/x/SKILL.md", "T=/tmp/a; printf x > $T/p/.claude/skills/x/SKILL.md",
+    "cp /tmp/x .claude/commands/rudis.plan.md"]) assert.notEqual(kep(bash("/x/proyek", c)), "ask", c);
+  for (const c of ["printf x > ~/.claude/skills/x/SKILL.md", "printf x > $HOME/.claude/agents/rudis-x.md", "rm -rf ~/.claude"]) assert.equal(kep(bash("/x/proyek", c)), "ask", c);
+});
+
+
+// ===================== T-20261030-6 U3 · temuan peninjau berkonteks bersih =====================
+test("U3 H1/H2: perkakas jenjang 1 hanya yang asli di ROOT/bin (realpath kernel) dan tidak diubah dari commit", () => {
+  const R = fs.realpathSync(fs.mkdtempSync(path.join(tmp, "root-git-")));
+  const g = (...a) => execFileSync("git", a, { cwd: R, stdio: ["ignore", "pipe", "pipe"] }).toString().trim();
+  fs.mkdirSync(path.join(R, "bin")); fs.mkdirSync(path.join(R, "ruang", "system-administrator"), { recursive: true });
+  fs.writeFileSync(path.join(R, "bin", "server-cek.sh"), "#!/bin/sh\necho asli\n", { mode: 0o755 });
+  g("init", "-q"); g("config", "user.email", "u@t.test"); g("config", "user.name", "u"); g("config", "commit.gpgsign", "false");
+  g("add", "-A"); g("commit", "-q", "-m", "awal");
+  const jahat = path.join(tmp, "jahat", "a", "b", "c"); fs.mkdirSync(jahat, { recursive: true });
+  fs.mkdirSync(path.join(tmp, "jahat", "bin"), { recursive: true });
+  fs.writeFileSync(path.join(tmp, "jahat", "bin", "server-cek.sh"), "#!/bin/sh\necho JAHAT\n", { mode: 0o755 });
+  const SA_R = path.join(R, "ruang", "system-administrator");
+  try { fs.symlinkSync(jahat, path.join(SA_R, "lnk")); } catch { /* sudah ada */ }
+  const uji = (cwd, command) => JSON.parse(execFileSync(process.execPath, [path.join(SINI, "kebijakan.mjs"), "uji", JSON.stringify({ cwd, tool_name: "Bash", tool_input: { command } })],
+    { env: { ...process.env, RUDISONE_ROOT: R } }).toString()).keputusan;
+  assert.equal(uji(SA_R, `${R}/bin/server-cek.sh`), "allow");                                     // asli & bersih
+  assert.notEqual(uji(SA_R, `${SA_R}/lnk/../../../bin/server-cek.sh`), "allow");                  // symlink + .. (H2)
+  assert.notEqual(uji(SA_R, `cd -P ${SA_R}/lnk/../../.. && bin/server-cek.sh`), "allow");          // cd -P (H2)
+  fs.writeFileSync(path.join(R, "bin", "server-cek.sh"), "#!/bin/sh\necho DITIMPA\n");          // ditimpa lewat ~+ (H1)
+  assert.notEqual(uji(SA_R, `${R}/bin/server-cek.sh`), "allow");
+  assert.notEqual(uji(SA_R, "cd ~+/../.. && cp /tmp/x bin/server-cek.sh"), "allow");
+});
+
+test("U3 H1: ~+, ~-, ~user = ekspansi (tidak dianggap path harfiah)", async () => {
+  const { urai } = await import("./kebijakan.mjs");
+  for (const c of ["cd ~+/../..", "echo x > ~-/a", "cat ~karyawan/x"]) assert.equal(urai(c).ekspansi, true, c);
+  for (const c of ["cd ~/x", "cat ~", "echo a~b"]) assert.equal(urai(c).ekspansi, false, c);
+});
+
+test("U3 M1/M2: mysql — klien bukan dari PATH, host jauh, fungsi bukan bawaan → bukan jenjang 1", () => {
+  for (const c of ["ssh vps-uji \"/tmp/x/mysql -e 'select 1'\"", "ssh vps-uji \"./mysql -e 'select 1'\"", "ssh vps-uji \"~/app/mysql -e 'select 1'\"",
+    "ssh vps-uji \"mysql -h evil.example.com -u root -e 'select 1'\"", "ssh vps-uji \"mysql --host=evil.example.com -e 'select 1'\"",
+    "ssh vps-uji \"mysql app -e 'select purge_inactive()'\"", "ssh vps-uji \"mysql app -e 'select app.hapus_lama(1)'\""]) assert.equal(kep(bash(SA, c)), "ask", c);
+  for (const c of ["ssh vps-uji \"mysql -h 127.0.0.1 app -e 'select count(*), max(id) from users'\"", "ssh vps-uji \"/usr/bin/mysql app -e 'select date_format(now(), \\\"%Y\\\")'\"",
+    "ssh vps-uji \"mysql app -e 'select concat(left(email,2),\\\"***\\\") from users limit 5'\""]) assert.equal(kep(bash(SA, c)), "allow", c);
+});
+
+test("U3 M3: hitungBaris tidak tertipu -eSELECT, data berawalan Warning:, atau -ss; PostToolUseFailure tetap diaudit", async () => {
+  const { hitungBaris } = await import("./kebijakan.mjs");
+  const keluaran = "email\na@x\nb@x\nWarning: c@x\n";
+  const cmd = (q) => `ssh vps-uji "mysql app ${q}"`;
+  const a = (q) => putuskan(bash(SA, cmd(q)), K).aksi[0];
+  assert.equal(hitungBaris(keluaran, a("'-eSELECT email FROM users'")), 3);
+  assert.equal(hitungBaris("a@x\nb@x\n", a("-ss -e 'select email from users'")), 2);
+  const sebelum = bacaAudit().length;
+  const out = execFileSync(process.execPath, [path.join(SINI, "kebijakan.mjs"), "hook"], { input: JSON.stringify({ ...bash(SA, cmd("-e 'select email from users' && ls /tidak-ada")),
+    hook_event_name: "PostToolUseFailure", tool_response: { stdout: "email\na@x\n" } }), env: process.env }).toString();
+  assert.equal(out, "");
+  assert.equal(bacaAudit().length, sebelum + 1);
+  assert.equal(bacaAudit().at(-1).jenis, "baca-data");
+});
+
+test("U3 L2: denyut hanya dari peristiwa hook nyata; disableAllHooks dilaporkan cek", () => {
+  const dir = fs.mkdtempSync(path.join(tmp, "audit-l2-"));
+  const env = { ...process.env, RUDISONE_AUDIT: dir };
+  execFileSync(process.execPath, [path.join(SINI, "kebijakan.mjs"), "hook"], { input: JSON.stringify({ hook_event_name: "Manual" }), env });
+  assert.equal(fs.existsSync(path.join(dir, ".denyut.json")), false);
+  const S = path.join(tmp, "settings-l2.json");
+  const cli = (...a) => { try { return execFileSync(process.execPath, [path.join(SINI, "kebijakan.mjs"), ...a], { env: { ...env, RUDISONE_SETTINGS_USER: S } }).toString(); } catch (e) { return String(e.stdout); } };
+  cli("pasang", "--ya");
+  const s = JSON.parse(fs.readFileSync(S, "utf8")); s.disableAllHooks = true; fs.writeFileSync(S, JSON.stringify(s));
+  assert.match(cli("cek"), /disableAllHooks/);
+  assert.ok(["PreToolUse", "PostToolUse", "PostToolUseFailure"].every((ev) => s.hooks[ev]?.length === 1));
 });

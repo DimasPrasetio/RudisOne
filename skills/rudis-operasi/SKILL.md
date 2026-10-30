@@ -44,9 +44,37 @@ memakainya; jabatan lain selalu ditanya, walau sekadar membaca.
   Aksi yang sering berulang: sarankan pengguna menambah izin tetap khusus.
 
 ## 5. Jejak audit
-Setiap aksi jenjang 2–3 yang dijalankan dan setiap `rilis-cek` tercatat di `handoff/audit/<YYYY-MM>.jsonl` (waktu,
-jabatan, ID tugas, aksi; rahasia disamarkan). Lihat: `bin/kebijakan.sh audit`. Jenjang 1 tidak diaudit. Saat
-memverifikasi aksi ubah, COO mencocokkannya dengan audit.
+Setiap aksi jenjang 2–3 yang dijalankan, setiap `rilis-cek`, setiap SELECT data production (`baca-data`, dengan jumlah
+baris) dan setiap perubahan berkas terlindung tercatat di `handoff/audit/<YYYY-MM>.jsonl` (waktu, jabatan, ID tugas,
+aksi; rahasia disamarkan). Lihat: `bin/kebijakan.sh audit`. Jenjang 1 lainnya tidak diaudit. Saat memverifikasi aksi
+ubah, COO mencocokkannya dengan audit.
+- Audit hanya ditulis hook. Tiap baris berantai hash dengan baris sebelumnya: `bin/kebijakan.sh audit --verifikasi`
+  (exit 1 = ada suntingan/sisipan/hapusan di tengah). Batasnya: rantai tanpa kunci — memotong ekor, menghapus berkas, atau
+  menghitung ulang semua hash tidak terdeteksi; penjaga sebenarnya `permissions.deny` Edit + sandbox `denyWrite` atas
+  `handoff/audit/**`. Bukti `rilis-cek` untuk deploy jenjang 2 hanya dipercaya dari berkas yang rantainya utuh, dan
+  tetap diperiksa ulang langsung ke GitHub saat deploy.
+- **Denyut hook:** setiap kali dipanggil Claude Code, hook menulis `handoff/audit/.denyut.json` (paling sering 1×/menit,
+  dengan versi kodenya). `bin/kebijakan.sh cek` dan `bin/cek-konsistensi.sh` membacanya — denyut basi atau dari versi
+  lain berarti hook tidak berjalan (Node berpindah, matcher lama, dilepas): larangan hook tidak berlaku sampai pemilik
+  memasangnya ulang.
+
+## 5a. Data production
+- **Siapa:** hanya Head of IT Operations / System Administrator (kemampuan `data-produksi`). Tech Lead, BSA, dan tracer
+  RUDIS memakai DB **dev atau snapshot tersanitasi** yang koneksinya disebut brief; tidak pernah membaca `.env`/config
+  untuk kredensial (`Read(**/.env)` di-deny pengguna). Kebutuhan data prod → `[Permintaan layanan]` ke HITO lewat COO.
+- **Bentuk yang diloloskan hook (jenjang 1):** `ssh <alias> "mysql [opsi koneksi/format] [db] -e '<satu SELECT|SHOW|
+  DESCRIBE|EXPLAIN>'"`. Ditolak (→ prompt): `INTO` apa pun (OUTFILE/DUMPFILE/@var), `FOR UPDATE`/`LOCK IN SHARE MODE`,
+  komentar SQL, `;` di tengah, `load_file`/`sleep`/`benchmark`, opsi klien di luar daftar (`--init-command`, `--tee`,
+  `--pager`, `-e` kedua). `curl` dari server tidak lagi termasuk baca (kanal keluar).
+- **Isi query:** keluaran **agregat** (COUNT, SUM, GROUP BY) atau kolom kunci saja; data pribadi (nama, email, telepon,
+  alamat, NIK) dan rahasia **dimasking** di SQL (`CONCAT(LEFT(email,2),'***')`, `NULL AS password`), selalu `LIMIT`
+  (≤50 baris). Yang masuk transkrip dikirim ke vendor model — UU PDP: anggap transfer lintas batas.
+- **Jejak:** setiap SELECT prod tercatat (`baca-data`, perintah tersamar, `baris` = jumlah baris keluaran yang benar-benar
+  dikembalikan ke agent — termasuk perintah yang gagal sesudahnya; satu baris agregat/JSON tetap dihitung 1). Laporan HITO
+  menyebut ID tugas, query, dan jumlah barisnya.
+- Hook hanya meloloskan klien `mysql` dari PATH/folder sistem, host lokal server, dan fungsi bawaan; stored function
+  bisa `MODIFIES SQL DATA`, jadi pemakaian rutin sebaiknya lewat user MySQL **read-only** (GRANT SELECT pada view) yang
+  disiapkan System Administrator — keputusan pengguna.
 
 ## 6. Jangan mengakali kebijakan
 Tidak membungkus perintah infrastruktur dalam skrip lokal, variabel, atau `$( … )` agar tidak dikenali. Perintah yang
@@ -71,10 +99,12 @@ Berkas yang menentukan keputusan hook atau izin Claude Code: `kebijakan-akses.js
 di checkout utama, `konfigurasi/**`, `handoff/audit/**` (termasuk cache `.sesi/`), `**/.claude/settings*.json`,
 `**/.mcp.json`, `~/.claude.json`, `~/.claude/{agents,skills,commands,shell-snapshots}/**`, transkrip
 `~/.claude/projects/**/*.jsonl`, dan berkas rc shell. `Write`/`Edit`/`MultiEdit`/`NotebookEdit` ke sana (juga lewat
-symlink/hardlink dan huruf besar-kecil berbeda) dan perintah Bash yang menyebutnya tanpa sekadar membaca — termasuk
-`kebijakan.sh`/`inti.sh` `pasang`/`lepas`, serta `rm`/`mv`/`cp`/`git checkout|reset|…` pada folder induknya —
-selalu **ask**, di sesi mana pun, dan yang disetujui tercatat di audit (`berkas-terlindung`). Perubahannya keputusan
-pemilik. Jabatan COO di sesi folder proyek hanya dari `/rudisone` yang **diketik** pengguna, bukan dari model yang
+symlink/hardlink dan huruf besar-kecil berbeda) dan perintah Bash yang **menulisnya secara nyata** — pengalihan `>`/`>>`,
+`tee`, `sed`/`perl -i`, `cp`/`mv`/`rm`/`install`/`ln`/`truncate`/`chmod`/`dd`/`tar -x` dengan target terlindung,
+`git checkout|restore|rm|…` pada path terlindung, `rm`/`mv` folder induknya, dan `kebijakan.sh`/`inti.sh`
+`pasang`/`lepas` — selalu **ask** di sesi mana pun; yang disetujui tercatat di audit (`berkas-terlindung`). Membaca,
+menjalankan, menguji, atau sekadar menyebut path **tidak** ditanya (T-20261030-6 A9); penulisan yang tidak bisa ditentukan
+dari teks (interpreter, skrip) → alur izin biasa, dijaga `permissions` & sandbox. Perubahannya keputusan pemilik. Jabatan COO di sesi folder proyek hanya dari `/rudisone` yang **diketik** pengguna, bukan dari model yang
 memanggil skill sendiri.
 
 Batas yang tidak bisa ditutup hook (platform): agent berjalan sebagai user OS yang sama, jadi Bash yang menyamarkan

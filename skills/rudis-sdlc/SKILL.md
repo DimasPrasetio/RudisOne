@@ -1,6 +1,6 @@
 ---
 name: rudis-sdlc
-description: SDLC RudisOne untuk membangun software dengan perkakas resmi Rudis (skill rudis-monorepo + pustaka rudis-modules) — routing jalur, fase Jalur Aplikasi dan siapa R/S/C, empat gerbang persetujuan pengguna (Inisiasi, Rancangan, Rilis, Penerapan), proyek baru, perkakas.sh siapkan/versi/proyek, artefak proyek, desain di proyek Rudis, dan Jalur Platform (ubah skill/pustaka, promote modul). Muat untuk setiap tugas Engineering yang membangun/mengubah aplikasi, memasang/upgrade modul, audit standar, deploy standar, atau mengubah skill/pustaka.
+description: SDLC RudisOne untuk membangun software dengan perkakas resmi Rudis (skill rudis-monorepo + pustaka rudis-modules) — routing jalur (mode A/B, rincian jalur & gerbang mutu di rudis-sdd), fase Jalur Aplikasi dan siapa R/S/C, empat gerbang persetujuan pengguna (Inisiasi, Rancangan, Rilis, Penerapan), proyek baru, perkakas.sh siapkan/versi/proyek, artefak proyek, desain di proyek Rudis, dan Jalur Platform (ubah skill/pustaka, promote modul). Muat untuk setiap tugas Engineering yang membangun/mengubah aplikasi, memasang/upgrade modul, audit standar, deploy standar, atau mengubah skill/pustaka.
 ---
 
 # SDLC RudisOne — membangun software dengan perkakas resmi Rudis
@@ -50,11 +50,16 @@ berarti versi itu belum ada di origin.
 | `rudis-deploy` | Proyek lama dengan deploy standar rudis-monorepo (`infra/deploy/`) | Audit & deploy (langkah 4–5 skill); aturan proyek sendiri (`CLAUDE.md`, `.claude/rules`, `knowledge/`) menang |
 | `lain` | Bukan proyek Rudis | Hanya bila pengguna meminta proyek baru atau restrukturisasi ke standar |
 
+Jenis proyek menentukan bagian skill `rudis-monorepo` yang dipakai; **mode A/B** (kartu proyek) menentukan proses. Bug,
+perubahan, dan upgrade di proyek `rudis-deploy`/`lain` (legacy, klien) dikerjakan sebagai Mode B lewat skill `rudis-sdd`;
+restrukturisasi ke standar tetap tugas eksplisit.
+
 ## 2. Routing permintaan
 | Permintaan | Jalur | R |
 |---|---|---|
 | Buat aplikasi/proyek baru | Aplikasi, Inisiasi–Operasi | COO (Inisiasi) → Tech Lead tim baru |
 | Fitur baru di proyek `rudis-pustaka` | Aplikasi, mulai Analisis (perakitan untuk fitur itu) | Tech Lead |
+| Bug, perubahan, atau upgrade di proyek Mode A/B (termasuk legacy/klien) | Aplikasi, mulai Analisis; jalur dua sumbu skill `rudis-sdd` | Tech Lead, S: BSA |
 | Pasang / upgrade / lepas modul pustaka | Aplikasi, Konstruksi / Operasi | Tech Lead |
 | Audit repo terhadap standar | Final Checklist skill | Tech Lead, S: BSA |
 | Siapkan/benahi deploy standar sebuah repo | Langkah 5 skill (berkas) + Rilis (server) | Tech Lead (berkas), Head of IT Operations (server) |
@@ -73,9 +78,13 @@ berarti versi itu belum ada di origin.
 
 Kolom **Fase** register tugas mencatat fase aktif tugas (mis. `Konstruksi`); Program Manager memakainya untuk status lintas proyek.
 
-**Spesifikasi SDD (RUDIS).** Setelah Persetujuan Rancangan, baris tabel perakitan berjenis *bangun* atau *pasang +
-sesuaikan* dikerjakan dengan skill `rudis-sdd` (dimuat Tech Lead/BSA/SE hanya untuk baris itu). Baris *pasang* biasa,
-bug kecil, dan perubahan kecil tidak lewat SDD.
+**Mode, jalur, dan gerbang mutu (RUDIS SDD).** Mode proyek A/B ada di kartu proyek (`.rudisone/kartu-proyek.md`;
+deteksi `bin/perkakas.sh proyek <folder>`, dikonfirmasi pengguna sekali) dan menentukan constitution, gerbang mutu, dan
+apakah tabel perakitan dipakai. Jalur per perubahan (jenis × cakupan: pasang, pasang + sesuaikan, bangun, ubah modul
+kustom, tracer, redesign, revamp, upgrade, tanpa SDD) dipilih BSA dengan kriteria tertulis, ditinjau TL, ikut brief /
+Persetujuan Rancangan, dicatat di register (`jalur_awal`, `jalur_akhir`), dan ditanyakan ke pengguna hanya bila `ragu`.
+Rinciannya, termasuk gerbang mutu baseline (tidak ada temuan **baru**) dan aturan CVE: skill `rudis-sdd` (dimuat
+hanya untuk baris yang memakai command `/rudis.*`). Baris *pasang* biasa dan perubahan kecil tidak lewat SDD.
 
 ### Gerbang keputusan pengguna (ditanyakan COO)
 - **Persetujuan Inisiasi** — lewat **penyelarasan persepsi berkedalaman mendalam** (skill `rudis-grill-me`, `agents/coo.md` ›
