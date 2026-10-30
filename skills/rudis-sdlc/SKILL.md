@@ -68,12 +68,12 @@ restrukturisasi ke standar tetap tugas eksplisit.
 ## 3. Jalur Aplikasi — proyek aplikasi
 | Fase | R | S / C | Bagian skill | Hasil & letak | Gerbang |
 |---|---|---|---|---|---|
-| Inisiasi | COO | System Administrator (fakta playbook, read-only), Head of Strategy bila perlu nilai bisnis | Step 0, 0b | `handoff/<ID>/pemahaman.md` + `intake.md` (`templat/pemahaman-bersama.md`, `templat/intake-proyek.md`) | **Persetujuan Inisiasi** |
+| Inisiasi | COO | Head of Strategy bila perlu nilai bisnis; **tanpa server** — IT Operations tidak dilibatkan | Step 0 (backend); Step 0b ditunda ke Penerapan | `handoff/<ID>/pemahaman.md` + `intake.md` (`templat/pemahaman-bersama.md`, `templat/intake-proyek.md`) | **Persetujuan Inisiasi** |
 | Analisis & perakitan | Tech Lead | Business Systems Analyst (kemampuan, tabel perakitan, MODULE_MAP, API); C: Financial Controller/HR Business Partner bila domainnya | `module-library.md` §1–3, `backend-modular-monolith.md`, `api-standard.md` | `templat/tabel-perakitan.md` → `analysis/` proyek | **Persetujuan Rancangan** |
 | Desain UI | Tech Lead | Research Analyst (paralel dengan Analisis) | `design-research.md` | draf → `knowledge/DESIGN.md` proyek | ikut **Persetujuan Rancangan** |
 | Konstruksi | Tech Lead | Software Engineer #1/#2, asisten | Langkah 1 (scaffold), `module-library.md` §4–6, referensi stack, `frontend.md` | branch `rudis/<ID>` | — |
 | Pengujian | Tech Lead | peninjau berkonteks bersih (subagent `rudis-software-engineer`, tinjauan silang), BSA (cocok spesifikasi) | Final Checklist | laporan divisi + checklist terisi | — |
-| Rilis & penerapan | Head of IT Operations | System Administrator; Tech Lead (sha + catatan rilis) | `docker-deployment.md` | `templat/onboarding-app.md`, `templat/laporan-deploy.md` | **Persetujuan Rilis**, **Persetujuan Penerapan** |
+| Rilis & penerapan | Head of IT Operations | System Administrator; Tech Lead (sha + catatan rilis, isi penanda) | Step 0b, `docker-deployment.md` | `templat/onboarding-app.md`, `templat/laporan-deploy.md` | **Persetujuan Rilis**, **Persetujuan Penerapan** |
 | Operasi & pemeliharaan | Head of IT Operations (operasi) · Tech Lead (kode) | — | `module-library.md` (status/upgrade), `backend-go.md` › Kernel versions | tugas baru per perubahan | sesuai jenisnya |
 
 Kolom **Fase** register tugas mencatat fase aktif tugas (mis. `Konstruksi`); Program Manager memakainya untuk status lintas proyek.
@@ -88,17 +88,24 @@ hanya untuk baris yang memakai command `/rudis.*`). Baris *pasang* biasa dan per
 
 ### Gerbang keputusan pengguna (ditanyakan COO)
 - **Persetujuan Inisiasi** — lewat **penyelarasan persepsi berkedalaman mendalam** (skill `rudis-grill-me`, `agents/coo.md` ›
-  Penyelarasan persepsi): masalah & pengguna aplikasi, kriteria selesai rilis pertama, backend (go/nestjs/express),
-  nama & folder, slug, domain (boleh menyusul), pemilik GHCR, cakupan awal — satu cabang per giliran dengan
-  rekomendasi. Persetujuan ringkasan pemahaman bersama = Persetujuan Inisiasi. Port **tidak** ditanyakan: System Administrator
-  mengambilnya dari playbook. Persetujuan Rancangan sampai Penerapan di bawah: satu pesan per gerbang, rekomendasi COO di setiap keputusan.
+  Penyelarasan persepsi): hanya fakta membangun — masalah & pengguna aplikasi, kriteria selesai rilis pertama, backend
+  (go/nestjs/express), nama & folder, cakupan awal, perangkat & bahasa UI — satu cabang per giliran dengan rekomendasi.
+  Persetujuan ringkasan pemahaman bersama = Persetujuan Inisiasi. **Fakta deploy tidak ditanyakan dan server tidak dicek
+  di Inisiasi** (slug, domain, pemilik GHCR, port, konfigurasi server): proyek bisa hanya lokal dan device bisa belum
+  punya `konfigurasi/server.json`. Persetujuan Rancangan sampai Penerapan di bawah: satu pesan per gerbang, rekomendasi COO di setiap keputusan.
 - **Persetujuan Rancangan** — tabel perakitan (pasang / pasang + sesuaikan / bangun per kemampuan) dan arah desain
   ringkas (preset, elemen khas, 2–3 keputusan utama).
 - **Persetujuan Rilis** — serah ke branch utama, commit, membuat repo GitHub (repo privat oleh COO = jenjang 2; push = jenjang 3,
   skill `rudis-operasi`), push: aturan biasa (kutipan
   permintaan per aksi).
 - **Persetujuan Penerapan** — pendaftaran app pertama (DB + user, `.env`, akses GHCR, nginx, DNS, certbot) dan setiap deploy:
-  rencana persis + dampak + rollback dari IT Operations, per aksi.
+  rencana persis + dampak + rollback dari IT Operations, per aksi. **Server baru disentuh di sini**, saat pengguna
+  meminta deploy: COO membentuk/memulihkan sesi IT Operations (`agents/coo.md` › Organisasi inti), lalu fakta bagian
+  *Sebelum penerapan pertama* `templat/intake-proyek.md` dikumpulkan — slug, domain, pemilik GHCR/repo ditanyakan COO;
+  port kosong berikutnya + konfirmasi `ss -tlnp` dan cek slug belum dipakai dari System Administrator (read-only);
+  `konfigurasi/server.json` belum ada → baru saat itu COO menanyakannya (skill `rudis-operasi` › Konfigurasi server).
+  Tech Lead mengganti penanda deploy di repo (branch tugas); bila hasilnya sudah di-push, perubahan itu butuh serah &
+  push baru (Persetujuan Rilis lagi) sebelum deploy.
 
 ### "Tanya pengguna" di dalam skill
 Skill ditulis untuk satu agent yang berbicara langsung dengan pengguna. Di RudisOne, hanya COO yang bertanya.
@@ -108,18 +115,21 @@ COO menanyakannya di gerbang yang sesuai dan meneruskan jawabannya apa adanya.
 
 ### Proyek baru — langkah pembuka
 1. COO: `bin/perkakas.sh siapkan --segera`; daftarkan ID (Fase `Inisiasi`, kolom Perkakas dari `versi`).
-2. COO menyelaraskan persepsi sekaligus menanyakan fakta Persetujuan Inisiasi (skill `rudis-grill-me`; cabang = fakta `templat/intake-proyek.md`).
-   Paralel: tugas rutin ke System Administrator (tembusan
-   Head of IT Operations) — baca playbook read-only, usulkan port kosong berikutnya + konfirmasi `ss -tlnp`, cek slug belum
-   dipakai.
+2. COO menyelaraskan persepsi sekaligus menanyakan fakta Persetujuan Inisiasi (skill `rudis-grill-me`; cabang = bagian
+   Inisiasi `templat/intake-proyek.md`). Tidak ada tugas ke IT Operations dan tidak ada cek server.
 3. Setelah pemahaman bersama (= Persetujuan Inisiasi) disepakati (giliran yang dipicu pengguna): COO membuat folder proyek, `git init -b main`, dan satu
    commit kosong (`git commit --allow-empty -m "chore: mulai proyek <nama>"`) — worktree butuh satu commit. Hanya
    ini yang COO tulis di folder proyek.
 4. COO membentuk sesi Tech Lead untuk folder itu (`agents/coo.md` › Organisasi inti), lalu brief
    ke Tech Lead untuk Analisis–Pengujian (BSA dan SE dipanggil Tech Lead sebagai subagent).
-5. Tech Lead men-scaffold di worktree-nya, di branch `rudis/<ID>`, dengan `--dir <worktree> --force` dan fakta
-   deploy dari intake (fakta yang belum ada dibiarkan menjadi penanda, sesuai skill).
+5. Tech Lead men-scaffold di worktree-nya, di branch `rudis/<ID>`, dengan `--dir <worktree> --force` dan fakta yang
+   sudah ada. Fakta deploy yang belum ada **tidak diberi flag** dan menjadi penanda `__…__` (mis. `__HOST_PORT__`, `__GHCR_OWNER__`, `__SSH_HOST__`; skill
+   `rudis-monorepo` › Step 0b: *If a fact is unknown, scaffold without its flag* / *If the user has no server yet,
+   scaffold without the deploy flags*); Step 0b (membaca target/server) dilewati sampai Penerapan. Aplikasi tetap
+   dijalankan & diuji lokal — hanya `deploy.sh` yang menolak jalan sampai penanda diisi; penanda yang disengaja lulus
+   Final Checklist (*left as markers on purpose*). Fakta deploy kosong tidak pernah menjadi alasan `[Terhambat]`.
 6. Repo GitHub dibuat hanya saat pengguna meminta push pertama (Persetujuan Rilis) — oleh COO (`gh repo create`, privat).
+7. Deploy pertama hanya bila pengguna memintanya → Persetujuan Penerapan (fakta *Sebelum penerapan pertama*).
 
 ### Artefak milik proyek
 Hasil yang menjadi bagian proyek (`analysis/`, `knowledge/DESIGN.md`, ADR di `knowledge/decisions/`,

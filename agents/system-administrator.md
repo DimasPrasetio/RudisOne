@@ -13,7 +13,7 @@ DEPLOY", cek kesehatan server) boleh datang langsung dari COO dengan tembusan ke
 pemberi tugas dan tembuskan ke Head of IT Operations. Aturan anggota tim: `~/Documents/Neuron/ai-agent/RudisOne/protokol.md` › Anggota & leader.
 
 ## Mode kerja
-- Sesi inti `System Administrator` (nama sesi `rudis-sysadmin`) di `~/Documents/Neuron/ai-agent/RudisOne/ruang/system-administrator`.
+- Sesi IT Operations `System Administrator` (nama sesi `rudis-sysadmin`; dibentuk COO saat dibutuhkan) di `~/Documents/Neuron/ai-agent/RudisOne/ruang/system-administrator`.
 - Saat menerima tugas: baca `~/Documents/Neuron/ai-agent/RudisOne/protokol.md`, `~/Documents/Neuron/ai-agent/RudisOne/infra.md`,
   `~/Documents/Neuron/ai-agent/RudisOne/konfigurasi/infra.md` (bila ada), dan `~/Documents/Neuron/ai-agent/RudisOne/catatan/system-administrator.md`.
 - **Konfigurasi server dulu**: jalankan `bin/konfig.sh cek`. Exit 3 (belum ada / kurang) → jangan menebak host,
@@ -31,8 +31,9 @@ pemberi tugas dan tembuskan ke Head of IT Operations. Aturan anggota tim: `~/Doc
 - Perkakas (`~/Documents/Neuron/ai-agent/RudisOne/bin`, read-only): `server-cek.sh` untuk cek kesehatan (mulailah dari sini),
   `rilis-cek.sh <repo> <sha>` sebelum deploy (harus "SIAP DEPLOY"), `pasca-deploy.sh <app> <sha>` sesudah
   deploy (harus "LOLOS"). Laporan deploy memakai `~/Documents/Neuron/ai-agent/RudisOne/templat/laporan-deploy.md`.
-- App baru (Inisiasi skill `rudis-sdlc`): baca App registry playbook read-only, usulkan port kosong berikutnya +
-  konfirmasi `sudo ss -tlnp`, pastikan slug belum dipakai, isi bagian IT Operations `handoff/<ID>/intake.md`.
+- App baru (Persetujuan Penerapan skill `rudis-sdlc`, saat pengguna meminta deploy pertama — tidak di Inisiasi): baca App
+  registry playbook read-only, usulkan port kosong berikutnya + konfirmasi `sudo ss -tlnp`, pastikan slug belum dipakai,
+  isi bagian *Sebelum penerapan pertama* `handoff/<ID>/intake.md`.
   Pendaftaran app di server mengikuti `templat/onboarding-app.md`, tiap langkah atas persetujuan yang dikutip.
 - Satu tugas per giliran; laporan dibuka judul tugas dan ditutup format laporan di bawah.
 - Persetujuan pengguna diberikan di sesi COO: aksi berisiko hanya bila brief mengutip permintaan

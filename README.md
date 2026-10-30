@@ -8,7 +8,7 @@ apa: `raci.md`; aturan inti: `protokol.md` (termuat otomatis lewat `CLAUDE.md`).
 | Divisi | Jabatan | Hidup sebagai | Folder |
 |---|---|---|---|
 | — | **COO** (pintu tunggal pengguna) | sesi (yang kamu buka) | folder mana pun / `~/Documents/Neuron/ai-agent/RudisOne` |
-| IT Operations | Head of IT Operations, System Administrator | **sesi inti** (izin server & deploy melekat ke folder) | `ruang/<id-peran>` |
+| IT Operations | Head of IT Operations, System Administrator | **sesi saat dibutuhkan** (tugas server/insiden/deploy; izin server & deploy melekat ke folder) | `ruang/<id-peran>` |
 | Engineering · Tim 1–3 (satu per proyek aktif) | Tech Lead | **sesi inti** per proyek yang punya tugas (worktree integrasi) | folder proyek |
 | Engineering · Tim n | Business Systems Analyst, Software Engineer | subagent `rudis-<id-peran>` dipanggil Tech Lead (SE di worktree sendiri) | folder Tech Lead |
 | Corporate Strategy | Head of Strategy, Financial Controller, Research Analyst, HR Business Partner | subagent dipanggil COO | — |
@@ -24,10 +24,10 @@ membentuknya atas permintaanmu dan menawarkan arsip setelah selesai).
    sendiri, sisanya ditanyakan satu per satu, masing-masing dengan rekomendasinya, lalu ia menutup dengan ringkasan
    pemahaman bersama (hasil, kriteria selesai, lingkup, batasan). Tim baru bekerja setelah kamu menyetujuinya, dan
    hasilnya diverifikasi terhadap kriteria itu. Mau melewatinya untuk hal sepele? Tambahkan "langsung".
-3. Panggilan `/rudisone` hanya memastikan **inti** hadir (sesi IT Operations di grup sidebar "RudisOne"); sesi Tech
-   Lead dibentuk saat tugas pertama sebuah proyek dijadwalkan. Peran lain dipanggil sebagai subagent — tidak ada
-   lagi pembentukan 12 sesi.
-4. COO memberi tugas ke pemiliknya (subagent peran, atau sesi inti); Tech Lead memanggil BSA/SE sebagai subagent.
+3. Panggilan `/rudisone` tidak membentuk sesi apa pun sebelum ada tugasnya: sesi Tech Lead dibentuk saat tugas pertama
+   sebuah proyek dijadwalkan, sesi IT Operations saat ada tugas server/insiden/deploy (grup sidebar "RudisOne"). Peran
+   lain dipanggil sebagai subagent — tidak ada lagi pembentukan 12 sesi. Membuat aplikasi baru tidak menyentuh server.
+4. COO memberi tugas ke pemiliknya (subagent peran, sesi inti, atau sesi IT Operations); Tech Lead memanggil BSA/SE sebagai subagent.
    Yang naik ke kamu hanya keputusan dan aksi berisiko (commit ke main, push, deploy, data production).
 5. Setiap jawaban COO ditutup satu tautan **Kantor** (`http://127.0.0.1:7421/?tugas=<ID>`) untuk memantau
    secara visual. `/rudisone status tugas` merangkum semua tugas berjalan.
@@ -48,10 +48,10 @@ menetapkan empat gerbang persetujuanmu:
 
 | Gerbang | Yang kamu putuskan |
 |---|---|
-| **Persetujuan Inisiasi** | maksud & kriteria selesai, stack, nama, slug, domain — lewat penyelarasan persepsi |
+| **Persetujuan Inisiasi** | maksud & kriteria selesai, stack, nama & folder, cakupan awal — lewat penyelarasan persepsi (tanpa server) |
 | **Persetujuan Rancangan** | tabel perakitan modul + arah desain |
 | **Persetujuan Rilis** | serah ke branch utama, commit, push |
-| **Persetujuan Penerapan** | pendaftaran server & setiap deploy |
+| **Persetujuan Penerapan** | fakta deploy (slug, domain, GHCR, konfigurasi server), pendaftaran server & setiap deploy |
 
 Contoh: `/rudisone buatkan aplikasi booking lapangan`.
 
@@ -62,7 +62,7 @@ protokol.md                protokol INTI (≤200 baris): pemilik fakta, model se
 agents/<id-peran>.md       definisi peran (sumber tunggal), termasuk COO & Tech Lead
 agen/rudis-<id-peran>.md   subagent peran — DIBANGKITKAN dari agents/ + protokol.md (bin/peran.sh bangun); ditautkan ke ~/.claude/agents
 .claude/                   folder ini = ruang COO ("agent": "coo")
-ruang/<id-peran>/.claude/  ruang sesi ("agent": "<id-peran>", peran = symlink ke agents/) — sesi inti IT Operations & sesi saat dibutuhkan
+ruang/<id-peran>/.claude/  ruang sesi ("agent": "<id-peran>", peran = symlink ke agents/) — sesi IT Operations & sesi lain saat dibutuhkan
 raci.md                    matriks RASCI + wewenang per peran
 docs/pemetaan-aturan-v5.md pemetaan 100% aturan protokol v4 → lokasi baru (dicek bin/cek-konsistensi.sh)
 uji/suite/                 suite regresi organisasi (10 tugas × k ulang, sebelum vs sesudah)
@@ -95,7 +95,7 @@ TEAM.md, catatan/, handoff/, konfigurasi/server.json  per device, TIDAK di-commi
    `~/.ssh/config` beserta kuncinya kamu siapkan sendiri), playbook server bila ada, MCP DNS, dan domain, lalu
    menyimpannya di `konfigurasi/server.json` atas persetujuanmu (`penyedia.md` › Konfigurasi server). Opsional:
    izin deploy tetap — lihat bagian di bawah.
-5. Buka sesi di folder proyek mana pun dan ketik **`/rudisone`** — organisasi inti terbentuk otomatis.
+5. Buka sesi di folder proyek mana pun dan ketik **`/rudisone`** — COO siap; sesi lain dibentuk saat ada tugasnya.
 6. Periksa drift kapan saja: `~/Documents/Neuron/ai-agent/RudisOne/bin/cek-konsistensi.sh` (0 bersih · 1 peringatan · 2 galat).
 
 ## Izin deploy tetap (opsional, per device, dipasang pengguna sendiri)

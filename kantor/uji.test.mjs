@@ -323,9 +323,9 @@ test("keadaan peran: aktif / siaga / katalog (dipanggil saat perlu) / absen hany
   assert.equal(ag("COO").mode, "siaga");                              // sesi tetap hidup, diam
   assert.equal(ag("COO").tetap, true);
   assert.equal(ag("System Administrator").mode, "aktif");
-  assert.equal(ag("System Administrator").tetap, true);               // sesi IT Operations yang hidup
-  assert.equal(ag("Head of IT Operations").mode, "absen");            // kedua kursi IT Operations sesi inti
-  assert.equal(ag("Head of IT Operations").tetap, true);
+  assert.equal(ag("System Administrator").present, true);             // sesi IT Operations yang hidup
+  assert.equal(ag("Head of IT Operations").mode, "katalog");          // IT Operations dibentuk saat dibutuhkan
+  assert.equal(ag("Head of IT Operations").tetap, false);
   const tw = ag("Technical Writer");
   assert.equal(tw.mode, "katalog");
   assert.equal(tw.label, "Dipanggil saat perlu");

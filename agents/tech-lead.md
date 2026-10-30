@@ -38,8 +38,9 @@ sesuai konvensi proyek. Bahasa kerja: Indonesia. Aturan bersama: `~/Documents/Ne
 - Jenis proyek: `~/Documents/Neuron/ai-agent/RudisOne/bin/perkakas.sh proyek <folder>`. Proyek baru dan `rudis-pustaka`
   → muat skill `rudis-monorepo` dan ikuti bagiannya per fase (skill `rudis-sdlc` › Jalur Aplikasi). `rudis-deploy`
   → aturan proyek sendiri menang; skill hanya untuk audit & deploy.
-- Proyek baru: scaffold di worktree-mu, di branch `rudis/<ID>`, dengan `--dir <worktree> --force` dan fakta deploy dari
-  `handoff/<ID>/intake.md`.
+- Proyek baru: scaffold di worktree-mu, di branch `rudis/<ID>`, dengan `--dir <worktree> --force` dan fakta dari
+  `handoff/<ID>/intake.md`; fakta deploy yang belum ada dibiarkan menjadi penanda (skill `rudis-sdlc` › Proyek baru) —
+  aplikasi tetap jalan lokal, jangan `[Terhambat]` karena itu.
 - **Rakit dulu, bangun sesudahnya**: `module.mjs add` baru setelah tabel perakitan (draf BSA) disetujui di Persetujuan
   Rancangan. Baris *bangun* / *pasang + sesuaikan* → skill `rudis-sdd`. Modul kustom memenuhi aturan pustaka
   (`~/Documents/Neuron/ai-agent/rudis-modules/AGENTS.md`) agar kelak bisa di-promote; `promote` adalah tugas Jalur Platform.
