@@ -82,7 +82,7 @@ bug selalu **mulai** dengan tracer (baris 5); perbaikannya pindah ke baris 3/4 b
 | Fase | Siapa | Yang dikerjakan |
 |---|---|---|
 | Analisis | **BSA** (read-only), diperiksa TL | Jalur per perubahan (§2) + kriteria jenis tertulis. Baris 2/8: draf spec **dengan tangan** (`spec-template.md` RUDIS + pertanyaan gaya clarify) di `handoff/<ID>/specs/<slug>/spec.md`; baris 5/6/7: Current/Expected/Unchanged (`templat/spesifikasi.md`, atau usulan perubahan spec lama). Baris 5: TL menjalankan `/rudis.tracer` di worktree-nya, BSA menganalisis laporannya. Mode A: tabel perakitan. Persetujuan Rancangan memuat tabel/jalur + ringkasan draf + asumsi berisiko. |
-| Konstruksi 1 (sekali per proyek) | **Tech Lead** | `bin/rudis-sdd.sh init --here --force --ai claude --script sh` di worktree → `.gitignore`: tambah `!.env.*.example` (K3); proyek di luar standar terbaru juga `.rudis/audit.log`, `.rudis/audit/`, `.rudis/.current-feature`, `docs/trace-reports/`, `docs/test-reports/` (scaffold rudis-monorepo ≥ kernel/v7.1 sudah memuatnya) → `/rudis.constitution` dari templat mode (§1). **Mode B** sebelum constitution: `/rudis.brd` ter-scope ke modul yang akan disentuh (bukan seluruh repo); constitution as-is berstatus Draft sampai pengguna/lead klien mengesahkan; catat `baseline` gerbang mutu (§6) di kartu. |
+| Konstruksi 1 (sekali per proyek) | **Tech Lead** | `bin/rudis-sdd.sh init --here --force --ai claude --script sh` di worktree → `.gitignore` (K3): tambah bila belum ada — proyek hasil scaffold kernel v7.1+ sudah memuat `.rudis/audit.log`, `.rudis/audit/`, `.rudis/.current-feature`, `docs/trace-reports/`, `docs/test-reports/`; `!.env.*.example` tetap perlu dicek → `/rudis.constitution` dari templat mode (§1). **Mode B** sebelum constitution: `/rudis.brd` ter-scope ke modul yang akan disentuh (bukan seluruh repo); constitution as-is berstatus Draft sampai pengguna/lead klien mengesahkan; catat `baseline` gerbang mutu (§6) di kartu. |
 | Konstruksi 1 (per tugas) | **Tech Lead** | `bin/rudis-git.sh checkpoint <ID>` sebelum command yang mengubah kode. Baris 2/8: `/rudis.specify --number N` (draf BSA + jawaban COO; N unik dari register) → `/rudis.checklist`. Baris 3/4/6/7: command jalurnya, gerbang interaktif dijawab dari brief. Commit sesudahnya. |
 | Konstruksi 2 (rencana) | **Tech Lead** (C: BSA) | `/rudis.plan` argumen baku *"jangan bertanya; keputusan pemilik produk tandai NEEDS CLARIFICATION dengan default"* → `/rudis.tasks` → **BSA** `/rudis.analyze` (read-only). |
 | Konstruksi | **SE** per `T###` di brief | Sekali per worktree `printf '%s\n' <NNN-slug> > .rudis/.current-feature`. `/rudis.implement` hanya `T###` di brief; `STOP and ask` → `[Terhambat]`. Commit sesudah command. |
@@ -133,8 +133,9 @@ Proyek lain memakai nama yang sama:
 | Spec per fitur | `specs/<NNN>-<slug>/` (`--number <NNN> --short-name <slug>` dari tabel perakitan/register) | di-commit; beku + `FROZEN.md` sesudah merge |
 | Perkakas RUDIS | `.rudis/` (memory/constitution.md, templates, scripts) | di-commit; `.rudis/audit.log`, `.rudis/audit/`, `.rudis/.current-feature` di-gitignore |
 | Peta as-is | `docs/brd/` — turunan, tidak pernah pemilik | di-commit |
-| Catatan run | `docs/revamp/<slug>/`, `docs/upgrades/` | di-commit |
-| Laporan tracer / tes | `docs/trace-reports/`, `docs/test-reports/` | **di-gitignore**; dirujuk dari `handoff/<ID>/` |
+| Catatan run | `docs/revamp/<slug>/`, `docs/upgrades/` | di-commit (default TL platform, menunggu konfirmasi pengguna) |
+| Laporan tracer | `docs/trace-reports/` | **di-gitignore** (keputusan pengguna); dirujuk dari `handoff/<ID>/` |
+| Laporan tes | `docs/test-reports/` | **di-gitignore** (default TL platform, menunggu konfirmasi pengguna) |
 | Prototipe | — (`/rudis.prototype` tidak dipakai) | — |
 | Klien melarang (`artefak: handoff`) | semua di `handoff/<ID>/` | — |
 
