@@ -47,7 +47,7 @@ const normal = (s) => String(s).toLowerCase().replace(/[`*"“”]/g, "").replac
 
 /** Judul (#…) sebuah berkas Markdown, dinormalkan. */
 function judul(teks) {
-  return [...String(teks).matchAll(/^#{1,6}\s+(.+)$/gm)].map((m) => normal(m[1].replace(/\s*\(.*$/, "")));
+  return [...String(teks).matchAll(/^#{1,6}\s+(.+)$/gm)].flatMap((m) => { const h = normal(m[1].replace(/\s*\(.*$/, "")); return [h, h.split(" — ")[0]]; });
 }
 
 /** Target rujukan "X.md › Bagian" / "skill `nama` › Bagian" → path relatif berkas sasaran (atau null). */

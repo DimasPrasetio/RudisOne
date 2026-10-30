@@ -3,12 +3,12 @@ name: rudis-sdd
 description: Prosedur RudisOne untuk RUDIS SDD (CLI rudis, command /rudis.*, folder .rudis/ dan specs/) di proyek berstandar rudis-monorepo. Muat HANYA saat mengerjakan baris tabel perakitan berjenis "bangun" atau "pasang + sesuaikan" (spec → plan → tasks → implement untuk satu modul kustom atau penyesuaiannya), atau saat brief menyebut RUDIS SDD / /rudis.* / specs/<NNN>-<slug>. JANGAN dimuat untuk baris "pasang" biasa (module.mjs add tanpa SDD), bug kecil, perubahan kecil non-SDD (templat/spesifikasi.md), audit, deploy, atau pekerjaan di luar proyek Rudis.
 ---
 
-# RUDIS SDD di RudisOne (draf — isi protokol ditinjau Tech Lead)
+# RUDIS SDD di RudisOne
 
 Dasar: analisis kelayakan T-20261029-1 (verdikt **bisa dengan syarat**, S1–S8, K1–K12) di
 `~/Documents/Neuron/ai-agent/RudisOne/handoff/T-20261029-1/analisis-kelayakan.md` (per device; bila tidak ada, minta
-ringkasannya ke Tech Lead). Peran, gerbang, dan urutan fase tetap milik `sdlc.md`; skill ini hanya menambah yang khusus SDD.
-Bila tampak berbeda: soal teknis repo → skill `rudis-monorepo` menang; soal peran & persetujuan → `sdlc.md` menang.
+ringkasannya ke Tech Lead). Peran, gerbang, dan urutan fase tetap milik skill `rudis-sdlc`; skill ini hanya menambah yang khusus SDD.
+Bila tampak berbeda: soal teknis repo → skill `rudis-monorepo` menang; soal peran & persetujuan → skill `rudis-sdlc` menang.
 
 ## 1. Kapan dipakai
 | Keputusan baris tabel perakitan | Alur |
@@ -23,7 +23,7 @@ Satu baris bangun/sesuaikan = satu folder `specs/<NNN>-<slug>/`. Tabel perakitan
 ## 2. Aturan keras (selalu)
 1. CLI `rudis` **hanya** lewat `~/Documents/Neuron/ai-agent/RudisOne/bin/rudis-sdd.sh <perintah>` (= `bin/perkakas.sh sdd …`):
    menjalankan `uvx --from <repo RUDIS lokal> rudis`, menambah `--no-marketplace` pada `init`, menolak perintah marketplace
-   (`skill`, `governance`, `profile`, `utilities`, `init --profile`) di luar allowlist, menolak `run ultimate|deploy|operate` dan
+   (`skill`, `governance`, `profile`, `utilities`, `init --profile`) di luar allowlist, menolak seluruh `run` dan
    `tui`, menolak `--gitlab-token`. Jangan memanggil `rudis`/`uvx` langsung, dan jangan memakai `~/.local/bin/rudis` (0.36.0, K7).
 2. **Tanpa marketplace.** Kebijakan: `perkakas.json` › `kebijakan_marketplace` (default tanpa marketplace; allowlist ber-pin sha
    penuh, auto-update mati, tinjau `hooks/`, `.mcp.json`, `bin/` sebelum pasang). Cek: `bin/perkakas.sh marketplace cek [<sumber>]`.
@@ -50,7 +50,7 @@ Satu baris bangun/sesuaikan = satu folder `specs/<NNN>-<slug>/`. Tabel perakitan
 | S7 | Commit oleh peran sesudah command, di branch tugas, berdasar aturan prioritas di constitution (prinsip "Alur kerja") |
 | S8 | Fitur selalu eksplisit: brief menyebut `<NNN-slug>`; `/rudis.specify --number N` unik per proyek; penunjuk `.rudis/.current-feature` per worktree |
 
-## 4. Langkah per fase (urutan `sdlc.md` › Jalur Aplikasi tidak berubah)
+## 4. Langkah per fase (urutan skill `rudis-sdlc` › Jalur Aplikasi tidak berubah)
 | Fase | Siapa | Yang dikerjakan |
 |---|---|---|
 | Analisis & perakitan | **BSA** (read-only), diperiksa TL | **Tanpa command RUDIS** (repo/`.rudis/` belum ada). Per baris bangun/sesuaikan: draf spec **dengan tangan** mengikuti `spec-template.md` RUDIS + pertanyaan gaya clarify (terkumpul) di `handoff/<ID>/specs/<slug>/spec.md`. Persetujuan Rancangan memuat tabel perakitan + ringkasan draf spec + asumsi berisiko. |
@@ -71,7 +71,7 @@ Command RUDIS ditulis untuk agent yang bicara langsung dengan pengguna (`clarify
 interaktif, `implement` "STOP and ask"). Di RudisOne:
 1. Jangan menunggu jawaban di dalam command. Catat asumsi dengan default, tandai `NEEDS CLARIFICATION`.
 2. Tulis pertanyaannya di laporan bagian **Keputusan yang dibutuhkan** (atau `[Terhambat]` bila tidak bisa lanjut) — sama dengan
-   `sdlc.md` › "Tanya pengguna" di dalam skill.
+   skill `rudis-sdlc` › "Tanya pengguna" di dalam skill.
 3. COO bertanya di gerbang yang sesuai (biasanya Persetujuan Rancangan); keputusan baru dari plan → COO di luar gerbang.
 4. Jawaban ditulis BSA/TL ke spec dengan format `- Q: … → A: …` (format `clarify`).
 Termasuk: asumsi berisiko di spec, NEEDS CLARIFICATION di plan, keputusan Sonar/SAST, dan PAT (§6).
@@ -103,6 +103,6 @@ Termasuk: asumsi berisiko di spec, NEEDS CLARIFICATION di plan, keputusan Sonar/
   periksa `.claude/settings.json` sesudahnya.
 
 ## 8. Rujukan
-`sdlc.md` (fase, gerbang, "Tanya pengguna", Versi tercatat) · `protokol.md` (git/worktree, larangan stash) ·
+skill `rudis-sdlc` (fase, gerbang, "Tanya pengguna", Versi tercatat) · `protokol.md` (git/worktree, larangan stash) ·
 `templat/tabel-perakitan.md` · `perkakas.json` (`rudis-sdd`, `kebijakan_marketplace`) · `bin/perkakas.mjs` (`sdd`, `marketplace cek`) ·
 command RUDIS di proyek: `.claude/commands/rudis.<cmd>.md` · analisis T-20261029-1 §2.2 (tabel fase), §3 (K1–K12), §5 (rencana).

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Perkakas resmi RudisOne (daftar: perkakas.json; aturan: sdlc.md › Perkakas resmi). Memastikan skill
+// Perkakas resmi RudisOne (daftar: perkakas.json; aturan: skill rudis-sdlc › Perkakas resmi). Memastikan skill
 // rudis-monorepo, pustaka rudis-modules, dan RUDIS SDD ada dan mutakhir di device ini, tanpa pernah menimpa
 // pekerjaan pengguna di repo sumbernya. Dipanggil COO di awal setiap /rudisone dan oleh install.sh.
 // Pemakaian: bin/perkakas.sh [siapkan|cek|versi|proyek <folder>|pastikan <skill>|skill|marketplace cek [<sumber>]|sdd <argumen rudis…>] [--segera] [--paksa]
@@ -277,7 +277,7 @@ function cekMarketplace(kebijakan, sumber) {
 /** Rencana menjalankan `rudis <args>`: { tolak } atau { argv, glToken, catatan }. Murni (tanpa efek) agar teruji.
  *  - init: tambah --no-marketplace kecuali sumber marketplace-nya ada di allowlist; --profile dari katalog = marketplace.
  *  - skill/governance/profile/utilities: memakai marketplace → hanya bila sumbernya di allowlist.
- *  - `dilarang` (run ultimate/deploy/operate, tui) ditolak; --gitlab-token ditolak (PAT di argumen terlihat di `ps`).
+ *  - `dilarang` (seluruh `run`, tui) ditolak; --gitlab-token ditolak (PAT di argumen terlihat di `ps`).
  *  - --help/-h diteruskan apa adanya. */
 export function rencanaSdd(t, kebijakan, args, { env = process.env, lokal } = {}) {
   const bantuan = args.includes("--help") || args.includes("-h");

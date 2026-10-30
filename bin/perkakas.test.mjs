@@ -312,6 +312,7 @@ test("bin/rudis-sdd.sh menolak marketplace di luar allowlist, perintah terlarang
   const ditolak = [
     [["run", "ultimate", "x"], /S1/],
     [["run", "deploy"], /IT Operations/],
+    [["run", "plan", "x"], /U2/],
     [["tui"], /interaktif/],
     [["skill", "install", "x"], /rudis-marketplace-tooling\.git, yang tidak ada di allowlist/],
     [["governance", "use", "x"], /tidak ada di allowlist/],

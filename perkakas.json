@@ -47,9 +47,7 @@
         }
       },
       "dilarang": {
-        "run ultimate": "S1 — gerbangnya bertanya langsung ke pengguna dan mendeteksi fitur dari nama branch NNN-",
-        "run deploy": "deploy milik standar image-from-CI + IT Operations (analisis §2.2)",
-        "run operate": "operasi milik IT Operations (analisis §2.2)",
+        "run": "U2 — rudis run berjalan tanpa izin tulis dan tetap melapor sukses; pakai command /rudis.<langkah> per langkah (S1). Termasuk run ultimate (S1), run deploy/operate (milik IT Operations, analisis §2.2)",
         "tui": "antarmuka interaktif; init lewat TUI bisa melewati --no-marketplace"
       },
       "dasar": "handoff/T-20261029-1/analisis-kelayakan.md (S1–S8, K4, K7, K8)"
