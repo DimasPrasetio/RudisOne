@@ -27,7 +27,7 @@ membentuknya atas permintaanmu dan menawarkan arsip setelah selesai).
 3. Panggilan `/rudisone` tidak membentuk sesi apa pun sebelum ada tugasnya: sesi Tech Lead dibentuk saat tugas pertama
    sebuah proyek dijadwalkan, sesi IT Operations saat ada tugas server/insiden/deploy (grup sidebar "RudisOne"). Peran
    lain dipanggil sebagai subagent — tidak ada lagi pembentukan 12 sesi. Membuat aplikasi baru tidak menyentuh server.
-4. COO memberi tugas ke pemiliknya (subagent peran, atau sesi inti); Tech Lead memanggil BSA/SE sebagai subagent.
+4. COO memberi tugas ke pemiliknya (subagent peran, sesi inti, atau sesi IT Operations); Tech Lead memanggil BSA/SE sebagai subagent.
    Yang naik ke kamu hanya keputusan dan aksi berisiko (commit ke main, push, deploy, data production).
 5. Setiap jawaban COO ditutup satu tautan **Kantor** (`http://127.0.0.1:7421/?tugas=<ID>`) untuk memantau
    secara visual. `/rudisone status tugas` merangkum semua tugas berjalan.
@@ -48,10 +48,10 @@ menetapkan empat gerbang persetujuanmu:
 
 | Gerbang | Yang kamu putuskan |
 |---|---|
-| **Persetujuan Inisiasi** | maksud & kriteria selesai, stack, nama, slug, domain — lewat penyelarasan persepsi |
+| **Persetujuan Inisiasi** | maksud & kriteria selesai, stack, nama & folder, cakupan awal — lewat penyelarasan persepsi (tanpa server) |
 | **Persetujuan Rancangan** | tabel perakitan modul + arah desain |
 | **Persetujuan Rilis** | serah ke branch utama, commit, push |
-| **Persetujuan Penerapan** | pendaftaran server & setiap deploy |
+| **Persetujuan Penerapan** | fakta deploy (slug, domain, GHCR, konfigurasi server), pendaftaran server & setiap deploy |
 
 Contoh: `/rudisone buatkan aplikasi booking lapangan`.
 

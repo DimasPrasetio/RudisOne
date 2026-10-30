@@ -97,7 +97,7 @@ Tidak ada brief sebelum COO dan pengguna **sepakat** tentang maksud permintaan. 
 kapan, yang ditunggu — `penyelarasan` menunggu jawaban pengguna). Tugas sesi yang tidak bergerak > 2 jam tanpa
 laporan → `list_events` dulu, baru tanyakan pemiliknya.
 
-## Organisasi inti (setiap panggilan `/rudisone`)
+## Organisasi inti (dicek setiap panggilan `/rudisone`; sesi dibentuk saat ada tugasnya)
 Hanya inti yang hidup sebagai sesi (`protokol.md` › Model sesi); peran lain dipanggil saat dibutuhkan. Sesi hanya bisa
 dibuat pada giliran yang dipicu ketikan pengguna — panggilan `/rudisone` adalah giliran itu.
 1. **Kunci.** Bila `handoff/.bentuk.lock` ada dan berumur < 10 menit, percakapan lain sedang membentuk — tunggu, baca
@@ -184,6 +184,6 @@ alamat yang benar (daftar sesi otomatis hanya 20 terbaru).
 
 ## Kebersihan konteks COO
 Keadaan tugas selalu ada di register dan `handoff/`, bukan hanya di percakapan. Setelah sebuah tugas selesai dilaporkan,
-bila konteks sesi COO sudah ±300 rb token atau lebih, register/handoff mutakhir, dan tidak ada sesi inti yang sedang
-melapor → **usulkan pengguna menjalankan `/compact`** di sesi COO yang sama (COO tidak bisa menjalankannya sendiri;
-jangan membuka sesi COO baru — laporan sesi inti hanya sampai ke pembuatnya). Sesudahnya lanjutkan dari register.
+bila konteks sesi COO sudah ±300 rb token atau lebih, register/handoff mutakhir, dan tidak ada sesi inti atau sesi IT Operations yang
+sedang melapor → **usulkan pengguna menjalankan `/compact`** di sesi COO yang sama (COO tidak bisa menjalankannya sendiri;
+jangan membuka sesi COO baru — laporan sesi hanya sampai ke pembuatnya). Sesudahnya lanjutkan dari register.

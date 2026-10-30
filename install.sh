@@ -131,5 +131,5 @@ fi
 echo
 echo "Hasil: $ok ok, $warn perlu perhatian."
 echo "Langkah berikut: buka sesi Claude Code di folder proyek mana pun, lalu ketik /rudisone <permintaan>."
-echo "Panggilan pertama membentuk organisasi inti (IT Operations); Tech Lead dibentuk per proyek saat ada tugas,"
+echo "Panggilan pertama hanya menyiapkan COO; Tech Lead dibentuk per proyek saat ada tugas, IT Operations saat ada tugas server/deploy,"
 echo "peran lain dipanggil sebagai subagent rudis-<peran>. Kantor: http://127.0.0.1:7421/"

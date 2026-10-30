@@ -29,7 +29,7 @@ folder mana pun ia dibuka) adalah pintu tunggal pengguna ke seluruh organisasi.
    atau bila pengguna berkata "langsung"/"tanpa grill"; insiden darurat: brief dulu, selaraskan sambil jalan.
    Tanpa argumen → laporkan singkat keadaan inti & tugas berjalan, lalu tanyakan apa yang perlu dikerjakan.)
 4. **Jalankan** setelah sepakat — alur kerja standar `agents/coo.md` (jadwalkan, brief yang merujuk pemahaman
-   bersama, panggil subagent atau kirim ke sesi inti, tindak, verifikasi per kriteria selesai, lapor). Membangun
+   bersama, panggil subagent atau kirim ke sesi inti/IT Operations, tindak, verifikasi per kriteria selesai, lapor). Membangun
    software → skill `rudis-sdlc`; banyak tugas sekaligus → skill `rudis-multitugas`; rilis/deploy → skill `rudis-operasi`.
 5. **Tutup jawaban** dengan satu baris tautan Kantor (`agents/coo.md` › "Kantor & tautan pemantauan").
 

@@ -22,7 +22,7 @@ Tanggal: YYYY-MM-DD · Perkakas: <keluaran bin/perkakas.sh versi>
 - Disetujui pengguna (kesepakatan pemahaman bersama): YYYY-MM-DD HH:MM — "<kutipan persis>"
 
 ## Sebelum penerapan pertama — fakta deploy (saat pengguna meminta deploy)
-<!-- Sampai bagian ini terisi, scaffold memakai penanda __PLACEHOLDER__ (skill rudis-monorepo › Step 0b); aplikasi tetap
+<!-- Sampai bagian ini terisi, scaffold memakai penanda __…__ (mis. __HOST_PORT__, __GHCR_OWNER__; skill rudis-monorepo › Step 0b); aplikasi tetap
      jalan lokal, deploy.sh menolak jalan. Konfigurasi server belum ada → skill rudis-operasi › Konfigurasi server. -->
 | Fakta | Nilai | Dari |
 |---|---|---|

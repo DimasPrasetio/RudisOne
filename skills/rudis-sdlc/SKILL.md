@@ -104,7 +104,8 @@ hanya untuk baris yang memakai command `/rudis.*`). Baris *pasang* biasa dan per
   *Sebelum penerapan pertama* `templat/intake-proyek.md` dikumpulkan — slug, domain, pemilik GHCR/repo ditanyakan COO;
   port kosong berikutnya + konfirmasi `ss -tlnp` dan cek slug belum dipakai dari System Administrator (read-only);
   `konfigurasi/server.json` belum ada → baru saat itu COO menanyakannya (skill `rudis-operasi` › Konfigurasi server).
-  Tech Lead mengganti penanda deploy di repo (branch tugas) sebelum rilis.
+  Tech Lead mengganti penanda deploy di repo (branch tugas); bila hasilnya sudah di-push, perubahan itu butuh serah &
+  push baru (Persetujuan Rilis lagi) sebelum deploy.
 
 ### "Tanya pengguna" di dalam skill
 Skill ditulis untuk satu agent yang berbicara langsung dengan pengguna. Di RudisOne, hanya COO yang bertanya.
@@ -122,7 +123,7 @@ COO menanyakannya di gerbang yang sesuai dan meneruskan jawabannya apa adanya.
 4. COO membentuk sesi Tech Lead untuk folder itu (`agents/coo.md` › Organisasi inti), lalu brief
    ke Tech Lead untuk Analisis–Pengujian (BSA dan SE dipanggil Tech Lead sebagai subagent).
 5. Tech Lead men-scaffold di worktree-nya, di branch `rudis/<ID>`, dengan `--dir <worktree> --force` dan fakta yang
-   sudah ada. Fakta deploy yang belum ada **tidak diberi flag** dan menjadi penanda `__PLACEHOLDER__` (skill
+   sudah ada. Fakta deploy yang belum ada **tidak diberi flag** dan menjadi penanda `__…__` (mis. `__HOST_PORT__`, `__GHCR_OWNER__`, `__SSH_HOST__`; skill
    `rudis-monorepo` › Step 0b: *If a fact is unknown, scaffold without its flag* / *If the user has no server yet,
    scaffold without the deploy flags*); Step 0b (membaca target/server) dilewati sampai Penerapan. Aplikasi tetap
    dijalankan & diuji lokal — hanya `deploy.sh` yang menolak jalan sampai penanda diisi; penanda yang disengaja lulus
