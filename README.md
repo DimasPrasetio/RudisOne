@@ -132,7 +132,9 @@ WSL2 (jalur Linux). Windows native: lihat bagian **Windows native** di bawah tab
   Pengaman sesi latar dipasang per sesi (`--settings konfigurasi/sesi-cli.settings.json`: tanpa isolasi worktree otomatis,
   deny `git push`/`gh pr create`/`claude rm`, bypass mati) — settings pengguna tidak diubah. **Belum diuji di mesin Linux
   sungguhan** (simulasi + `claude` tiruan).
-- **macOS sudah terverifikasi** (Claude Desktop, Claude Code CLI, ekstensi VS Code) — jangan diuji ulang: `uji/macos.md`.
+- **macOS terverifikasi** (Claude Desktop, Claude Code CLI, ekstensi VS Code) untuk versi sebelum dukungan Windows: `uji/macos.md`.
+  Perubahan lintas-OS menyentuh jalur yang dicatatnya sebagai pemicu uji ulang, jadi ulangi bagian E `uji/windows.md` di Mac.
+- **Windows native terverifikasi** untuk Claude Code CLI dan Claude Desktop (bukti, lingkungan, dan yang belum teruji): `uji/windows-hasil.md`.
 - Daftar uji Linux & Windows/WSL2 untuk rekan (langkah + hasil yang diharapkan, keluarannya dikirim ke COO): `uji/linux-wsl.md`.
 
 1. `git clone https://github.com/DimasPrasetio/RudisOne.git ~/Documents/Neuron/ai-agent/RudisOne` (repo publik; harus di path ini —
