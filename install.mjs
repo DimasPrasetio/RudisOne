@@ -1,4 +1,5 @@
-// Persiapan RudisOne di device ini (macOS, Linux, Windows). Aman dijalankan berulang: hanya membuat folder per device,
+// Persiapan RudisOne di device ini (macOS, Linux, Windows). Aman dijalankan berulang: hanya membuat folder per device
+// dan berkas per device yang belum ada (TEAM.md, catatan/<id-peran>.md dari templat — tidak pernah menimpa),
 // memeriksa prasyarat, menautkan skill & subagent ke ~/.claude, dan memberi tahu langkah manual. Tidak mengubah aturan
 // izin Claude Code. Pengganti install.sh — install.sh / install.cmd hanya memanggil berkas ini.
 // Pemakaian: node install.mjs [--tanpa-perkakas]
@@ -11,6 +12,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { jalankan, osLogis } from "./bin/lib/platform.mjs";
 import { folderClaudeUser, RUMAH_TAMPIL, rumahRepo, samaPath } from "./bin/lib/lokasi.mjs";
+import { siapkanPerDevice } from "./bin/lib/per-device.mjs";
 import { bersihkanYatim, pasangTautan } from "./bin/lib/tautan.mjs";
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
@@ -44,6 +46,11 @@ fs.closeSync(fs.openSync(path.join(ROOT, "handoff", ".gitkeep"), "a"));
 pass("folder handoff/ siap");
 fs.mkdirSync(path.join(ROOT, "catatan"), { recursive: true });
 pass("folder catatan/ siap (ingatan per peran, per device — tidak di-commit)");
+// TEAM.md + catatan/<id-peran>.md dari templat bila belum ada (dibaca di awal sesi) — yang sudah ada tidak pernah ditimpa.
+try {
+  const pd = siapkanPerDevice(ROOT, { sumber: ROOT });
+  pass(`berkas per device dari templat: ${pd.dibuat.length} dibuat, ${pd.ada.length} sudah ada (TEAM.md, catatan/<id-peran>.md)`);
+} catch (e) { fail(`berkas per device (TEAM.md, catatan/) tidak bisa disiapkan: ${e.message}`); }
 // Berkas per device yang masih dilacak git (mis. catatan/ sebelum serah migrasi v5) — merge bisa menghapusnya dari disk.
 const git = spawnSync("git", ["-C", ROOT, "ls-files", "-ci", "--exclude-standard"], { encoding: "utf8" });
 const dilacak = git.status === 0 ? [...new Set(git.stdout.split(/\r?\n/).filter(Boolean).map((f) => f.split("/")[0]))].sort().join(" ") : "";
@@ -59,7 +66,7 @@ cekPeran(path.join(ROOT, ".claude", "agents", "coo.md"), "coo");
 // Tech Lead tidak punya ruang: sesinya di folder proyek (worktree), peran dari pembuka brief.
 if (namaDi(path.join(ROOT, "agents", "tech-lead.md")).includes("name: tech-lead")) pass("peran tech-lead ada");
 else fail("agents/tech-lead.md hilang (jalankan: git checkout -- .)");
-for (const f of ["raci.md", "protokol.md", "CLAUDE.md", "templat/team.md", "templat/register-tugas.md"]) {
+for (const f of ["raci.md", "protokol.md", "CLAUDE.md", "templat/team.md", "templat/catatan.md", "templat/register-tugas.md"]) {
   if (fs.existsSync(path.join(ROOT, f))) pass(`${f} ada`); else fail(`${f} hilang (jalankan: git checkout -- .)`);
 }
 for (const a of AGENTS) cekPeran(path.join(ROOT, "ruang", a, ".claude", "agents", `${a}.md`), a);

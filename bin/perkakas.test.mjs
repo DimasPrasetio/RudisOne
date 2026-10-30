@@ -163,11 +163,53 @@ test("D1: folder tidak ada → galat (exit 3, stderr), bukan `lain` diam-diam", 
   assert.match(r.stderr, /folder tidak ada/);
 });
 
-test("D2: proyek baru (folder kosong) → B tanpa kartu; mode A untuk proyek baru diputuskan di kartu", () => {
+const BUKTI_BARU = "folder proyek baru (belum ada kode) — proyek baru dirakit dari pustaka = Mode A (konfirmasi: Persetujuan Inisiasi)";
+
+test("D2: proyek baru (folder kosong) → A berbukti; baris pertama tetap `lain`", () => {
   const h = deteksi(proyekFixture("d2", {}, { git: false }));
   assert.equal(h.jenis, "lain");
-  assert.equal(h.mode, "B");
+  assert.equal(h.mode, "A");
+  assert.equal(h.baru, true);
   assert.equal(h.backend, "-");
+  assert.ok(h.bukti.includes(BUKTI_BARU), h.bukti.join("\n"));
+});
+
+test("D2: proyek baru dengan .git + README + .rudisone/ kosong (dan metadata editor/env) → A; CLI baris pertama `lain`", () => {
+  const p = proyekFixture("d2-git", { "README.md": "# app\n", ".gitignore": "node_modules/\n", "LICENSE": "MIT", ".env.example": "X=1\n",
+    ".editorconfig": "root = true\n", ".vscode/settings.json": "{}", ".claude/settings.json": "{}" });
+  fs.mkdirSync(path.join(p, ".rudisone"));
+  let h = deteksi(p);
+  assert.equal(h.mode, "A", h.bukti.join("\n"));
+  assert.equal(h.baru, true);
+  tulis(path.join(p, ".rudisone", "kartu-proyek.md"), "---\nmode: A\nmode_mesin: A\noverride: -\n---\n# Kartu\n");
+  h = deteksi(p);
+  assert.equal(h.mode, "A");
+  assert.equal(h.kartu.mode, "A");
+  const baris = perkakas("proyek", p).stdout.trim().split("\n");
+  assert.deepEqual(baris.slice(0, 3), ["lain", "mode-mesin: A", "backend: -"]);
+  assert.ok(baris.includes(`bukti: ${BUKTI_BARU}`));
+  assert.equal(JSON.parse(perkakas("proyek", p, "--json").stdout).baru, true);
+});
+
+test("D2: folder dengan kode/berkas lain bukan proyek baru → mode lama (B/ragu)", () => {
+  for (const [nama, isi] of [
+    ["d2-pkg", { "README.md": "x", "package.json": "{}" }],
+    ["d2-go", { "go.mod": "module a" }],
+    ["d2-apps", { "apps/.gitkeep": "" }],
+    ["d2-specs", { "specs/.gitkeep": "" }],
+    ["d2-rudis", { ".rudis/x": "" }],
+    ["d2-src", { "index.php": "<?php" }],
+    ["d2-rudisone-lain", { ".rudisone/catatan.md": "x" }],
+  ]) {
+    const h = deteksi(proyekFixture(nama, isi, { git: false }));
+    assert.equal(h.baru, false, nama);
+    assert.equal(h.mode, "B", nama);
+    assert.ok(!h.bukti.includes(BUKTI_BARU), nama);
+  }
+  // lock tanpa kode tetap jalur lama (D6: lock di luar git → ragu), bukan proyek baru
+  const lock = deteksi(proyekFixture("d2-lock", { "modules.lock.json": LOCK({ auth: {} }) }, { git: false }));
+  assert.equal(lock.mode, "ragu");
+  assert.equal(lock.baru, false);
 });
 
 test("D3: scaffold standar + go tanpa lock → ragu", () => {
