@@ -294,13 +294,13 @@ export function metrikTugas(id, { sejak = null, atribusi = "dasar", tarif = muat
       if (s.masuk && s.masuk.isi?.includes(id) && dalamRentang(s.mulai)) pertamaMemuatId = Math.min(pertamaMemuatId, s.mulai);
       if (s.masuk?.jenis === "lintas-sesi" && barisPertama(s.masuk.isi).includes(id) && dalamRentang(s.mulai))
         pesanMasukLintas.push({ sesi: b.cli, judul, dari: desktop.lokal.get(s.masuk.dari) ?? s.masuk.dari, ts: new Date(s.mulai).toISOString(),
-          baris_pertama: potong(barisPertama(s.masuk.isi)), revisi: /^\s*\[Revisi/i.test(s.masuk.isi), perlu_revisi: /PERLU REVISI/.test(s.masuk.isi) });
+          baris_pertama: potong(barisPertama(s.masuk.isi)), revisi: /^\s*\[Revisi/i.test(s.masuk.isi), perlu_revisi: /^\s*\[Hasil tinjauan\][^\n]*PERLU REVISI/.test(barisPertama(s.masuk.isi)) });
       for (const a of s.alat) {
         if (a.nama !== "SendMessage" || !dalamRentang(a.ts)) continue;
         const pesan = String(a.input.message ?? "");
         if (!barisPertama(pesan).includes(id)) continue;
         pesanKeluar.push({ sesi: b.cli, judul, ke: desktop.lokal.get(a.input.to) ?? a.input.to ?? null, ts: new Date(a.ts).toISOString(),
-          baris_pertama: potong(barisPertama(pesan)), revisi: /^\s*\[Revisi/i.test(pesan), perlu_revisi: /PERLU REVISI/.test(pesan) });
+          baris_pertama: potong(barisPertama(pesan)), revisi: /^\s*\[Revisi/i.test(pesan), perlu_revisi: /^\s*\[Hasil tinjauan\][^\n]*PERLU REVISI/.test(barisPertama(pesan)) });
       }
     }
     // giliran teratribusi
@@ -418,7 +418,7 @@ export function metrikTugas(id, { sejak = null, atribusi = "dasar", tarif = muat
     catatan: [
       "Token di-dedup per message.id; total sesi termasuk subagent (subagent mewarisi ID aktif induk saat mulai).",
       "pesan.keluar dan pesan.masuk_lintas_sesi bisa menghitung pesan yang sama dari dua sisi; M5 memakai keluar (+ masuk dari sesi di luar pindaian).",
-      "revisi.total_m2 = pesan keluar ber-ID berlabel [Revisi] + yang memuat PERLU REVISI; 'tugas dibuka ulang' tidak terdeteksi otomatis.",
+      "revisi.total_m2 = peristiwa unik dari sisi pengirim: baris pertama SendMessage berawalan [Revisi] atau [Hasil tinjauan] … PERLU REVISI; 'tugas dibuka ulang' tidak terdeteksi otomatis.",
       "waktu_aktif = jumlah durasi giliran teratribusi (pesan masuk → baris terakhir giliran); kerja paralel bisa melebihi rentang.",
     ],
   };

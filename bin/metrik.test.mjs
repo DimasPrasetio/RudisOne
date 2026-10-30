@@ -132,8 +132,8 @@ test("metrikTugas: token, sesi, subagent mewarisi ID induk, pesan, revisi, inter
   assert.equal(t.pesan.masuk_lintas_sesi, 1);
   assert.equal(h.pesan_keluar[0].ke, "Tech Lead · contoh");
   assert.equal(t.revisi.keluar_tag_revisi, 1);
-  assert.equal(t.revisi.keluar_perlu_revisi, 1);
-  assert.equal(t.revisi.total_m2, 2);
+  assert.equal(t.revisi.keluar_perlu_revisi, 0);   // "PERLU REVISI" di badan pesan [Revisi] bukan peristiwa kedua
+  assert.equal(t.revisi.total_m2, 1);
   // intervensi: AskUserQuestion ada di giliran tanpa-ID (dasar) → 0; prompt pengguna "oke lanjut" → 1
   assert.equal(t.intervensi.ask_user_question.panggilan, 0);
   assert.equal(t.intervensi.prompt_pengguna_coo, 1);
