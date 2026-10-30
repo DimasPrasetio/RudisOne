@@ -67,7 +67,7 @@ berarti versi itu belum ada di origin.
 | Analisis & perakitan | Tech Lead | Business Systems Analyst (kemampuan, tabel perakitan, MODULE_MAP, API); C: Financial Controller/HR Business Partner bila domainnya | `module-library.md` §1–3, `backend-modular-monolith.md`, `api-standard.md` | `templat/tabel-perakitan.md` → `analysis/` proyek | **Persetujuan Rancangan** |
 | Desain UI | Tech Lead | Research Analyst (paralel dengan Analisis) | `design-research.md` | draf → `knowledge/DESIGN.md` proyek | ikut **Persetujuan Rancangan** |
 | Konstruksi | Tech Lead | Software Engineer #1/#2, asisten | Langkah 1 (scaffold), `module-library.md` §4–6, referensi stack, `frontend.md` | branch `rudis/<ID>` | — |
-| Pengujian | Tech Lead | Software Engineer #1 (tinjauan silang), BSA (cocok spesifikasi) | Final Checklist | laporan divisi + checklist terisi | — |
+| Pengujian | Tech Lead | peninjau berkonteks bersih (subagent `rudis-software-engineer`, tinjauan silang), BSA (cocok spesifikasi) | Final Checklist | laporan divisi + checklist terisi | — |
 | Rilis & penerapan | Head of IT Operations | System Administrator; Tech Lead (sha + catatan rilis) | `docker-deployment.md` | `templat/onboarding-app.md`, `templat/laporan-deploy.md` | **Persetujuan Rilis**, **Persetujuan Penerapan** |
 | Operasi & pemeliharaan | Head of IT Operations (operasi) · Tech Lead (kode) | — | `module-library.md` (status/upgrade), `backend-go.md` › Kernel versions | tugas baru per perubahan | sesuai jenisnya |
 

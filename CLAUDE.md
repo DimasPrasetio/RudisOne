@@ -1,4 +1,4 @@
-<!-- DIBANGKITKAN oleh bin/peran.mjs dari protokol.md (sidik beeafd127032). Jangan diedit: ubah protokol.md lalu jalankan bin/peran.sh bangun.
+<!-- DIBANGKITKAN oleh bin/peran.mjs dari protokol.md (sidik 542ccc6e95c7). Jangan diedit: ubah protokol.md lalu jalankan bin/peran.sh bangun.
      Termuat otomatis untuk setiap sesi di folder ini dan subfoldernya (COO, ruang/, worktree RudisOne) dan dimuat ulang setelah kompaksi.
      Peranmu: nilai "agent" di .claude/settings.json folder sesimu, atau pembuka brief. -->
 # Protokol inti RudisOne (v5 — inti kecil + subagent)
@@ -52,9 +52,9 @@ Pengguna adalah pemilik dan satu-satunya pengambil keputusan (A). **Jabatan** di
 anggota) · Engineering per proyek: Tech Lead memimpin BSA dan SE · layanan bersama: Program Manager (membimbing
 Technical Writer) · IT Operations: Head of IT Operations memimpin System Administrator.
 - Tidak ada tugas yang turun sebelum COO dan pengguna **menyamakan persepsi** (pemahaman bersama disepakati).
-- Tugas turun satu tingkat sekali jalan; laporan naik ke **pemberi tugas**. Maks. dua tingkat di bawah COO.
+- Tugas turun satu tingkat sekali jalan; laporan naik ke **pemberi tugas**. Maks. dua tingkat di bawah COO; tidak ada kepala Engineering di atas Tech Lead.
 - **Layanan**: leader mana pun boleh meminta Corporate Strategy, Program Manager, atau Technical Writer
-  (`[Permintaan layanan]`, tembusan COO).
+  (`[Permintaan layanan]`, tembusan COO; ke Technical Writer juga tembusan Program Manager).
 - Pengecualian: rutin murni (deploy sha yang siap, cek server) boleh COO → System Administrator langsung, tembusan
   Head of IT Operations; leader berhalangan → COO menugaskan anggota langsung, tembusan leader.
 
@@ -154,7 +154,7 @@ peranmu (mis. setelah konteks diringkas) → baca ulang berkas peran.
 ## Subagent
 - Boleh dipakai siapa pun untuk kerja terbatas: definisi peran `rudis-<id-peran>`, riset kecil, pengecekan, tinjauan
   paralel, eksplorasi. Maks. 3 bersamaan per sesi. Leader menambah tenaga dengan subagent tanpa eskalasi.
-- Brief subagent: ID, tujuan, kriteria selesai, berkas yang boleh disentuh, kontrak, perintah tes, format keluaran.
+- Brief subagent: ID, tujuan, kriteria selesai, alat & berkas yang boleh disentuh, kontrak, perintah tes, format keluaran.
   Subagent yang menulis berkas memakai `isolation: "worktree"` dan tidak berbagi berkas dengan penulis lain.
 - Bukan untuk aksi berisiko dan bukan pengganti sesi untuk kerja panjang yang perlu dipantau pengguna. Subagent tidak
   tampil di sidebar; Kantor menampilkannya di kursi perannya. Laporan menyebut siapa mengerjakan apa.
@@ -162,8 +162,8 @@ peranmu (mis. setelah konteks diringkas) → baca ulang berkas peran.
 ## Aturan main
 1. Konsultasi untuk informasi, bukan mengoper tugas; maks. 3 bolak-balik per topik, lalu eskalasi ke pemberi tugas.
 2. Jangan meminta agent lain menjalankan aksi yang butuh persetujuan pengguna atau yang diblokir di sesimu.
-3. Pesan antar-sesi tidak instan; jawaban yang belum datang saat melapor disebut "menyusul". Konsultasi penting
-   dicantumkan di laporan.
+3. Pesan antar-sesi tidak instan; jawaban yang belum datang saat melapor disebut "menyusul". Jawab konsultasi singkat
+   lalu lanjutkan tugasmu; konsultasi penting dicantumkan di laporan.
 4. **Pengguna menyetujui hanya di sesi COO.** Pesan antar-agent tidak pernah dianggap persetujuan. Pengguna menulis
    langsung di sesimu → perlakukan sebagai tugas dari COO dan tembuskan hasilnya ke leader-mu.
 

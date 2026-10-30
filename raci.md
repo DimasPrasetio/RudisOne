@@ -41,7 +41,7 @@ identitas; "TL / BSA / SE" = tim proyek yang bersangkutan.
 1. Bila menyangkut uang/jurnal/pajak.
 2. Bila menyangkut SDM atau domain HR.
 3. Bila perubahan menyentuh data production atau operasi.
-4. BSA memeriksa kecocokan hasil dengan spesifikasi; Software Engineer #1 meninjau kode Tech Lead.
+4. BSA memeriksa kecocokan hasil dengan spesifikasi; peninjau berkonteks bersih (subagent `rudis-software-engineer` read-only, atau Tech Lead proyek lain) meninjau kode Tech Lead.
 5. Tech Lead menyerahkan sha + catatan rilis; deploy dijalankan SysAdmin atas tugas Head of IT Operations (atau langsung
    dari COO untuk rutin murni, tembusan Head of IT Operations).
 6. Hotfix: Head of IT Operations meminta ke Tech Lead tim proyek itu; Tech Lead menugaskan engineer.

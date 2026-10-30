@@ -55,8 +55,8 @@ Ringkasan: 261 unit — tetap 147 · diringkas 90 · diganti 24 · dihapus 0.
 | P-028 | protokol.md › *Jabatan & identitas*: tabel jabatan: System Administrator | protokol.md | `system-administrator` \| IT Operations \| SysAdmin | tetap |
 | P-029 | protokol.md › *Jabatan & identitas*: tidak ada tugas turun sebelum COO & pengguna menyamakan persepsi | protokol.md | Tidak ada tugas yang turun sebelum COO dan pengguna **menyamakan persepsi** | diringkas |
 | P-030 | protokol.md › *Jabatan & identitas*: tugas turun satu tingkat; laporan naik ke pemberi tugas | protokol.md | Tugas turun satu tingkat sekali jalan; laporan naik ke **pemberi tugas** | tetap |
-| P-031 | protokol.md › *Jabatan & identitas*: maks. dua tingkat di bawah COO; konsultasi boleh lintas divisi | protokol.md | Maks. dua tingkat di bawah COO. | diringkas |
-| P-032 | protokol.md › *Jabatan & identitas*: layanan: leader boleh minta CS/PgM/TW, tembusan COO (& PgM bila TW) | protokol.md | leader mana pun boleh meminta Corporate Strategy, Program Manager, atau Technical Writer | diringkas |
+| P-031 | protokol.md › *Jabatan & identitas*: maks. dua tingkat di bawah COO; konsultasi boleh lintas divisi | protokol.md | tidak ada kepala Engineering di atas Tech Lead. | diringkas |
+| P-032 | protokol.md › *Jabatan & identitas*: layanan: leader boleh minta CS/PgM/TW, tembusan COO (& PgM bila TW) | protokol.md | ke Technical Writer juga tembusan Program Manager | tetap |
 | P-033 | protokol.md › *Jabatan & identitas*: pengecualian rutin murni COO → SysAdmin; leader berhalangan | protokol.md | Pengecualian: rutin murni (deploy sha yang siap, cek server) boleh COO → System Administrator langsung | tetap |
 | P-034 | protokol.md › *Pola pengerjaan*: riset multi-agent (arXiv 2512.08296): pekerjaan berurutan & berat alat | protokol.md | merugikan tugas berurutan dan berat alat (arXiv 2512.08296) | diringkas |
 | P-035 | protokol.md › *Pola pengerjaan*: pengerjaan mandiri sebagai default | protokol.md | **Mandiri (default):** satu pemilik dari awal sampai selesai | diringkas |
@@ -114,12 +114,12 @@ Ringkasan: 261 unit — tetap 147 · diringkas 90 · diganti 24 · dihapus 0.
 | P-087 | protokol.md › *Subagent (tool `Agent`) — asisten*: subagent untuk kerja singkat; maks. 3 bersamaan per sesi | protokol.md | Maks. 3 bersamaan per sesi. | diringkas |
 | P-088 | protokol.md › *Subagent (tool `Agent`) — asisten*: leader berwenang menambah asisten tanpa eskalasi; sebut di laporan | protokol.md | Leader menambah tenaga dengan subagent tanpa eskalasi. | diringkas |
 | P-089 | protokol.md › *Subagent (tool `Agent`) — asisten*: subagent bukan untuk aksi berisiko; tampil di Kantor, tidak di sidebar | protokol.md | Bukan untuk aksi berisiko dan bukan pengganti sesi untuk kerja panjang | diringkas |
-| P-090 | protokol.md › *Subagent (tool `Agent`) — asisten*: brief subagent: tujuan, format, alat, batas; kerja di folder pemanggil | protokol.md | Brief subagent: ID, tujuan, kriteria selesai, berkas yang boleh disentuh | diringkas |
+| P-090 | protokol.md › *Subagent (tool `Agent`) — asisten*: brief subagent: tujuan, format, alat, batas; kerja di folder pemanggil | protokol.md | Brief subagent: ID, tujuan, kriteria selesai, alat & berkas yang boleh disentuh | diringkas |
 | P-091 | protokol.md › *Aturan main*: konsultasi untuk informasi, bukan mengoper tugas | protokol.md | Konsultasi untuk informasi, bukan mengoper tugas | diringkas |
 | P-092 | protokol.md › *Aturan main*: maks. 3 bolak-balik per topik konsultasi lalu eskalasi | protokol.md | maks. 3 bolak-balik per topik, lalu eskalasi ke pemberi tugas | diringkas |
 | P-093 | protokol.md › *Aturan main*: jangan minta agent lain menjalankan aksi butuh persetujuan/diblokir | protokol.md | Jangan meminta agent lain menjalankan aksi yang butuh persetujuan pengguna atau yang diblokir di sesimu. | tetap |
-| P-094 | protokol.md › *Aturan main*: jawab konsultasi singkat; pesan tidak instan, sebut jawaban menyusul | protokol.md | Pesan antar-sesi tidak instan; jawaban yang belum datang saat melapor disebut "menyusul". | diringkas |
-| P-095 | protokol.md › *Aturan main*: konsultasi penting dicantumkan di laporan | protokol.md | Konsultasi penting dicantumkan di laporan. | tetap |
+| P-094 | protokol.md › *Aturan main*: jawab konsultasi singkat; pesan tidak instan, sebut jawaban menyusul | protokol.md | Jawab konsultasi singkat lalu lanjutkan tugasmu | tetap |
+| P-095 | protokol.md › *Aturan main*: konsultasi penting dicantumkan di laporan | protokol.md | konsultasi penting dicantumkan di laporan. | tetap |
 | P-096 | protokol.md › *Aturan main*: pengguna setuju hanya di sesi COO; pesan langsung = tugas dari COO | protokol.md | perlakukan sebagai tugas dari COO dan tembuskan hasilnya ke leader-mu | tetap |
 | P-097 | protokol.md › *Aset, akses & batas kewenangan*: alat & akun = aset perusahaan, hanya sesi RudisOne; hook kebijakan | skills/rudis-operasi/SKILL.md | Alat dan akun yang dipakai RudisOne adalah **aset perusahaan** | diringkas |
 | P-098 | protokol.md › *Aset, akses & batas kewenangan*: akses per jabatan; jabatan lain selalu ditanya walau membaca | skills/rudis-operasi/SKILL.md | jabatan lain selalu ditanya, walau sekadar membaca. | tetap |
@@ -190,7 +190,7 @@ Ringkasan: 261 unit — tetap 147 · diringkas 90 · diganti 24 · dihapus 0.
 | S-023 | sdlc.md › *3. Jalur Aplikasi — proyek aplikasi*: fase Analisis & perakitan: R TL, S BSA; Persetujuan Rancangan | skills/rudis-sdlc/SKILL.md | Business Systems Analyst (kemampuan, tabel perakitan, MODULE_MAP, API) | tetap |
 | S-024 | sdlc.md › *3. Jalur Aplikasi — proyek aplikasi*: fase Desain UI: R TL, S Research Analyst | skills/rudis-sdlc/SKILL.md | Research Analyst (paralel dengan Analisis) | tetap |
 | S-025 | sdlc.md › *3. Jalur Aplikasi — proyek aplikasi*: fase Konstruksi: R TL, S SE#1/#2, asisten | skills/rudis-sdlc/SKILL.md | Software Engineer #1/#2, asisten | tetap |
-| S-026 | sdlc.md › *3. Jalur Aplikasi — proyek aplikasi*: fase Pengujian: tinjauan silang SE#1, BSA cocok spesifikasi | skills/rudis-sdlc/SKILL.md | Software Engineer #1 (tinjauan silang), BSA (cocok spesifikasi) | tetap |
+| S-026 | sdlc.md › *3. Jalur Aplikasi — proyek aplikasi*: fase Pengujian: tinjauan silang SE#1, BSA cocok spesifikasi | skills/rudis-sdlc/SKILL.md | peninjau berkonteks bersih (subagent `rudis-software-engineer`, tinjauan silang), BSA (cocok spesifikasi) | tetap |
 | S-027 | sdlc.md › *3. Jalur Aplikasi — proyek aplikasi*: fase Rilis & penerapan: R HITO; gerbang Rilis & Penerapan | skills/rudis-sdlc/SKILL.md | System Administrator; Tech Lead (sha + catatan rilis) | tetap |
 | S-028 | sdlc.md › *3. Jalur Aplikasi — proyek aplikasi*: fase Operasi & pemeliharaan: HITO (operasi) · TL (kode) | skills/rudis-sdlc/SKILL.md | Head of IT Operations (operasi) · Tech Lead (kode) | tetap |
 | S-029 | sdlc.md › *3. Jalur Aplikasi — proyek aplikasi*: kolom Fase register untuk status lintas proyek PgM | skills/rudis-sdlc/SKILL.md | Program Manager memakainya untuk status lintas proyek. | tetap |
@@ -223,7 +223,7 @@ Ringkasan: 261 unit — tetap 147 · diringkas 90 · diganti 24 · dihapus 0.
 | C-005 | agents/coo.md › *Routing*: routing: fitur/bug/desain/modul/audit → TL (belum ada tim → lengkap) | agents/coo.md | **Tech Lead** proyek itu (BSA/SE dipanggilnya sebagai subagent) | diganti |
 | C-006 | agents/coo.md › *Routing*: routing: ubah skill/pustaka, promote → TL tim platform | agents/coo.md | **Tech Lead** platform di folder repo itu (skill `rudis-sdlc` › Jalur Platform) | tetap |
 | C-007 | agents/coo.md › *Routing*: routing: rencana, timeline, risiko, cutover → Program Manager | agents/coo.md | Rencana, timeline, prioritas, risiko, status lintas proyek, cutover | tetap |
-| C-008 | agents/coo.md › *Routing*: routing: dokumen → PgM (menugaskan TW) atau TW langsung | agents/coo.md | **Technical Writer** (dokumen lintas proyek: Program Manager) | diganti |
+| C-008 | agents/coo.md › *Routing*: routing: dokumen → PgM (menugaskan TW) atau TW langsung | agents/coo.md | dokumen satu proyek boleh langsung **Technical Writer**, tembusan Program Manager | diganti |
 | C-009 | agents/coo.md › *Routing*: routing: aplikasi live bermasalah, koreksi data → HITO | agents/coo.md | Aplikasi live bermasalah, temuan pengguna, anomali/koreksi data production | tetap |
 | C-010 | agents/coo.md › *Routing*: routing: server/DNS/deploy → HITO; rutin murni langsung SysAdmin | agents/coo.md | Server/VPS, Docker, nginx/SSL, MySQL host, DNS/domain, deploy, backup infra | tetap |
 | C-011 | agents/coo.md › *Routing*: routing: keputusan/kelayakan bisnis → Head of Strategy | agents/coo.md | Keputusan/kelayakan bisnis, model bisnis, prioritas inisiatif, harga — butuh beberapa keahlian | tetap |
@@ -237,7 +237,7 @@ Ringkasan: 261 unit — tetap 147 · diringkas 90 · diganti 24 · dihapus 0.
 | C-019 | agents/coo.md › *Penyelarasan persepsi (grill) — sebelum organisasi bergerak*: grill kapan; dilewati untuk …; darurat: brief HITO dulu | agents/coo.md | *Lewati* untuk pertanyaan umum, "status tugas", | diringkas |
 | C-020 | agents/coo.md › *Penyelarasan persepsi (grill) — sebelum organisasi bergerak*: pencarian fakta COO hanya untuk bertanya; maks. satu Explore | agents/coo.md | paling banyak satu subagent `Explore` untuk pertanyaan fakta singkat | diringkas |
 | C-021 | agents/coo.md › *Penyelarasan persepsi (grill) — sebelum organisasi bergerak*: tercatat sejak awal: register status penyelarasan + draf pemahaman | agents/coo.md | `bin/register.sh tambah --status penyelarasan --pemilik COO` sebelum pertanyaan pertama | diganti |
-| C-022 | agents/coo.md › *Penyelarasan persepsi (grill) — sebelum organisasi bergerak*: organisasi disiapkan paralel dengan pertanyaan pertama | skills/rudisone/SKILL.md | **Pastikan organisasi inti hadir** | diganti |
+| C-022 | agents/coo.md › *Penyelarasan persepsi (grill) — sebelum organisasi bergerak*: organisasi disiapkan paralel dengan pertanyaan pertama | agents/coo.md | **Organisasi inti disiapkan paralel** | diringkas |
 | C-023 | agents/coo.md › *Penyelarasan persepsi (grill) — sebelum organisasi bergerak*: tugas jamak: pisahkan, selaraskan per tugas, brief tanpa menunggu | agents/coo.md | **Tugas jamak** → pisahkan dulu, selaraskan per tugas menurut prioritas | diringkas |
 | C-024 | agents/coo.md › *Penyelarasan persepsi (grill) — sebelum organisasi bergerak*: proyek baru: grill mendalam = intake Persetujuan Inisiasi | agents/coo.md | Pengguna tidak ditanya dua kali. | diringkas |
 | C-025 | agents/coo.md › *Penyelarasan persepsi (grill) — sebelum organisasi bergerak*: kesepakatan: ringkasan + persetujuan eksplisit; bukan izin aksi | agents/coo.md | Kesepakatan bukan izin aksi berisiko — kecuali pengguna menyebut aksinya sendiri, yang lalu dikutip persis. | diringkas |

@@ -20,7 +20,7 @@ kerja: Indonesia. Aturan bersama: `protokol.md` (inti); R/S/C: `raci.md`; memban
 | Aplikasi live bermasalah, temuan pengguna, anomali/koreksi data production, kesehatan aplikasi, postmortem | **Head of IT Operations** | sesi inti |
 | Server/VPS, Docker, nginx/SSL, MySQL host, DNS/domain, deploy, backup infra | **Head of IT Operations** (menugaskan System Administrator); rutin murni boleh langsung ke System Administrator, tembusan HITO | sesi inti |
 | Rencana, timeline, prioritas, risiko, status lintas proyek, cutover | **Program Manager** | subagent `rudis-program-manager` |
-| Dokumen untuk dibaca orang (laporan, SOP umum, manual, slide) | **Technical Writer** (dokumen lintas proyek: Program Manager) | subagent `rudis-technical-writer`; dokumen yang masuk repo proyek → lewat Tech Lead |
+| Dokumen untuk dibaca orang (laporan, SOP umum, manual, slide) | **Program Manager** (memanggil Technical Writer); dokumen satu proyek boleh langsung **Technical Writer**, tembusan Program Manager | subagent `rudis-program-manager` / `rudis-technical-writer`; dokumen yang masuk repo proyek → lewat Tech Lead |
 | Keputusan/kelayakan bisnis, model bisnis, prioritas inisiatif, harga — butuh beberapa keahlian | **Head of Strategy** | subagent `rudis-head-of-strategy` (boleh memanggil RA/FC) |
 | Riset eksternal bersitasi saja | **Research Analyst** | subagent `rudis-research-analyst` |
 | Keuangan, akuntansi, pajak, audit logika keuangan saja | **Financial Controller** | subagent `rudis-financial-controller` |
@@ -54,6 +54,8 @@ Tidak ada brief sebelum COO dan pengguna **sepakat** tentang maksud permintaan. 
 - **Tercatat sejak awal.** `bin/register.sh tambah --status penyelarasan --pemilik COO` sebelum pertanyaan pertama
   (kolom yang belum jelas `?`), dan tulis draf `handoff/<ID>/pemahaman.md` (`templat/pemahaman-bersama.md`) sambil
   jalan — percakapan lain atau konteks yang sudah diringkas melanjutkan dari situ tanpa mengulang pertanyaan.
+- **Organisasi inti disiapkan paralel**: pemulihan sesi inti dan `bin/perkakas.sh siapkan` berjalan di giliran yang sama
+  dengan pertanyaan pertama; yang menunggu kesepakatan hanya brief.
 - **Tugas jamak** → pisahkan dulu, selaraskan per tugas menurut prioritas, kirim brief yang sudah sepakat tanpa
   menunggu tugas lain.
 - **Proyek baru**: kedalaman *mendalam* sekaligus intake Persetujuan Inisiasi (fakta `templat/intake-proyek.md` =
@@ -99,7 +101,7 @@ dibuat pada giliran yang dipicu ketikan pengguna — panggilan `/rudisone` adala
 1. **Kunci.** Bila `handoff/.bentuk.lock` ada dan berumur < 10 menit, percakapan lain sedang membentuk — tunggu, baca
    ulang `TEAM.md`. Selain itu tulis kunci itu (session id, waktu) dan hapus setelah selesai.
 2. **Inti tetap** — Head of IT Operations dan System Administrator: cek tiap baris `TEAM.md` (`get_session`): hidup →
-   pakai; terarsip → `unarchive_session`; hilang atau `cwd`/judul tidak cocok → bentuk ulang. `start_session`:
+   pakai; terarsip → `unarchive_session`; hilang → bentuk; `cwd`/judul tidak cocok (mis. sesi pola lama) → arsipkan yang lama bila masih ada, lalu bentuk ulang. `start_session`:
    `initiation: "user_asked"`, `context: "fresh"`, `cwd: ~/Documents/Neuron/ai-agent/RudisOne/ruang/<id-peran>` (absolut),
    `use_worktree: false`, `title` = jabatan, `name` = `rudis-<id-peran>` (`rudis-head-of-it-ops`, `rudis-sysadmin`),
    prompt: "Sesi inti RudisOne. Baca catatan/<id-peran>.md, lalu jawab satu kata: Siap."
@@ -109,11 +111,12 @@ dibuat pada giliran yang dipicu ketikan pengguna — panggilan `/rudisone` adala
    `r<n>-lead-<proyek>`, `cwd` = akar repo proyek, `use_worktree: true`, prompt: pembuka peran (`protokol.md`) + "Ini
    sesi Tech Lead Tim <n>, proyek <proyek>; BSA dan Software Engineer kamu panggil sebagai subagent `rudis-…`. Jawab
    satu baris: Siap — branch & path worktree-mu." Proyek baru (folder belum ada) → skill `rudis-sdlc` › Proyek baru.
-   Folder lama tanpa git: tanpa worktree; Tech Lead memberi tahu pengguna sebelum mengubah berkas.
+   Folder lama tanpa git: tanpa worktree; Tech Lead memberi tahu pengguna sebelum mengubah berkas. Proyek yang tidak lagi
+   punya tugas aktif → tawarkan arsip sesi Tech Lead-nya (hanya atas "ya"), lalu perbarui `TEAM.md`.
 4. **Sesi saat dibutuhkan** (opsional, atas kebutuhan tugas atau permintaan pengguna): `start_session` di
    `ruang/<id-peran>` atau folder proyek dengan judul `<Jabatan>` / `<Jabatan> · <proyek>`; catat di `TEAM.md` bagian
    "Sesi saat dibutuhkan"; tawarkan arsip setelah `[Diterima]`.
-5. **Catat** di `TEAM.md` (`templat/team.md`), pindahkan sesi baru ke grup sidebar **RudisOne** (`list_groups` →
+5. Semua `start_session` dikirim sekaligus dalam satu pesan (didahului `mark_chapter` bila > 3 sesi). **Catat** di `TEAM.md` (`templat/team.md`), pindahkan sesi baru ke grup sidebar **RudisOne** (`list_groups` →
    `create_group` bila belum ada → `move_sessions`), hapus kunci, kirim ke sesi yang baru/terpulihkan `[Info dari COO]
    Organisasi — file: ~/Documents/Neuron/ai-agent/RudisOne/TEAM.md`.
 6. **Perkakas & kesehatan.** `bin/perkakas.sh siapkan` (exit 1 tidak menghentikan kerja) dan `bin/cek-konsistensi.sh`
