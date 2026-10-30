@@ -308,7 +308,7 @@ test("impor --timpa menyalin register JSON lama lebih dulu (bukti tidak hilang)"
   const { execFileSync } = await import("node:child_process");
   const d = fs.mkdtempSync(path.join(os.tmpdir(), "reg-timpa-"));
   const env = { ...process.env, RUDISONE_REGISTER_JSON: path.join(d, "register-tugas.json"), RUDISONE_REGISTER_MD: path.join(d, "register-tugas.md") };
-  const jalan = (...a) => execFileSync(process.execPath, [new URL("./register.mjs", import.meta.url).pathname, ...a], { env, encoding: "utf8" });
+  const jalan = (...a) => execFileSync(process.execPath, [fileURLToPath(new URL("./register.mjs", import.meta.url)), ...a], { env, encoding: "utf8" });
   jalan("tambah", "--judul", "uji", "--status", "baru", "--folder", "/x", "--divisi", "Engineering", "--pemilik", "Tech Lead", "--bukti", "sha abc");
   jalan("impor", "--timpa");
   const cadangan = fs.readdirSync(d).filter((f) => f.startsWith("register-tugas.json.sebelum-impor-"));

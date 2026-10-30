@@ -28,9 +28,9 @@ dilacak="$(git -C "$ROOT" ls-files -ci --exclude-standard 2>/dev/null | cut -d/ 
 if [ -n "$dilacak" ]; then fail "berkas per device masih dilacak git: ${dilacak}— sebelum merge: git rm -r --cached ${dilacak}&& git commit (README › Serah migrasi v5 ke main)"
 else pass "berkas per device tidak dilacak git"; fi
 
-check_link() { # $1 = symlink, $2 = id peran
-  if [ -L "$1" ] && head -3 "$1" 2>/dev/null | grep -q "^name: $2\$"; then pass "peran $2 tertaut"
-  else fail "peran $2 tidak tertaut di ${1#"$ROOT"/} (jalankan: git checkout -- .)"; fi
+check_link() { # $1 = berkas peran di ruang sesi (salinan terbangkit bin/peran.mjs, dulu symlink), $2 = id peran
+  if [ -f "$1" ] && head -3 "$1" 2>/dev/null | tr -d '\r' | grep -q "^name: $2\$"; then pass "peran $2 ada di ruang sesi"
+  else fail "peran $2 tidak ada/rusak di ${1#"$ROOT"/} (jalankan: $ROOT/bin/peran.sh bangun)"; fi
 }
 check_link "$ROOT/.claude/agents/coo.md" coo
 # Tech Lead tidak punya ruang: sesinya di folder proyek (worktree), peran dari pembuka brief.

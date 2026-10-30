@@ -5,7 +5,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const SKRIP = path.join(path.dirname(fileURLToPath(import.meta.url)), "sesi.mjs");
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "sesi-uji-"));
@@ -31,7 +31,7 @@ fs.writeFileSync(AGENTS, JSON.stringify([
   { pid: 3, cwd: "/lain/pribadi", kind: "interactive", sessionId: "aaaaaaaa-0000-4000-8000-000000000003", name: "Catatan pribadi", status: "idle" },
 ]));
 
-const m = await import(SKRIP);
+const m = await import(pathToFileURL(SKRIP).href);
 
 test("deteksi & folder Desktop per OS; konfigurasi/sesi.json menang atas deteksi", () => {
   assert.equal(m.deteksi("darwin"), "desktop");

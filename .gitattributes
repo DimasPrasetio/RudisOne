@@ -1,0 +1,8 @@
+# Akhir baris: semua berkas teks disimpan LF di repo dan di-checkout LF di semua OS.
+# Tanpa ini, core.autocrlf=true (bawaan Git for Windows) membuat berkas CRLF dan merusak frontmatter,
+# pembangkit agen/, serta skrip bash.
+* text=auto eol=lf
+*.sh text eol=lf
+*.mjs text eol=lf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf

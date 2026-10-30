@@ -20,7 +20,7 @@ function repoMini() {
   return r;
 }
 
-const bangun = (r, tulis) => bangunSemua(r, tulis).filter((x) => x.id !== "CLAUDE.md");
+const bangun = (r, tulis) => bangunSemua(r, tulis).filter((x) => x.id !== "CLAUDE.md" && x.jenis !== "peran-ruang");
 
 test("frontmatter & jabatan terbaca", () => {
   const { fm, isi } = pisahFrontmatter("---\nname: x\ndescription: d: e\n---\nPeran: **Head of Strategy** di RudisOne.\n");
@@ -67,4 +67,33 @@ test("CLAUDE.md = salinan protokol.md (tanpa impor @) dan ikut diperiksa", () =>
   assert.equal(bangunSemua(r).find((x) => x.id === "CLAUDE.md").status, "baru");
   fs.appendFileSync(path.join(r, "protokol.md"), "Aturan C.\n");
   assert.equal(bangunSemua(r, false).find((x) => x.id === "CLAUDE.md").status, "basi");
+});
+
+test("salinan peran di ruang sesi: dibangkitkan, basi bila sumber berubah, symlink lama diganti berkas biasa", () => {
+  const r = repoMini();
+  fs.mkdirSync(path.join(r, "ruang", "research-analyst", ".claude"), { recursive: true });
+  fs.mkdirSync(path.join(r, "ruang", "tanpa-peran", ".claude"), { recursive: true });
+  const ruang = (tulis) => bangunSemua(r, tulis).filter((x) => x.jenis === "peran-ruang");
+  assert.deepEqual(ruang(true).map((x) => [x.berkas, x.status]),
+    [[".claude/agents/coo.md", "baru"], ["ruang/research-analyst/.claude/agents/research-analyst.md", "baru"]]);
+  const f = path.join(r, "ruang", "research-analyst", ".claude", "agents", "research-analyst.md");
+  assert.equal(fs.readFileSync(f, "utf8"), fs.readFileSync(path.join(r, "agents", "research-analyst.md"), "utf8"));
+  assert.ok(ruang(false).every((x) => x.status === "sama"));
+  fs.appendFileSync(path.join(r, "agents", "research-analyst.md"), "Tambahan.\n");
+  assert.equal(ruang(false)[1].status, "basi");
+  assert.equal(ruang(true)[1].status, "basi");
+  assert.ok(ruang(false).every((x) => x.status === "sama"));
+});
+
+test("symlink peran lama dianggap basi dan diganti berkas biasa tanpa mengubah sumbernya", (t) => {
+  const r = repoMini();
+  fs.mkdirSync(path.join(r, ".claude", "agents"), { recursive: true });
+  const f = path.join(r, ".claude", "agents", "coo.md");
+  try { fs.symlinkSync(path.join("..", "..", "agents", "coo.md"), f); } catch (e) { if (e.code === "EPERM") return t.skip("symlink tidak diizinkan di device ini"); throw e; }
+  const sumber = fs.readFileSync(path.join(r, "agents", "coo.md"), "utf8");
+  assert.equal(bangunSemua(r, false).find((x) => x.berkas === ".claude/agents/coo.md").status, "basi");
+  bangunSemua(r, true);
+  assert.equal(fs.lstatSync(f).isSymbolicLink(), false);
+  assert.equal(fs.readFileSync(f, "utf8"), sumber);
+  assert.equal(fs.readFileSync(path.join(r, "agents", "coo.md"), "utf8"), sumber);
 });

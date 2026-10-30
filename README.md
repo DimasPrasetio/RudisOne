@@ -96,9 +96,10 @@ RudisOne berjalan di **macOS**, **Linux**, dan **Windows lewat WSL2** (jalur Lin
 - **WSL2:** clone ke filesystem WSL (`~/Documents/…` = `/home/<user>/Documents/…`), **bukan** `/mnt/c/…`: di sana symlink
   dan mode berkas (`chmod 600`, bit executable) tidak andal dan git jauh lebih lambat. Buka sesi Claude Code dari terminal
   WSL (atau VS Code › WSL), bukan dari Windows.
-- **Symlink:** repo memuat symlink (`.claude/agents/coo.md`, `ruang/*/.claude/agents/*.md`) dan `install.sh` menautkan
-  skill & subagent ke `~/.claude`. macOS/Linux/WSL mendukungnya bawaan; pastikan `git config --get core.symlinks` tidak
-  `false` (bila `false`: `git config core.symlinks true && git checkout -- .`).
+- **Symlink:** repo tidak lagi memuat symlink. Berkas peran di ruang sesi (`.claude/agents/coo.md`,
+  `ruang/*/.claude/agents/*.md`) adalah salinan terbangkit dari `agents/<id-peran>.md` (`bin/peran.sh bangun`; diperiksa
+  `bin/peran.sh cek`). Yang masih memakai symlink hanya tautan `install.sh` ke `~/.claude` (skill & subagent).
+- **Akhir baris:** `.gitattributes` memaksa LF di semua OS (termasuk `core.autocrlf=true` bawaan Git for Windows).
 - **Backend sesi** (`bin/sesi.sh backend`, dicatat `install.sh` di `konfigurasi/sesi.json`): macOS/Windows → `desktop`
   (alat sesi Claude Desktop); Linux/WSL2 → `cli`: COO membentuk sesi Tech Lead/IT Operations dengan `claude --bg`, bertukar
   pesan dengan `SendMessage` ke nama sesi, membaca status dari `claude agents --json`, menghentikan dengan `claude stop`

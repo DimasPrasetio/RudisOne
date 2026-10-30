@@ -95,7 +95,7 @@ export function cekRepo(root = ROOT, opsi = {}) {
 
   // R3 — subagent terbangkit
   // R3 — CLAUDE.md (pemuat inti) & subagent terbangkit
-  for (const r of bangunPeran(root, false)) if (r.status !== "sama") catat("galat", r.id === "CLAUDE.md" ? "inti-muat" : "subagent", `${r.berkas} ${r.status} — jalankan bin/peran.sh bangun`);
+  for (const r of bangunPeran(root, false)) if (r.status !== "sama") catat("galat", r.id === "CLAUDE.md" ? "inti-muat" : r.jenis === "peran-ruang" ? "peran-ruang" : "subagent", `${r.berkas} ${r.status} — jalankan bin/peran.sh bangun`);
 
   // R4–R6 — rujukan di semua Markdown
   let perkakas = [];
