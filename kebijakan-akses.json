@@ -101,13 +101,13 @@
     "^systemctl\\s+(status|is-active|is-enabled|list-units|list-timers)\\b",
     "^journalctl\\b",
     "^ss\\s+-",
-    "^curl\\b(?!.*\\s(-X|--request|-d|--data|--data-raw|--data-binary|-F|--form|-T|--upload-file)\\b)",
+    "^curl\\b",
     "^openssl\\s+(s_client|x509)\\b",
-    "^(echo|printf|sort|uniq|cut|awk|tr|jq|column|true)\\b",
-    "^sed\\s+-n\\b",
+    "^(echo|printf|sort|uniq|cut|tr|jq|column|true)\\b",
+    "^sed\\s+-n\\s+'?\\d+(,\\d+)?p'?(\\s|$)",
     "^cd\\s+\\S+$"
   ],
   "ssh_rahasia": "\\.env\\b|id_[rde]\\w*sa|\\.pem\\b|\\.key\\b|secret|passw|token|credential",
 
-  "lokal_netral": ["cd", "echo", "printf", "tail", "head", "grep", "wc", "sort", "uniq", "cut", "jq", "cat", "ls", "awk", "tr", "sleep", "true", "test", "[", "date", "column", "tee", "sed"]
+  "lokal_netral": ["cd", "echo", "printf", "tail", "head", "grep", "wc", "sort", "uniq", "cut", "jq", "cat", "ls", "tr", "sleep", "true", "test", "[", "date", "column"]
 }

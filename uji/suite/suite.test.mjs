@@ -174,7 +174,9 @@ test("argumen runner", () => {
 
 test("--kering: varian dari git archive, path ditulis ulang, fixture & skill terpasang, tanpa memanggil claude", () => {
   const keluar = path.join(tmp, "kering");
-  const out = execFileSync(process.execPath, [path.join(SINI, "jalankan.mjs"), "--ref", "HEAD", "--nama", "uji", "--tugas", "T4", "--ulang", "1", "--keluar", keluar, "--kering"], { encoding: "utf8" });
+  const out = execFileSync(process.execPath, [path.join(SINI, "jalankan.mjs"), "--ref", "HEAD", "--nama", "uji", "--tugas", "T4", "--ulang", "1", "--keluar", keluar, "--kering"],
+    // --kering tidak memanggil claude: skill rudis-* yang terpasang di ~/.claude/skills (install.sh) tidak memengaruhi apa pun
+    { encoding: "utf8", env: { ...process.env, RUDISONE_UJI_IZINKAN_SKILL_BENTROK: "1" } });
   assert.match(out, /claude -p/);
   const jalan = path.join(fs.realpathSync(keluar), "varian", "uji", "jalan", "T4-1");
   const coo = fs.readFileSync(path.join(jalan, "RudisOne", "skills", "rudisone", "SKILL.md"), "utf8");
