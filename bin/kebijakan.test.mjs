@@ -577,3 +577,28 @@ test("tinjauan: baca server yang sah tetap allow (regresi)", () => {
     assert.equal(kep(bash(SA, c)), "allow", c);
   }
 });
+
+// ===================== T-20261030-5 · temuan peninjau (putaran 2) =====================
+test("tinjauan N1: firmlink /System/Volumes/Data dan /.vol/<dev>/<ino> tetap terlindung", () => {
+  const tulis = (f) => putuskan({ session_id: "n1", cwd: "/x", tool_name: "Write", tool_input: { file_path: f, content: "" }, hook_event_name: "PreToolUse" }, K).keputusan;
+  for (const f of [`/System/Volumes/Data${path.join(ROOT, "kebijakan-akses.json")}`, `/System/Volumes/Data${path.join(ROOT, "bin", "server-cek.sh")}`,
+    `/System/Volumes/Data${path.join(os.homedir(), ".zshrc")}`, `/System/Volumes/Data${path.join(os.homedir(), ".claude", "projects", "-x", "a.jsonl")}`,
+    "/.vol/16777230/149564292"]) assert.equal(tulis(f), "ask", f);
+  assert.equal(kep(bash(COO, `cp /tmp/x /System/Volumes/Data${path.join(ROOT, "bin", "server-cek.sh")}`)), "ask");
+});
+
+test("tinjauan N2–N5 & rendah: komentar mysql, skema curl, gh auth -at, openssl -engine, journalctl, repo internal", () => {
+  for (const [cwd, c] of [
+    [SA, "ssh vps-uji \"mysql -e 'select * from users into/**/outfile \\\"/tmp/x\\\"'\""],
+    [SA, "ssh vps-uji \"mysql -e 'select load_file/**/(1)'\""], [SA, "ssh vps-uji \"mysql -e 'select sleep(100000)'\""],
+    [SA, "ssh vps-uji \"mysql -e 'select 1 # x'\""], [SA, "ssh vps-uji \"mysql -e 'select 1 -- x'\""],
+    [SA, "ssh vps-uji 'curl -s gopher://127.0.0.1:6379/_FLUSHALL'"], [SA, "ssh vps-uji 'curl -s dict://127.0.0.1:6379/FLUSHALL'"],
+    [SA, "ssh vps-uji 'echo FLUSHALL | curl -s telnet://127.0.0.1:6379'"], [SA, "ssh vps-uji 'curl -s 127.0.0.1:6379'"],
+    [COO, "gh auth status -at"], [COO, "gh auth status -th github.com"],
+    [SA, "ssh vps-uji 'openssl s_client -connect a:443 -engine /tmp/e.so'"], [SA, "ssh vps-uji 'openssl s_client -connect a:443 -provider x'"],
+    [SA, "ssh vps-uji 'journalctl --smart-relinquish-var'"], [COO, "gh repo create evil --private --private=false --internal"],
+    [SA, "ssh vps-uji \"cat ~/app-uji/.e''nv\""], [SA, "ssh vps-uji 'cat ~/app-uji/.e\\nv'"], [SA, "ssh vps-uji 'cat /proc/1/environ'"],
+  ]) assert.notEqual(kep(bash(cwd, c)), "allow", c);
+  assert.equal(kep(bash(COO, "tar -xf /tmp/evil.tar -Cbin")), "ask");
+  assert.equal(kep(bash(COO, "gh repo create contoh/baru --private")), "allow");          // jenjang 2 sah tetap jalan
+});

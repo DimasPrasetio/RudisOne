@@ -56,7 +56,7 @@
         "^(--version|version)\\b"
       ],
       "api_baca": true,
-      "repo_buat_privat": "^repo\\s+create\\s+\\S+(?=.*\\s--private\\b)(?!.*--public)(?!.*--push)",
+      "repo_buat_privat": "^repo\\s+create\\s+\\S+(?=.*\\s--private\\b)(?!.*--public)(?!.*--push)(?!.*--internal)(?!.*--private=)(?!.*--visibility)",
       "akun": "pribadi pemilik — tahap berikut: akun/token khusus RudisOne"
     },
     "gitlab": {
@@ -66,7 +66,7 @@
         "^auth\\s+status\\b"
       ],
       "api_baca": true,
-      "repo_buat_privat": "^repo\\s+create\\s+\\S+(?=.*\\s--private\\b)(?!.*--public)(?!.*--push)",
+      "repo_buat_privat": "^repo\\s+create\\s+\\S+(?=.*\\s--private\\b)(?!.*--public)(?!.*--push)(?!.*--internal)(?!.*--private=)(?!.*--visibility)",
       "akun": "belum ada"
     },
     "git": { "jenis": "cli", "perintah": "git", "kemampuan": "repo", "tulis_remote": "^push\\b" }
@@ -107,7 +107,7 @@
     "^sed\\s+-n\\s+(['\"]?)(\\d+(,\\d+)?|/[^/'\"]*/)p\\1(\\s|$)",
     "^cd\\s+\\S+$"
   ],
-  "ssh_rahasia": "\\.env\\b|id_[rde]\\w*sa|\\.pem\\b|\\.key\\b|secret|passw|token|credential",
+  "ssh_rahasia": "\\.env\\b|id_[rde]\\w*sa|\\.pem\\b|\\.key\\b|secret|passw|token|credential|environ\\b",
 
   "lokal_netral": ["cd", "echo", "tail", "head", "grep", "wc", "sort", "uniq", "cut", "jq", "cat", "ls", "tr", "sleep", "true", "date", "column"]
 }
