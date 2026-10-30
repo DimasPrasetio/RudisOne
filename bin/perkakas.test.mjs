@@ -208,10 +208,12 @@ test("artefak RUDIS: docs/trace-reports/ belum di-gitignore → bukti peringatan
   const p = proyekFixture("artefak", { ...STANDAR_GO, "modules.lock.json": LOCK({ auth: {} }), ".rudis/x": "", "specs/001-a/spec.md": "",
     ".rudisone/kartu-proyek.md": "---\nmode: A\nmode_mesin: A\noverride: -\n---\n# Kartu\n" });
   let h = deteksi(p);
-  assert.ok(h.bukti.includes("peringatan: docs/trace-reports/ belum di-gitignore"));
+  assert.ok(h.bukti.includes("peringatan: docs/trace-reports/ atau docs/test-reports/ belum di-gitignore"));
   assert.ok(h.bukti.includes("specs/: ada (1 folder)"));
   assert.equal(h.kartu.mode, "A");
   tulis(path.join(p, ".gitignore"), "docs/trace-reports/\n");
+  assert.ok(deteksiProyek(p).bukti.some((b) => /test-reports/.test(b)));   // test-reports juga wajib
+  tulis(path.join(p, ".gitignore"), "docs/trace-reports/\ndocs/test-reports/\n");
   h = deteksi(p);
   assert.ok(!h.bukti.some((b) => /trace-reports/.test(b)));
 });

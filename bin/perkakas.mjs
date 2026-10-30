@@ -171,11 +171,13 @@ function keadaanLock(folder) {
   return { ada: true, track, valid, aktif: modul.length - detached, detached };
 }
 
-/** Apakah docs/trace-reports/ diabaikan git (check-ignore bila repo git; selain itu baris di .gitignore). */
-export function traceDiabaikan(folder) {
-  if (repoGit(folder)) return jalankan("git", ["-C", folder, "check-ignore", "-q", "--no-index", "docs/trace-reports/x"]).ok;
-  try { return /^\/?docs\/trace-reports(\/\*{0,2})?\/?\s*$/m.test(fs.readFileSync(path.join(folder, ".gitignore"), "utf8")); } catch { return false; }
+/** Apakah docs/<nama>/ diabaikan git (check-ignore bila repo git; selain itu baris di .gitignore). Laporan tracer & tes
+ *  bisa memuat data hasil penelusuran — keduanya wajib di-gitignore (standar rudis-monorepo kernel/v7.1). */
+function laporanDiabaikan(folder, nama) {
+  if (repoGit(folder)) return jalankan("git", ["-C", folder, "check-ignore", "-q", "--no-index", `docs/${nama}/x`]).ok;
+  try { return new RegExp(`^\\/?docs\\/${nama}(\\/\\*{0,2})?\\/?\\s*$`, "m").test(fs.readFileSync(path.join(folder, ".gitignore"), "utf8")); } catch { return false; }
 }
+export function traceDiabaikan(folder) { return laporanDiabaikan(folder, "trace-reports") && laporanDiabaikan(folder, "test-reports"); }
 
 /** Hasil deteksi berbukti untuk `perkakas.sh proyek`. Folder tidak ada → Error berkode ENOENT (CLI: exit 3, D1).
  *  mode: ragu (D3/D4/D5/D6) · A (lock sah, ter-track, ≥1 modul aktif, backend go) · B (selain itu; pustaka hanya Go). */
@@ -207,7 +209,7 @@ export function deteksiProyek(folder, { root } = {}) {
   bukti.push(`docs/brd/: ${adaDi(folder, "docs", "brd") ? "ada" : "tidak ada"}`);
   const traceAbai = traceDiabaikan(folder);
   const perluTrace = adaDi(folder, ".rudis") || adaDi(folder, "docs", "trace-reports");
-  if (perluTrace && !traceAbai) bukti.push("peringatan: docs/trace-reports/ belum di-gitignore");
+  if (perluTrace && !traceAbai) bukti.push("peringatan: docs/trace-reports/ atau docs/test-reports/ belum di-gitignore");
 
   if (lock.ada && !lock.valid) ragu.push("lock rusak (D6)");
   else if (lock.ada && lock.track === false) ragu.push("lock tidak di-track git (D6)");

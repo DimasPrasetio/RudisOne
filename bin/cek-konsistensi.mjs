@@ -372,7 +372,7 @@ export function cekProyek(folder, root = ROOT) {
     if (d.artefak === "root") for (const s of artefakLuarLetak(folder)) catat("peringatan", "artefak", `artefak: root, tetapi ${s}`);
     if (d.artefak === "handoff") for (const a of ["specs", "docs/brd"]) if (fs.existsSync(path.join(folder, a))) catat("peringatan", "artefak", `artefak: handoff, tetapi ${a}/ ada di repo proyek`);
   }
-  if (h.perluTrace && !h.traceDiabaikan) catat("peringatan", "trace-reports", "docs/trace-reports/ belum di-gitignore (bisa memuat data hasil penelusuran) — tambahkan ke .gitignore proyek");
+  if (h.perluTrace && !h.traceDiabaikan) catat("peringatan", "trace-reports", "docs/trace-reports/ atau docs/test-reports/ belum di-gitignore (bisa memuat data hasil penelusuran) — tambahkan ke .gitignore proyek");
   return temuan;
 }
 
