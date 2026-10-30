@@ -41,7 +41,7 @@ Semuanya terungkap oleh tes yang gagal, lalu diperbaiki di `bin/kebijakan.mjs`: 
 - **`SendMessage`, `claude attach`, `notify_when_idle`** di Windows.
 - **Hook di `~/.claude` asli**: hanya diuji dengan HOME sementara; pemilik perlu meninjau sebelum memercayainya untuk data produksi.
 - **Skrip instalasi repo luar** (`rudis-monorepo`, `rudis-modules`, `rudis-sdd`) dijalankan lewat Git Bash; kompatibilitasnya di Windows di luar kendali repo ini. `install.mjs` berhasil meng-clone dan memasangnya pada uji ini.
-- **macOS dan Linux setelah perubahan ini**, serta **CI tiga OS**: belum berjalan (billing terkunci). macOS sebelum perubahan sudah terverifikasi: [`macos.md`](macos.md).
+- **Linux setelah perubahan ini** dan **CI tiga OS**: belum berjalan (billing terkunci). macOS **sudah diverifikasi ulang** setelah perubahan ini: [`macos.md`](macos.md).
 
 ## Kapan uji Windows perlu diulang
 Bila perubahan menyentuh `install.mjs`, `bin/lib/*`, `bin/kebijakan.mjs`, `bin/sesi.mjs`, `bin/perkakas.mjs`, `bin/peran.mjs`, atau `kantor/`.

@@ -6,8 +6,7 @@ ada di README › Pasang di device baru › Windows native. Daftar ini untuk yan
 **keluaran** langkah bertanda 📋 ke satu berkas teks dan kirim ke COO (pemilik RudisOne). Jangan kirim PAT atau isi
 `%APPDATA%\rudisone\rahasia\`.
 
-> Windows saja? Lewati bagian "macOS". macOS sebelumnya terverifikasi (`uji/macos.md`) sebelum perubahan lintas-OS; bagian D
-> memastikan perubahan itu tidak merusaknya.
+> Bagian E (macOS) **sudah dijalankan** setelah perubahan lintas-OS: hasil dan temuan di [`macos.md`](macos.md) — tidak perlu diulang.
 
 ## A. Prasyarat (Windows)
 1. Git for Windows (sertakan Git Bash), Node.js ≥ 22, GitHub CLI (`gh auth login`), OpenSSH klien.
