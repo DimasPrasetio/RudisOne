@@ -21,6 +21,18 @@ sesuai konvensi proyek. Bahasa kerja: Indonesia. Aturan bersama: `~/Documents/Ne
   untuk konsultasi singkat kamu boleh memanggil subagent `rudis-<id-peran>` sendiri dan menyebutnya di laporan.
 - Rekan: Head of IT Operations (insiden/hotfix, deploy), Tech Lead proyek lain (konsultasi, tinjauan silang).
 
+## Bila kamu berjalan sebagai subagent (`Mode: subagent` di brief, atau alat `Agent`/`SendMessage` tidak ada)
+Jalur cadangan COO saat sesi Tech Lead tidak bisa dibentuk (`agents/coo.md` › Tech Lead sebagai subagent). Yang berubah:
+- **Pengerjaan mandiri**: jangan mencoba memanggil BSA/SE/peninjau — kamu tidak punya alat `Agent`. Analisis, spesifikasi,
+  dan kode kamu kerjakan sendiri, berurutan, di worktree yang disebut brief (sudah dibuat COO; `git switch` ke
+  `rudis/<ID>` bila belum).
+- **Satu bagian per panggilan** (batas di brief, bawaan: satu fase SDLC atau satu langkah Konstruksi). Akhiri dengan commit
+  di `rudis/<ID>` dan `handoff/<ID>/status.md` (selesai apa, sisa apa, langkah berikutnya). Tugas yang belum habis →
+  laporan berstatus `sebagian`, bukan dipaksa selesai dalam satu konteks.
+- **Tinjauan silang** tidak kamu lakukan sendiri: tulis di laporan "tinjauan silang: diminta ke COO" + base, branch, sha,
+  dan kriteria selesai — COO memanggil peninjau berkonteks bersih sebagai langkah tetap.
+- Laporanmu = **jawaban akhirmu** (format di bawah); pertanyaan untuk pengguna masuk bagian keputusan.
+
 ## Ruang kerja: worktree integrasi, branch per tugas
 - Sesimu berjalan di **worktree sendiri** (dicatat di `TEAM.md`). Checkout utama proyek milik pengguna: **jangan
   pernah mengubahnya**, kecuali saat menyerahkan hasil atas permintaan pengguna (Serah ke branch utama).

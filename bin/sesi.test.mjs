@@ -98,16 +98,25 @@ test("daftar (cli): hanya sesi RudisOne + perintah attach; desktop: arahkan ke a
   assert.match(sesi("daftar").stdout, /backend desktop/);
 });
 
-test("cek (cli): versi, pengaman, dan folder yang belum dipercaya (persis, bukan leluhur)", () => {
+test("cek (cli): versi, pengaman, dan kepercayaan folder (persis · diwarisi di repo yang sama · ditolak di batas repo)", () => {
   tulisSesi("cli");
+  // RudisOne dan proyek adalah repo git (worktree: berkas .git), seperti di dunia nyata
+  fs.mkdirSync(path.join(ROOT, ".git"), { recursive: true });
+  fs.mkdirSync(path.join(PROYEK, ".git"), { recursive: true });
+  fs.writeFileSync(path.join(WT, ".git"), "gitdir: ../../../.git/worktrees/r1-lead-toko\n");
   fs.writeFileSync(CLAUDE_JSON, JSON.stringify({ projects: { [tmp]: { hasTrustDialogAccepted: true }, [ROOT]: { hasTrustDialogAccepted: true } } }));
   let r = sesi("cek");
   assert.equal(r.status, 1, r.stdout);
   assert.match(r.stdout, /\[ok\] Claude Code 2\.1\.314/);
   assert.match(r.stdout, /\[ok\] pengaman sesi latar/);
-  for (const f of [path.join(ROOT, "ruang", "head-of-it-operations"), path.join(ROOT, "ruang", "system-administrator"), PROYEK, WT])
-    assert.ok(r.stdout.includes(`cd ${f} && claude`), `${f}\n${r.stdout}`);
-  assert.ok(!r.stdout.includes(`cd ${ROOT} && claude`), "akar yang dipercaya tidak didaftar");
+  // proyek & worktree-nya: induk (tmp) dipercaya, tetapi repo sendiri → ditolak, dengan perintah per shell
+  for (const f of [PROYEK, WT])
+    for (const p of m.perintahPercaya(f)) assert.ok(r.stdout.includes(p.perintah), `${p.perintah}\n${r.stdout}`);
+  assert.match(r.stdout, /repo git sendiri: kepercayaan tidak menembus batas repo/);
+  // akar & ruang/* di dalam repo RudisOne yang dipercaya → persis / diwarisi (terbukti U1), tidak didaftar
+  for (const f of [ROOT, path.join(ROOT, "ruang", "head-of-it-operations"), path.join(ROOT, "ruang", "system-administrator")])
+    assert.ok(!r.stdout.includes(m.perintahPercaya(f)[0].perintah), `${f} tidak perlu didaftar\n${r.stdout}`);
+  assert.match(r.stdout, /jalur subagent/);
   const semua = Object.fromEntries([ROOT, path.join(ROOT, "ruang", "head-of-it-operations"), path.join(ROOT, "ruang", "system-administrator"), PROYEK, WT]
     .map((f) => [f, { hasTrustDialogAccepted: true }]));
   fs.writeFileSync(CLAUDE_JSON, JSON.stringify({ projects: semua }));
@@ -146,7 +155,46 @@ test("backend auto: sumber baca = cli + desktop; daftar menampilkan sesi CLI; ce
   const c = sesi("cek");
   assert.equal(c.status, 0, c.stdout);
   assert.match(c.stdout, /backend auto: Desktop dipakai bila alat sesinya ada/);
-  assert.match(c.stdout, /folder belum dipercaya CLI/);
+  assert.match(c.stdout, /folder yang ditolak `claude --bg`/);
   tulisSesi("cli");
   assert.equal(sesi("cek").status, 1, "backend cli murni: folder belum dipercaya = perlu perhatian");
+});
+
+test("#1 perintah percaya-folder: Windows → PowerShell 5.1 tanpa `&&`, plus cmd & Git Bash; OS lain → satu baris berkutip", () => {
+  const w = m.perintahPercaya(String.raw`D:\PENGEMBANGAN-RUDIS\inventory`, "win32");
+  assert.deepEqual(w.map((x) => x.shell), ["PowerShell", "cmd", "Git Bash"]);
+  assert.equal(w[0].perintah, String.raw`Set-Location -LiteralPath 'D:\PENGEMBANGAN-RUDIS\inventory'; claude`);
+  assert.ok(!w[0].perintah.includes("&&"), "PowerShell 5.1 tidak mengenal &&");
+  assert.equal(w[1].perintah, String.raw`cd /d "D:\PENGEMBANGAN-RUDIS\inventory" && claude`);
+  assert.equal(w[2].perintah, "cd '/d/PENGEMBANGAN-RUDIS/inventory' && claude");
+  // spasi dan kutip tunggal di path tetap aman
+  assert.equal(m.perintahPercaya(String.raw`C:\Users\DImas Prasetio\it's`, "win32")[0].perintah,
+    String.raw`Set-Location -LiteralPath 'C:\Users\DImas Prasetio\it''s'; claude`);
+  assert.deepEqual(m.perintahPercaya("/home/u/toko", "linux"), [{ shell: "terminal", perintah: "cd '/home/u/toko' && claude" }]);
+});
+
+test("#2 statusPercaya: kunci ~/.claude.json bergaya Windows (huruf kecil, `/`) dan batas repo git", () => {
+  const git = new Set([String.raw`d:\pengembangan-rudis\inventory`, String.raw`d:\pengembangan-rudis\inventory\.claude\worktrees\r1-lead-inventory`,
+    String.raw`c:\users\u\rudisone`]);
+  const adaGit = (d) => git.has(String(d).toLowerCase());
+  if (process.platform !== "win32") return;   // path.resolve/dirname untuk path D:\ hanya bermakna di Windows (CI windows-latest)
+  const dipercaya = ["D:/PENGEMBANGAN-RUDIS", "c:/Users/u/RudisOne"];
+  assert.equal(m.statusPercaya(String.raw`D:\PENGEMBANGAN-RUDIS\inventory`, dipercaya, { adaGit }).status, "batas-repo");
+  assert.equal(m.statusPercaya(String.raw`D:\PENGEMBANGAN-RUDIS\inventory\.claude\worktrees\r1-lead-inventory`, dipercaya, { adaGit }).status, "batas-repo");
+  assert.equal(m.statusPercaya(String.raw`C:\Users\U\RudisOne`, dipercaya, { adaGit }).status, "dipercaya", "beda huruf besar/kecil & pemisah");
+  const r = m.statusPercaya(String.raw`C:\Users\u\RudisOne\ruang\system-administrator`, dipercaya, { adaGit });
+  assert.equal(r.status, "diwarisi");
+  assert.equal(r.nonGit, false);
+  assert.equal(m.statusPercaya(String.raw`E:\lain`, dipercaya, { adaGit }).status, "belum");
+  assert.equal(m.statusPercaya(String.raw`D:\PENGEMBANGAN-RUDIS\catatan`, dipercaya, { adaGit }).nonGit, true, "non-git di bawah induk non-git: ditandai belum teruji");
+});
+
+test("folderDesktop Windows: letak biasa, lalu letak tervirtualisasi paket MSIX Claude_<id>", () => {
+  const biasa = path.win32.join("C:/A", "Claude", "claude-code-sessions");
+  const msix = path.win32.join("C:/L", "Packages", "Claude_pzs8sxrjxfjjc", "LocalCache", "Roaming", "Claude", "claude-code-sessions");
+  const env = { APPDATA: "C:/A", LOCALAPPDATA: "C:/L" };
+  const daftar = () => ["Lain_123", "Claude_pzs8sxrjxfjjc"];
+  assert.equal(m.folderDesktop("win32", env, "C:/u", { ada: (f) => f === biasa, daftar }), biasa, "letak biasa didahulukan");
+  assert.equal(m.folderDesktop("win32", env, "C:/u", { ada: (f) => f === msix, daftar }), msix, "Desktop MSIX dilihat dari luar paket");
+  assert.equal(m.folderDesktop("win32", env, "C:/u", { ada: () => false, daftar }), biasa, "tidak ada keduanya → letak biasa");
 });

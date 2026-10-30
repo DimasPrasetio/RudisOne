@@ -34,7 +34,8 @@ Prasyarat: bagian B selesai; buka sesi di **folder proyek percobaan** (bukan fol
 
 **C2 — Claude Code CLI (terminal), backend `cli` lewat `auto`**
 10. Di folder percobaan: `claude`, lalu `/rudisone status tugas`. 📋 Harapan: COO memilih backend **cli** (alat sesi Desktop tidak ada).
-11. Sekali: `node bin\sesi.mjs cek` → ikuti daftar `cd <folder> && claude` (terima prompt percaya, `/exit`).
+11. Sekali: `node bin\sesi.mjs cek` → untuk tiap folder yang ditolak, jalankan baris **PowerShell** yang dicetak
+    (`Set-Location -LiteralPath '<folder>'; claude` — PowerShell 5.1 tidak mengenal `&&`), terima prompt percaya, `/exit`.
 12. 📋 `/rudisone buat catatan README di proyek ini` → COO membentuk sesi Tech Lead dengan `claude --bg`; `node bin\sesi.mjs daftar`
     mencantumkannya; `claude agents` menampilkannya. Jawab prompt izin sesi latar dengan `claude attach <nama>` bila diminta.
 13. Hapus sesi uji: `claude rm <id>` (**id**, bukan nama).

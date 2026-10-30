@@ -127,8 +127,10 @@ WSL2 (jalur Linux). Windows native: lihat bagian **Windows native** di bawah tab
   Instalasi lama yang mencatat `desktop` tetap berlaku. Backend `cli`: COO membentuk sesi Tech Lead/IT Operations dengan `claude --bg`, bertukar
   pesan dengan `SendMessage` ke nama sesi, membaca status dari `claude agents --json`, menghentikan dengan `claude stop`
   (`skills/rudisone/backend-cli.md`). Syarat backend cli: Claude Code **≥ 2.1.300**, dan setiap folder sesi dipercaya
-  sekali — `bin/sesi.sh cek` mencetak daftar `cd <folder> && claude` (terima prompt, `/exit`), termasuk worktree Tech Lead
-  baru. Prompt izin sesi latar dijawab dengan `claude attach <nama>` (COO memberi perintahnya; Kantor menandai sesinya).
+  sekali — `bin/sesi.sh cek` mencetak daftar folder yang ditolak `claude --bg` beserta satu baris per shell (Windows:
+  PowerShell 5.1 `Set-Location -LiteralPath '<folder>'; claude` — tanpa `&&` —, cmd, Git Bash; terima prompt, `/exit`),
+  termasuk worktree Tech Lead baru. Kepercayaan folder induk tidak menembus batas repo git (uji: `backend-cli.md` ›
+  Kepercayaan folder); bila pengguna tidak mau/bisa, COO menawarkan jalur Tech Lead sebagai subagent. Prompt izin sesi latar dijawab dengan `claude attach <nama>` (COO memberi perintahnya; Kantor menandai sesinya).
   Pengaman sesi latar dipasang per sesi (`--settings konfigurasi/sesi-cli.settings.json`: tanpa isolasi worktree otomatis,
   deny `git push`/`gh pr create`/`claude rm`, bypass mati) — settings pengguna tidak diubah. **Belum diuji di mesin Linux
   sungguhan** (simulasi + `claude` tiruan).

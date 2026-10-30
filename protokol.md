@@ -62,6 +62,8 @@ Peran **ada** tidak sama dengan sesi **hidup**: dua belas jabatan = katalog (rou
   Corporate Strategy, Program Manager, dan Technical Writer; Tech Lead memanggil BSA, Software Engineer (yang menulis:
   `isolation: "worktree"`), dan peninjau read-only. Subagent bekerja di folder pemanggilnya, jadi pekerjaan yang
   **menulis di folder proyek selalu lewat sesi Tech Lead proyek itu**.
+- **Tech Lead sebagai subagent** (jalur cadangan bila sesinya tak bisa dibentuk, mis. folder ditolak `claude --bg`): COO
+  memanggil `rudis-tech-lead` di worktree proyek — mandiri, tinjauan silang oleh COO, satu bagian per panggilan (`agents/coo.md`).
 - **Sesi saat dibutuhkan:** dibentuk/dipulihkan COO pada giliran pengguna, diarsipkan atas "ya" pengguna setelah
   `[Diterima]`. **IT Operations** (Head of IT Operations, System Administrator — di `ruang/` masing-masing, tempat akses
   server, prompt jenjang 3, dan izin deploy tetap melekat): hanya saat ada tugas server, insiden, data production, atau
@@ -74,19 +76,16 @@ Peran **ada** tidak sama dengan sesi **hidup**: dua belas jabatan = katalog (rou
 ## Pola pengerjaan
 Multi-agent membantu tugas yang bisa dipecah tetapi merugikan tugas berurutan dan berat alat (arXiv 2512.08296).
 - **Mandiri (default):** satu pemilik dari awal sampai selesai; subagent boleh untuk pengecekan/eksplorasi singkat.
-- **Tim:** hanya bila tugas terpecah menjadi bagian dengan berkas/keputusan yang tidak saling bergantung, atau butuh
-  keahlian berbeda yang hasilnya berdiri sendiri. Paralel hanya untuk bagian yang tidak berbagi berkas; kepemilikan
-  berkas ditulis di brief.
-- Brief menyebut `Pengerjaan: mandiri | tim` (+ alasan bila tim). Leader boleh mengubahnya bila keliru — sebut di
-  laporan. Ragu → mandiri.
+- **Tim:** hanya bila tugas terpecah menjadi bagian dengan berkas/keputusan yang tidak saling bergantung, atau butuh keahlian
+  berbeda yang hasilnya berdiri sendiri. Paralel hanya untuk bagian yang tidak berbagi berkas; kepemilikan berkas ditulis di brief.
+- Brief menyebut `Pengerjaan: mandiri | tim` (+ alasan bila tim). Leader boleh mengubahnya bila keliru — sebut di laporan. Ragu → mandiri.
 
 ## Tugas, folder, dan beban (ringkas; rinci: skill `rudis-multitugas`)
 1. **ID tugas di mana-mana:** `T-YYYYMMDD-n` (sub-tugas `T-YYYYMMDD-n.k`) di baris pertama **setiap** pesan dan
    laporan, di `handoff/<ID>/`, dan di register. Pesan tanpa ID → minta ID-nya dulu.
 2. **Lingkup folder:** brief menyebut folder kerja absolut. Membaca folder lain boleh; **menulis hanya di folder kerja
    sesimu** (cwd/worktree) dan `~/Documents/Neuron/ai-agent/RudisOne/handoff/`.
-3. **Satu tugas aktif per sesi:** tugas baru untuk sesi sibuk → `[Antre]`; `Prioritas: segera` → parkir tugas aktif
-   dengan `handoff/<ID>/status.md`, lapor `[Diparkir]`.
+3. **Satu tugas aktif per sesi:** tugas baru untuk sesi sibuk → `[Antre]`; `segera` → parkir tugas aktif (`handoff/<ID>/status.md`), lapor `[Diparkir]`.
 4. **Kunci:** tugas yang menyentuh sumber daya yang sama (berkas/area, branch, data production, deploy app, dokumen)
    berjalan berurutan; COO memeriksanya dengan `bin/register.sh kunci-cek` sebelum brief.
 5. **Prioritas:** `segera` (SEV1/SEV2) > `tinggi` > `normal`, lalu waktu masuk.
@@ -110,8 +109,7 @@ Subagent tidak mengirim pesan: **jawaban akhirnya adalah laporannya** ke pemangg
 
 ## Isi brief & laporan
 Brief (`templat/brief-tugas.md`) dan laporan (`templat/laporan-tugas.md`) memuat, di samping pemahaman bersama:
-1. **Instruksi** — tujuan, kriteria selesai, batasan & otorisasi (permintaan pengguna untuk aksi berisiko dikutip
-   persis, diteruskan apa adanya COO → leader → anggota).
+1. **Instruksi** — tujuan, kriteria selesai, batasan & otorisasi (permintaan pengguna untuk aksi berisiko dikutip persis, diteruskan apa adanya).
 2. **Latar belakang** — keputusan yang sudah diambil, konteks, alasannya.
 3. **Hasil antara** — path `handoff/`, branch/sha, keluaran yang sudah ada.
 - **Kriteria selesai** disalin dari pemahaman bersama; laporan menjawab per nomor (terpenuhi / tidak / belum
@@ -124,20 +122,19 @@ Sesi di folder proyek tidak memuat peran dari folder. Setiap brief ke sesi itu d
 > Kamu adalah <Jabatan>[ #n] di RudisOne. Baca dan patuhi ~/Documents/Neuron/ai-agent/RudisOne/agents/<id-peran>.md
 > sebagai peranmu, lalu ~/Documents/Neuron/ai-agent/RudisOne/protokol.md dan ~/Documents/Neuron/ai-agent/RudisOne/catatan/<id-peran>.md.
 
-Sesi di `ruang/<id-peran>` memuat peran otomatis; subagent `rudis-<id-peran>` sudah membawa peran + inti. Ragu akan
-peranmu (mis. setelah konteks diringkas) → baca ulang berkas peran.
+Sesi di `ruang/<id-peran>` memuat peran otomatis; subagent `rudis-<id-peran>` sudah membawa peran + inti. Ragu akan peranmu → baca ulang berkas peran.
 
 ## Ruang kerja Engineering (git)
-- Checkout utama proyek milik pengguna dan bisa berisi pekerjaan yang belum di-commit: tidak ada agent yang
-  mengubahnya, kecuali Tech Lead saat menyerahkan hasil atas permintaan pengguna (`agents/tech-lead.md` › Serah ke
-  branch utama). BSA hanya membaca.
+- Checkout utama proyek milik pengguna dan bisa berisi pekerjaan yang belum di-commit: tidak ada agent yang mengubahnya,
+  kecuali Tech Lead saat menyerahkan hasil atas permintaan pengguna (`agents/tech-lead.md` › Serah ke branch utama). BSA hanya membaca.
 - Tech Lead bekerja di **worktree integrasi**, satu branch per tugas `rudis/<ID>`; penulis lain (SE subagent/sesi)
   di worktree sendiri, branch dari branch tugas. Commit lokal di branch sendiri boleh; **push tidak pernah**.
 - **Tinjauan silang wajib** sebelum melapor: kode engineer ditinjau Tech Lead; kode Tech Lead ditinjau peninjau
   berkonteks bersih (subagent `rudis-software-engineer` read-only atau Tech Lead tim lain) **berbasis kriteria**;
   kecocokan spesifikasi oleh BSA bila ada spesifikasi. Peninjau hanya melaporkan temuan yang memengaruhi kebenaran.
-- Tidak ada yang menjalankan `stash`, `reset --hard`, `checkout --`, atau menghapus worktree/branch orang lain tanpa
-  permintaan pengguna.
+- **Uji penolakan** (masukan salah, kredensial kosong, target terlarang) dijalankan pada **fungsi penjaga** lewat unit test
+  tanpa efek samping — bukan pada skrip berefek samping (migrasi, drop, deploy, kirim); skrip itu memvalidasi sebelum memuat `.env`.
+- Tidak ada yang menjalankan `stash`, `reset --hard`, `checkout --`, atau menghapus worktree/branch orang lain tanpa permintaan pengguna.
 
 ## Anggota & leader
 - Anggota menerima tugas hanya dari leader-nya (staf Corporate Strategy, Program Manager, Technical Writer: juga dari
@@ -196,5 +193,8 @@ Alat dan akun RudisOne adalah aset perusahaan (`penyedia.md`). Akses per jabatan
 - Pesan antar-sesi diterima pada putaran berikutnya penerima; laporan otomatis akhir-giliran hanya ke pembuat sesi
   (cli: tidak ada — COO berlangganan `notify_when_idle`). cli: prompt izin sesi latar dijawab pengguna `claude attach`.
 - `clear_session` hanya untuk diri sendiri atau sesi buatan sendiri. `TEAM.md` adalah buku alamat.
+- **Windows (Bash tool):** jangan memanggil `python3`/`python` (alias Python Install Manager di WindowsApps bisa menunggu
+  masukan → menggantung); ubah berkas dengan Edit/Write, bukan heredoc/`sed`/skrip (Git Bash bisa meruntuhkan `\\`); jangan
+  menggabungkan langkah penting dengan perintah yang bisa menggantung. Perintah untuk diketik pengguna di PowerShell 5.1: tanpa `&&`.
 - Pengaman auto mode menolak perubahan aturan izin oleh Claude dan persetujuan yang dikutip lewat pesan untuk aksi
   produksi yang tidak tercakup izin tetap — jangan diakali.

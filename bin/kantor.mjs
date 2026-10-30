@@ -24,13 +24,14 @@ const PEMAKAIAN = `Pemakaian: bin/kantor.sh [buka|--tanpa-browser|mulai-ulang|be
 
 const sidik = () => crypto.createHash("sha1").update(fs.readFileSync(SERVER)).digest("hex").slice(0, 12);
 
-/** Isi /health bila server menjawab 200, selain itu null. */
+/** Baris pertama /health (`ok <versi>`) bila server menjawab 200, selain itu null. Baris berikutnya (sumber data) hanya
+ *  untuk dibaca orang. */
 const sehat = () => new Promise((selesai) => {
   // agent: false → tanpa keep-alive: soket lama ke server yang baru dimatikan tidak dipakai ulang
   const req = http.get(`${ALAMAT}/health`, { timeout: 2000, agent: false }, (res) => {
     let b = "";
     res.on("data", (d) => { b += d; });
-    res.on("end", () => selesai(res.statusCode === 200 ? b.trim() : null));
+    res.on("end", () => selesai(res.statusCode === 200 ? b.split(/\r?\n/)[0].trim() : null));
   });
   req.on("timeout", () => { req.destroy(); selesai(null); });
   req.on("error", () => selesai(null));
@@ -85,6 +86,30 @@ function berhenti() {
   return mati;
 }
 
+/** Log ditambahkan (bukan ditimpa) agar sebab Kantor mati masih terbaca setelah dinyalakan ulang; dipangkas bila > 1 MB. */
+function siapkanLog() {
+  try { if (fs.statSync(LOG).size > 1_000_000) fs.renameSync(LOG, `${LOG}.1`); } catch { /* belum ada */ }
+  try { fs.appendFileSync(LOG, `[${new Date().toISOString()}] menyalakan Kantor (port ${PORT}, ${SERVER})\n`); } catch { /* log tidak bisa ditulis */ }
+}
+
+/** Windows: nyalakan server lewat WMI (Win32_Process.Create) → pid, atau null bila gagal (pemanggil memakai spawn biasa).
+ *  Proses anak di Windows mewarisi job object induknya; sesi Claude Code/Desktop menjalankan alatnya di dalam job, dan
+ *  `detached` Node tidak melepaskannya (libuv tidak memakai CREATE_BREAKAWAY_FROM_JOB). Proses yang dibuat WMI berinduk
+ *  WmiPrvSE, di luar job itu, sehingga Kantor tidak mati saat sesi yang menyalakannya berhenti. WMI tidak mewariskan env
+ *  dan stdio: port dan log lewat argumen (server.mjs `--kantor-port=`, `--log=`). Uji: uji/windows-kantor.md. */
+function nyalakanLepas() {
+  const kutip = (t) => `'${String(t).replaceAll("'", "''")}'`;   // string PowerShell berkutip tunggal
+  // PENANDA tanpa kutip: prosesKantor() mencarinya sebagai kata utuh di baris perintah
+  const baris = [`"${process.execPath}"`, `"${SERVER}"`, PENANDA, `"--log=${LOG}"`].join(" ");
+  const ps = `$ErrorActionPreference='Stop'; `
+    + `$s = New-CimInstance -ClassName Win32_ProcessStartup -ClientOnly -Property @{ ShowWindow = [uint16]0 }; `
+    + `$r = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{ CommandLine = ${kutip(baris)}; `
+    + `CurrentDirectory = ${kutip(ROOT)}; ProcessStartupInformation = $s }; "$($r.ReturnValue) $($r.ProcessId)"`;
+  const r = spawnSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", ps], { encoding: "utf8", windowsHide: true, timeout: 30_000 });
+  const [kode, pid] = String(r.stdout ?? "").replace(/^﻿/, "").trim().split(/\s+/).map(Number);
+  return kode === 0 && pid > 0 ? pid : null;
+}
+
 async function utama() {
   if (AKSI === "berhenti") {
     const mati = berhenti();
@@ -108,10 +133,15 @@ async function utama() {
     jalan = null;
   }
   if (!jalan) {
-    const log = fs.openSync(LOG, "w");
-    const anak = spawn(process.execPath, [SERVER, PENANDA], { detached: true, stdio: ["ignore", log, log], windowsHide: true,
-      env: { ...process.env, RUDISONE_KANTOR_PORT: PORT } });
-    anak.unref();
+    siapkanLog();
+    // Windows: lewat WMI agar server tidak ikut mati bersama proses Claude yang menyalakannya (lihat nyalakanLepas)
+    const lepas = WINDOWS && process.env.RUDISONE_KANTOR_TANPA_WMI !== "1" ? nyalakanLepas() : null;
+    if (!lepas) {
+      const log = fs.openSync(LOG, "a");
+      const anak = spawn(process.execPath, [SERVER, PENANDA], { detached: true, stdio: ["ignore", log, log], windowsHide: true,
+        env: { ...process.env, RUDISONE_KANTOR_PORT: PORT } });
+      anak.unref();
+    }
     for (let i = 0; i < 20; i++) { if (await sehat()) break; tidur(250); }
   }
   if (!(await sehat())) {

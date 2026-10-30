@@ -14,6 +14,7 @@
 // Override (uji): RUDISONE_ROOT, RUDISONE_SESI (berkas konfigurasi), RUDISONE_CLAUDE_BIN, RUDISONE_CLAUDE_JSON (~/.claude.json),
 //   RUDISONE_KANTOR_DESKTOP (folder metadata Desktop).
 import { jalankan } from "./lib/platform.mjs";
+import { bakuPath, diDalamPath } from "./lib/lokasi.mjs";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -45,12 +46,27 @@ export function backendSesi() {
  *  yang dibentuk lewat alat Desktop maupun lewat `claude --bg` tampil. */
 export const sumberBaca = (backend = backendSesi().backend) => (backend === "auto" ? ["cli", "desktop"] : [backend]);
 
-/** Folder metadata sesi Claude Desktop per OS (format internal aplikasi; boleh tidak ada). Linux: dugaan, belum terverifikasi. */
-export function folderDesktop(platform = process.platform, env = process.env, home = HOME) {
+/** Folder metadata sesi Claude Desktop per OS (format internal aplikasi; boleh tidak ada). Linux: dugaan, belum terverifikasi.
+ *  Windows: Claude Desktop versi Store/MSIX (paket `Claude_<id>`) menulis %APPDATA%\Claude secara tervirtualisasi ke
+ *  %LOCALAPPDATA%\Packages\Claude_<id>\LocalCache\Roaming\Claude. Hanya proses DI DALAM paket (sesi Desktop) yang
+ *  melihatnya di %APPDATA%; Kantor/perkakas yang dinyalakan dari VS Code, terminal, atau WMI tidak — jadi letak paket
+ *  diperiksa bila letak biasa tidak ada (terbukti di Windows 11, Claude 4.4212, T-20261030-2.1). */
+export function folderDesktop(platform = process.platform, env = process.env, home = HOME, { ada = fs.existsSync, daftar = fs.readdirSync } = {}) {
   if (env.RUDISONE_KANTOR_DESKTOP) return env.RUDISONE_KANTOR_DESKTOP;
   // join menurut OS tujuan (bukan OS yang menjalankan), agar hasilnya sama dengan yang dihitung di OS itu
   if (platform === "darwin") return path.posix.join(home, "Library", "Application Support", "Claude", "claude-code-sessions");
-  if (platform === "win32") return path.win32.join(env.APPDATA || path.win32.join(home, "AppData", "Roaming"), "Claude", "claude-code-sessions");
+  if (platform === "win32") {
+    const biasa = path.win32.join(env.APPDATA || path.win32.join(home, "AppData", "Roaming"), "Claude", "claude-code-sessions");
+    if (ada(biasa)) return biasa;
+    const paket = path.win32.join(env.LOCALAPPDATA || path.win32.join(home, "AppData", "Local"), "Packages");
+    let nama = [];
+    try { nama = daftar(paket).filter((n) => /^Claude_[a-z0-9]+$/i.test(n)).sort(); } catch { /* tidak ada paket */ }
+    for (const n of nama) {
+      const f = path.win32.join(paket, n, "LocalCache", "Roaming", "Claude", "claude-code-sessions");
+      if (ada(f)) return f;
+    }
+    return biasa;
+  }
   return path.posix.join(env.XDG_CONFIG_HOME || path.posix.join(home, ".config"), "Claude", "claude-code-sessions");
 }
 
@@ -79,7 +95,7 @@ export function judulDariNama(nama) {
   const r = n.match(/^rudis-(.+?)(?:-(?:x|lagi|\d+))?$/);
   return r && JABATAN[r[1]] ? JABATAN[r[1]] : null;
 }
-const di = (p, akar) => { const a = path.resolve(p), b = path.resolve(akar); return a === b || a.startsWith(b + path.sep); };
+const di = (p, akar) => diDalamPath(p, akar);   // path Windows: tanpa beda huruf besar/kecil & pemisah
 /** Sesi milik RudisOne: bernama r<n>-lead-… / rudis-…, atau berjalan di dalam repo RudisOne. */
 export const milikRudisOne = (s) => /^(r[1-3]-lead-|rudis-)/.test(String(s?.name ?? "")) || (typeof s?.cwd === "string" && s.cwd ? di(s.cwd, ROOT) : false);
 /** Nama yang aman disalin pengguna ke terminal; selain itu sessionId. */
@@ -129,15 +145,56 @@ export function folderSesi() {
   } catch { /* register belum ada */ }
   return [...new Set(f)];
 }
-/** Folder yang belum dipercaya CLI: `hasTrustDialogAccepted` di ~/.claude.json untuk folder PERSIS itu. Kepercayaan
- *  folder induk tidak dihitung — uji asap 2.1.281: ~/Documents/Neuron dipercaya, `claude --bg` di subfoldernya tetap
- *  "Workspace not trusted". */
-export function belumDipercaya(folder = folderSesi()) {
+/** Folder yang dipercaya CLI: kunci `projects` di ~/.claude.json dengan `hasTrustDialogAccepted: true` (kunci ditulis
+ *  `D:/x` atau `d:/x` — perbandingan memakai bakuPath). */
+export function folderDipercaya() {
   let proyek = {};
   try { proyek = JSON.parse(fs.readFileSync(process.env.RUDISONE_CLAUDE_JSON || path.join(HOME, ".claude.json"), "utf8")).projects ?? {}; }
   catch { /* belum pernah menjalankan claude */ }
-  const dipercaya = Object.entries(proyek).filter(([, v]) => v?.hasTrustDialogAccepted).map(([k]) => k);
-  return folder.filter((f) => !dipercaya.some((d) => path.resolve(d) === path.resolve(f)));
+  return Object.entries(proyek).filter(([, v]) => v?.hasTrustDialogAccepted).map(([k]) => k);
+}
+
+/** Status kepercayaan satu folder untuk `claude --bg` (uji terkontrol 2.1.302 di Windows, T-20261030-2.1 — log di
+ *  skill rudisone › backend-cli.md › Kepercayaan folder):
+ *   dipercaya   — entri persis folder ini.
+ *   diwarisi    — di dalam folder yang dipercaya, di repo git yang sama (tidak ada `.git` di antara keduanya): `--bg`
+ *                 diterima tanpa entri sendiri (terbukti). Folder non-git di bawah induk non-git: `nonGit: true`, belum diuji.
+ *   batas-repo  — ada folder leluhur yang dipercaya, tetapi folder ini (atau leluhurnya di bawah induk itu) adalah repo git
+ *                 sendiri, mis. proyek di D:\PENGEMBANGAN-RUDIS\inventory atau worktree-nya: `--bg` menolak (terbukti).
+ *   belum       — tidak ada entri untuk folder ini maupun leluhurnya. */
+export function statusPercaya(folder, dipercaya = folderDipercaya(), { adaGit = (d) => fs.existsSync(path.join(d, ".git")) } = {}) {
+  const f = bakuPath(folder);
+  if (dipercaya.some((d) => bakuPath(d) === f)) return { status: "dipercaya" };
+  const induk = dipercaya.filter((d) => diDalamPath(folder, d)).sort((a, b) => bakuPath(b).length - bakuPath(a).length)[0];
+  if (!induk) return { status: "belum" };
+  for (let d = path.resolve(folder); bakuPath(d) !== bakuPath(induk); d = path.dirname(d)) {
+    if (adaGit(d)) return { status: "batas-repo", induk, repo: d };
+    if (path.dirname(d) === d) break;
+  }
+  // repo yang sama = induk (atau leluhurnya) repo git; selain itu pewarisan antar-folder non-git (belum diuji)
+  let nonGit = true;
+  for (let d = path.resolve(induk); ; d = path.dirname(d)) { if (adaGit(d)) { nonGit = false; break; } if (path.dirname(d) === d) break; }
+  return { status: "diwarisi", induk, nonGit };
+}
+
+/** Folder yang `claude --bg`-nya ditolak (status batas-repo atau belum). */
+export function belumDipercaya(folder = folderSesi(), dipercaya = folderDipercaya()) {
+  return folder.filter((f) => ["batas-repo", "belum"].includes(statusPercaya(f, dipercaya).status));
+}
+
+/** Perintah sekali-jalan untuk pengguna: buka `claude` interaktif di folder itu (terima prompt percaya, lalu /exit).
+ *  Windows: PowerShell 5.1 (shell bawaan) tidak mengenal `&&` → `;`; cmd dan Git Bash diberi bentuknya sendiri. */
+export function perintahPercaya(folder, platform = process.platform) {
+  if (platform === "win32") {
+    const w = path.win32.normalize(folder);
+    const posix = w.replace(/^([A-Za-z]):/, (_, h) => `/${h.toLowerCase()}`).replaceAll("\\", "/");
+    return [
+      { shell: "PowerShell", perintah: `Set-Location -LiteralPath '${w.replaceAll("'", "''")}'; claude` },
+      { shell: "cmd", perintah: `cd /d "${w}" && claude` },
+      { shell: "Git Bash", perintah: `cd '${posix.replaceAll("'", "'\\''")}' && claude` },
+    ];
+  }
+  return [{ shell: "terminal", perintah: `cd '${folder.replaceAll("'", "'\\''")}' && claude` }];
 }
 
 // ---- perintah -------------------------------------------------------------------------------------------------------
@@ -184,12 +241,23 @@ function main(argv) {
     else console.log(`  [ok] Claude Code ${v} (≥ ${VERSI_MIN})`);
     if (fs.existsSync(SETTINGS_SESI)) console.log(`  [ok] pengaman sesi latar: ${tampil(SETTINGS_SESI)}`);
     else { console.log(`  [!!] ${tampil(SETTINGS_SESI)} hilang (jalankan: git checkout -- konfigurasi/sesi-cli.settings.json)`); perlu++; }
-    const belum = belumDipercaya();
-    if (!belum.length) console.log("  [ok] semua folder sesi sudah dipercaya Claude Code CLI");
+    const dipercaya = folderDipercaya();
+    const status = folderSesi().map((f) => ({ f, ...statusPercaya(f, dipercaya) }));
+    const masalah = status.filter((x) => x.status === "batas-repo" || x.status === "belum");
+    for (const x of status.filter((y) => y.status === "diwarisi" && y.nonGit))
+      console.log(`  [..] ${tampil(x.f)}: mewarisi kepercayaan ${tampil(x.induk)} (folder non-git — pewarisan belum diuji; bila --bg menolak, percayai persis)`);
+    if (!masalah.length) console.log("  [ok] semua folder sesi dipercaya Claude Code CLI (persis, atau diwarisi dari induk di repo yang sama)");
     else {
       perlu++;
-      console.log("  [!!] folder belum dipercaya CLI — `claude --bg` gagal di sana. Pengguna sekali saja, di terminal:");
-      for (const f of belum) console.log(`         cd ${tampil(f)} && claude   (terima prompt percaya, lalu /exit)`);
+      console.log("  [!!] folder yang ditolak `claude --bg` (\"Workspace not trusted\"):");
+      for (const x of masalah) {
+        console.log(x.status === "batas-repo"
+          ? `     - ${tampil(x.f)} — induk ${tampil(x.induk)} dipercaya, tetapi ${tampil(x.repo)} adalah repo git sendiri: kepercayaan tidak menembus batas repo`
+          : `     - ${tampil(x.f)} — belum dipercaya`);
+        for (const p of perintahPercaya(x.f)) console.log(`         ${p.shell.padEnd(10)} ${p.perintah}`);
+      }
+      console.log("       Pengguna sekali per folder: jalankan satu baris sesuai shell-nya, terima prompt percaya, lalu /exit."
+        + "\n       Tidak mau/bisa? COO memakai jalur subagent (Tech Lead sebagai subagent — skill rudisone › backend-cli.md).");
     }
     return perlu && backend === "cli" ? 1 : 0;
   }

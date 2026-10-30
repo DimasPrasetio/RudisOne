@@ -21,6 +21,15 @@ Tanggal: YYYY-MM-DD · Perkakas: <keluaran bin/perkakas.sh versi>
 ### Persetujuan Inisiasi
 - Disetujui pengguna (kesepakatan pemahaman bersama): YYYY-MM-DD HH:MM — "<kutipan persis>"
 
+## Database lokal — awal Konstruksi (ditanyakan bersama Persetujuan Rancangan)
+<!-- skill rudis-sdlc › Database lokal. Tanpa kata sandi/DSN di sini: pengguna menyunting .env sendiri. -->
+| Fakta | Jawaban | Catatan |
+|---|---|---|
+| Jenis MySQL di device | layanan OS · Docker · XAMPP/Laragon · belum ada | belum ada → tes ber-database "belum terverifikasi" |
+| Versi server | <mis. 8.4.x> (dari `mysql --version` / `SELECT VERSION();` oleh pengguna) | 8.4+/9.x: akun `caching_sha2_password` |
+| Cara mengisi `.env` | pengguna menjalankan `node scripts/db-lokal.mjs` sendiri / menyunting `.env` sendiri | nilai tidak lewat chat |
+| Dua database + akun berhak minimum dibuat | ya, YYYY-MM-DD — "<kutipan 'sudah' pengguna>" | = izin per kali tes ber-database |
+
 ## Sebelum penerapan pertama — fakta deploy (saat pengguna meminta deploy)
 <!-- Sampai bagian ini terisi, scaffold memakai penanda __…__ (mis. __HOST_PORT__, __GHCR_OWNER__; skill rudis-monorepo › Step 0b); aplikasi tetap
      jalan lokal, deploy.sh menolak jalan. Konfigurasi server belum ada → skill rudis-operasi › Konfigurasi server. -->

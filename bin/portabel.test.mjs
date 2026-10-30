@@ -168,7 +168,10 @@ test("kantor.mjs: nyala (tanpa browser), tidak memulai ulang bila kode sama, mul
     let r = kantor("--tanpa-browser");
     assert.equal(r.status, 0, r.stderr + r.stdout);
     assert.match(r.stdout, new RegExp(`Kantor RudisOne: http://127.0.0.1:${port}`));
-    assert.match(await sehat() ?? "", /^ok [0-9a-f]{12}$/);
+    // /health: baris pertama `ok <versi>` (dibaca kantor.mjs), lalu versi & keadaan sumber data (T-20261030-2.1)
+    const h = (await sehat() ?? "").split("\n");
+    assert.match(h[0], /^ok [0-9a-f]{12}$/);
+    assert.ok(h.some((l) => /^sumber transkrip: /.test(l)), h.join("\n"));
     r = kantor("--tanpa-browser");
     assert.doesNotMatch(r.stdout, /Memulai ulang/, "sidik sama → tidak dimulai ulang");
     r = kantor("mulai-ulang");
