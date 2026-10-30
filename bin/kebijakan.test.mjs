@@ -227,3 +227,16 @@ test("pasang & lepas: idempoten, cadangan dibuat, settings lain utuh", () => {
   assert.deepEqual(s2.hooks, { PreToolUse: [{ matcher: "Write", hooks: [{ type: "command", command: "lain.sh" }] }] });
   assert.equal(statusPasang(), false);
 });
+
+test("subagent peran rudis-<id> memakai jabatannya sendiri, bukan jabatan sesi pemanggil", async () => {
+  const i = bash(COO, "ssh vps-uji 'sudo systemctl restart nginx'", { agent_type: "rudis-research-analyst", agent_id: "a1" });
+  const p = putuskan(i, K);
+  assert.equal(p.keputusan, "ask");
+  assert.match(JSON.stringify(p), /Research Analyst/);
+  const { kenaliSesi } = await import("./kebijakan.mjs");
+  assert.equal(kenaliSesi(i, K).jabatan, "research-analyst");
+  assert.equal(kenaliSesi(bash(COO, "ls", { agent_type: "Explore" }), K).jabatan, "coo");
+  // tipe subagent lain (bukan rudis-) tetap memakai jabatan sesi (COO di akar repo)
+  const j = putuskan(bash(COO, "ls", { agent_type: "Explore" }), K);
+  assert.notEqual(j.keputusan, "deny");
+});

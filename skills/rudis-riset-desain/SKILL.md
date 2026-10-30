@@ -8,7 +8,7 @@ description: Alur wajib agent RudisOne (sesi /rudisone, divisi, dan tim engineer
 Pengguna menolak desain yang dibangun dari selera default tanpa riset. Setiap pekerjaan visual mengikuti
 tujuh langkah ini; jangan melompat ke kode sebelum brief ada.
 
-Di proyek berstandar rudis-monorepo (`~/Documents/Neuron/ai-agent/RudisOne/sdlc.md` › Desain) langkah 1–5 mengikuti
+Di proyek berstandar rudis-monorepo (skill `rudis-sdlc` › Desain) langkah 1–5 mengikuti
 `references/design-research.md` skill `rudis-monorepo` (brief di `knowledge/DESIGN.md`, cek preset pustaka);
 langkah 6–7 di bawah tetap berlaku.
 

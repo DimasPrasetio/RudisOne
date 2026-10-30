@@ -1,2 +1,0 @@
-# Catatan System Administrator
-

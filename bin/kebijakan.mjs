@@ -65,6 +65,9 @@ function teksPesanPengguna(baris) {
 
 /** { rudisOne, jabatan } untuk satu sesi; transkrip dibaca bertahap dan hasilnya disimpan per sesi. */
 export function kenaliSesi(input, K) {
+  // Subagent dari definisi peran (protokol.md › Model sesi): jabatannya = perannya, bukan jabatan sesi pemanggil.
+  const sub = String(input.agent_type ?? "").match(/^rudis-([a-z-]+)$/);
+  if (sub && K.jabatan[sub[1]]) return { rudisOne: true, jabatan: sub[1] };
   const cwd = rumah(input.cwd || "");
   if (cwd && di(cwd, ROOT)) {
     const rel = path.relative(ROOT, path.resolve(cwd)).split(path.sep);

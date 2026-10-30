@@ -1,5 +1,6 @@
-# per device
+# per device (repo publik: alamat sesi & ingatan agent tidak di-commit)
 /TEAM.md
+/catatan/
 handoff/*
 !handoff/.gitkeep
 **/.claude/settings.local.json

@@ -1,5 +1,5 @@
 # Tabel perakitan — <ID> · <proyek / fitur>
-<!-- Gerbang Persetujuan Rancangan (sdlc.md). Disusun Business Systems Analyst dari CATALOG.md pustaka (bukan dari kode modul), diperiksa Tech Lead.
+<!-- Gerbang Persetujuan Rancangan (skill rudis-sdlc). Disusun Business Systems Analyst dari CATALOG.md pustaka (bukan dari kode modul), diperiksa Tech Lead.
      Aturan keputusan & urutan pasang: references/module-library.md skill rudis-monorepo — jangan disalin.
      Draf di handoff/<ID>/; versi final masuk analysis/ proyek lewat branch tugas. -->
 

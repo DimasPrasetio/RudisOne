@@ -1,4 +1,4 @@
-// Skill luar RudisOne (daftar: perkakas.json › skill_luar; aturan: protokol.md › Skill luar). Skill yang dipakai
+// Skill luar RudisOne (daftar: perkakas.json › skill_luar; aturan: skill rudis-perkakas › Skill luar). Skill yang dipakai
 // agent tetapi tidak dibundel di repo ini: dicek keberadaannya di device, dan dipasang dari sumber resminya saat
 // pertama dibutuhkan. Dipanggil lewat bin/perkakas.sh [pastikan <skill>|skill].
 //   git       clone repo sumber ke `lokal` (disimpan untuk pemasangan berikutnya), lalu jalankan `pasang`
@@ -109,7 +109,7 @@ function pasangPlugin(e, catat, dir) {
 /** Pastikan skill `target` tersedia; pasang dari sumber resminya bila belum. Exit: 0 tersedia · 1 gagal · 2 tak bisa dipasang · 3 tak terdaftar. */
 export function pastikan(daftar, target, { dir = folderClaude(), log = console.log } = {}) {
   const e = cariEntri(daftar, target);
-  if (!e) { log(`Skill luar "${target}" tidak terdaftar di perkakas.json › skill_luar — minta COO mendaftarkannya (protokol.md › Skill luar).`); return 3; }
+  if (!e) { log(`Skill luar "${target}" tidak terdaftar di perkakas.json › skill_luar — minta COO mendaftarkannya (skill rudis-perkakas › Skill luar).`); return 3; }
   const nama = e.skill.includes(namaPolos(target)) ? namaPolos(target) : e.skill[0];
   const sudah = cariSkill(nama, dir, daftar);
   if (sudah) { log(`[ok]   ${nama}: tersedia (${sudah.lokasi}) — ${sudah.skillMd}`); return 0; }

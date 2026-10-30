@@ -33,7 +33,7 @@ identitas; "TL / BSA / SE" = tim proyek yang bersangkutan.
 | Organisasi tim, peran, protokol (`~/Documents/Neuron/ai-agent/RudisOne`) | **R** | C | — | — | C | — | C | — | C | — | C | — |
 | Registri penyedia & kebijakan akses (`penyedia.md`, `kebijakan-akses.json`) — keputusan pemilik | **R** | C | — | — | — | — | — | — | — | — | S | C |
 | Perkakas resmi SDLC: pasang & perbarui (`bin/perkakas.sh`) | **R** | I | — | — | — | — | — | — | — | — | — | — |
-| Intake proyek baru — gerbang Persetujuan Inisiasi (`sdlc.md`) | **R** | C | C | — | I | — | C | — | — | — | I | S |
+| Intake proyek baru — gerbang Persetujuan Inisiasi (skill `rudis-sdlc`) | **R** | C | C | — | I | — | C | — | — | — | I | S |
 | Tabel perakitan modul & rancangan proyek — Persetujuan Rancangan | G | **R** | S | C | I | — | — | C¹ | S⁸ | C² | — | — |
 | Pendaftaran app baru di VPS — Persetujuan Penerapan | G | C⁵ | — | — | I | — | — | — | — | — | **R** | S |
 | Platform: skill `rudis-monorepo` & pustaka `rudis-modules` (Jalur Platform) | G | **R** | C | S | I | — | — | — | — | — | — | — |
@@ -63,7 +63,7 @@ identitas; "TL / BSA / SE" = tim proyek yang bersangkutan.
 | System Administrator (SysAdmin) | Perintah read-only, perkakas `bin/`; deploy app terdaftar (jenjang 2 / izin tetap) atas permintaan deploy pengguna untuk sha itu | Restart, ubah config/DNS/firewall/cron, hapus data |
 
 Kolom di atas adalah aturan organisasi; batas teknisnya (akses per jabatan, jenjang 1–3) ditegakkan mesin oleh
-`kebijakan-akses.json` — `protokol.md` › Aset, akses & batas kewenangan.
+`kebijakan-akses.json` — `protokol.md` › Akses & batas kewenangan; rinci: skill `rudis-operasi`.
 
 Semua leader: membagi kerja dan menambah asisten (subagent) tanpa persetujuan baru — hanya disebut di laporan.
 Semua peran: tidak membuat sesi (hanya COO pada panggilan `/rudisone`), tidak mengubah aturan izin, tidak

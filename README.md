@@ -31,14 +31,14 @@ Aturan kerjanya (termasuk pengerjaan mandiri sebagai default) dimiliki satu file
 proyek tetap milikmu — agent bekerja di worktree dan hanya menyerahkan hasil ke branch utama atas permintaanmu.
 Tim bisa mengerjakan banyak tugas sekaligus, di folder berbeda dan tidak saling terkait: tiap tugas punya ID,
 folder kerja, dan kunci sumber daya di register tugas COO (`handoff/register-tugas.md`), satu sesi memegang satu tugas
-aktif (sisanya antre/diparkir), dan Kantor menampilkan papan **Tugas berjalan** (`protokol.md` › Manajemen multi-tugas).
+aktif (sisanya antre/diparkir), dan Kantor menampilkan papan **Tugas berjalan** (skill `rudis-multitugas`).
 
 ## Membangun software (SDLC)
 Perkakas resmi pembuat software RudisOne adalah skill **`rudis-monorepo`** (standar arsitektur, scaffold,
 deploy standar) dan pustaka **`rudis-modules`** (modul, kit UI, preset). Keduanya tinggal di repo
 masing-masing — tidak dibundel — dan `bin/perkakas.sh` memasangnya bila belum ada serta memperbaruinya di setiap
 `/rudisone` (tanpa pernah menimpa perubahanmu di repo sumber, dan ditunda selama tugas Engineering berjalan).
-`sdlc.md` memetakan tujuh fase (Inisiasi, Analisis, Desain, Konstruksi, Pengujian, Rilis, Operasi) ke jabatan dan
+skill `rudis-sdlc` memetakan tujuh fase (Inisiasi, Analisis, Desain, Konstruksi, Pengujian, Rilis, Operasi) ke jabatan dan
 menetapkan empat gerbang persetujuanmu:
 
 | Gerbang | Yang kamu putuskan |
@@ -64,7 +64,7 @@ konfigurasi/               per device: server.json (server, aplikasi, DNS; git-i
 penyedia.md                registri kemampuan & penyedia (DNS, repo, server) + alur konfigurasi server
 kebijakan-akses.json       akses per jabatan & batas kewenangan jenjang 1–3 (dibaca hook bin/kebijakan.mjs)
 catatan/<id-peran>.md         ingatan jangka panjang per agent
-bin/                       perkakas (daftar & kode keluar: protokol.md › Perkakas bersama)
+bin/                       perkakas (daftar & kode keluar: skill rudis-perkakas › Perkakas bersama)
 kantor/                    Kantor RudisOne: server status lokal + tampilan pixel (tanpa dependensi)
 templat/                   kerangka brief & laporan, pemahaman bersama, register tugas, TEAM, brief-desain, intake/perakitan/onboarding (SDLC)
 skills/<nama>/SKILL.md     skill tim: rudisone (pintu COO), rudis-grill-me (penyelarasan persepsi), rudis-riset-desain — ditautkan ke ~/.claude/skills oleh install.sh
@@ -119,7 +119,7 @@ Brief desain & sumber risetnya: `kantor/DESAIN.md`.
   127.0.0.1/localhost (perlindungan DNS rebinding), dan hanya meneruskan metadata aktivitas (nama alat, deskripsi
   perintah, nama file) — bukan isi file, pesan, atau output.
 - Skill luar (docx-neuron, docx/pdf/pptx/xlsx, frontend-design) tidak dibundel: dipasang dari sumber resminya saat
-  pertama dibutuhkan lewat `bin/perkakas.sh pastikan <skill>`; keadaannya `bin/perkakas.sh skill` (`protokol.md` › Skill luar).
+  pertama dibutuhkan lewat `bin/perkakas.sh pastikan <skill>`; keadaannya `bin/perkakas.sh skill` (skill `rudis-perkakas` › Skill luar).
 - Uji: `node --test kantor/ bin/` (Kantor + perkakas + skill luar + kebijakan + konfigurasi).
 
 ## Memperbarui

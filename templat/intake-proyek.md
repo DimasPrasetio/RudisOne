@@ -1,5 +1,5 @@
 # Intake proyek baru — <ID> · <nama aplikasi>
-<!-- Gerbang Persetujuan Inisiasi (sdlc.md › Jalur Aplikasi). Bagian "Ditanyakan ke pengguna" adalah cabang wawancara penyelarasan
+<!-- Gerbang Persetujuan Inisiasi (skill rudis-sdlc › Jalur Aplikasi). Bagian "Ditanyakan ke pengguna" adalah cabang wawancara penyelarasan
      berkedalaman mendalam (skill rudis-grill-me): satu cabang per giliran dengan rekomendasi COO, fakta yang bisa dicari
      tidak ditanyakan. Maksud, kriteria selesai & lingkup ditulis di handoff/<ID>/pemahaman.md; file ini hanya fakta
      teknis intake. Persetujuan ringkasan pemahaman bersama = Persetujuan Inisiasi (tidak ditanyakan dua kali). Bagian

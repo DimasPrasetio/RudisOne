@@ -2,6 +2,8 @@
 # Persiapan RudisOne di device ini. Aman dijalankan berulang: hanya membuat folder per device,
 # memeriksa prasyarat, dan memberi tahu langkah manual. Tidak mengubah aturan izin Claude Code.
 set -u
+# --tanpa-perkakas : lewati bin/perkakas.sh siapkan (mis. saat menguji installer dari worktree atau HOME sementara)
+TANPA_PERKAKAS=0; for a in "$@"; do [ "$a" = "--tanpa-perkakas" ] && TANPA_PERKAKAS=1; done
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 AGENTS=(system-administrator head-of-it-operations program-manager technical-writer software-engineer business-systems-analyst head-of-strategy research-analyst financial-controller hr-business-partner)
@@ -15,6 +17,7 @@ if [ "$ROOT" = "$HOME/Documents/Neuron/ai-agent/RudisOne" ]; then pass "lokasi r
 else fail "repo ada di $ROOT — pindahkan/clone ke ~/Documents/Neuron/ai-agent/RudisOne (peran merujuk path itu)"; fi
 
 mkdir -p "$ROOT/handoff" && touch "$ROOT/handoff/.gitkeep" && pass "folder handoff/ siap"
+mkdir -p "$ROOT/catatan" && pass "folder catatan/ siap (ingatan per peran, per device — tidak di-commit)"
 
 check_link() { # $1 = symlink, $2 = id peran
   if [ -L "$1" ] && head -3 "$1" 2>/dev/null | grep -q "^name: $2\$"; then pass "peran $2 tertaut"
@@ -24,10 +27,28 @@ check_link "$ROOT/.claude/agents/coo.md" coo
 # Tech Lead tidak punya ruang: sesinya di folder proyek (worktree), peran dari pembuka brief.
 if head -3 "$ROOT/agents/tech-lead.md" 2>/dev/null | grep -q "^name: tech-lead$"; then pass "peran tech-lead ada"
 else fail "agents/tech-lead.md hilang (jalankan: git checkout -- .)"; fi
-for f in raci.md protokol.md templat/team.md templat/register-tugas.md; do
+for f in raci.md protokol.md CLAUDE.md templat/team.md templat/register-tugas.md; do
   [ -f "$ROOT/$f" ] && pass "$f ada" || fail "$f hilang (jalankan: git checkout -- .)"
 done
 for a in "${AGENTS[@]}"; do check_link "$ROOT/ruang/$a/.claude/agents/$a.md" "$a"; done
+
+# Subagent peran (protokol.md › Model sesi): agen/rudis-<id-peran>.md dibangkitkan dari agents/ + protokol.md,
+# ditautkan ke ~/.claude/agents agar bisa dipanggil dari sesi di folder mana pun.
+if node "$ROOT/bin/peran.mjs" cek >/dev/null 2>&1; then pass "definisi subagent peran mutakhir (agen/)"
+else fail "agen/ basi — jalankan: $ROOT/bin/peran.sh bangun"; fi
+mkdir -p "$HOME/.claude/agents"
+for f in "$ROOT"/agen/rudis-*.md; do
+  [ -e "$f" ] || continue
+  n="$(basename "$f")"; tujuan="$HOME/.claude/agents/$n"
+  if [ ! -e "$tujuan" ] && [ ! -L "$tujuan" ]; then ln -s "$f" "$tujuan" && pass "subagent ${n%.md} tertaut"
+  elif [ -L "$tujuan" ] && [[ "$(readlink "$tujuan")" == "$ROOT/"* ]]; then ln -sfn "$f" "$tujuan" && pass "subagent ${n%.md} tertaut"
+  else fail "~/.claude/agents/$n sudah dipakai sistem lain — tidak disentuh, periksa manual"; fi
+done
+# tautan subagent yatim milik repo ini (peran dihapus) dibersihkan
+for l in "$HOME"/.claude/agents/rudis-*.md; do
+  [ -L "$l" ] || continue
+  [[ "$(readlink "$l")" == "$ROOT/"* ]] && [ ! -e "$l" ] && rm "$l" && pass "tautan yatim $(basename "$l") dihapus"
+done
 
 # Skill tim → ~/.claude/skills (symlink, agar tersedia di semua sesi termasuk sesi tugas di folder proyek)
 mkdir -p "$HOME/.claude/skills"
@@ -39,7 +60,7 @@ for d in "$ROOT"/skills/*/; do
   else fail "~/.claude/skills/$n sudah dipakai sistem lain ($(readlink "$tujuan" || echo "bukan tautan")) — tidak disentuh, periksa manual"; fi
 done
 
-for s in server-cek rilis-cek pasca-deploy perkakas kebijakan konfig; do
+for s in server-cek rilis-cek pasca-deploy perkakas kebijakan konfig register peran inti cek-konsistensi; do
   if [ -x "$ROOT/bin/$s.sh" ]; then pass "perkakas bin/$s.sh"
   else fail "bin/$s.sh tidak executable (jalankan: chmod +x $ROOT/bin/*.sh)"; fi
 done
@@ -47,11 +68,15 @@ done
 if command -v node >/dev/null 2>&1 && [ "$(node -p 'process.versions.node.split(".")[0]')" -ge 18 ]; then
   pass "Node.js $(node -v) — dipakai Kantor RudisOne"
 else fail "Node.js 18+ tidak ditemukan — dibutuhkan bin/kantor.sh"; fi
-# Kebijakan akses & batas kewenangan (protokol.md › Aset, akses & batas kewenangan): hook dipasang PEMILIK sendiri.
+# Kebijakan akses & batas kewenangan (skill rudis-operasi): hook dipasang PEMILIK sendiri.
 if node "$ROOT/bin/kebijakan.mjs" cek >/dev/null 2>&1; then pass "kebijakan akses RudisOne terpasang (hook ~/.claude/settings.json)"
 else fail "kebijakan akses RudisOne belum terpasang — pemilik menjalankan: $ROOT/bin/kebijakan.sh pasang"; fi
-# Perkakas resmi SDLC (sdlc.md): skill rudis-monorepo + pustaka rudis-modules — pasang/perbarui.
-if command -v node >/dev/null 2>&1 && command -v git >/dev/null 2>&1; then
+# Pemuat ulang inti setelah kompaksi untuk sesi RudisOne di folder proyek (protokol.md): hook dipasang PEMILIK sendiri.
+if node "$ROOT/bin/inti.mjs" cek >/dev/null 2>&1; then pass "hook pemuat ulang inti RudisOne terpasang (SessionStart)"
+else fail "hook pemuat ulang inti belum terpasang — pemilik menjalankan: $ROOT/bin/inti.sh pasang"; fi
+# Perkakas resmi SDLC (skill rudis-sdlc): skill rudis-monorepo + pustaka rudis-modules (+ RUDIS SDD) — pasang/perbarui.
+if [ "$TANPA_PERKAKAS" = 1 ]; then printf '  [..]   %s\n' "perkakas resmi SDLC dilewati (--tanpa-perkakas)"
+elif command -v node >/dev/null 2>&1 && command -v git >/dev/null 2>&1; then
   if "$ROOT/bin/perkakas.sh" siapkan --segera | sed 's/^/  /'; [ "${PIPESTATUS[0]}" -eq 0 ]; then pass "perkakas resmi SDLC siap"
   else fail "perkakas resmi SDLC perlu perhatian (lihat baris di atas)"; fi
 else fail "perkakas resmi SDLC dilewati — butuh node dan git"; fi
@@ -86,7 +111,14 @@ for a in "${AGENTS[@]}"; do
   [ -e "$HOME/.claude/agents/$a.md" ] && fail "~/.claude/agents/$a.md ada — bentrok dengan peran RudisOne, pindahkan ke cadangan"
 done
 
+# Pemeriksa konsistensi (drift dokumen vs yang terpasang) — read-only.
+if [ -x "$ROOT/bin/cek-konsistensi.sh" ]; then
+  if "$ROOT/bin/cek-konsistensi.sh" >/dev/null 2>&1; then pass "pemeriksa konsistensi bersih"
+  else fail "pemeriksa konsistensi menemukan drift — lihat: $ROOT/bin/cek-konsistensi.sh"; fi
+fi
+
 echo
 echo "Hasil: $ok ok, $warn perlu perhatian."
 echo "Langkah berikut: buka sesi Claude Code di folder proyek mana pun, lalu ketik /rudisone <permintaan>."
-echo "Panggilan pertama membentuk seluruh organisasi + tim proyek itu; Kantor: http://127.0.0.1:7421/"
+echo "Panggilan pertama membentuk organisasi inti (IT Operations); Tech Lead dibentuk per proyek saat ada tugas,"
+echo "peran lain dipanggil sebagai subagent rudis-<peran>. Kantor: http://127.0.0.1:7421/"
