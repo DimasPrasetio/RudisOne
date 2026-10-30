@@ -602,3 +602,19 @@ test("tinjauan N2–N5 & rendah: komentar mysql, skema curl, gh auth -at, openss
   assert.equal(kep(bash(COO, "tar -xf /tmp/evil.tar -Cbin")), "ask");
   assert.equal(kep(bash(COO, "gh repo create contoh/baru --private")), "allow");          // jenjang 2 sah tetap jalan
 });
+
+// ===================== T-20261030-5.1 · positif palsu di hook yang terpasang =====================
+test("positif palsu: tool-results/plans di ~/.claude dan cd ke handoff tidak ditanya; perusak tetap ditanya", () => {
+  const H = os.homedir();
+  for (const c of [
+    `F=${H}/.claude/projects/-x/abc/tool-results/webfetch-1.pdf; pdftotext -layout "$F" /tmp/s/a.txt`,
+    `python3 -c 'print(1)' ${H}/.claude/projects/-x/abc/tool-results/out.txt`, `cat ${H}/.claude/plans/x.md | python3 -m json.tool`,
+    `cd ${ROOT}/handoff && sed -n 96,140p T-1/riset.md`, `cd ${ROOT} && npm test`, `node --test ${ROOT}/handoff/x.test.mjs`,
+  ]) assert.notEqual(kep(bash(COO, c)), "ask", c);
+  for (const c of [`cd ${ROOT} && rm -rf ${path.relative(ROOT, path.dirname(process.env.RUDISONE_AUDIT)) || "."}`, `cd ${ROOT}/bin && cp /tmp/x server-cek.sh`,
+    `cd ${H} && rm -rf .claude`, `echo x > ${H}/.claude/settings.json`, `cp /tmp/x ${H}/.claude/agents/rudis-x.md`, `cd ${H}/.claude && rm -rf projects`]) {
+    assert.equal(kep(bash(COO, c)), "ask", c);
+  }
+  assert.notEqual(kep(bash(COO, "cd /tmp/evil && bin/rilis-cek.sh contoh/app-uji 0123456")), "allow");
+  assert.equal(kep(bash(path.join(ROOT, "ruang", "x"), `cd ${ROOT} && bin/rilis-cek.sh contoh/app-uji 0123456`)), "allow");
+});

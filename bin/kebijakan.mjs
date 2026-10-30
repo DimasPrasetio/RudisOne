@@ -413,7 +413,7 @@ function perkakasAsli(prog, ctx) {
   const p = rumah(prog);
   let abs;
   if (path.isAbsolute(p)) abs = p;
-  else if (/^(\.\/)?bin\/[^/]+$/.test(p) && !ctx.adaCd && ctx.cwd) abs = path.resolve(rumah(ctx.cwd), p);
+  else if (/^(\.\/)?bin\/[^/]+$/.test(p) && ctx.cwd) abs = path.resolve(rumah(ctx.cwd), p);
   else return false;
   return path.dirname(path.resolve(abs)) === path.join(ROOT, "bin");
 }
@@ -503,7 +503,9 @@ function klasifikasiSegmen(s, K, ctx) {
 const NAMA_TERLINDUNG = [
   /kebijakan-akses\.json/i, /kebijakan\.(mjs|sh)/i, /konfig\.(mjs|sh)/i, /inti\.(mjs|sh)/i, /rilis-cek\.(sh|mjs)/i,
   /(^|\/)konfigurasi(\/|$)/i, /handoff\/audit/i, /(^|\/)\.sesi(\/|$)/i, /(^|\/)\d{4}-\d{2}\.jsonl$/i,
-  /\.claude(?![\w/])|\.claude\/(?!worktrees\/)/i, /(^|\/)settings(\.local)?\.json/i, /\.mcp\.json/i,
+  // ~/.claude: hanya bagian yang memengaruhi izin/identitas — bukan tool-results, plans, memory, worktrees
+  /\.claude\/?$/i, /\.claude\.json/i, /\.claude\/(agents|skills|commands|shell-snapshots|hooks)(\/|$)/i, /\.claude\/projects\/.*\.jsonl$/i,
+  /(^|\/)settings(\.local)?\.json/i, /\.mcp\.json/i,
   /(^|\/)\.(zshrc|zshenv|zprofile|bashrc|bash_profile|profile)$/i,
 ];
 /** Program yang menghapus/memindah/menimpa: menyebut folder LELUHUR berkas terlindung (mv bin x, rm -rf handoff, rm -rf ~)
@@ -531,7 +533,7 @@ function daftarTerlindung() {
     akar: semua([ROOT]), claude: semua([path.join(HOME, ".claude")]) });
 }
 /** Alasan bila path absolut `p` terlindung. `ikuti` = periksa juga tujuan symlink & hardlink (alat tulis berkas).
- *  `leluhur` = "dalam" (folder leluhur di dalam RudisOne atau ~/.claude) | "semua" (leluhur mana pun) | false. */
+ *  `leluhur` = "semua" (folder leluhur mana pun — untuk program perusak) | false. */
 export function sebabTerlindung(p, ikuti = true, leluhur = false) {
   const L = daftarTerlindung();
   const calon = [normal(p)];
@@ -562,7 +564,8 @@ export function sebabTerlindung(p, ikuti = true, leluhur = false) {
 function analisisBash(input, K) {
   const cmd = String(input.tool_input?.command ?? "");
   const u = urai(cmd);
-  const ctx = { cwd: input.cwd, adaCd: false };
+  // cwd berjalan: `cd <path harfiah>` diikuti; cd lain (variabel, -, pushd/popd) → tidak diketahui (null)
+  const ctx = { cwd: input.cwd ? rumah(input.cwd) : HOME };
   const hasil = [];
   let sebut = null, ubahSendiri = false;
   for (const s of u.segmen) {
@@ -574,16 +577,22 @@ function analisisBash(input, K) {
     const kandidat = [...s.kata.filter((_, i) => i !== iProg).map((x) => x.nilai), ...s.alih.map((a) => a.target)];
     const prog = path.basename(s.kata[iProg]?.nilai ?? "");
     const gitSub = prog === "git" ? s.kata.slice(iProg + 1).map((x) => x.nilai).filter((x, i, a) => !x.startsWith("-") && !["-C", "-c", "--git-dir", "--work-tree"].includes(a[i - 1]))[0] : null;
-    const leluhur = PROGRAM_PERUSAK.test(prog) || (gitSub && GIT_PERUSAK.test(gitSub)) ? "semua" : "dalam";
+    // folder induk berkas terlindung hanya relevan bagi program yang menghapus/memindah/menimpa (rm -rf handoff, mv <ROOT>)
+    const leluhur = PROGRAM_PERUSAK.test(prog) || (gitSub && GIT_PERUSAK.test(gitSub)) ? "semua" : false;
     for (const k0 of kandidat) {
       if (!k0 || sebut) continue;
       for (const k of new Set([k0, k0.slice(k0.lastIndexOf("=") + 1), k0.replace(/^-[A-Za-z]/, "")])) {
         if (!k || sebut) continue;
         if (NAMA_TERLINDUNG.some((r) => r.test(k))) sebut = k;
-        else if (!ctx.adaCd && !k.startsWith("-")) sebut = sebabTerlindung(path.resolve(rumah(input.cwd || HOME), rumah(k)), false, leluhur);
+        else if (ctx.cwd && !k.startsWith("-")) sebut = sebabTerlindung(path.resolve(ctx.cwd, rumah(k)), false, leluhur);
       }
     }
-    if (/^(cd|pushd|popd)$/.test(s.kata[0]?.nilai ?? "")) ctx.adaCd = true;
+    const k0 = s.kata[0]?.nilai ?? "";
+    if (/^(pushd|popd)$/.test(k0)) ctx.cwd = null;
+    else if (k0 === "cd") {
+      const arg = s.kata.slice(1).filter((x) => !/^-[LP]$/.test(x.nilai));
+      ctx.cwd = arg.length === 0 ? HOME : arg.length === 1 && ctx.cwd && !arg[0].ekspansi && !arg[0].glob && arg[0].nilai !== "-" ? path.resolve(ctx.cwd, rumah(arg[0].nilai)) : null;
+    }
   }
   const aksi = hasil.flatMap((h) => h.aksi ?? []);
   const aman = !u.kompleks && !u.ekspansi && hasil.length > 0 && hasil.every((h) => h.aman);
