@@ -91,8 +91,9 @@ bug selalu **mulai** dengan tracer (baris 5); perbaikannya pindah ke baris 3/4 b
 
 Brief TL → SE/BSA menambah: mode, jalur, path spec, `<NNN-slug>`, `T###`, koneksi DB dev/snapshot, keputusan alat gerbang (§6).
 Kontrak, tabel, dan modul final dipindah ke pemiliknya (`packages/api-contract/`, `knowledge/API.md`, `DATABASE.md`,
-`MODULE_MAP.md`) di fase Polish; folder `specs/<NNN>-<slug>/` lalu diberi `FROZEN.md` (tanggal + pemilik) dan beku sejak merge
-ke main — redesign/revamp/upgrade tidak menyuntingnya; perubahan masuk ke pemilik atau spec baru.
+`MODULE_MAP.md`) di fase Polish; di branch tugas folder `specs/<NNN>-<slug>/` diberi `FROZEN.md` (tanggal + pemilik) **sebelum serah-terima**; folder itu
+beku sejak merge ke main (tidak ada yang menulis langsung ke main) — redesign/revamp/upgrade/postmortem tidak menyuntingnya;
+perubahan masuk ke pemilik atau spec baru.
 
 ## 6. Gerbang mutu (baseline / kode baru)
 - **Baseline per alat** direkam pada HEAD checkpoint sebelum perubahan pertama; sha + alat dicatat di kartu (`baseline`).
@@ -130,7 +131,7 @@ Proyek lain memakai nama yang sama:
 
 | Artefak | Letak | Git |
 |---|---|---|
-| Spec per fitur | `specs/<NNN>-<slug>/` (`--number <NNN> --short-name <slug>` dari tabel perakitan/register) | di-commit; beku + `FROZEN.md` sesudah merge |
+| Spec per fitur | `specs/<NNN>-<slug>/` (`--number <NNN> --short-name <slug>` dari tabel perakitan/register) | di-commit; `FROZEN.md` ditulis di branch tugas sebelum serah, beku sejak merge |
 | Perkakas RUDIS | `.rudis/` (memory/constitution.md, templates, scripts) | di-commit; `.rudis/audit.log`, `.rudis/audit/`, `.rudis/.current-feature` di-gitignore |
 | Peta as-is | `docs/brd/` — turunan, tidak pernah pemilik | di-commit |
 | Catatan run | `docs/revamp/<slug>/`, `docs/upgrades/` | di-commit (default TL platform, menunggu konfirmasi pengguna) |
