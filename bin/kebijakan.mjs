@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 // Kebijakan akses & batas kewenangan RudisOne — hook PreToolUse/PostToolUse Claude Code + perintah pengelola.
-// Hanya aktif di sesi RudisOne (COO, divisi, tim engineering); sesi pribadi pengguna dilewati tanpa jejak.
+// Jenjang & akses jabatan hanya di sesi RudisOne (COO, divisi, tim engineering); sesi pribadi dilewati tanpa jejak,
+// KECUALI berkas terlindung (kebijakan, konfigurasi, audit, settings, transkrip, rc shell) → ask di sesi mana pun.
 // Jenjang 1 (baca) → allow · jenjang 2 (rutin, syarat terpenuhi) → allow · jenjang 3 / di luar akses jabatan → ask.
-// Aksi yang tidak dikenali dibiarkan ke alur izin biasa. Galat apa pun → keluar 0 tanpa keputusan (gagal terbuka).
+// `allow` hanya bila SETIAP bagian perintah majemuk dikenali aman; sisanya ke alur izin biasa. Jabatan dari folder AWAL
+// sesi / pesan pertama, bukan folder sekarang. Galat apa pun → keluar 0 tanpa keputusan (gagal terbuka) — larangan
+// keras milik permissions.deny + sandbox di settings pengguna (skills/rudis-operasi › Berkas terlindung).
 // Pemakaian:
 //   hook            dibaca Claude Code (stdin JSON) — dipasang oleh `pasang`
 //   pasang [--ya]   tambahkan hook ke ~/.claude/settings.json (dijalankan PENGGUNA; cadangan dibuat dulu)
@@ -13,6 +16,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import readline from "node:readline";
+import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { bacaKonfig, FILE_KONFIG } from "./konfig.mjs";
 
@@ -43,7 +47,13 @@ export function muatKebijakan(file = FILE_KEBIJAKAN, fileKonfig = FILE_KONFIG) {
 }
 
 // ---------- pengenal sesi RudisOne & jabatan ----------
+// Jabatan TIDAK dibaca dari `input.cwd` (ikut `cd`, dok hooks) maupun dari berkas yang bisa ditulis agent sebagai sumber
+// kebenaran (T-20261030-5 · F2). Sumbernya: folder AWAL sesi (`cwd` baris pertama transkrip), pembuka peran di pesan
+// PERTAMA sesi, atau pemanggilan /rudisone yang posisinya di transkrip diverifikasi ulang setiap kali dipakai.
 const WORKTREE = { lead: "tech-lead", bsa: "business-systems-analyst", se1: "software-engineer", se2: "software-engineer" };
+const POLA_WORKTREE = /\/\.claude\/worktrees\/r[1-3]-(lead|bsa|se1|se2)-[^/]+(?:\/|$)/;
+const PENANDA_RUDISONE = "<command-name>/rudisone</command-name>";
+let TULIS_CACHE = true;   // `uji` tidak menulis cache sesi
 
 function petaNama(K) {
   const m = [];
@@ -56,11 +66,88 @@ function jabatanDariTeks(teks, K) {
   return petaNama(K).find(([n]) => m[1].trim() === n)?.[1] ?? null;
 }
 function teksPesanPengguna(baris) {
-  if (baris?.type !== "user" || !baris.message) return "";
+  if (baris?.type !== "user" || !baris.message || baris.isMeta) return "";
   const c = baris.message.content;
   if (typeof c === "string") return c;
   if (Array.isArray(c)) return c.filter((b) => b?.type === "text").map((b) => b.text).join("\n");
   return "";
+}
+/** Hanya /rudisone yang DIKETIK pengguna. Pemanggilan Skill oleh model sendiri tidak dihitung (model yang terinjeksi
+ *  bisa menjadikan dirinya COO) — sesi yang memanggil RudisOne lewat bahasa biasa tetap jalan, hanya tanpa jenjang COO. */
+const panggilRudisone = (b) => teksPesanPengguna(b).includes(PENANDA_RUDISONE);
+
+/** Transkrip sesi utama. Untuk subagent, transkrip miliknya (`<sid>/subagents/agent-*.jsonl`) ditulis pemanggilnya
+ *  (prompt) — identitas induk selalu dibaca dari transkrip utama `<sid>.jsonl`. */
+export function transkripInduk(t) {
+  if (!t) return null;
+  const m = String(t).match(/^(.*)\/([^/]+)\/subagents\/[^/]+\.jsonl$/);
+  return m ? `${m[1]}/${m[2]}.jsonl` : String(t);
+}
+
+/** Kepala transkrip: folder awal sesi + pesan pengguna pertama (dibaca sampai keduanya ketemu, maks. 4 MB). */
+function kepalaTranskrip(file) {
+  const out = { cwd: null, pertama: null };
+  let fd; try { fd = fs.openSync(file, "r"); } catch { return out; }
+  try {
+    let pos = 0, sisa = "";
+    const buf = Buffer.alloc(262144);
+    while (pos < 4 * 1048576) {
+      const n = fs.readSync(fd, buf, 0, buf.length, pos);
+      if (n <= 0) break;
+      pos += n;
+      const teks = sisa + buf.toString("utf8", 0, n);
+      const baris = teks.split("\n"); sisa = baris.pop();
+      for (const l of baris) {
+        if (!l.trim()) continue;
+        let b; try { b = JSON.parse(l); } catch { continue; }
+        if (!out.cwd && typeof b.cwd === "string" && b.cwd) out.cwd = b.cwd;
+        if (out.pertama === null) { const t = teksPesanPengguna(b); if (t) out.pertama = t; }
+        if (out.cwd && out.pertama !== null) return out;
+      }
+    }
+    return out;
+  } finally { fs.closeSync(fd); }
+}
+
+/** Satu baris transkrip yang dimulai di `offset` (untuk memverifikasi cache). */
+function barisPada(file, offset) {
+  let fd; try { fd = fs.openSync(file, "r"); } catch { return null; }
+  try {
+    const buf = Buffer.alloc(1048576);
+    const n = fs.readSync(fd, buf, 0, buf.length, offset);
+    const teks = buf.toString("utf8", 0, n), akhir = teks.indexOf("\n");
+    if (akhir < 0) return null;
+    if (offset > 0) { const b1 = Buffer.alloc(1); fs.readSync(fd, b1, 0, 1, offset - 1); if (b1[0] !== 0x0a) return null; }
+    return JSON.parse(teks.slice(0, akhir));
+  } catch { return null; } finally { fs.closeSync(fd); }
+}
+
+/** /rudisone pernah dipanggil di sesi ini? Pemindaian bertahap; cache hanya menyimpan POSISI baris penanda, yang
+ *  dibaca & diperiksa ulang tiap kali — memalsukan cache tidak memberi jabatan (paling jauh menyembunyikannya). */
+function adaRudisone(file, sessionId) {
+  const dirSesi = path.join(DIR_AUDIT, ".sesi");
+  const fileSesi = path.join(dirSesi, `${String(sessionId ?? "x").replace(/[^\w.-]/g, "_")}.json`);
+  let st = { offset: 0, penanda: null };
+  try { const c = JSON.parse(fs.readFileSync(fileSesi, "utf8")); st = { offset: Number(c.offset) || 0, penanda: Number.isInteger(c.penanda) ? c.penanda : null }; } catch { /* sesi baru */ }
+  if (st.penanda !== null && panggilRudisone(barisPada(file, st.penanda))) return true;
+  st.penanda = null;
+  let ukuran = 0;
+  try { ukuran = fs.statSync(file).size; } catch { return false; }
+  if (ukuran < st.offset) st.offset = 0;
+  if (ukuran <= st.offset) return false;
+  const fd = fs.openSync(file, "r");
+  const buf = Buffer.alloc(ukuran - st.offset);
+  fs.readSync(fd, buf, 0, buf.length, st.offset);
+  fs.closeSync(fd);
+  let pos = st.offset;
+  for (const l of buf.toString("utf8").split("\n").slice(0, -1)) {
+    const panjang = Buffer.byteLength(l, "utf8") + 1;
+    if (l.trim()) { let b; try { b = JSON.parse(l); } catch { b = null; } if (b && panggilRudisone(b)) { st.penanda = pos; pos += panjang; break; } }
+    pos += panjang;
+  }
+  st.offset = st.penanda !== null ? st.offset : pos;
+  if (TULIS_CACHE) try { fs.mkdirSync(dirSesi, { recursive: true }); fs.writeFileSync(fileSesi, JSON.stringify(st)); } catch { /* cache opsional */ }
+  return st.penanda !== null;
 }
 
 /** { rudisOne, jabatan [, subagent, induk] } untuk satu panggilan alat.
@@ -76,162 +163,454 @@ export function kenaliSesi(input, K) {
   return kenaliInduk(input, K);
 }
 
-/** { rudisOne, jabatan } sesi (utas utama); transkrip dibaca bertahap dan hasilnya disimpan per sesi. */
-function kenaliInduk(input, K) {
-  const cwd = rumah(input.cwd || "");
-  // Worktree tim didahulukan: worktree repo RudisOne sendiri berada DI DALAM ROOT (.claude/worktrees/r<n>-…) dan
-  // tanpa ini terbaca sebagai COO.
-  const wt0 = cwd.match(/\/\.claude\/worktrees\/r[1-3]-(lead|bsa|se1|se2)-/);
-  if (wt0) return { rudisOne: true, jabatan: WORKTREE[wt0[1]] };
-  if (cwd && di(cwd, ROOT)) {
-    const rel = path.relative(ROOT, path.resolve(cwd)).split(path.sep);
-    const id = rel[0] === "ruang" && K.jabatan[rel[1]] ? rel[1] : "coo";
-    return { rudisOne: true, jabatan: id };
+/** Jabatan menurut folder AWAL sesi (bukan folder sekarang). */
+function jabatanDariFolder(cwd, K) {
+  if (!cwd) return null;
+  const c = rumah(cwd);
+  // Worktree tim didahulukan: worktree repo RudisOne sendiri berada DI DALAM ROOT (.claude/worktrees/r<n>-…).
+  const wt = c.match(POLA_WORKTREE);
+  if (wt) return WORKTREE[wt[1]];
+  if (di(c, ROOT)) {
+    const rel = path.relative(ROOT, path.resolve(c)).split(path.sep);
+    return rel[0] === "ruang" && K.jabatan[rel[1]] ? rel[1] : "coo";
   }
-  const wt = cwd.match(/\/\.claude\/worktrees\/r[1-3]-(lead|bsa|se1|se2)-/);
-  if (wt) return { rudisOne: true, jabatan: WORKTREE[wt[1]] };
-  if (!input.transcript_path || !input.session_id) return { rudisOne: false, jabatan: null };
-
-  const dirSesi = path.join(DIR_AUDIT, ".sesi");
-  const fileSesi = path.join(dirSesi, `${String(input.session_id).replace(/[^\w.-]/g, "_")}.json`);
-  let st = { offset: 0, rudisOne: false, jabatan: null };
-  try { st = { ...st, ...JSON.parse(fs.readFileSync(fileSesi, "utf8")) }; } catch { /* sesi baru */ }
-  if (st.rudisOne && st.jabatan) return { rudisOne: true, jabatan: st.jabatan };   // jabatan sesi tidak berubah
-  let ukuran = 0;
-  try { ukuran = fs.statSync(input.transcript_path).size; } catch { return { rudisOne: st.rudisOne, jabatan: st.jabatan }; }
-  if (ukuran < st.offset) st.offset = 0;
-  if (ukuran > st.offset) {
-    const fd = fs.openSync(input.transcript_path, "r");
-    const buf = Buffer.alloc(ukuran - st.offset);
-    fs.readSync(fd, buf, 0, buf.length, st.offset);
-    fs.closeSync(fd);
-    const teks = buf.toString("utf8");
-    const akhir = teks.lastIndexOf("\n");
-    if (akhir >= 0) {
-      for (const l of teks.slice(0, akhir).split("\n")) {
-        if (!l.trim()) continue;
-        let b; try { b = JSON.parse(l); } catch { continue; }
-        const t = teksPesanPengguna(b);
-        const j = t && jabatanDariTeks(t, K);
-        if (j) { st.rudisOne = true; st.jabatan = j; continue; }
-        const panggilRudisone = t.includes("<command-name>/rudisone</command-name>")
-          || (b.type === "assistant" && Array.isArray(b.message?.content)
-            && b.message.content.some((c) => c?.type === "tool_use" && c.name === "Skill" && c.input?.skill === "rudisone"));
-        if (panggilRudisone && !st.jabatan) { st.rudisOne = true; st.jabatan = "coo"; }
-      }
-      st.offset += Buffer.byteLength(teks.slice(0, akhir + 1), "utf8");
-    }
-    try { fs.mkdirSync(dirSesi, { recursive: true }); fs.writeFileSync(fileSesi, JSON.stringify(st)); } catch { /* cache opsional */ }
-  }
-  return { rudisOne: st.rudisOne, jabatan: st.jabatan };
+  return null;
 }
 
-// ---------- pengurai perintah shell (sadar tanda kutip) ----------
-/** Pecah di &&, ||, ;, |, baris baru di luar kutip. `kompleks` = ada $( … ) atau backtick di luar kutip tunggal. */
-export function pisahSegmen(cmd) {
-  const seg = []; let cur = "", q = null, kompleks = false;
+/** { rudisOne, jabatan, asal } sesi (utas utama). Tanpa transkrip (simulasi `uji`, tes) folder = input.cwd. */
+function kenaliInduk(input, K) {
+  const t = transkripInduk(input.transcript_path);
+  if (!t) {
+    const j = jabatanDariFolder(input.cwd, K);
+    return { rudisOne: !!j, jabatan: j, asal: input.cwd ?? null };
+  }
+  const kepala = kepalaTranskrip(t);
+  const j = jabatanDariFolder(kepala.cwd, K) ?? (kepala.pertama ? jabatanDariTeks(kepala.pertama, K) : null);
+  if (j) return { rudisOne: true, jabatan: j, asal: kepala.cwd };
+  if (adaRudisone(t, input.session_id)) return { rudisOne: true, jabatan: "coo", asal: kepala.cwd };
+  return { rudisOne: false, jabatan: null, asal: kepala.cwd };
+}
+
+// ---------- pengurai perintah shell (sadar tanda kutip, pengalihan, ekspansi) ----------
+const OP_ALIH = ["&>>", "&>", "<<<", "<<-", "<<", ">>", ">|", ">&", "<&", "<>", ">", "<"];
+const AWAL_EKSPANSI = /[A-Za-z0-9_{@*#?$!-]/;
+
+/** Urai perintah: segmen dipisah &&, ||, ;, |, |&, &, baris baru (di luar kutip). Per segmen: teks mentah, kata (kutip
+ *  dibuang; tanda `glob` = *?[{ tanpa kutip, `ekspansi` = $var) dan pengalihan { op, target }.
+ *  `kompleks` = $( ), backtick, $'…', subshell/( ), proses substitusi, here-doc, kutip tak tertutup.
+ *  `ekspansi` = ada $var/${…} di luar kutip tunggal. Pengurai sengaja konservatif: yang ragu → bukan aman. */
+export function urai(cmd) {
+  cmd = String(cmd);
+  const segmen = []; let kompleks = false, ekspansi = false;
+  let seg = { teks: "", kata: [], alih: [] }, w = null, tunggu = null;
+  const kini = () => (w ??= { nilai: "", glob: false, kurawal: false, ekspansi: false });
+  const tutupKata = () => {
+    if (!w) return;
+    if (tunggu) { seg.alih.push({ op: tunggu, target: w.nilai, glob: w.glob, ekspansi: w.ekspansi }); tunggu = null; } else seg.kata.push(w);
+    w = null;
+  };
+  const tutupSeg = () => {
+    tutupKata();
+    if (tunggu) { kompleks = true; seg.alih.push({ op: tunggu, target: "", glob: false, ekspansi: false }); tunggu = null; }
+    seg.teks = seg.teks.trim();
+    if (seg.teks) segmen.push(seg);
+    seg = { teks: "", kata: [], alih: [] };
+  };
   for (let i = 0; i < cmd.length; i++) {
     const c = cmd[i], n = cmd[i + 1];
-    if (q) { if (c === "\\" && q === '"') { cur += c + (n ?? ""); i++; continue; } if (c === q) q = null; if (q !== "'" && (c === "`" || (c === "$" && n === "("))) kompleks = true; cur += c; continue; }
-    if (c === "'" || c === '"') { q = c; cur += c; continue; }
-    if (c === "\\") { cur += c + (n ?? ""); i++; continue; }
-    if (c === "`" || (c === "$" && n === "(")) kompleks = true;
-    if ((c === "&" && n === "&") || (c === "|" && n === "|")) { seg.push(cur); cur = ""; i++; continue; }
-    if (c === ";" || c === "\n" || (c === "|" && n !== "&")) { seg.push(cur); cur = ""; continue; }
-    cur += c;
+    if (c === "'") {
+      const j = cmd.indexOf("'", i + 1), akhir = j < 0 ? cmd.length : j;
+      if (j < 0) kompleks = true;
+      kini().nilai += cmd.slice(i + 1, akhir); seg.teks += cmd.slice(i, akhir + 1); i = akhir; continue;
+    }
+    if (c === '"') {
+      let j = i + 1, v = "";
+      const k = kini();
+      for (; j < cmd.length && cmd[j] !== '"'; j++) {
+        const d = cmd[j], e = cmd[j + 1];
+        if (d === "\\" && e !== undefined) { if (e !== "\n") v += '"\\$`'.includes(e) ? e : d + e; j++; continue; }
+        if (d === "`" || (d === "$" && e === "(")) kompleks = true;
+        else if (d === "$" && e !== undefined && AWAL_EKSPANSI.test(e)) { ekspansi = true; k.ekspansi = true; }
+        v += d;
+      }
+      if (j >= cmd.length) kompleks = true;
+      k.nilai += v; seg.teks += cmd.slice(i, j + 1); i = j; continue;
+    }
+    if (c === "\\") { if (n === "\n") { i++; continue; } if (n !== undefined) { kini().nilai += n; seg.teks += c + n; i++; } continue; }
+    if (c === "$") {
+      if (n === "(" || n === "'" || n === '"') kompleks = true;
+      else if (n !== undefined && AWAL_EKSPANSI.test(n)) { ekspansi = true; kini().ekspansi = true; }
+      kini().nilai += c; seg.teks += c; continue;
+    }
+    if (c === "`") { kompleks = true; kini().nilai += c; seg.teks += c; continue; }
+    if ((c === "&" && n === "&") || (c === "|" && (n === "|" || n === "&"))) { tutupSeg(); i++; continue; }
+    if (c === ";" || c === "\n" || c === "|") { tutupSeg(); continue; }
+    if (c === "&" && n !== ">") { tutupSeg(); continue; }
+    if (c === "(" || c === ")") { kompleks = true; tutupKata(); seg.teks += c; continue; }
+    if (c === ">" || c === "<" || (c === "&" && n === ">")) {
+      let fd = "";
+      if (w && !tunggu && /^\d+$/.test(w.nilai) && /\d$/.test(seg.teks)) { fd = w.nilai; w = null; }
+      tutupKata();
+      if (tunggu) { kompleks = true; tunggu = null; }
+      const op = OP_ALIH.find((o) => cmd.startsWith(o, i));
+      i += op.length - 1;
+      seg.teks += op;
+      if (cmd[i + 1] === "(") kompleks = true;                   // <( ) / >( )
+      if (op === "<<" || op === "<<-") kompleks = true;          // here-doc: isinya bukan perintah yang bisa dinilai
+      tunggu = fd + op;
+      continue;
+    }
+    if (c === " " || c === "\t" || c === "\r") { tutupKata(); seg.teks += c; continue; }
+    if (c === "#" && !w) kompleks = true;                       // komentar: sisa baris tidak terlihat oleh pengurai
+    if ("*?[{".includes(c)) kini().glob = true;
+    if (c === "{") kini().kurawal = true;
+    kini().nilai += c; seg.teks += c;
   }
-  seg.push(cur);
-  return { segmen: seg.map((s) => s.trim()).filter(Boolean), kompleks };
+  if (tunggu || w) tutupKata();
+  tutupSeg();
+  return { segmen, kompleks, ekspansi };
 }
-/** Pecah satu segmen jadi kata, tanda kutip dibuang. */
-export function kata(seg) {
-  const out = []; let cur = "", q = null, ada = false;
-  for (let i = 0; i < seg.length; i++) {
-    const c = seg[i];
-    if (q) { if (c === q) q = null; else if (c === "\\" && q === '"' && i + 1 < seg.length) cur += seg[++i]; else cur += c; continue; }
-    if (c === "'" || c === '"') { q = c; ada = true; continue; }
-    if (c === "\\" && i + 1 < seg.length) { cur += seg[++i]; ada = true; continue; }
-    if (/\s/.test(c)) { if (cur || ada) out.push(cur); cur = ""; ada = false; continue; }
-    cur += c; ada = true;
-  }
-  if (cur || ada) out.push(cur);
-  return out;
+/** Kompatibel lama: teks segmen + kompleks. */
+export function pisahSegmen(cmd) { const u = urai(cmd); return { segmen: u.segmen.map((s) => s.teks), kompleks: u.kompleks }; }
+/** Kata-kata satu perintah, tanda kutip dibuang (pengalihan tidak termasuk). */
+export function kata(seg) { return urai(seg).segmen.flatMap((s) => s.kata.map((x) => x.nilai)); }
+
+/** Pengalihan yang tidak menulis berkas: duplikasi fd, buangan /dev/null|stdout|stderr, baca berkas biasa. */
+function alihAman(a) {
+  if (/^\d*[<>]&$/.test(a.op)) return /^(\d+|-)$/.test(a.target);
+  if (/^(\d*>>?|&>>?|\d*>\|)$/.test(a.op)) return /^\/dev\/(null|stdout|stderr)$/.test(a.target);
+  if (/^\d*<$/.test(a.op)) return !!a.target && !a.glob && !a.ekspansi;
+  return false;   // here-doc, here-string, <>
 }
-const tanpaBuangan = (s) => s.replace(/\d?>\s*\/dev\/null/g, "").replace(/\d?>&\d/g, "");
-const adaTulisBerkas = (s) => />/.test(tanpaBuangan(s).replace(/'[^']*'|"[^"]*"/g, ""));
 
 // ---------- klasifikasi ----------
 const OPSI_SSH_BERNILAI = new Set(["-o", "-p", "-i", "-l", "-F", "-J", "-L", "-R", "-D", "-c", "-m", "-E", "-b", "-S", "-W", "-w", "-O", "-Q", "-B", "-e"]);
+/** Opsi ssh yang tidak menjalankan perintah lokal, tidak menulis berkas, dan tidak membuka terowongan. */
+const OPSI_SSH_AMAN = new Set(["-p", "-l", "-i", "-c", "-m", "-b", "-B", "-e"]);
+const KUNCI_SSH_AMAN = /^(BatchMode|ConnectTimeout|ConnectionAttempts|ServerAliveInterval|ServerAliveCountMax|LogLevel|StrictHostKeyChecking|RequestTTY|Compression|IdentitiesOnly|Port|User)=/i;
+const BENDERA_SSH_AMAN = /^-[TtqvnC46x]+$/;
+
+/** Argumen yang membuat perintah "baca" menulis, menghapus, atau menjalankan perintah lain (lokal maupun server). */
+const ARG_BERBAHAYA = {
+  find: (a) => a.some((x) => /^-(exec|execdir|ok|okdir|delete|fprint0?|fprintf|fls)$/.test(x)),
+  sort: (a) => a.some((x) => /^--(output|temporary-directory|compress-program)/.test(x) || /^-[A-Za-z]*[oT]/.test(x)),
+  uniq: (a) => a.filter((x) => x === "-" || !x.startsWith("-")).length > 1,
+  date: (a) => a.some((x) => x.startsWith("--set") || /^-[uR]*s/.test(x) || /^\d/.test(x)),
+  hostname: (a) => a.some((x) => !/^-([fsdiIaAy]+|-(fqdn|short|domain|ip-address|all-ip-addresses|all-fqdns|long))$/.test(x)),
+  sed: (a) => a.some((x) => /^-[A-Za-z]*[iefsz]|^--(in-place|expression|file|separate|null-data)/.test(x.replace(/^-n/, "-"))),
+  journalctl: (a) => a.some((x) => /^--(vacuum|rotate|flush|relinquish|smart-relinquish|sync|setup-keys|update-catalog|cursor-file)/.test(x)),
+  ss: (a) => a.some((x) => /^--(kill|diag)/.test(x) || /^-[A-Za-z]*[KD]/.test(x)),
+  curl: (a) => curlBerbahaya(a),
+  openssl: (a) => a.some((x) => /^-(out|keyout|writerand|sess_out|keylogfile|msgfile|trace|engine|provider|provider-path|config|CAcreateserial|CAserial)$/.test(x)),
+  jq: (a) => a.some((x) => /\$ENV|\benv\b|input_filename|\$__loc__|\bimport\b|\binclude\b/.test(x) || /^(--rawfile|--slurpfile|--from-file|-f|-L)$/.test(x)),
+};
+/** Khusus lokal: grep rekursif membaca semua berkas (termasuk .env) ke transkrip. */
+const ARG_BERBAHAYA_LOKAL = {
+  grep: (a) => a.some((x) => /^--(recursive|dereference-recursive|directories)/.test(x) || /^-[A-Za-z]*[rRd]/.test(x)),
+};
+
+/** curl hanya dengan opsi dari daftar baca (tidak menulis berkas, tidak mengirim data, tidak membaca config). */
+function curlBerbahaya(a) {
+  const nilaiBuruk = (opsi, v) => (opsi === "o" && v !== "/dev/null") || (opsi === "w" && /%output\{|^@/.test(v)) || (opsi === "H" && v.startsWith("@"));
+  const panjang = { output: "o", "write-out": "w", header: "H", "max-time": "m", "connect-timeout": "m", "user-agent": "A", retry: "m", "retry-delay": "m", "max-redirs": "m", resolve: "m", range: "m" };
+  for (let i = 0; i < a.length; i++) {
+    const x = a[i];
+    if (!x.startsWith("-") || x === "-") { if (!/^https?:\/\//i.test(x)) return true; continue; }   // URL: hanya http(s)
+    if (/^--(silent|show-error|fail|fail-with-body|location|head|insecure|verbose|include|compressed|ipv4|ipv6|http1\.1|http2|no-progress-meter|globoff|no-buffer)$/.test(x)) continue;
+    const pj = x.match(/^--([a-z-]+)(?:=(.*))?$/);
+    if (pj) { if (!(pj[1] in panjang)) return true; const v = pj[2] ?? a[++i] ?? ""; if (nilaiBuruk(panjang[pj[1]], v)) return true; continue; }
+    for (let j = 1; j < x.length; j++) {
+      const c = x[j];
+      if ("sSfLIkvi46".includes(c)) continue;
+      if ("mHAwo".includes(c)) { const v = j + 1 < x.length ? x.slice(j + 1) : a[++i] ?? ""; if (nilaiBuruk(c, v)) return true; break; }
+      return true;
+    }
+  }
+  return false;
+}
+
+/** mysql hanya: opsi koneksi/format dari daftar, satu -e, satu pernyataan baca (tanpa INTO OUTFILE, \, ;). */
+function mysqlBaca(w) {
+  let stmt = null, posisional = 0;
+  for (let i = 1; i < w.length; i++) {
+    const x = w[i];
+    if (x === "-e" || x === "--execute") { if (stmt !== null) return false; stmt = w[++i] ?? ""; continue; }
+    if (/^--execute=/.test(x)) { if (stmt !== null) return false; stmt = x.slice(10); continue; }
+    if (/^-e./.test(x)) { if (stmt !== null) return false; stmt = x.slice(2); continue; }
+    if (/^-[uhPD]$/.test(x)) { i++; continue; }
+    if (/^-[uhPD]\S+$/.test(x)) continue;
+    if (/^--(user|host|port|database|default-character-set|connect-timeout)=/.test(x)) continue;
+    if (/^-[NBstEr]+$/.test(x) || /^--(batch|skip-column-names|silent|table|vertical|raw|column-names|no-auto-rehash|skip-pager)$/.test(x)) continue;
+    if (!x.startsWith("-")) { if (++posisional > 1) return false; continue; }
+    return false;
+  }
+  if (stmt === null) return false;
+  const q = stmt.trim().replace(/;\s*$/, "");
+  // komentar (/* */, #, --) bisa memisahkan kata kunci: INTO/**/OUTFILE — ditolak seluruhnya
+  return /^(select|show|describe|desc|explain)\b/i.test(q) && !/[;\\#]|\/\*|--/.test(q)
+    && !/\binto\s+(outfile|dumpfile)\b/i.test(q) && !/\b(load_file|sleep|benchmark|get_lock)\s*\(/i.test(q);
+}
+
+/** Perintah lokal yang boleh ikut dalam perintah majemuk yang diloloskan — irisan daftar bawaan hook dengan
+ *  `lokal_netral` di kebijakan (berkas kebijakan hanya bisa MENYEMPITKAN). awk/sed/tee/git tidak pernah netral. */
+// printf -v dan test -v mengevaluasi subskrip array (zsh/bash) → bisa menjalankan $( ) — tidak termasuk.
+const BACA_LOKAL = new Set(["cd", "echo", "tail", "head", "grep", "wc", "sort", "uniq", "cut", "jq", "cat", "ls", "tr", "sleep", "true", "date", "column"]);
+const RAHASIA_LOKAL = "|\\.ssh(/|$)|\\.aws|\\.netrc|\\.npmrc|\\.pypirc|\\.git-credentials|\\.config/gh|\\.gnupg|\\.docker/config|keychain|\\.kube/config";
+/** Program dipanggil dengan nama telanjang (dicari di PATH) atau dari folder sistem — bukan ./gh atau /tmp/x/cat. */
+const programStandar = (prog) => !prog.includes("/") || /^\/(usr\/(local\/)?bin|bin|usr\/sbin|sbin|opt\/homebrew\/bin)\/[^/]+$/.test(prog);
 
 function klasifikasiRemote(remote, prov, K) {
-  const { segmen, kompleks } = pisahSegmen(remote);
+  const u = urai(remote);
+  const teks = u.segmen.map((s) => s.teks);
   const rahasia = new RegExp(K.ssh_rahasia, "i");
   // deploy: cd ~/<app> && ./deploy.sh <sha40>
-  if (segmen.length === 2 && /^cd\s+\S+$/.test(segmen[0])) {
-    const sha = segmen[1].match(/^\.\/deploy\.sh\s+([0-9a-f]{40})$/)?.[1];
+  if (teks.length === 2 && /^cd\s+\S+$/.test(teks[0])) {
+    const sha = teks[1].match(/^\.\/deploy\.sh\s+([0-9a-f]{40})$/)?.[1];
     if (sha) {
-      const folder = segmen[0].split(/\s+/)[1].replace(/\/$/, "");
+      const folder = teks[0].split(/\s+/)[1].replace(/\/$/, "");
       const app = Object.entries(K.aplikasi ?? {}).find(([, a]) => a.server === prov && a.folder.replace(/\/$/, "") === folder);
       return [{ kemampuan: "server", jenjang: 2, jenis: "deploy", aksi: `deploy ${app?.[0] ?? folder} ${sha.slice(0, 12)}`, app: app?.[0] ?? null, repo: app?.[1].repo ?? null, sha }];
     }
   }
   const baca = K.ssh_baca.map((r) => new RegExp(r));
-  const tidakBaca = segmen.filter((s) => {
-    if (/\bsudo\b/.test(s) || adaTulisBerkas(s) || rahasia.test(s)) return true;
-    if (/^mysql\b/.test(s)) return !/\s-e\s*(['"]?)\s*(select|show|describe|explain)\b[^;]*;?\s*\1\s*$/i.test(s.replace(/^mysql\b.*?(\s-e)/, " -e"));
-    return !baca.some((r) => r.test(s));
+  const tidakBaca = u.segmen.filter((s) => {
+    const t = s.teks;
+    if (/\bsudo\b/.test(t) || rahasia.test(t) || rahasia.test(s.kata.map((x) => x.nilai).join(" ")) || !s.alih.every(alihAman)) return true;
+    const w = s.kata.map((x) => x.nilai);
+    if (!w.length || /^[A-Za-z_][A-Za-z0-9_]*=/.test(w[0])) return true;
+    if (s.kata.some((x) => x.kurawal)) return true;                    // {a,b} diekspansi shell server menjadi opsi
+    if (path.basename(w[0]) === "mysql") return !mysqlBaca(w);
+    if (ARG_BERBAHAYA[path.basename(w[0])]?.(w.slice(1))) return true;
+    return !baca.some((r) => r.test(t));
   });
-  const kemampuan = segmen.some((s) => /^mysql\b/.test(s)) ? "data-produksi" : "server";
-  if (!tidakBaca.length && !kompleks) return [{ kemampuan, jenjang: 1, aksi: `baca server ${prov}` }];
-  return [{ kemampuan, jenjang: 3, aksi: `perintah server ${prov}: ${(tidakBaca[0] ?? remote).slice(0, 80)}` }];
+  const kemampuan = u.segmen.some((s) => path.basename(s.kata[0]?.nilai ?? "") === "mysql") ? "data-produksi" : "server";
+  if (!tidakBaca.length && !u.kompleks && !u.ekspansi) return [{ kemampuan, jenjang: 1, aksi: `baca server ${prov}` }];
+  return [{ kemampuan, jenjang: 3, aksi: `perintah server ${prov}: ${(tidakBaca[0]?.teks ?? remote).slice(0, 80)}` }];
 }
 
-function klasifikasiSegmen(seg, K) {
-  const w = kata(seg);
-  while (w.length && /^[A-Za-z_][A-Za-z0-9_]*=/.test(w[0])) w.shift();
-  if (!w.length) return { jenis: "netral" };
-  const prog = w[0], nama = path.basename(prog);
-  // perkakas baca RudisOne (bin/<nama>.sh)
+/** gh/glab api: menulis bila ada field/input, atau metode selain GET — termasuk gugus opsi pendek (-iX DELETE, -if). */
+function apiTulis(t) {
+  for (let i = 0; i < t.length; i++) {
+    const x = t[i];
+    if (/^--(field|raw-field|input|form)(=|$)/.test(x)) return true;
+    if (/^--method(=|$)/.test(x)) { const v = x.includes("=") ? x.slice(9) : t[++i]; if (!/^get$/i.test(v ?? "")) return true; continue; }
+    if (/^-[A-Za-z]/.test(x)) {
+      for (let j = 1; j < x.length; j++) {
+        const c = x[j];
+        if (c === "f" || c === "F") return true;
+        if (c === "X") { const v = j + 1 < x.length ? x.slice(j + 1) : t[++i]; if (!/^get$/i.test(v ?? "")) return true; break; }
+        if ("HpqtR".includes(c)) { if (j + 1 >= x.length) i++; break; }   // opsi bernilai: sisanya nilai
+        if (!/[A-Za-z]/.test(c)) break;
+      }
+    }
+  }
+  return false;
+}
+
+/** Skrip perkakas RudisOne yang asli: path absolut di ROOT/bin, atau bin/… relatif terhadap folder sekarang tanpa
+ *  `cd` sebelumnya di perintah yang sama (cd /tmp/x && bin/server-cek.sh tidak lagi dikenali). */
+function perkakasAsli(prog, ctx) {
+  const p = rumah(prog);
+  let abs;
+  if (path.isAbsolute(p)) abs = p;
+  else if (/^(\.\/)?bin\/[^/]+$/.test(p) && !ctx.adaCd && ctx.cwd) abs = path.resolve(rumah(ctx.cwd), p);
+  else return false;
+  return path.dirname(path.resolve(abs)) === path.join(ROOT, "bin");
+}
+
+const BACA_SENDIRI = { kebijakan: ["uji", "cek", "tampil", "audit"], konfig: ["cek", "get", "host", "playbook", "contoh"], inti: ["hook", "cek", "uji"] };
+
+/** Satu segmen → { aksi?, aman, bacaSendiri? }. `aman` = segmen ini boleh ikut dalam perintah yang diloloskan. */
+function klasifikasiSegmen(s, K, ctx) {
+  const w = [...s.kata];
+  const prefiks = [];
+  while (w.length && /^[A-Za-z_][A-Za-z0-9_]*=/.test(w[0].nilai)) prefiks.push(w.shift().nilai);
+  const alihOk = s.alih.every(alihAman);
+  if (!w.length) return { aman: false };
+  const prog = w[0].nilai, nama = path.basename(prog), args = w.slice(1).map((x) => x.nilai);
+  // glob & {a,b} diekspansi shell lokal SEBELUM program melihatnya (bisa menyisipkan opsi/perintah) → tidak pernah aman
+  const dasarAman = alihOk && !prefiks.length && !w.some((x) => x.ekspansi || x.glob);
+  // perkakas RudisOne (bin/<nama>.sh)
   const pk = nama.match(/^([a-z-]+)\.sh$/)?.[1];
-  if (pk && K.perkakas_baca[pk] && (prog.startsWith("bin/") || prog.startsWith("./bin/") || rumah(prog).startsWith(path.join(ROOT, "bin")))) {
-    return { jenis: "infra", aksi: [{ kemampuan: K.perkakas_baca[pk], jenjang: 1, aksi: `perkakas ${pk}`, perkakas: pk, args: w.slice(1) }] };
+  if (pk && perkakasAsli(prog, ctx)) {
+    if (K.perkakas_baca[pk]) return { aman: dasarAman, aksi: [{ kemampuan: K.perkakas_baca[pk], jenjang: 1, aksi: `perkakas ${pk}`, perkakas: pk, args }] };
+    const sub = K.perkakas_perintah?.[pk]?.[args[0]];
+    if (sub) return { aman: dasarAman, aksi: [{ kemampuan: sub, jenjang: 1, aksi: `perkakas ${pk} ${args.slice(0, 2).join(" ")}`, perkakas: pk, args }] };
   }
-  // subperintah perkakas yang boleh untuk jabatan tertentu (mis. perkakas.sh pastikan <skill>)
-  const sub = pk && K.perkakas_perintah?.[pk]?.[w[1]];
-  if (sub && (prog.startsWith("bin/") || prog.startsWith("./bin/") || rumah(prog).startsWith(path.join(ROOT, "bin")))) {
-    return { jenis: "infra", aksi: [{ kemampuan: sub, jenjang: 1, aksi: `perkakas ${pk} ${w.slice(1, 3).join(" ")}`, perkakas: pk, args: w.slice(1) }] };
+  // pengelola kebijakan/konfigurasi/inti: subperintah baca tidak dianggap mengubah berkas terlindung (tidak pernah allow)
+  const skrip = (nama === "node" ? path.basename(args[0] ?? "") : nama).match(/^(kebijakan|konfig|inti)\.(sh|mjs)$/)?.[1];
+  if (skrip) {
+    const subp = nama === "node" ? args[1] : args[0];
+    return { aman: false, ubahSendiri: !BACA_SENDIRI[skrip].includes(subp),
+      bacaSendiri: BACA_SENDIRI[skrip].includes(subp) && alihOk && prefiks.every((p) => /^RUDISONE_[A-Z_]+=/.test(p)) };
   }
+  if (!programStandar(prog)) return { aman: false };
   const cli = Object.entries(K.penyedia).find(([, p]) => p.jenis === "cli" && p.perintah === nama);
   if (cli) {
     const [id, p] = cli;
-    let rest = w.slice(1);
+    let rest = args;
     if (nama === "git") while (rest.length && rest[0].startsWith("-")) rest = rest.slice(["-C", "-c", "--git-dir", "--work-tree"].includes(rest[0]) ? 2 : 1);
-    const args = rest.join(" ");
-    if (p.tulis_remote) return new RegExp(p.tulis_remote).test(args)
-      ? { jenis: "infra", aksi: [{ kemampuan: p.kemampuan, jenjang: 3, aksi: `${nama} ${args}`.slice(0, 80) }] } : { jenis: "netral" };
-    if ((p.baca ?? []).some((r) => new RegExp(r).test(args))) return { jenis: "infra", aksi: [{ kemampuan: p.kemampuan, jenjang: 1, aksi: `${id} baca` }] };
-    if (p.api_baca && /^api\s/.test(args) && !/(^|\s)(-X|--method)\s*(POST|PUT|PATCH|DELETE)|(^|\s)(-f|-F|--field|--raw-field|--input)(\s|=|$)/i.test(args))
-      return { jenis: "infra", aksi: [{ kemampuan: p.kemampuan, jenjang: 1, aksi: `${id} api baca` }] };
-    if (p.repo_buat_privat && new RegExp(p.repo_buat_privat).test(args))
-      return { jenis: "infra", aksi: [{ kemampuan: p.kemampuan, jenjang: 2, jenis: "repo_buat_privat", aksi: `${id} buat repo privat ${w[3] ?? ""}`.trim() }] };
-    return { jenis: "infra", aksi: [{ kemampuan: p.kemampuan, jenjang: 3, aksi: `${nama} ${args}`.slice(0, 80) }] };
+    const a = rest.join(" ");
+    // git: hanya push yang urusan kebijakan (jenjang 3); git lain = perintah lokal biasa, TIDAK pernah ikut diloloskan.
+    if (p.tulis_remote) return new RegExp(p.tulis_remote).test(a)
+      ? { aman: false, aksi: [{ kemampuan: p.kemampuan, jenjang: 3, aksi: `${nama} ${a}`.slice(0, 80) }] } : { aman: false };
+    const amanCli = dasarAman && !/\$ENV|\benv\b|--show-token/.test(a) && !(rest[0] === "auth" && rest.some((x) => /^-[A-Za-z]*t/.test(x)));
+    if ((p.baca ?? []).some((r) => new RegExp(r).test(a))) return { aman: amanCli, aksi: [{ kemampuan: p.kemampuan, jenjang: 1, aksi: `${id} baca` }] };
+    if (p.api_baca && rest[0] === "api" && !apiTulis(rest.slice(1)))
+      return { aman: amanCli, aksi: [{ kemampuan: p.kemampuan, jenjang: 1, aksi: `${id} api baca` }] };
+    if (p.repo_buat_privat && new RegExp(p.repo_buat_privat).test(a))
+      return { aman: dasarAman, aksi: [{ kemampuan: p.kemampuan, jenjang: 2, jenis: "repo_buat_privat", aksi: `${id} buat repo privat ${rest[2] ?? ""}`.trim() }] };
+    return { aman: false, aksi: [{ kemampuan: p.kemampuan, jenjang: 3, aksi: `${nama} ${a}`.slice(0, 80) }] };
   }
   if (nama === "ssh" || nama === "scp" || nama === "rsync") {
     const hostDikenal = (h) => Object.entries(K.penyedia).find(([, p]) => p.jenis === "ssh" && p.host === h);
     if (nama === "ssh") {
-      let i = 1;
-      for (; i < w.length; i++) { if (OPSI_SSH_BERNILAI.has(w[i])) { i++; continue; } if (!w[i].startsWith("-")) break; }
-      const host = (w[i] ?? "").replace(/^[^@]*@/, ""), prov = hostDikenal(host);
-      if (!prov) return { jenis: "lain" };
-      const remote = w.slice(i + 1).join(" ");
-      if (!remote) return { jenis: "infra", aksi: [{ kemampuan: "server", jenjang: 3, aksi: `sesi shell interaktif ${host}` }] };
-      return { jenis: "infra", aksi: klasifikasiRemote(remote, prov[0], K) };
+      let i = 1, opsiAman = true;
+      const v = w.map((x) => x.nilai);
+      for (; i < v.length; i++) {
+        const o = v[i];
+        if (!o.startsWith("-")) break;
+        if (o === "-o" || /^-o./.test(o)) { const kv = o === "-o" ? v[++i] ?? "" : o.slice(2); if (!KUNCI_SSH_AMAN.test(kv)) opsiAman = false; continue; }
+        if (OPSI_SSH_BERNILAI.has(o)) { if (!OPSI_SSH_AMAN.has(o)) opsiAman = false; i++; continue; }
+        if (!BENDERA_SSH_AMAN.test(o)) opsiAman = false;
+      }
+      const host = (v[i] ?? "").replace(/^[^@]*@/, ""), prov = hostDikenal(host);
+      if (!prov) return { aman: false };
+      if (!opsiAman) return { aman: false, aksi: [{ kemampuan: "server", jenjang: 3, aksi: `ssh ${host} dengan opsi di luar daftar aman` }] };
+      const remote = v.slice(i + 1).join(" ");
+      if (!remote) return { aman: false, aksi: [{ kemampuan: "server", jenjang: 3, aksi: `sesi shell interaktif ${host}` }] };
+      return { aman: dasarAman, aksi: klasifikasiRemote(remote, prov[0], K) };
     }
-    const prov = w.slice(1).map((a) => a.match(/^(?:[^@\s]+@)?([^:\s/]+):/)?.[1]).map((h) => h && hostDikenal(h)).find(Boolean);
-    return prov ? { jenis: "infra", aksi: [{ kemampuan: "server", jenjang: 3, aksi: `${nama} ke ${prov[1].host}` }] } : { jenis: "lain" };
+    const prov = args.map((a) => a.match(/^(?:[^@\s]+@)?([^:\s/]+):/)?.[1]).map((h) => h && hostDikenal(h)).find(Boolean);
+    return prov ? { aman: false, aksi: [{ kemampuan: "server", jenjang: 3, aksi: `${nama} ke ${prov[1].host}` }] } : { aman: false };
   }
-  if (K.lokal_netral.includes(nama) && !(nama === "sed" && w.includes("-i"))) return { jenis: "netral" };
-  return { jenis: "lain" };
+  if (BACA_LOKAL.has(nama) && K.lokal_netral.includes(nama)) {
+    const rahasia = new RegExp(K.ssh_rahasia + RAHASIA_LOKAL, "i");
+    const dibaca = [...args, ...s.alih.filter((a) => a.op.endsWith("<")).map((a) => a.target)];
+    const aman = dasarAman
+      && !dibaca.some((x) => rahasia.test(x))
+      && !ARG_BERBAHAYA[nama]?.(args) && !ARG_BERBAHAYA_LOKAL[nama]?.(args);
+    return { aman };
+  }
+  return { aman: false };
+}
+
+// ---------- berkas terlindung (T-20261030-5 · F2) ----------
+// Berkas yang menentukan keputusan hook ini atau izin Claude Code. Write/Edit/MultiEdit/NotebookEdit ke sana, dan
+// perintah Bash yang menyebutnya tetapi tidak sepenuhnya baca, SELALU "ask" — di semua sesi. Batas: Bash yang
+// menyamarkan path (variabel, glob, base64, skrip) tidak terlihat; penegakan kerasnya permissions.deny + sandbox
+// (skills/rudis-operasi › Berkas terlindung).
+const NAMA_TERLINDUNG = [
+  /kebijakan-akses\.json/i, /kebijakan\.(mjs|sh)/i, /konfig\.(mjs|sh)/i, /inti\.(mjs|sh)/i, /rilis-cek\.(sh|mjs)/i,
+  /(^|\/)konfigurasi(\/|$)/i, /handoff\/audit/i, /(^|\/)\.sesi(\/|$)/i, /(^|\/)\d{4}-\d{2}\.jsonl$/i,
+  /\.claude(?![\w/])|\.claude\/(?!worktrees\/)/i, /(^|\/)settings(\.local)?\.json/i, /\.mcp\.json/i,
+  /(^|\/)\.(zshrc|zshenv|zprofile|bashrc|bash_profile|profile)$/i,
+];
+/** Program yang menghapus/memindah/menimpa: menyebut folder LELUHUR berkas terlindung (mv bin x, rm -rf handoff, rm -rf ~)
+ *  juga terlindung. git hanya untuk subperintah yang menimpa berkas kerja. */
+const PROGRAM_PERUSAK = /^(rm|rmdir|mv|cp|ln|chmod|chown|chflags|truncate|dd|rsync|install|unlink|trash|ditto|tar|unzip)$/;
+const GIT_PERUSAK = /^(checkout|restore|reset|clean|rm|mv|stash|apply|am|merge|pull|rebase|switch|worktree|read-tree|checkout-index)$/;
+// Sistem berkas macOS/Windows tidak membedakan huruf besar-kecil: ~/.ZSHRC = ~/.zshrc.
+const LIPAT = process.platform === "darwin" || process.platform === "win32";
+// /System/Volumes/Data/<path> (firmlink macOS) = <path>; /.vol/<dev>/<ino> membuka berkas lewat nomor inode.
+const normal = (p) => { const r = path.resolve(p).replace(/^\/System\/Volumes\/Data(?=\/)/i, ""); return LIPAT ? r.toLowerCase() : r; };
+const dalam = (a, b) => a === b || a.startsWith(b.endsWith(path.sep) ? b : b + path.sep);
+function asli(p) {
+  try { return fs.realpathSync.native(p); } catch { /* belum ada */ }
+  try { return path.join(fs.realpathSync.native(path.dirname(p)), path.basename(p)); } catch { return null; }
+}
+let _terlindung = null;
+function daftarTerlindung() {
+  if (_terlindung) return _terlindung;
+  const berkas = [path.join(ROOT, "kebijakan-akses.json"), FILE_KEBIJAKAN, INI, FILE_KONFIG, path.join(HOME, ".claude.json"),
+    ...[".zshrc", ".zshenv", ".zprofile", ".bashrc", ".bash_profile", ".profile"].map((f) => path.join(HOME, f))];
+  const folder = [path.join(ROOT, "bin"), path.join(ROOT, "konfigurasi"), path.join(ROOT, "agen"), path.join(ROOT, "skills"), DIR_AUDIT,
+    ...["shell-snapshots", "agents", "skills", "commands"].map((f) => path.join(HOME, ".claude", f))];
+  const semua = (xs) => [...new Set(xs.flatMap((x) => [path.resolve(x), asli(x)].filter(Boolean)).map(normal))];
+  return (_terlindung = { berkas: semua(berkas), folder: semua(folder), proyek: semua([path.join(HOME, ".claude", "projects")]),
+    akar: semua([ROOT]), claude: semua([path.join(HOME, ".claude")]) });
+}
+/** Alasan bila path absolut `p` terlindung. `ikuti` = periksa juga tujuan symlink & hardlink (alat tulis berkas).
+ *  `leluhur` = "dalam" (folder leluhur di dalam RudisOne atau ~/.claude) | "semua" (leluhur mana pun) | false. */
+export function sebabTerlindung(p, ikuti = true, leluhur = false) {
+  const L = daftarTerlindung();
+  const calon = [normal(p)];
+  if (ikuti) { const r = asli(p); if (r && !calon.includes(normal(r))) calon.push(normal(r)); }
+  for (const c of calon) {
+    if (/^\/\.vol(\/|$)/.test(c)) return `path inode ${c}`;
+    if (L.berkas.includes(c)) return `berkas kebijakan/konfigurasi ${c}`;
+    const d = L.folder.find((f) => dalam(c, f));
+    if (d) return `folder terlindung ${d}`;
+    if (/\/\.claude\/settings[^/]*\.json$/i.test(c) || /\/\.mcp\.json$/i.test(c)) return `settings Claude Code ${c}`;
+    if (L.proyek.some((f) => dalam(c, f)) && c.endsWith(".jsonl")) return `transkrip sesi ${c}`;
+    if (leluhur) {
+      const sasaran = [...L.berkas, ...L.folder, ...L.proyek];
+      const boleh = leluhur === "semua" || L.akar.some((r) => c !== r && dalam(c, r)) || L.claude.some((r) => dalam(c, r));
+      if (boleh && sasaran.some((t) => t !== c && dalam(t, c))) return `folder induk berkas terlindung ${c}`;
+    }
+  }
+  if (ikuti) {
+    try {
+      const st = fs.statSync(p);
+      if (st.nlink > 1) for (const f of L.berkas) { try { const s2 = fs.statSync(f); if (s2.ino === st.ino && s2.dev === st.dev) return `hardlink ke ${f}`; } catch { /* tidak ada */ } }
+    } catch { /* belum ada */ }
+  }
+  return null;
+}
+
+/** Analisis lengkap satu perintah Bash. */
+function analisisBash(input, K) {
+  const cmd = String(input.tool_input?.command ?? "");
+  const u = urai(cmd);
+  const ctx = { cwd: input.cwd, adaCd: false };
+  const hasil = [];
+  let sebut = null, ubahSendiri = false;
+  for (const s of u.segmen) {
+    const h = klasifikasiSegmen(s, K, ctx);
+    hasil.push(h);
+    if (h.ubahSendiri) ubahSendiri = true;
+    // semua kata kecuali nama program (menjalankan bin/<x>.sh bukan mengubahnya) + target pengalihan
+    const iProg = s.kata.findIndex((x) => !/^[A-Za-z_][A-Za-z0-9_]*=/.test(x.nilai));
+    const kandidat = [...s.kata.filter((_, i) => i !== iProg).map((x) => x.nilai), ...s.alih.map((a) => a.target)];
+    const prog = path.basename(s.kata[iProg]?.nilai ?? "");
+    const gitSub = prog === "git" ? s.kata.slice(iProg + 1).map((x) => x.nilai).filter((x, i, a) => !x.startsWith("-") && !["-C", "-c", "--git-dir", "--work-tree"].includes(a[i - 1]))[0] : null;
+    const leluhur = PROGRAM_PERUSAK.test(prog) || (gitSub && GIT_PERUSAK.test(gitSub)) ? "semua" : "dalam";
+    for (const k0 of kandidat) {
+      if (!k0 || sebut) continue;
+      for (const k of new Set([k0, k0.slice(k0.lastIndexOf("=") + 1), k0.replace(/^-[A-Za-z]/, "")])) {
+        if (!k || sebut) continue;
+        if (NAMA_TERLINDUNG.some((r) => r.test(k))) sebut = k;
+        else if (!ctx.adaCd && !k.startsWith("-")) sebut = sebabTerlindung(path.resolve(rumah(input.cwd || HOME), rumah(k)), false, leluhur);
+      }
+    }
+    if (/^(cd|pushd|popd)$/.test(s.kata[0]?.nilai ?? "")) ctx.adaCd = true;
+  }
+  const aksi = hasil.flatMap((h) => h.aksi ?? []);
+  const aman = !u.kompleks && !u.ekspansi && hasil.length > 0 && hasil.every((h) => h.aman);
+  // Menyebut berkas terlindung hanya boleh lolos bila SETIAP bagian perintah dikenali baca.
+  const bacaSaja = !u.kompleks && !u.ekspansi && hasil.every((h) => h.aman || h.bacaSendiri);
+  const terlindung = ubahSendiri ? "pengelola kebijakan/hook (pasang, lepas, …)" : sebut && !bacaSaja ? sebut : null;
+  return { aksi, aman, terlindung, ringkasan: cmd };
+}
+
+const ALAT_TULIS = new Set(["Write", "Edit", "MultiEdit", "NotebookEdit"]);
+
+/** Semua aksi infrastruktur dalam satu panggilan alat + apakah SEMUA bagiannya dikenali aman + berkas terlindung. */
+export function klasifikasi(input, K) {
+  if (input.tool_name === "Bash") {
+    const a = analisisBash(input, K);
+    return { aksi: a.aksi, dipahami: a.aman, terlindung: a.terlindung, ringkasan: a.ringkasan };
+  }
+  if (ALAT_TULIS.has(input.tool_name)) {
+    const f = input.tool_input?.file_path ?? input.tool_input?.notebook_path;
+    const sebab = f ? sebabTerlindung(path.resolve(rumah(input.cwd || HOME), rumah(f)), true) : null;
+    return { aksi: [], dipahami: false, terlindung: sebab, ringkasan: `${input.tool_name} ${f ?? ""}` };
+  }
+  if (String(input.tool_name).startsWith("mcp__")) {
+    const aksi = klasifikasiMcp(input.tool_name, input.tool_input, K) ?? [];
+    return { aksi, dipahami: true, terlindung: null, ringkasan: `${input.tool_name} ${JSON.stringify(input.tool_input ?? {})}` };
+  }
+  return { aksi: [], dipahami: false, terlindung: null, ringkasan: "" };
 }
 
 function klasifikasiMcp(toolName, input, K) {
@@ -257,22 +636,6 @@ function dnsTambahSah(params, K) {
   const a = K.jenjang2.dns_tambah;
   if (!params?.domain || params.overwrite === true || !Array.isArray(params.zone) || !params.zone.length) return false;
   return params.zone.every((z) => a.tipe.includes(z?.type) && typeof z?.name === "string" && !a.nama_dilarang.includes(z.name.trim()) && !z.name.includes("*"));
-}
-
-/** Semua aksi infrastruktur dalam satu panggilan alat + apakah panggilan itu sepenuhnya dipahami. */
-export function klasifikasi(input, K) {
-  if (input.tool_name === "Bash") {
-    const cmd = String(input.tool_input?.command ?? "");
-    const { segmen, kompleks } = pisahSegmen(cmd);
-    const hasil = segmen.map((s) => klasifikasiSegmen(s, K));
-    const aksi = hasil.flatMap((h) => h.aksi ?? []);
-    return { aksi, dipahami: !kompleks && hasil.every((h) => h.jenis !== "lain"), ringkasan: cmd };
-  }
-  if (String(input.tool_name).startsWith("mcp__")) {
-    const aksi = klasifikasiMcp(input.tool_name, input.tool_input, K) ?? [];
-    return { aksi, dipahami: true, ringkasan: `${input.tool_name} ${JSON.stringify(input.tool_input ?? {})}` };
-  }
-  return { aksi: [], dipahami: false, ringkasan: "" };
 }
 
 // ---------- audit ----------
@@ -307,18 +670,34 @@ function tugasTerakhir(transcript) {
 }
 
 // ---------- keputusan ----------
+const RILIS_CEK = process.env.RUDISONE_RILIS_CEK || path.join(ROOT, "bin", "rilis-cek.sh");
+/** Syarat deploy jenjang 2: catatan rilis-cek "SIAP DEPLOY" ≤ N jam DAN pemeriksaan ulang langsung saat ini (GitHub
+ *  lewat bin/rilis-cek.sh). Catatan audit bisa ditulis agent sendiri, jadi tidak pernah cukup sendirian (F2). Galat,
+ *  timeout, atau belum siap → ditanya. */
 function rilisSiap(repo, sha, K) {
   if (!repo || !sha) return false;
   const batas = Date.now() - (K.jenjang2.deploy.rilis_cek_maks_jam ?? 24) * 3600e3;
-  return bacaAudit().some((r) => r.jenis === "rilis-cek" && r.hasil === "SIAP DEPLOY" && r.repo?.toLowerCase() === repo.toLowerCase()
+  const tercatat = bacaAudit().some((r) => r.jenis === "rilis-cek" && r.hasil === "SIAP DEPLOY" && r.repo?.toLowerCase() === repo.toLowerCase()
     && r.sha && r.sha.length >= 7 && (sha.startsWith(r.sha) || r.sha.startsWith(sha)) && Date.parse(r.waktu) >= batas);
+  if (!tercatat) return false;
+  try {
+    const out = execFileSync(RILIS_CEK, [repo, sha], { timeout: 20000, stdio: ["ignore", "pipe", "ignore"] }).toString();
+    return /Hasil: SIAP DEPLOY/.test(out);
+  } catch { return false; }
 }
 
-/** { keputusan: "allow" | "ask" | null, alasan } — null = biarkan alur izin biasa. */
+/** { keputusan: "allow" | "ask" | null, alasan } — null = biarkan alur izin biasa.
+ *  `allow` hanya bila SETIAP bagian panggilan dikenali aman (F1); berkas terlindung selalu `ask` di sesi mana pun (F2). */
 export function putuskan(input, K) {
+  const k = klasifikasi(input, K);
+  if (k.terlindung) {
+    const sesi0 = kenaliSesi(input, K);
+    return { keputusan: "ask", alasan: `RudisOne · berkas terlindung: ${k.terlindung} — mengubah kebijakan/izin/audit adalah keputusan pemilik`, sesi: sesi0, aksi: k.aksi };
+  }
+  if (ALAT_TULIS.has(input.tool_name)) return { keputusan: null, alasan: "bukan berkas terlindung", sesi: null };
   const sesi = kenaliSesi(input, K);
   if (!sesi.rudisOne) return { keputusan: null, alasan: "bukan sesi RudisOne", sesi };
-  const { aksi, dipahami } = klasifikasi(input, K);
+  const { aksi, dipahami } = k;
   if (!aksi.length) return { keputusan: null, alasan: "bukan aksi infrastruktur", sesi };
   const nama = sesi.jabatan ? K.jabatan[sesi.jabatan]?.nama ?? sesi.jabatan : "jabatan tak dikenal";
   const tanya = [];
@@ -335,29 +714,31 @@ export function putuskan(input, K) {
     if (a.jenjang === 2) {
       const aturan = K.jenjang2[a.jenis];
       if (!aturan || !sesi.jabatan || !aturan.jabatan.includes(sesi.jabatan)) { tanya.push(`${a.aksi} — jenjang 2 bukan wewenang ${nama}`); continue; }
+      if (!dipahami) { tanya.push(`${a.aksi} — jenjang 2 digandeng perintah yang tidak dikenali`); continue; }
       if (a.jenis === "deploy" && !a.app) { tanya.push(`${a.aksi} — app belum terdaftar di kebijakan`); continue; }
-      if (a.jenis === "deploy" && !rilisSiap(a.repo, a.sha, K)) { tanya.push(`${a.aksi} — belum ada rilis-cek "SIAP DEPLOY" untuk sha ini dalam ${K.jenjang2.deploy.rilis_cek_maks_jam} jam`); continue; }
+      if (a.jenis === "deploy" && !rilisSiap(a.repo, a.sha, K)) { tanya.push(`${a.aksi} — rilis-cek "SIAP DEPLOY" belum tercatat dalam ${K.jenjang2.deploy.rilis_cek_maks_jam} jam atau pemeriksaan ulang langsung tidak SIAP`); continue; }
     }
   }
   if (tanya.length) return { keputusan: "ask", alasan: `RudisOne · ${nama}: ${tanya.join("; ")}`, sesi, aksi };
-  if (!dipahami) return { keputusan: null, alasan: "perintah memuat bagian yang tidak dikenali kebijakan", sesi, aksi };
+  if (!dipahami) return { keputusan: null, alasan: "perintah memuat bagian yang tidak dikenali aman oleh kebijakan", sesi, aksi };
   const maks = Math.max(...aksi.map((a) => a.jenjang));
   return { keputusan: "allow", alasan: `RudisOne · ${nama}: jenjang ${maks} — ${aksi.map((a) => a.aksi).join("; ")}`, sesi, aksi };
 }
 
 export function catatSesudah(input, K) {
+  const { aksi, ringkasan, terlindung } = klasifikasi(input, K);
   const sesi = kenaliSesi(input, K);
-  if (!sesi.rudisOne) return null;
-  const { aksi, ringkasan } = klasifikasi(input, K);
+  if (!sesi.rudisOne && !terlindung) return null;
   const out = typeof input.tool_response === "string" ? input.tool_response : String(input.tool_response?.stdout ?? JSON.stringify(input.tool_response ?? ""));
   const rekam = [];
-  for (const a of aksi) {
+  if (terlindung) rekam.push({ jenis: "berkas-terlindung", jenjang: 3, kemampuan: null, aksi: `ubah ${terlindung}`.slice(0, 200) });
+  if (sesi.rudisOne) for (const a of aksi) {
     if (a.perkakas === "rilis-cek") rekam.push({ jenis: "rilis-cek", repo: a.args?.[0] ?? null, sha: a.args?.[1] ?? null, hasil: /SIAP DEPLOY/.test(out) ? "SIAP DEPLOY" : "belum siap" });
     else if (a.jenjang >= 2) rekam.push({ jenis: a.jenis ?? "ubah", jenjang: a.jenjang, kemampuan: a.kemampuan, aksi: a.aksi });
   }
   if (!rekam.length) return null;
   const dasar = { waktu: new Date().toISOString(), sesi: input.session_id ?? null, jabatan: sesi.jabatan,
-    ...(sesi.subagent ? { subagent: input.agent_type, induk: sesi.induk } : {}), tugas: tugasTerakhir(input.transcript_path),
+    ...(sesi.subagent ? { subagent: input.agent_type, induk: sesi.induk } : {}), tugas: tugasTerakhir(transkripInduk(input.transcript_path)),
     cwd: input.cwd ?? null, alat: input.tool_name, ringkasan: samarkan(ringkasan) };
   fs.mkdirSync(DIR_AUDIT, { recursive: true });
   for (const r of rekam) fs.appendFileSync(berkasAudit(), `${JSON.stringify({ ...dasar, ...r })}\n`);
@@ -365,14 +746,21 @@ export function catatSesudah(input, K) {
 }
 
 // ---------- pemasangan (dijalankan pengguna) ----------
+/** Alat yang dilihat hook. Write/Edit/MultiEdit/NotebookEdit sejak T-20261030-5 (berkas terlindung). */
+export const MATCHER = "^(Bash|Write|Edit|MultiEdit|NotebookEdit|mcp__.*)$";
 function entriHook() {
-  return { matcher: "^(Bash|mcp__.*)$", hooks: [{ type: "command", command: `"${process.execPath}" "${INI}" hook`, timeout: 10 }] };
+  return { matcher: MATCHER, hooks: [{ type: "command", command: `"${process.execPath}" "${INI}" hook`, timeout: 30 }] };
 }
 const milikKita = (e) => (e?.hooks ?? []).some((h) => String(h?.command ?? "").includes(PENANDA));
 function bacaSettings() { try { return JSON.parse(fs.readFileSync(SETTINGS, "utf8")); } catch (e) { if (e.code === "ENOENT") return {}; throw e; } }
 export function statusPasang() {
   const s = bacaSettings();
   return ["PreToolUse", "PostToolUse"].every((ev) => (s.hooks?.[ev] ?? []).some(milikKita));
+}
+/** Terpasang dengan matcher versi ini? (versi lama tidak melihat Write/Edit → berkas terlindung tidak dijaga) */
+export function matcherMutakhir() {
+  const s = bacaSettings();
+  return ["PreToolUse", "PostToolUse"].every((ev) => (s.hooks?.[ev] ?? []).filter(milikKita).every((e) => e.matcher === MATCHER));
 }
 /** Program yang dipanggil hook masih ada? (mis. Node versi nvm lama dihapus → hook diam-diam tidak berjalan). */
 export function programHookAda() {
@@ -394,8 +782,8 @@ function tulisSettings(s) {
 }
 async function pasang(opsi) {
   const s = bacaSettings();
-  if (statusPasang()) { console.log(`Sudah terpasang di ${SETTINGS}.`); return 0; }
-  console.log(`Akan menambahkan hook kebijakan RudisOne ke ${SETTINGS} (PreToolUse + PostToolUse, alat: Bash & MCP):`);
+  if (statusPasang() && matcherMutakhir()) { console.log(`Sudah terpasang di ${SETTINGS}.`); return 0; }
+  console.log(`Akan menambahkan hook kebijakan RudisOne ke ${SETTINGS} (PreToolUse + PostToolUse, alat: Bash, Write/Edit & MCP):`);
   console.log(`  ${entriHook().hooks[0].command}`);
   console.log("Hook hanya bertindak di sesi RudisOne; sesi pribadi dilewati. Aturan izin yang sudah ada tidak diubah; cadangan settings dibuat dulu.");
   if (!(await konfirmasi("Pasang sekarang?", opsi))) { console.log("Dibatalkan."); return 1; }
@@ -452,6 +840,7 @@ export async function main(argv) {
   if (perintah === "cek") {
     let ok = statusPasang();
     console.log(ok ? `Kebijakan RudisOne terpasang di ${SETTINGS}.` : `Belum terpasang — pemilik menjalankan: ${ROOT}/bin/kebijakan.sh pasang`);
+    if (ok && !matcherMutakhir()) { ok = false; console.log(`Hook terpasang versi lama (matcher tanpa Write/Edit — berkas terlindung tidak dijaga) — pemilik menjalankan: ${ROOT}/bin/kebijakan.sh pasang`); }
     if (ok && !programHookAda()) { ok = false; console.log(`Program yang dipanggil hook tidak ditemukan (Node berpindah versi?) — pemilik menjalankan ulang: ${ROOT}/bin/kebijakan.sh lepas && ${ROOT}/bin/kebijakan.sh pasang`); }
     try { muatKebijakan(); console.log(`Kebijakan terbaca: ${FILE_KEBIJAKAN}`); } catch (e) { console.log(`Kebijakan rusak: ${e.message}`); return 1; }
     return ok ? 0 : 1;
@@ -463,6 +852,7 @@ export async function main(argv) {
     return 0;
   }
   if (perintah === "uji") {
+    TULIS_CACHE = false;
     const input = { session_id: "uji", hook_event_name: "PreToolUse", ...JSON.parse(opsi[0] ?? "{}") };
     const p = putuskan(input, muatKebijakan());
     console.log(JSON.stringify({ keputusan: p.keputusan ?? "alur biasa", alasan: p.alasan, jabatan: p.sesi?.jabatan ?? null, aksi: p.aksi ?? [] }, null, 2));
