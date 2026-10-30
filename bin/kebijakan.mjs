@@ -513,6 +513,12 @@ function klasifikasiSegmen(s, K, ctx) {
   // Backend sesi cli (T-20261030-11): dikenali dari nama program di path mana pun (agar pembatasan tidak lolos lewat
   // ~/.local/bin/claude), tetapi hanya boleh ikut diloloskan bila dipanggil dengan nama standar.
   if (nama === "claude") { const h = klasifikasiClaude(args, dasarAman, ctx); return programStandar(prog) ? h : { ...h, aman: false }; }
+  // lewat pembungkus (timeout 60 claude …, nohup/env/command/exec/nice claude …): pembatasan tetap berlaku, tidak pernah allow
+  if (/^(g?timeout|nohup|command|exec|nice|env|stdbuf|time|caffeinate)$/.test(nama)) {
+    let i = 1;
+    while (i < w.length && /^(-.*|\d+(\.\d+)?[smhd]?|[A-Za-z_][A-Za-z0-9_]*=.*)$/.test(w[i].nilai)) i++;
+    if (path.basename(w[i]?.nilai ?? "") === "claude") return { ...klasifikasiClaude(w.slice(i + 1).map((x) => x.nilai), false, ctx), aman: false };
+  }
   if (!programStandar(prog)) return { aman: false };
   const cli = Object.entries(K.penyedia).find(([, p]) => p.jenis === "cli" && p.perintah === nama);
   if (cli) {
@@ -577,6 +583,8 @@ function klasifikasiClaude(args, dasarAman, ctx) {
   const tanya = (aksi) => ({ aman: false, aksi: [{ kemampuan: "sesi", jenjang: 3, aksi }] });
   if (args.some((a) => BAHAYA_CLAUDE.test(a))) return tanya("claude dengan bypassPermissions — tidak pernah dipakai RudisOne");
   const sub = args[0] ?? "";
+  // bantuan (--help/-h) dicetak lalu keluar tanpa menjalankan subperintah → baca
+  if (args.some((a) => a === "--help" || a === "-h")) return { aman: dasarAman, aksi: [{ kemampuan: "sesi-baca", jenjang: 1, aksi: "claude --help" }] };
   if (sub === "rm") return tanya("claude rm — menghapus sesi & worktree; RudisOne memakai claude stop");
   if (sub === "attach") return tanya("claude attach — dijalankan pengguna di terminalnya sendiri");
   if (sub === "agents") {
@@ -620,7 +628,7 @@ function klasifikasiClaude(args, dasarAman, ctx) {
     if (pengaman !== 1 || settingsLain) return tanya("claude --bg tanpa tepat satu --settings pengaman RudisOne (konfigurasi/sesi-cli.settings.json)");
     return { aman: dasarAman, aksi: [{ kemampuan: "sesi", jenjang: 1, aksi: `bentuk sesi latar ${namaSesi}`.trim() }] };
   }
-  if (args.length === 1 && ["--version", "-v", "--help", "-h"].includes(sub))
+  if (args.length === 1 && ["--version", "-v"].includes(sub))
     return { aman: dasarAman, aksi: [{ kemampuan: "sesi-baca", jenjang: 1, aksi: "claude --version" }] };
   return { aman: false };
 }

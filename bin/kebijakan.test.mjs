@@ -812,13 +812,14 @@ test("backend sesi cli: claude --bg/stop/kill/respawn/logs hanya COO; rm/attach/
   for (const c of [bg(), bg(" --permission-mode auto"), `claude --bg --resume 9b2c7e57-fcca --settings ${PENGAMAN} 'lanjutkan'`,
     `claude --bg -n rudis-sysadmin --settings=${PENGAMAN} 'Siap?'`, "claude agents --json", "claude agents --json --all",
     `claude agents --json --cwd ${ROOT}`, "claude stop r1-lead-toko", "claude kill 9b2c7e57", "claude respawn r1-lead-toko",
-    "claude logs r1-lead-toko", "claude --version", `${ROOT}/bin/sesi.sh daftar`.replace(ROOT, path.join(SINI, ".."))]) {
+    "claude logs r1-lead-toko", "claude --version", "claude stop --help", "claude attach --help", "claude rm -h", `${ROOT}/bin/sesi.sh daftar`.replace(ROOT, path.join(SINI, ".."))]) {
     if (c.includes("bin/sesi.sh")) continue;   // perkakas asli hanya dari ROOT uji — diuji di bawah lewat kep != ask
     assert.equal(kep(bash(COO, c)), "allow", c);
   }
   // jabatan lain: bentuk/hentikan → ask; baca status → allow
   for (const cwd of [TL, SA, RA]) {
-    for (const c of [bg(), "claude stop r1-lead-toko", "claude respawn x", "claude logs x"]) assert.equal(kep(bash(cwd, c)), "ask", `${cwd}: ${c}`);
+    for (const c of [bg(), "claude stop r1-lead-toko", "claude respawn x", "claude logs x", `timeout 60 ${bg().split(" && ")[1]}`])
+      assert.equal(kep(bash(cwd, c)), "ask", `${cwd}: ${c}`);
     assert.equal(kep(bash(cwd, "claude agents --json --all")), "allow", cwd);
   }
   // selalu ditanya, juga untuk COO
@@ -830,14 +831,15 @@ test("backend sesi cli: claude --bg/stop/kill/respawn/logs hanya COO; rm/attach/
     `claude --bg --settings '{"worktree":{"bgIsolation":"auto"}}' --settings ${PENGAMAN} 'x'`,
     bg(" --add-dir /"), bg(" --mcp-config /tmp/m.json"), bg(" --allowedTools Bash"), bg(" --plugin-dir /tmp/p"), bg(" --system-prompt x"),
     bg(" --permission-mode"), `claude --bg --settings ${PENGAMAN} satu dua`, `~/.local/bin/claude rm x`,
-    `gh pr list && claude rm x`, `claude agents --json; claude rm x`]) {
+    `gh pr list && claude rm x`, `claude agents --json; claude rm x`, "timeout 60 claude --bg --name x 'tanpa pengaman'",
+    "nohup claude rm x", "env A=1 claude --dangerously-skip-permissions", "command claude attach x"]) {
     assert.equal(kep(bash(COO, c)), "ask", c);
   }
   // red-team: tidak pernah allow (alur biasa atau ask) bila digandeng/disamarkan
   for (const c of [`${bg()} && rm -rf /tmp/x`, `${bg()}; git push`, `claude --bg --settings ${PENGAMAN} "$(cat /tmp/p)"`,
     `claude --bg --settings ${PENGAMAN} "\`id\`"`, `X=1 ${bg()}`, `${bg()} > /tmp/out`, `claude --bg --settings $F 'x'`,
     `/tmp/claude --bg --settings ${PENGAMAN} 'x'`, `claude --bg --settings ${PENGAMAN} 'x' | sh`, "claude agents", "claude agents --json --settings x",
-    `cd $D && claude --bg --settings ${path.relative(ROOT, PENGAMAN)} 'x'`, "claude -p hai", "claude"]) {
+    `cd $D && claude --bg --settings ${path.relative(ROOT, PENGAMAN)} 'x'`, "claude -p hai", "claude", `timeout 60 ${bg()}`]) {
     assert.notEqual(kep(bash(COO, c)), "allow", c);
   }
   // pengaman relatif dari folder yang diketahui tetap dikenali
