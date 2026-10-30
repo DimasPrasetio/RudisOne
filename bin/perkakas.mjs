@@ -14,9 +14,12 @@
 //   --segera abaikan jeda 30 menit antar-fetch · --paksa jangan menunda walau ada tugas Engineering berjalan
 // Exit: 0 siap · 1 perlu perhatian (kerja tetap lanjut dengan versi yang ada) · 3 argumen salah
 // Override (uji): RUDISONE_LOKAL_<ID> (mis. RUDISONE_LOKAL_RUDIS_SDD) mengganti `lokal` satu entri;
-//   RUDISONE_KEYCHAIN_BIN mengganti `security`; RUDISONE_UVX_BIN mengganti `uvx`.
-// PAT repo privat (entri ber-`auth`) tidak pernah dicetak, ditulis ke berkas, atau masuk argumen: git memanggil
-//   bin/perkakas.sh sebagai GIT_ASKPASS, dan skrip itu membaca Keychain sendiri.
+//   RUDISONE_KEYCHAIN_BIN mengganti `security`; RUDISONE_UVX_BIN mengganti `uvx`; RUDISONE_OS mengganti
+//   process.platform (darwin → Keychain, lainnya → berkas rahasia); RUDISONE_RAHASIA_DIR mengganti folder berkas rahasia.
+// PAT repo privat (entri ber-`auth`) tidak pernah dicetak, masuk repo, atau masuk argumen. Penyimpannya per OS:
+//   macOS → Keychain (`security`); Linux/WSL2 → berkas 0600 di ~/.config/rudisone/rahasia/<layanan> (folder 0700),
+//   diisi pengguna lewat `bin/perkakas.sh pat <layanan>` (PAT diketik saat diminta). git memanggil bin/perkakas.sh
+//   sebagai GIT_ASKPASS, dan skrip itu membaca penyimpan itu sendiri.
 import { spawnSync } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -34,6 +37,12 @@ const STATE = process.env.RUDISONE_PERKAKAS_STATE || path.join(ROOT, "handoff", 
 const JEDA_FETCH_MS = 30 * 60 * 1000;
 const ASKPASS = path.join(ROOT, "bin", "perkakas.sh");
 const binKeychain = () => process.env.RUDISONE_KEYCHAIN_BIN || "security";
+/** macOS memakai Keychain; Linux & WSL2 memakai berkas rahasia (libsecret umumnya tidak berjalan di WSL/headless). */
+export const pakaiKeychain = () => (process.env.RUDISONE_OS || process.platform) === "darwin";
+export const dirRahasia = () => process.env.RUDISONE_RAHASIA_DIR
+  || path.join(process.env.XDG_CONFIG_HOME || path.join(os.homedir(), ".config"), "rudisone", "rahasia");
+const berkasRahasia = (layanan) => path.join(dirRahasia(), layanan);
+const tampilPath = (p) => (p.startsWith(`${os.homedir()}/`) ? `~${p.slice(os.homedir().length)}` : p);
 
 const rumah = (p) => p.replace(/^~(?=\/|$)/, os.homedir());
 
@@ -54,37 +63,54 @@ function bacaManifest() {
   return m;
 }
 
-// ---- Keychain (macOS `security`) --------------------------------------------------------------------------------
+// ---- Penyimpan PAT: Keychain (macOS `security`) · berkas rahasia 0600 (Linux/WSL2) ----------------------------------
 
-/** Apakah layanan Keychain ada — tanpa membaca nilainya. */
-export function adaDiKeychain(layanan) {
+/** Berkas rahasia sah: berkas biasa, berisi, dan tidak bisa dibaca grup/orang lain (mode lebih longgar → diabaikan). */
+function berkasRahasiaSah(layanan) {
+  try { const st = fs.statSync(berkasRahasia(layanan)); return st.isFile() && st.size > 0 && (st.mode & 0o077) === 0; }
+  catch { return false; }
+}
+/** Apakah PAT layanan ada — tanpa membaca nilainya. */
+export function adaPat(layanan) {
+  if (!pakaiKeychain()) return berkasRahasiaSah(layanan);
   return spawnSync(binKeychain(), ["find-generic-password", "-s", layanan], { stdio: "ignore", timeout: 15_000 }).status === 0;
 }
 /** Nilai PAT, hanya untuk lingkungan proses anak (GL_TOKEN rudis); null bila tidak ada. */
-function bacaKeychain(layanan) {
+function bacaPat(layanan) {
+  if (!pakaiKeychain()) {
+    if (!berkasRahasiaSah(layanan)) return null;
+    const v = fs.readFileSync(berkasRahasia(layanan), "utf8").split(/\r?\n/)[0];
+    return v || null;
+  }
   const r = spawnSync(binKeychain(), ["find-generic-password", "-s", layanan, "-w"],
     { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: 15_000 });
   return r.status === 0 && r.stdout.trim() ? r.stdout.replace(/\r?\n$/, "") : null;
 }
-/** Perintah untuk pengguna: `-w` di akhir tanpa nilai → `security` meminta PAT secara interaktif. */
-export const perintahKeychain = (layanan, perbarui = false) =>
-  `security add-generic-password${perbarui ? " -U" : ""} -s ${layanan} -a "$USER" -w`;
+/** Nama penyimpan untuk pesan, mis. "Keychain (rudisone-rudis-sdd)". */
+export const namaPenyimpan = (layanan) => (pakaiKeychain() ? `Keychain (${layanan})`
+  : `berkas rahasia (${tampilPath(berkasRahasia(layanan))}, mode 0600)`);
+/** Perintah untuk pengguna; PAT selalu diketik saat diminta, tidak pernah di argumen.
+ *  macOS: `-w` di akhir tanpa nilai → `security` meminta PAT. Linux/WSL2: `bin/perkakas.sh pat` membaca tanpa gema. */
+export const perintahPat = (layanan, perbarui = false) => (pakaiKeychain()
+  ? `security add-generic-password${perbarui ? " -U" : ""} -s ${layanan} -a "$USER" -w`
+  : `${tampilPath(ASKPASS)} pat ${layanan}`);
 
-/** Argumen + env git untuk entri ber-`auth`. PAT ada di Keychain → helper kredensial pengguna dimatikan untuk
+/** Argumen + env git untuk entri ber-`auth`. PAT ada di penyimpannya → helper kredensial pengguna dimatikan untuk
  *  perintah itu (tidak ada yang tersimpan) dan git meminta PAT ke bin/perkakas.sh (mode GIT_ASKPASS). PAT belum
  *  ada → git biasa (helper kredensial milik pengguna bila ada, tanpa prompt). */
 function aksesGit(t) {
   const layanan = t.auth?.keychain;
-  if (!layanan || !adaDiKeychain(layanan)) return { pat: false, args: [], env: {} };
+  if (!layanan || !adaPat(layanan)) return { pat: false, args: [], env: {} };
   return { pat: true, args: ["-c", "credential.helper="],
-    env: { GIT_ASKPASS: ASKPASS, RUDISONE_ASKPASS_LAYANAN: layanan, RUDISONE_ASKPASS_PENGGUNA: t.auth.pengguna || "oauth2" } };
+    env: { GIT_ASKPASS: ASKPASS, RUDISONE_ASKPASS_LAYANAN: layanan, RUDISONE_ASKPASS_PENGGUNA: t.auth.pengguna || "oauth2",
+      ...(pakaiKeychain() ? {} : { RUDISONE_ASKPASS_BERKAS: berkasRahasia(layanan) }) } };
 }
 const GALAT_AUTH = /could not read (Username|Password)|Authentication failed|terminal prompts disabled|HTTP Basic: Access denied|returned error: 40[13]|\b40[13]\b/i;
 function pesanAuth(t, akses) {
   const l = t.auth.keychain;
   return akses.pat
-    ? `PAT di Keychain (${l}) ditolak — pengguna memperbaruinya (PAT diketik saat diminta, tidak di argumen): ${perintahKeychain(l, true)}`
-    : `butuh PAT — belum ada di Keychain (${l}). Pengguna menjalankan (PAT GitLab read_repository + read_api, diketik saat diminta, tidak di argumen): ${perintahKeychain(l)}`;
+    ? `PAT di ${namaPenyimpan(l)} ditolak — pengguna memperbaruinya (PAT diketik saat diminta, tidak di argumen): ${perintahPat(l, true)}`
+    : `butuh PAT — belum ada di ${namaPenyimpan(l)}. Pengguna menjalankan (PAT GitLab read_repository + read_api, diketik saat diminta, tidak di argumen): ${perintahPat(l)}`;
 }
 
 /** Apakah sumber CLI masih mendukung flag tanpa-marketplace (gagal tertutup bila tidak). */
@@ -325,7 +351,7 @@ function siapkan(t, { ubah, segera, paksa, sibuk, state }) {
   // 2. CLI (RUDIS SDD): pelarinya ada, dan sumbernya masih mendukung flag tanpa-marketplace
   if (t.jenis === "cli") {
     const v = jalankan(process.env.RUDISONE_UVX_BIN || t.jalan[0], ["--version"]);
-    if (!v.ok) awas(`${nama}: \`${t.jalan[0]}\` tidak ditemukan — pasang uv dulu (mis. \`brew install uv\`)`);
+    if (!v.ok) awas(`${nama}: \`${t.jalan[0]}\` tidak ditemukan — pasang uv dulu (${pakaiKeychain() ? "mis. \`brew install uv\`" : "mis. \`curl -LsSf https://astral.sh/uv/install.sh | sh\`"})`);
     if (t.tanpa_marketplace && !dukungFlag(t, dir)) {
       awas(`${nama}: ${t.tanpa_marketplace.flag} tidak ditemukan di ${t.tanpa_marketplace.bukti} — bin/rudis-sdd.sh menolak ${t.tanpa_marketplace.perintah.join("/")} sampai ditinjau`);
     } else if (v.ok) ok(`${nama}: jalan lewat bin/rudis-sdd.sh (${t.jalan.join(" ").replace("{lokal}", t.lokal)}${t.tanpa_marketplace ? `, ${t.tanpa_marketplace.flag}` : ""})`);
@@ -418,7 +444,7 @@ export function rencanaSdd(t, kebijakan, args, { env = process.env, lokal } = {}
   const catatan = [], argv = [...args];
   if (bantuan) return { argv, glToken: false, catatan };
   if (args.some((a) => a === "--gitlab-token" || a.startsWith("--gitlab-token="))) {
-    return { tolak: `--gitlab-token menaruh PAT di argumen (terlihat di ps/log) — PAT dibaca dari Keychain (${t.auth?.keychain ?? "-"}) sebagai GL_TOKEN` };
+    return { tolak: `--gitlab-token menaruh PAT di argumen (terlihat di ps/log) — PAT dibaca dari ${namaPenyimpan(t.auth?.keychain ?? "-")} sebagai GL_TOKEN` };
   }
   const larang = t.dilarang?.[kunci] ?? t.dilarang?.[p1];
   if (larang) return { tolak: `rudis ${t.dilarang?.[kunci] ? kunci : p1} tidak dipakai di RudisOne — ${larang}` };
@@ -465,9 +491,9 @@ function sdd(manifest, args) {
   const [cmd, ...awal] = t.jalan.map((x) => x.replaceAll("{lokal}", dir));
   const env = { ...process.env };
   if (r.glToken && t.auth?.keychain) {
-    const pat = bacaKeychain(t.auth.keychain);
-    if (pat) { env.GL_TOKEN = pat; r.catatan.push(`GL_TOKEN diambil dari Keychain (${t.auth.keychain}) untuk proses ini saja`); }
-    else r.catatan.push(`GL_TOKEN tidak ada di Keychain (${t.auth.keychain}) — memakai lingkungan sesi bila ada; bila 401, pengguna menjalankan: ${perintahKeychain(t.auth.keychain)}`);
+    const pat = bacaPat(t.auth.keychain);
+    if (pat) { env.GL_TOKEN = pat; r.catatan.push(`GL_TOKEN diambil dari ${namaPenyimpan(t.auth.keychain)} untuk proses ini saja`); }
+    else r.catatan.push(`GL_TOKEN tidak ada di ${namaPenyimpan(t.auth.keychain)} — memakai lingkungan sesi bila ada; bila 401, pengguna menjalankan: ${perintahPat(t.auth.keychain)}`);
   }
   for (const c of r.catatan) console.error(`[sdd] ${c}`);
   console.error(`[sdd] ${[cmd, ...awal, ...r.argv].join(" ")}`);

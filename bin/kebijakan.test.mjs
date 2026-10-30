@@ -299,6 +299,9 @@ test("F1: perintah majemuk tidak pernah allow bila ada bagian yang tidak dikenal
     "gh pr list && echo $'\\x41'",
     // ekspansi variabel & glob membaca rahasia
     "F=.env; gh pr list && cat $F", "gh pr list && cat .e*", "gh pr list && cat .{e,}nv", "gh pr list && cat \"$HOME/.ssh/id_rsa\"",
+    // berkas rahasia PAT Linux/WSL2 (~/.config/rudisone/rahasia/<layanan>) dalam bentuk apa pun
+    "gh pr list && cat ~/.config/rudisone/rahasia/rudisone-rudis-sdd", "gh pr list && cd ~/.config/rudisone && cat rahasia/x",
+    "gh pr list && cat ~/.config/rudisone//rahasia/x", "gh pr list && cat ~/.config/rudisone/./rahasia/x", "gh pr list && cd ~/.config/rudisone/rahasia && cat x",
     // awk/sed/tee/xargs/sh/node/python dalam rangkaian
     "gh pr list | awk '{system($0)}'", "gh pr list | sed 's/x/y/w /tmp/out'", "gh pr list | xargs rm",
     "gh pr list && sh -c 'rm -rf /tmp/x'", "gh pr list && node -e 'require(\"fs\").rmSync(\"/tmp/x\")'",
