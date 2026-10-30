@@ -182,3 +182,16 @@ test("CLI: --json, --atribusi keduanya, ID tidak valid → exit 2", () => {
   assert.match(teksOut, /Metrik T-20261029-1/);
   assert.throws(() => execFileSync(process.execPath, [path.join(SINI, "metrik.mjs"), "tugas", "bukan-id"], { env, stdio: "pipe" }), (e) => e.status === 2);
 });
+
+
+test("X14 beban keputusan: pertanyaan + prompt pengguna + prompt izin dari audit, dibanding anggaran", async () => {
+  const { bebanKeputusan } = await import("./metrik.mjs");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "metrik-audit-"));
+  fs.writeFileSync(path.join(dir, "2026-10.jsonl"), [
+    { tugas: "T-20261030-9", jenjang: 3, aksi: "restart" }, { tugas: "T-20261030-9.1", jenis: "berkas-terlindung", jenjang: 3 },
+    { tugas: "T-20261030-9", jenjang: 1, jenis: "baca-data" }, { tugas: "T-20261030-8", jenjang: 3 }, { tugas: null, jenjang: 3 },
+  ].map((r) => JSON.stringify(r)).join("\n") + "\nrusak\n");
+  const b = bebanKeputusan("T-20261030-9", { ask_user_question: { pertanyaan: 2 }, prompt_pengguna_coo: 1 }, { jenis: "bug", dirAudit: dir });
+  assert.deepEqual([b.pertanyaan, b.prompt_pengguna, b.prompt_izin, b.total, b.anggaran, b.dalam_anggaran], [2, 1, 2, 5, 3, false]);
+  assert.equal(bebanKeputusan("T-20261030-9", {}, { dirAudit: path.join(dir, "tidak-ada") }).total, 0);
+});

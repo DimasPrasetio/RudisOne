@@ -27,6 +27,9 @@ const PROJECTS = () => process.env.RUDISONE_METRIK_PROJECTS || path.join(HOME, "
 const DESKTOP = () => process.env.RUDISONE_METRIK_DESKTOP
   || path.join(HOME, "Library", "Application Support", "Claude", "claude-code-sessions");
 
+const AUDIT = () => process.env.RUDISONE_AUDIT || path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "handoff", "audit");
+/** Anggaran keputusan pengguna per jenis tugas (T-20261030-6 · F8): sasaran, bukan aturan keras. */
+export const ANGGARAN_KEPUTUSAN = { bug: 3, fitur: 5 };
 export const POLA_ID = /T-\d{8}-\d+/;
 const POLA_ID_G = /T-\d{8}-\d+/g;
 export const TANPA_ID = "tanpa-ID";
@@ -431,6 +434,27 @@ export function metrikTugas(id, { sejak = null, atribusi = "dasar", tarif = muat
   return hasil;
 }
 
+/** X14 — beban keputusan pengguna untuk satu tugas: pertanyaan AskUserQuestion + prompt pengguna di sesi COO yang
+ *  teratribusi + prompt izin yang disetujui pemilik (audit: jenjang ≥3 dan berkas-terlindung ber-ID tugas itu).
+ *  Perintah yang harus diketik pengguna sendiri tidak terlihat mesin — dicatat manual di laporan bila ada. */
+export function bebanKeputusan(id, intervensi, { jenis = null, dirAudit = AUDIT() } = {}) {
+  let prompt_izin = 0;
+  try {
+    for (const f of fs.readdirSync(dirAudit).filter((x) => /^\d{4}-\d{2}\.jsonl$/.test(x))) {
+      for (const l of fs.readFileSync(path.join(dirAudit, f), "utf8").split("\n")) {
+        if (!l.trim()) continue;
+        let r; try { r = JSON.parse(l); } catch { continue; }
+        if (r.tugas && String(r.tugas).split(".")[0] === id.split(".")[0] && (r.jenjang >= 3 || r.jenis === "berkas-terlindung")) prompt_izin++;
+      }
+    }
+  } catch { /* audit belum ada */ }
+  const pertanyaan = intervensi?.ask_user_question?.pertanyaan ?? 0;
+  const prompt_pengguna = intervensi?.prompt_pengguna_coo ?? 0;
+  const total = pertanyaan + prompt_pengguna + prompt_izin;
+  const anggaran = jenis ? ANGGARAN_KEPUTUSAN[jenis] ?? null : null;
+  return { pertanyaan, prompt_pengguna, prompt_izin, total, jenis, anggaran, dalam_anggaran: anggaran == null ? null : total <= anggaran };
+}
+
 // ---------- tampilan teks ----------
 const fmt = (n) => (n == null ? "—" : Number(n).toLocaleString("id-ID"));
 const menit = (ms) => (ms == null ? "—" : `${(ms / 60000).toFixed(1)} mnt`);
@@ -443,6 +467,7 @@ export function formatTeks(h) {
   if (t.biaya_usd_perkiraan != null) out.push(`Biaya ≈ USD ${t.biaya_usd_perkiraan.toFixed(2)} (${t.biaya_catatan})`);
   out.push(`Waktu: pertama memuat ID ${t.pertama_memuat_id ?? "—"} · aktivitas ${t.pertama ?? "—"} → ${t.terakhir ?? "—"} (${menit(t.rentang_ms)}) · aktif ${menit(t.waktu_aktif_ms)} (+subagent ${menit(t.waktu_aktif_subagent_ms)})`);
   out.push(`Pesan ber-ID: keluar ${t.pesan.keluar} · masuk lintas sesi ${t.pesan.masuk_lintas_sesi} · revisi (M2) ${t.revisi.total_m2}`);
+  if (t.beban_keputusan) { const b = t.beban_keputusan; out.push(`Beban keputusan (X14): ${b.total} = pertanyaan ${b.pertanyaan} + prompt pengguna ${b.prompt_pengguna} + prompt izin ${b.prompt_izin}${b.anggaran != null ? ` · anggaran ${b.jenis} ≤${b.anggaran} → ${b.dalam_anggaran ? "dalam" : "MELEBIHI"}` : ""}`); }
   out.push(`Intervensi (sesi COO): AskUserQuestion ${t.intervensi.ask_user_question.panggilan} panggilan/${t.intervensi.ask_user_question.pertanyaan} pertanyaan · prompt pengguna ${t.intervensi.prompt_pengguna_coo} · pilih rekomendasi ${t.intervensi.jawaban_pilih_rekomendasi}/${t.intervensi.jawaban}`);
   out.push("");
   out.push("| Sesi | Judul | Giliran | Panggilan | Token total | Subagent | Biaya≈ | Aktif |");
@@ -453,7 +478,7 @@ export function formatTeks(h) {
 
 function main(argv) {
   const [cmd, id, ...rest] = argv;
-  const opsi = { json: false, sejak: null, atribusi: "dasar", tarif: null, biaya: true };
+  const opsi = { json: false, sejak: null, atribusi: "dasar", tarif: null, biaya: true, jenis: null };
   for (let i = 0; i < rest.length; i++) {
     const a = rest[i];
     if (a === "--json") opsi.json = true;
@@ -461,16 +486,22 @@ function main(argv) {
     else if (a === "--atribusi") opsi.atribusi = rest[++i];
     else if (a === "--tarif") opsi.tarif = rest[++i];
     else if (a === "--tanpa-biaya") opsi.biaya = false;
+    else if (a === "--jenis") opsi.jenis = rest[++i];
     else { console.error(`Opsi tidak dikenal: ${a}`); return 2; }
   }
   if (cmd !== "tugas" || !id || !POLA_ID.test(id)) {
-    console.error("Pakai: node bin/metrik.mjs tugas <T-YYYYMMDD-n> [--json] [--sejak YYYY-MM-DD] [--atribusi dasar|diperluas|keduanya] [--tarif file.json] [--tanpa-biaya]");
+    console.error("Pakai: node bin/metrik.mjs tugas <T-YYYYMMDD-n> [--json] [--sejak YYYY-MM-DD] [--atribusi dasar|diperluas|keduanya] [--tarif file.json] [--tanpa-biaya] [--jenis bug|fitur]");
     return 2;
   }
   if (opsi.sejak && !/^\d{4}-\d{2}-\d{2}$/.test(opsi.sejak)) { console.error("--sejak harus YYYY-MM-DD"); return 2; }
+  if (opsi.jenis && !(opsi.jenis in ANGGARAN_KEPUTUSAN)) { console.error(`--jenis: ${Object.keys(ANGGARAN_KEPUTUSAN).join(" | ")}`); return 2; }
   if (!["dasar", "diperluas", "keduanya"].includes(opsi.atribusi)) { console.error("--atribusi: dasar | diperluas | keduanya"); return 2; }
   const tarif = muatTarif(opsi.tarif ?? undefined);
-  const jalan = (atribusi) => metrikTugas(id, { sejak: opsi.sejak, atribusi, tarif, biaya: opsi.biaya });
+  const jalan = (atribusi) => {
+    const h = metrikTugas(id, { sejak: opsi.sejak, atribusi, tarif, biaya: opsi.biaya });
+    h.total.beban_keputusan = bebanKeputusan(id, h.total.intervensi, { jenis: opsi.jenis });
+    return h;
+  };
   if (opsi.atribusi === "keduanya") {
     const h = { id, dasar: jalan("dasar"), diperluas: jalan("diperluas") };
     console.log(opsi.json ? JSON.stringify(h, null, 2) : `${formatTeks(h.dasar)}\n\n${formatTeks(h.diperluas)}`);

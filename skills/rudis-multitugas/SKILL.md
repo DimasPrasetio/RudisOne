@@ -21,6 +21,8 @@ ID → minta pengirim menyebutkan ID-nya dulu.
   · `berjalan` · `diparkir` · `ditinjau` · `terhambat` · `selesai` · `dibatalkan`.
 - Kolom Fase (tugas Engineering, skill `rudis-sdlc`) dan Perkakas (`bin/perkakas.sh versi`, `—` bila tidak memakai
   perkakas rudis); tugas berjalan dengan Perkakas selain `—` menunda pembaruan perkakas.
+- Tugas yang memakai `/rudis.*`: `--mode-saat-mulai`, `--jalur-awal`, `--jalur-akhir` + `--reroute "<alasan>"` (diisi
+  Tech Lead; skill `rudis-sdd` › Pemicu re-route & kapan bertanya).
 - Selesai/dibatalkan lebih dari 14 hari dibuang dengan `rapikan`.
 
 ## 3. Lingkup folder

@@ -23,7 +23,7 @@
       "id": "rudis-sdd",
       "jenis": "cli",
       "label": "sdd",
-      "untuk": "RUDIS SDD (CLI rudis, command /rudis.*) — hanya baris tabel perakitan bangun / pasang + sesuaikan; skill rudis-sdd",
+      "untuk": "RUDIS SDD (CLI rudis, command /rudis.*) — Mode A (bangun / pasang + sesuaikan / ubah modul kustom) dan Mode B (brd, tracer, redesign, revamp, upgrade, test, siklus penuh); skill rudis-sdd",
       "repo": "https://git.neuron.id/research/rudis.git",
       "lokal": "~/Documents/Neuron/ai-agent/rudis",
       "jalan": ["uvx", "--from", "{lokal}", "rudis"],

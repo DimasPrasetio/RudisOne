@@ -10,7 +10,8 @@ bertentangan) dan `handoff/T-20261030-6/pemahaman.md` (Keputusan 1–5) — per 
 Peran, gerbang, urutan fase: skill `rudis-sdlc`. Soal teknis repo standar: skill `rudis-monorepo` menang.
 
 ## 1. Mode proyek (kartu proyek)
-- Mode ada di `.rudisone/kartu-proyek.md` di root proyek (cadangan `handoff/kartu/<nama>.md` bila klien melarang).
+- Mode ada di `.rudisone/kartu-proyek.md` di root proyek (templat `templat/kartu-proyek.md`; cadangan
+  `handoff/kartu/<nama>.md` bila klien melarang).
   Mesin: `bin/perkakas.sh proyek <folder>` → `mode-mesin: A|B|ragu` + bukti. Pengguna mengonfirmasi **sekali** lewat
   COO dengan bukti ditampilkan. Mode berubah **hanya** lewat tugas migrasi eksplisit.
 - Awal setiap tugas: `bin/cek-konsistensi.sh --proyek <folder>` (kartu vs marker). Tidak cocok → jangan menebak, tanya (§3).
@@ -72,7 +73,7 @@ bug selalu **mulai** dengan tracer (baris 5); perbaikannya pindah ke baris 3/4 b
 5. **Data:** tracer & tes hanya DB dev/snapshot; koneksinya disebut brief. Tracer **tidak pernah** membaca `.env`/config untuk
    kredensial (izin `Read(**/.env)` memang di-deny) — instruksikan "jangan membaca .env; pakai koneksi dari brief"; tanpa koneksi
    → telusuri kode saja dan tandai kebutuhan data. Data prod lewat Head of IT Operations (query read-only tercatat, keluaran
-   agregat/masking; skill `rudis-operasi`, bagian Data production).
+   agregat/masking; skill `rudis-operasi` › Data production).
 6. **Hanya COO yang bertanya ke pengguna** (S6, K5) — §9.
 7. Jangan jalankan `.rudis/scripts/bash/update-agent-context.sh` (K10).
 8. Kolom Perkakas & laporan memuat `sdd@<sha>` dari `bin/perkakas.sh versi`.
