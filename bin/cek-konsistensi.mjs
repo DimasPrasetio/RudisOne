@@ -127,6 +127,7 @@ export function cekRepo(root = ROOT, opsi = {}) {
     for (const m of teks.matchAll(pola)) {
       const nama = m[3] ? `skill:${m[3]}` : (m[1] ?? m[2]);
       const target = sasaranRujukan(nama, root);
+      if (target && PER_DEVICE.test(target)) continue;   // berkas per device (TEAM.md, …): isinya beda per device, bukan isi repo
       if (!target) { if (!m[3] && /^(protokol|raci|sdlc|coo|tech-lead|infra|penyedia|README)\b/.test(path.basename(nama))) catat("galat", "rujukan", `${rel}: rujukan ke \`${nama}\` — berkas tidak ada`); continue; }
       if (!cacheJudul.has(target)) cacheJudul.set(target, judul(baca(root, target)));
       const r = normal(m[4]).replace(/\s+(langkah|bagian|baris|tabel)\b.*$/, "");
