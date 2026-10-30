@@ -251,3 +251,11 @@ test("subagent peran rudis-<id>: tercatat dengan jabatannya, akses hanya menyemp
   assert.equal(kenaliSesi(bash(COO, "ls", { agent_type: "Explore" }), K).jabatan, "coo");
 });
 
+
+test("worktree tim di dalam repo RudisOne sendiri terbaca sebagai jabatan tim, bukan COO", async () => {
+  const { kenaliSesi } = await import("./kebijakan.mjs");
+  const wt = path.join(ROOT, ".claude", "worktrees", "r2-lead-rudisone-abc123");
+  assert.equal(kenaliSesi(bash(wt, "ls"), K).jabatan, "tech-lead");
+  assert.equal(kenaliSesi(bash(path.join(ROOT, ".claude", "worktrees", "r2-se1-rudisone-x"), "ls"), K).jabatan, "software-engineer");
+  assert.equal(kenaliSesi(bash(COO, "ls"), K).jabatan, "coo");
+});

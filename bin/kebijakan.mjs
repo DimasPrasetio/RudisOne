@@ -79,6 +79,10 @@ export function kenaliSesi(input, K) {
 /** { rudisOne, jabatan } sesi (utas utama); transkrip dibaca bertahap dan hasilnya disimpan per sesi. */
 function kenaliInduk(input, K) {
   const cwd = rumah(input.cwd || "");
+  // Worktree tim didahulukan: worktree repo RudisOne sendiri berada DI DALAM ROOT (.claude/worktrees/r<n>-…) dan
+  // tanpa ini terbaca sebagai COO.
+  const wt0 = cwd.match(/\/\.claude\/worktrees\/r[1-3]-(lead|bsa|se1|se2)-/);
+  if (wt0) return { rudisOne: true, jabatan: WORKTREE[wt0[1]] };
   if (cwd && di(cwd, ROOT)) {
     const rel = path.relative(ROOT, path.resolve(cwd)).split(path.sep);
     const id = rel[0] === "ruang" && K.jabatan[rel[1]] ? rel[1] : "coo";

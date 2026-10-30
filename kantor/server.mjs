@@ -446,7 +446,12 @@ function muatTugas() {
 // ---------- penurunan status ----------
 /** "Kamu adalah Tech Lead di RudisOne…", "Kamu adalah **Software Engineer #2** di RudisOne …" */
 const RE_KAMU_ADALAH = new RegExp(`Kamu adalah\\s+\\**\\s*(${POLA_NAMA})(?![\\w-])`);
+/** Peran dari nama worktree tim (`…/.claude/worktrees/r<n>-<peran>-…`). Didahulukan atas agentSetting: worktree DI
+ *  DALAM repo RudisOne mewarisi `.claude/settings.json` repo ("agent": "coo"), padahal sesinya Tech Lead/engineer. */
+const PERAN_WORKTREE = { lead: "Tech Lead", bsa: "Business Systems Analyst", se1: "Software Engineer", se2: "Software Engineer" };
 function agentOf(s) {
+  const wt = String(s.cwd ?? "").match(/\/\.claude\/worktrees\/r[1-3]-(lead|bsa|se1|se2)-/)?.[1];
+  if (wt) return PERAN_WORKTREE[wt];
   const setting = kanonik(s.agentSetting);   // id teknis, mis. "system-administrator"
   if (setting && AGENTS.includes(setting)) return setting;
   const byTitle = namaDiAwal(s.title ?? "");
