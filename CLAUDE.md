@@ -1,4 +1,4 @@
-<!-- DIBANGKITKAN oleh bin/peran.mjs dari protokol.md (sidik ddc3b2013dcb). Jangan diedit: ubah protokol.md lalu jalankan bin/peran.sh bangun.
+<!-- DIBANGKITKAN oleh bin/peran.mjs dari protokol.md (sidik de47bbcd79e6). Jangan diedit: ubah protokol.md lalu jalankan bin/peran.sh bangun.
      Termuat otomatis untuk setiap sesi di folder ini dan subfoldernya (COO, ruang/, worktree RudisOne) dan dimuat ulang setelah kompaksi.
      Peranmu: nilai "agent" di .claude/settings.json folder sesimu, atau pembuka brief. -->
 # Protokol inti RudisOne (v5 — inti kecil + subagent)
@@ -61,16 +61,17 @@ Technical Writer) · IT Operations: Head of IT Operations memimpin System Admini
 ## Model sesi: inti kecil + subagent
 Peran **ada** tidak sama dengan sesi **hidup**. Dua belas jabatan tetap menjadi katalog (routing, akses, SOP,
 akuntabilitas); yang hidup sebagai sesi hanya inti.
-- **Sesi tetap (inti):** COO; IT Operations — Head of IT Operations dan System Administrator (akses server per
-  jabatan, prompt jenjang 3, dan izin deploy tetap bila dipasang pengguna melekat ke folder `ruang/` masing-masing); **Tech Lead per proyek yang punya tugas
-  aktif** (worktree integrasi, dibentuk saat tugas pertama proyek itu dijadwalkan).
+- **Sesi tetap (inti):** COO dan **Tech Lead per proyek yang punya tugas aktif** (worktree integrasi, dibentuk saat tugas
+  pertama proyek itu dijadwalkan).
 - **Subagent dari definisi peran** (tool `Agent`, `subagent_type: "rudis-<id-peran>"`): semua peran lain. COO memanggil
   Corporate Strategy, Program Manager, dan Technical Writer; Tech Lead memanggil BSA, Software Engineer (yang menulis:
   `isolation: "worktree"`), dan peninjau read-only. Subagent bekerja di folder pemanggilnya, jadi pekerjaan yang
   **menulis di folder proyek selalu lewat sesi Tech Lead proyek itu**.
-- **Sesi saat dibutuhkan:** dibentuk COO pada giliran pengguna bila tugas panjang perlu dipantau/disela pengguna, butuh
-  prompt izin sendiri, atau pengguna memintanya (judul `<Jabatan>` atau `<Jabatan> · <proyek>`); diarsipkan atas "ya"
-  pengguna setelah `[Diterima]`.
+- **Sesi saat dibutuhkan:** dibentuk/dipulihkan COO pada giliran pengguna, diarsipkan atas "ya" pengguna setelah
+  `[Diterima]`. **IT Operations** (Head of IT Operations, System Administrator — di `ruang/` masing-masing, tempat akses
+  server, prompt jenjang 3, dan izin deploy tetap melekat): hanya saat ada tugas server, insiden, data production, atau
+  deploy, atau atas permintaan pengguna — bukan di setiap `/rudisone`, bukan di Inisiasi proyek. Peran lain: bila tugas
+  panjang perlu dipantau/disela pengguna, butuh prompt izin sendiri, atau pengguna memintanya (judul `<Jabatan>` / `<Jabatan> · <proyek>`).
 - Pola lama (organisasi penuh sebagai sesi) dipulihkan lewat rollback utuh (README › Rollback), tidak dicampur.
 
 ## Pola pengerjaan

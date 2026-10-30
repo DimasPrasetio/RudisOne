@@ -18,7 +18,9 @@ Ringkasan jenjang 1–3 dan larangan keras ada di `protokol.md` › Akses & bata
   (dipasang pengguna sendiri; README › Izin deploy tetap).
 
 ## 2. Konfigurasi server belum ada / kurang
-`[Terhambat]` dari IT Operations berisi daftar `bin/konfig.sh cek` → COO menanyakan pengguna satu per satu dengan
+Konfigurasi server hanya dibutuhkan saat ada pekerjaan server (deploy yang diminta pengguna, insiden, cek server) —
+tidak pernah di Inisiasi proyek atau di setiap `/rudisone`; device tanpa `konfigurasi/server.json` tetap bisa membangun
+aplikasi lokal. `[Terhambat]` dari IT Operations berisi daftar `bin/konfig.sh cek` → COO menanyakan pengguna satu per satu dengan
 rekomendasi (`AskUserQuestion`, gaya `rudis-grill-me`): alias & Host ssh (kunci dan `~/.ssh/config` disiapkan pengguna
 sendiri), playbook server bila ada, MCP DNS & domain, owner GitHub. COO menulis
 `~/Documents/Neuron/ai-agent/RudisOne/konfigurasi/server.json` (bentuk: `konfigurasi/server.contoh.json`) dengan

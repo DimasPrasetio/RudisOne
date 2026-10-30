@@ -1,6 +1,6 @@
 # TEAM — buku alamat sesi RudisOne (per device; ditulis COO pada panggilan /rudisone)
-<!-- Model v5 "inti kecil + subagent" (protokol.md › Model sesi). Hanya SESI yang dicatat di sini: COO, sesi inti
-     IT Operations, Tech Lead per proyek aktif, dan sesi saat dibutuhkan. Peran lain dipanggil sebagai subagent
+<!-- Model v5 "inti kecil + subagent" (protokol.md › Model sesi). Hanya SESI yang dicatat di sini: COO, Tech Lead per
+     proyek aktif, dan sesi saat dibutuhkan (termasuk IT Operations). Peran lain dipanggil sebagai subagent
      `rudis-<id-peran>` dan tidak punya baris. Kantor & agent membaca file ini sebagai buku alamat. Kolom Agent memakai
      jabatan persis. Judul bagian tim engineering harus berpola "## Engineering · Tim <n> · <proyek>" — Kantor memakai
      nomornya. Nama sesi berawalan `rudis-` (inti) dan `r<n>-` (tim) agar tidak bentrok dengan sistem agent lain;
@@ -13,7 +13,9 @@ Dibangun: YYYY-MM-DD
 |---|---|---|---|
 | COO | `self` | — | `~/Documents/Neuron/ai-agent/RudisOne` |
 
-## IT Operations (sesi inti)
+## IT Operations (sesi saat dibutuhkan)
+<!-- Ditulis saat sesi pertama kali dibentuk (tugas server/insiden/data production/deploy atau permintaan pengguna) — bukan
+     di setiap /rudisone. Belum dibentuk → bagian ini boleh kosong. Setelah diarsipkan baris tetap, dipulihkan lain kali. -->
 | Agent | Peran | Session id | Name | cwd |
 |---|---|---|---|---|
 | Head of IT Operations | leader | `local_…` | `rudis-head-of-it-ops` | `~/Documents/Neuron/ai-agent/RudisOne/ruang/head-of-it-operations` |

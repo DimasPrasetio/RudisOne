@@ -242,12 +242,20 @@ export function cekDevice(root = ROOT) {
   else {
     const sesi = sesiDesktop();
     const teks = fs.readFileSync(team, "utf8");
-    for (const m of teks.matchAll(/^\|\s*([^|]+?)\s*\|.*?`(local_[0-9a-f-]{8,})`/gm)) {
+    // Sesi saat dibutuhkan (termasuk IT Operations) boleh terarsip: dipulihkan COO saat ada tugasnya; bagian kosong = belum dibentuk.
+    let bagian = "";
+    for (const baris of teks.split("\n")) {
+      if (/^## /.test(baris)) { bagian = baris; continue; }
+      const m = baris.match(/^\|\s*([^|]+?)\s*\|.*?`(local_[0-9a-f-]{8,})`/);
+      if (!m) continue;
       const [, peran, id] = m;
       if (!sesi) { catat("info", "team", "metadata sesi Desktop tidak terbaca — TEAM.md tidak dicocokkan"); break; }
       const s = sesi.get(id);
       if (!s) catat("peringatan", "team", `TEAM.md: ${peran} → ${id} tidak ditemukan di sesi Desktop`);
-      else if (s.arsip) catat("peringatan", "team", `TEAM.md: ${peran} → ${id} terarsip`);
+      else if (s.arsip) {
+        const saatPerlu = /^## (IT Operations|Sesi saat dibutuhkan)\b/.test(bagian);
+        catat(saatPerlu ? "info" : "peringatan", "team", `TEAM.md: ${peran} → ${id} terarsip${saatPerlu ? " (dipulihkan saat dibutuhkan)" : ""}`);
+      }
     }
   }
   // D5 register

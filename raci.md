@@ -33,9 +33,9 @@ identitas; "TL / BSA / SE" = tim proyek yang bersangkutan.
 | Organisasi tim, peran, protokol (`~/Documents/Neuron/ai-agent/RudisOne`) | **R** | C | — | — | C | — | C | — | C | — | C | — |
 | Registri penyedia & kebijakan akses (`penyedia.md`, `kebijakan-akses.json`) — keputusan pemilik | **R** | C | — | — | — | — | — | — | — | — | S | C |
 | Perkakas resmi SDLC: pasang & perbarui (`bin/perkakas.sh`) | **R** | I | — | — | — | — | — | — | — | — | — | — |
-| Intake proyek baru — gerbang Persetujuan Inisiasi (skill `rudis-sdlc`) | **R** | C | C | — | I | — | C | — | — | — | I | S |
+| Intake proyek baru — gerbang Persetujuan Inisiasi (skill `rudis-sdlc`; tanpa server) | **R** | C | C | — | I | — | C | — | — | — | — | — |
 | Tabel perakitan modul & rancangan proyek — Persetujuan Rancangan | G | **R** | S | C | I | — | — | C¹ | S⁸ | C² | — | — |
-| Pendaftaran app baru di VPS — Persetujuan Penerapan | G | C⁵ | — | — | I | — | — | — | — | — | **R** | S |
+| Pendaftaran app baru di VPS + fakta deploy (port, cek slug) — Persetujuan Penerapan | G | C⁵ | — | — | I | — | — | — | — | — | **R** | S |
 | Platform: skill `rudis-monorepo` & pustaka `rudis-modules` (Jalur Platform) | G | **R** | C | S | I | — | — | — | — | — | — | — |
 
 1. Bila menyangkut uang/jurnal/pajak.

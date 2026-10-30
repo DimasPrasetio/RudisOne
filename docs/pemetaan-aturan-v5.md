@@ -21,7 +21,7 @@ Status:
   Organisasi inti; register MD tulisan tangan → `bin/register.sh`).
 - `dihapus` — sengaja dibuang (persona, duplikat, usang karena model baru), dengan alasan.
 
-Ringkasan: 261 unit — tetap 147 · diringkas 90 · diganti 24 · dihapus 0.
+Ringkasan: 261 unit — tetap 144 · diringkas 90 · diganti 27 · dihapus 0.
 
 | Kode | Aturan lama | Lokasi baru | Jangkar | Status |
 |---|---|---|---|---|
@@ -186,21 +186,21 @@ Ringkasan: 261 unit — tetap 147 · diringkas 90 · diganti 24 · dihapus 0.
 | S-019 | sdlc.md › *2. Routing permintaan*: routing: audit repo terhadap standar → TL, S: BSA | skills/rudis-sdlc/SKILL.md | Final Checklist skill \| Tech Lead, S: BSA | tetap |
 | S-020 | sdlc.md › *2. Routing permintaan*: routing: deploy standar → TL (berkas), HITO (server) | skills/rudis-sdlc/SKILL.md | Langkah 5 skill (berkas) + Rilis (server) | tetap |
 | S-021 | sdlc.md › *2. Routing permintaan*: routing: ubah skill/pustaka, promote → TL tim platform | skills/rudis-sdlc/SKILL.md | Ubah skill atau pustaka; promote modul proyek ke pustaka | tetap |
-| S-022 | sdlc.md › *3. Jalur Aplikasi — proyek aplikasi*: fase Inisiasi: R COO, gerbang Persetujuan Inisiasi | skills/rudis-sdlc/SKILL.md | System Administrator (fakta playbook, read-only), Head of Strategy bila perlu nilai bisnis | tetap |
+| S-022 | sdlc.md › *3. Jalur Aplikasi — proyek aplikasi*: fase Inisiasi: R COO, gerbang Persetujuan Inisiasi | skills/rudis-sdlc/SKILL.md | Head of Strategy bila perlu nilai bisnis; **tanpa server** — IT Operations tidak dilibatkan | diganti |
 | S-023 | sdlc.md › *3. Jalur Aplikasi — proyek aplikasi*: fase Analisis & perakitan: R TL, S BSA; Persetujuan Rancangan | skills/rudis-sdlc/SKILL.md | Business Systems Analyst (kemampuan, tabel perakitan, MODULE_MAP, API) | tetap |
 | S-024 | sdlc.md › *3. Jalur Aplikasi — proyek aplikasi*: fase Desain UI: R TL, S Research Analyst | skills/rudis-sdlc/SKILL.md | Research Analyst (paralel dengan Analisis) | tetap |
 | S-025 | sdlc.md › *3. Jalur Aplikasi — proyek aplikasi*: fase Konstruksi: R TL, S SE#1/#2, asisten | skills/rudis-sdlc/SKILL.md | Software Engineer #1/#2, asisten | tetap |
 | S-026 | sdlc.md › *3. Jalur Aplikasi — proyek aplikasi*: fase Pengujian: tinjauan silang SE#1, BSA cocok spesifikasi | skills/rudis-sdlc/SKILL.md | peninjau berkonteks bersih (subagent `rudis-software-engineer`, tinjauan silang), BSA (cocok spesifikasi) | tetap |
-| S-027 | sdlc.md › *3. Jalur Aplikasi — proyek aplikasi*: fase Rilis & penerapan: R HITO; gerbang Rilis & Penerapan | skills/rudis-sdlc/SKILL.md | System Administrator; Tech Lead (sha + catatan rilis) | tetap |
+| S-027 | sdlc.md › *3. Jalur Aplikasi — proyek aplikasi*: fase Rilis & penerapan: R HITO; gerbang Rilis & Penerapan | skills/rudis-sdlc/SKILL.md | System Administrator; Tech Lead (sha + catatan rilis, isi penanda) | tetap |
 | S-028 | sdlc.md › *3. Jalur Aplikasi — proyek aplikasi*: fase Operasi & pemeliharaan: HITO (operasi) · TL (kode) | skills/rudis-sdlc/SKILL.md | Head of IT Operations (operasi) · Tech Lead (kode) | tetap |
 | S-029 | sdlc.md › *3. Jalur Aplikasi — proyek aplikasi*: kolom Fase register untuk status lintas proyek PgM | skills/rudis-sdlc/SKILL.md | Program Manager memakainya untuk status lintas proyek. | tetap |
-| S-030 | sdlc.md › *Gerbang keputusan pengguna*: Persetujuan Inisiasi lewat grill mendalam; port tidak ditanyakan | skills/rudis-sdlc/SKILL.md | Port **tidak** ditanyakan: System Administrator mengambilnya dari playbook. | tetap |
+| S-030 | sdlc.md › *Gerbang keputusan pengguna*: Persetujuan Inisiasi lewat grill mendalam; port tidak ditanyakan | skills/rudis-sdlc/SKILL.md | **Fakta deploy tidak ditanyakan dan server tidak dicek di Inisiasi** | diganti |
 | S-031 | sdlc.md › *Gerbang keputusan pengguna*: Persetujuan Rancangan: tabel perakitan + arah desain | skills/rudis-sdlc/SKILL.md | tabel perakitan (pasang / pasang + sesuaikan / bangun per kemampuan) | tetap |
 | S-032 | sdlc.md › *Gerbang keputusan pengguna*: Persetujuan Rilis: serah, commit, repo GitHub, push | skills/rudis-sdlc/SKILL.md | repo privat oleh COO = jenjang 2; push = jenjang 3 | tetap |
 | S-033 | sdlc.md › *Gerbang keputusan pengguna*: Persetujuan Penerapan: pendaftaran app pertama & setiap deploy | skills/rudis-sdlc/SKILL.md | pendaftaran app pertama (DB + user, `.env`, akses GHCR, nginx, DNS, certbot) | tetap |
 | S-034 | sdlc.md › *"Tanya pengguna" di dalam skill*: "tanya pengguna" di skill → laporan; hanya COO yang bertanya | skills/rudis-sdlc/SKILL.md | Di RudisOne, hanya COO yang bertanya. | tetap |
 | S-035 | sdlc.md › *Proyek baru — langkah pembuka*: proyek baru 1: siapkan --segera; daftarkan ID (Fase Inisiasi) | skills/rudis-sdlc/SKILL.md | COO: `bin/perkakas.sh siapkan --segera`; daftarkan ID (Fase `Inisiasi`, kolom Perkakas dari `versi`). | tetap |
-| S-036 | sdlc.md › *Proyek baru — langkah pembuka*: proyek baru 2: grill + fakta Inisiasi; SysAdmin usul port & slug | skills/rudis-sdlc/SKILL.md | usulkan port kosong berikutnya + konfirmasi `ss -tlnp` | tetap |
+| S-036 | sdlc.md › *Proyek baru — langkah pembuka*: proyek baru 2: grill + fakta Inisiasi; SysAdmin usul port & slug | skills/rudis-sdlc/SKILL.md | port kosong berikutnya + konfirmasi `ss -tlnp` dan cek slug belum dipakai dari System Administrator (read-only) | diganti |
 | S-037 | sdlc.md › *Proyek baru — langkah pembuka*: proyek baru 3: COO buat folder, git init, commit kosong | skills/rudis-sdlc/SKILL.md | COO membuat folder proyek, `git init -b main`, dan satu | tetap |
 | S-038 | sdlc.md › *Proyek baru — langkah pembuka*: proyek baru 4: COO membentuk tim lengkap, brief ke TL | skills/rudis-sdlc/SKILL.md | COO membentuk sesi Tech Lead untuk folder itu (`agents/coo.md` › Organisasi inti) | diganti |
 | S-039 | sdlc.md › *Proyek baru — langkah pembuka*: proyek baru 5: TL scaffold di worktree, branch `rudis/<ID>` | skills/rudis-sdlc/SKILL.md | Tech Lead men-scaffold di worktree-nya, di branch `rudis/<ID>`, dengan `--dir <worktree> --force` | tetap |
@@ -257,8 +257,8 @@ Ringkasan: 261 unit — tetap 147 · diringkas 90 · diganti 24 · dihapus 0.
 | C-039 | agents/coo.md › *Alur kerja standar*: status tugas: ringkas register; > 2 jam diam → tanya pemilik | agents/coo.md | → `bin/register.sh tampil`: tugas aktif & antrean per folder | diganti |
 | C-040 | agents/coo.md › *Organisasi otomatis*: seluruh organisasi selalu hadir sebagai sesi; bentuk di /rudisone | agents/coo.md | Hanya inti yang hidup sebagai sesi (`protokol.md` › Model sesi); peran lain dipanggil saat dibutuhkan. | diganti |
 | C-041 | agents/coo.md › *Organisasi otomatis*: organisasi 1: kunci handoff/.bentuk.lock < 10 menit | agents/coo.md | Bila `handoff/.bentuk.lock` ada dan berumur < 10 menit | diringkas |
-| C-042 | agents/coo.md › *Organisasi otomatis*: organisasi 2: periksa baris TEAM.md (get_session, unarchive, ulang) | agents/coo.md | cek tiap baris `TEAM.md` (`get_session`) | diringkas |
-| C-043 | agents/coo.md › *Organisasi otomatis*: organisasi 3: divisi tetap 8 sesi di `ruang/<id-peran>` | agents/coo.md | **Inti tetap** — Head of IT Operations dan System Administrator | diganti |
+| C-042 | agents/coo.md › *Organisasi otomatis*: organisasi 2: periksa baris TEAM.md (get_session, unarchive, ulang) | agents/coo.md | cek barisnya di `TEAM.md` (`get_session`) | diringkas |
+| C-043 | agents/coo.md › *Organisasi otomatis*: organisasi 3: divisi tetap 8 sesi di `ruang/<id-peran>` | agents/coo.md | **IT Operations saat dibutuhkan** — Head of IT Operations dan System Administrator | diganti |
 | C-044 | agents/coo.md › *Organisasi otomatis*: organisasi 4: tim engineering lengkap (4 sesi) untuk folder proyek | agents/coo.md | **Tech Lead per proyek aktif** — dibentuk saat tugas pertama proyek itu dijadwalkan | diganti |
 | C-045 | agents/coo.md › *Organisasi otomatis*: sesi Tech Lead: `r<n>-lead-<proyek>`, worktree integrasi | agents/coo.md | `r<n>-lead-<proyek>`, `cwd` = akar repo proyek, `use_worktree: true` | diringkas |
 | C-046 | agents/coo.md › *Organisasi otomatis*: sesi BSA: `r<n>-bsa-<proyek>`, tanpa worktree (hanya membaca) | agents/coo.md | BSA dan Software Engineer kamu panggil sebagai subagent | diganti |
@@ -289,7 +289,7 @@ Ringkasan: 261 unit — tetap 147 · diringkas 90 · diganti 24 · dihapus 0.
 
 ## Aturan baru & yang diubah sesudah v5 (kode `N-`)
 Tidak ada di inventaris `3b1c888`; dicatat agar setiap aturan baru punya satu pemilik yang bisa diperiksa. Jangkar
-diperiksa pemeriksa seperti baris lain. Sumber: T-20261030-5 (F1/F2), T-20261030-6 (A1–A8).
+diperiksa pemeriksa seperti baris lain. Sumber: T-20261030-5 (F1/F2), T-20261030-6 (A1–A8), T-20261030-7.
 
 | Kode | Aturan | Lokasi | Jangkar | Tugas |
 |---|---|---|---|---|
@@ -313,3 +313,7 @@ diperiksa pemeriksa seperti baris lain. Sumber: T-20261030-5 (F1/F2), T-20261030
 | N-018 | Aturan CVE (Keputusan 1) | skills/rudis-sdd/SKILL.md | ## 7. CVE (Keputusan 1 — jangan diubah) | T-20261030-6 A6 |
 | N-019 | Constitution Mode A tipis / Mode B as-is + garis bawah + Known Gaps | templat/constitution-legacy.md | Known Gaps | T-20261030-6 A6 |
 | N-020 | Kartu proyek (mode, bukti, override, letak artefak) | templat/kartu-proyek.md | docs/trace-reports/ | T-20261030-6 A4 |
+| N-021 | Intake dua bagian: Inisiasi (fakta membangun) · sebelum penerapan pertama (fakta deploy) | templat/intake-proyek.md | ## Sebelum penerapan pertama — fakta deploy (saat pengguna meminta deploy) | T-20261030-7 |
+| N-022 | Fakta deploy yang belum ada = penanda scaffold; tidak memblokir, app jalan lokal | skills/rudis-sdlc/SKILL.md | Fakta deploy kosong tidak pernah menjadi alasan `[Terhambat]`. | T-20261030-7 |
+| N-023 | Server & konfigurasi server baru dikumpulkan saat pengguna meminta deploy | skills/rudis-sdlc/SKILL.md | **Server baru disentuh di sini**, saat pengguna | T-20261030-7 |
+| N-024 | Sesi IT Operations dibentuk saat dibutuhkan, bukan di setiap `/rudisone` | protokol.md | bukan di setiap `/rudisone`, bukan di Inisiasi proyek | T-20261030-7 |

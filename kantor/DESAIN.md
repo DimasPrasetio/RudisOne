@@ -254,3 +254,8 @@ menghampiri agent.
 - Tren UI/UX (soft 3D secukupnya): https://pixso.net/articles/7-ui-ux-design-trends/
 - Desain avatar & indikator status: https://setproduct.com/blog/avatar-ui-design
 - ServiceNow Horizon — presence icon: https://horizon.servicenow.com/components/now-icon-presence
+
+## v7 — IT Operations saat dibutuhkan (2026-10-30, T-20261030-7)
+Sesi tetap hanya COO dan Tech Lead tim yang punya proyek. Kursi Head of IT Operations dan System Administrator tanpa
+sesi hidup tampil *katalog* ("Dipanggil saat perlu"), bukan *absen*; sesinya dibentuk COO saat ada tugas server,
+insiden, data production, atau deploy.

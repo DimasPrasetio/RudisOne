@@ -270,3 +270,29 @@ test("--proyek --serah: spec yang merujuk path berubah tanpa ikut diubah → per
   const hantu = periksaProyek(p, "--serah", "hantu");
   assert.ok(hantu.temuan.some((t) => t.tingkat === "galat" && t.kode === "serah"));
 });
+
+test("TEAM.md: sesi IT Operations belum dibentuk tidak diperingatkan; terarsip di bagian saat-dibutuhkan → info, di tim → peringatan", () => {
+  const ID = (n) => `local_${String(n).repeat(8)}-0000-0000-0000-000000000000`;
+  const r = repoMini((t) => t("TEAM.md", ["# TEAM", "", "## COO", "| COO | `self` | — | x |", "",
+    "## IT Operations (sesi saat dibutuhkan)", "| Agent | Peran | Session id | Name | cwd |", "|---|---|---|---|---|",
+    `| Head of IT Operations | leader | \`${ID(1)}\` | \`rudis-head-of-it-ops\` | x |`, "",
+    "## Engineering · Tim 1 · p", `| Tech Lead | leader | \`${ID(2)}\` | \`r1-lead-p\` | x |`, "",
+    "## Sesi saat dibutuhkan", `| Program Manager | T-1 | \`${ID(3)}\` | \`x\` | x |`, ""].join("\n")));
+  const desktop = fs.mkdtempSync(path.join(os.tmpdir(), "cek-desk-"));
+  fs.mkdirSync(path.join(desktop, "akun", "org"), { recursive: true });
+  for (const n of [1, 2, 3]) fs.writeFileSync(path.join(desktop, "akun", "org", `${ID(n)}.json`), JSON.stringify({ sessionId: ID(n), isArchived: true }));
+  const kosong = fs.mkdtempSync(path.join(os.tmpdir(), "cek-dev-"));
+  const p = spawnSync(process.execPath, [SKRIP, "--json"], { encoding: "utf8", env: { ...process.env, RUDISONE_ROOT: r,
+    RUDISONE_SKILLS_USER: kosong, RUDISONE_AGENTS_USER: kosong, RUDISONE_KANTOR_DESKTOP: desktop } });
+  const team = JSON.parse(p.stdout || "[]").filter((t) => t.kode === "team");
+  const tingkat = (s) => team.find((t) => t.pesan.includes(s))?.tingkat;
+  assert.equal(tingkat("Head of IT Operations"), "info", JSON.stringify(team));
+  assert.equal(tingkat("Program Manager"), "info");
+  assert.equal(tingkat("Tech Lead"), "peringatan");
+  assert.equal(team.length, 3);
+  // templat TEAM.md: bagian IT Operations berisi baris contoh `local_…` — bukan sesi, tidak dicocokkan
+  const r2 = repoMini((t) => t("TEAM.md", fs.readFileSync(path.join(REPO, "templat", "team.md"), "utf8")));
+  const p2 = spawnSync(process.execPath, [SKRIP, "--json"], { encoding: "utf8", env: { ...process.env, RUDISONE_ROOT: r2,
+    RUDISONE_SKILLS_USER: kosong, RUDISONE_AGENTS_USER: kosong, RUDISONE_KANTOR_DESKTOP: desktop } });
+  assert.deepEqual(JSON.parse(p2.stdout || "[]").filter((t) => t.kode === "team"), []);
+});
