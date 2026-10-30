@@ -64,7 +64,10 @@ function berkasAkarLama(root, ref) {
   try {
     const out = execFileSync("git", ["ls-tree", "--name-only", ref || "3b1c888"], { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
     return new Set(out.split("\n").filter((f) => /^[\w-]+\.md$/.test(f) && !/^(TEAM|README|CLAUDE)\.md$/.test(f)));
-  } catch { return new Set(); }
+  } catch {
+    if (fs.existsSync(path.join(root, ".git"))) catat("peringatan", "path", `ref ${ref || "3b1c888"} tidak terbaca (clone dangkal?) — rujukan ke berkas akar yang dipindah tidak diperiksa`);
+    return new Set();
+  }
 }
 
 export function cekRepo(root = ROOT, opsi = {}) {

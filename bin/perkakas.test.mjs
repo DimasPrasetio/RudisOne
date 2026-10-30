@@ -289,7 +289,7 @@ test("bin/rudis-sdd.sh: init selalu --no-marketplace; GL_TOKEN dari Keychain han
   const env = { ...ENV, RUDISONE_PERKAKAS_MANIFEST: M_SDD };
   let r = spawnSync(wrapper, ["init", "--here", "--force", "--ai", "claude", "--script", "sh"], { env, encoding: "utf8" });
   assert.equal(r.status, 0, r.stderr);
-  assert.deepEqual(bacaUvx(), ["--from", SDD, "rudis", "init", "--here", "--force", "--ai", "claude", "--script", "sh", "--no-marketplace", "GL_TOKEN=kosong"]);
+  assert.deepEqual(bacaUvx(), ["--from", SDD, "rudis", "init", "--no-marketplace", "--here", "--force", "--ai", "claude", "--script", "sh", "GL_TOKEN=kosong"]);
   assert.match(r.stderr, /GL_TOKEN tidak ada di Keychain \(rudisone-rudis-sdd\).*security add-generic-password -s rudisone-rudis-sdd -a "\$USER" -w/);
 
   simpanPat();
@@ -317,6 +317,7 @@ test("bin/rudis-sdd.sh menolak marketplace di luar allowlist, perintah terlarang
     [["-v", "init", "--here"], /opsi sebelum subperintah/],
     [["run", "ultimate", "--help", "--force"], /S1|U2/],
     [["tui"], /interaktif/],
+    [[], /tanpa subperintah/],
     [["skill", "install", "x"], /rudis-marketplace-tooling\.git, yang tidak ada di allowlist/],
     [["governance", "use", "x"], /tidak ada di allowlist/],
     [["utilities", "catalog"], /neudela\.git, yang tidak ada di allowlist/],
@@ -358,7 +359,7 @@ test("bin/rudis-sdd.sh: sumber marketplace di allowlist → init tanpa --no-mark
   assert.equal(r.status, 1);
   r = jalan(m, ["sdd", "init", "--here", "--marketplace-url=https://contoh.test/lain.git"]);
   assert.equal(r.status, 0, r.stderr);
-  assert.equal(bacaUvx().at(-2), "--no-marketplace");
+  assert.ok(bacaUvx().includes("--no-marketplace"));   // URL marketplace lain tidak diizinkan → tetap tanpa marketplace
 });
 
 test("marketplace cek: validasi entri (pin 40 hex, auto_update false, disetujui) dan izin sumber", () => {

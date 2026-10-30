@@ -280,6 +280,8 @@ function cekMarketplace(kebijakan, sumber) {
  *  - `dilarang` (seluruh `run`, tui) ditolak; --gitlab-token ditolak (PAT di argumen terlihat di `ps`).
  *  - --help/-h diteruskan apa adanya. */
 export function rencanaSdd(t, kebijakan, args, { env = process.env, lokal } = {}) {
+  // Tanpa argumen, rudis bisa membuka antarmuka interaktif (TUI, dilarang) — tolak.
+  if (!args.length) return { tolak: "rudis tanpa subperintah tidak dipakai (bisa membuka TUI interaktif) — sebut subperintahnya, mis. `--help`" };
   // Gagal tertutup: opsi global sebelum subperintah (mis. `--verbose run ultimate`) bisa melewati pemeriksaan per subperintah.
   if (args[0]?.startsWith("-") && !(args.length === 1 && ["--help", "-h"].includes(args[0])))
     return { tolak: `opsi sebelum subperintah (${args[0]}) tidak didukung pembungkus — tulis subperintahnya dulu, mis. \`init --here …\`` };
@@ -317,7 +319,7 @@ export function rencanaSdd(t, kebijakan, args, { env = process.env, lokal } = {}
       if (lokal && !dukungFlag(t, lokal)) {
         return { tolak: `${t.tanpa_marketplace.flag} tidak ditemukan di ${t.tanpa_marketplace.bukti} versi ini — ${p1} tanpa flag itu akan mendaftarkan marketplace; tinjau dulu` };
       }
-      if (!args.includes(t.tanpa_marketplace.flag)) argv.push(t.tanpa_marketplace.flag);
+      if (!args.includes(t.tanpa_marketplace.flag)) argv.splice(1, 0, t.tanpa_marketplace.flag);   // tepat setelah subperintah (bukan sesudah `--`)
     }
   }
   if (sumber) {
