@@ -65,7 +65,7 @@ function prosesKantor() {
       + `Get-CimInstance Win32_Process -Filter "Name='node.exe'" | Where-Object { $_.CommandLine -and $_.CommandLine.ToLowerInvariant().Contains('server.mjs') } | `
       + `ForEach-Object { "$($_.ProcessId)\t$([int]($d -contains $_.ProcessId))\t$($_.CommandLine)" }`;
     const r = spawnSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", ps], { encoding: "utf8", windowsHide: true });
-    calon = String(r.stdout ?? "").split(/\r?\n/).filter(Boolean).map((b) => { const [pid, d, ...c] = b.split("\t"); return { pid: Number(pid), dengar: d === "1", cmd: c.join("\t") }; });
+    calon = String(r.stdout ?? "").replace(/^\uFEFF/, "").split(/\r?\n/).filter(Boolean).map((b) => { const [pid, d, ...c] = b.split("\t"); return { pid: Number(pid), dengar: d === "1", cmd: c.join("\t") }; });
   } else {
     const r = spawnSync("ps", ["-A", "-ww", "-o", "pid=", "-o", "command="], { encoding: "utf8" });
     calon = String(r.stdout ?? "").split("\n").map((b) => b.trim().match(/^(\d+)\s+(.*)$/)).filter(Boolean)
