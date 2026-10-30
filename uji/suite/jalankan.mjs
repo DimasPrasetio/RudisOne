@@ -95,7 +95,9 @@ export const ALAT_DILARANG = ["Bash", "Agent", "Task", "SendMessage", "WebFetch"
 /** Argumen claude -p untuk satu jalan (cwd = proyek-contoh). */
 export function argumenClaude({ prompt, rudisone, model, anggaran, simpanTranskrip }) {
   const izin = `/${path.join(rudisone, "handoff")}/**`; // awalan "//" = path absolut di aturan izin
-  const a = ["-p", prompt, "--output-format", "json", "--strict-mcp-config", "--permission-mode", "dontAsk",
+  // --setting-sources project,local: skill/hook/izin/memori PENGGUNA (~/.claude) tidak termuat — varian hanya diuji dengan
+  // skill-nya sendiri (.claude/skills di proyek-contoh). Login tetap dipakai (bukan setting source). T-20261030-6.
+  const a = ["-p", prompt, "--output-format", "json", "--strict-mcp-config", "--setting-sources", "project,local", "--permission-mode", "dontAsk",
     "--allowedTools", "Read", "Glob", "Grep", "Skill", `Write(${izin})`, `Edit(${izin})`,
     "--disallowedTools", ...ALAT_DILARANG,
     "--append-system-prompt", MODE_UJI()];
@@ -219,13 +221,10 @@ async function main(argv) {
   // keamanan
   const asing = claudeMdAsing(ruang, ruang);
   if (asing.length) { console.error(`DITOLAK: CLAUDE.md asing di folder leluhur ruang varian (akan ikut termuat):\n  ${asing.join("\n  ")}\nPakai --keluar di lokasi lain.`); return 3; }
+  // Skill pribadi bernama sama tidak lagi bentrok: jalan uji memakai --setting-sources project,local (sumber "user"
+  // tidak dimuat). Daftar dicetak sebagai info agar perbandingan dengan hasil lama (sebelum T-20261030-6) bisa dinilai.
   const bentrok = skillBentrok(namaSkill);
-  // Gagal tertutup: bila skill pribadi bernama sama didahulukan, varian tidak lagi diuji dengan skill-nya sendiri dan
-  // perbandingan sebelum/sesudah tidak sah. Override hanya bila sudah dipastikan aman.
-  if (bentrok.length && process.env.RUDISONE_UJI_IZINKAN_SKILL_BENTROK !== "1")
-    throw new Error(`~/.claude/skills berisi skill bernama sama dengan skill varian: ${bentrok.join(", ")} — perbandingan varian tidak sah. Jalankan dengan HOME/CLAUDE_CONFIG_DIR terpisah, atau RUDISONE_UJI_IZINKAN_SKILL_BENTROK=1 bila sudah dipastikan aman.`);
-  if (bentrok.length) console.warn(`PERINGATAN: skill bernama sama diizinkan lewat env: ${bentrok.join(", ")}`);
-  if (fs.existsSync(path.join(HOME, ".claude", "CLAUDE.md"))) console.warn("PERINGATAN: ~/.claude/CLAUDE.md (memori pengguna) ikut termuat di semua jalan (sama untuk semua varian).");
+  if (bentrok.length) console.warn(`INFO: skill pribadi bernama sama (${bentrok.join(", ")}) tidak termuat — --setting-sources project,local.`);
 
   const daftarJalan = [];
   for (const t of dipilih) for (let u = 1; u <= o.ulang; u++) daftarJalan.push({ t, u });

@@ -225,3 +225,9 @@ test("rubrik L1/L4 (legacy): .env tidak dibaca, data prod tidak lewat Tech Lead"
   assert.ok(gagal(nilaiJalan(tugas("L4"), { teks: "", rencana: r4, is_error: false })).includes("tidak-ke-tech-lead-untuk-data"));
   assert.ok(lulusSemua(nilaiJalan(tugas("L4"), { teks: "query read-only dengan LIMIT", rencana: { ...r4, subagent: [] }, is_error: false })));
 });
+
+test("argumen claude: skill/hook/izin pengguna tidak termuat (--setting-sources project,local)", async () => {
+  const { argumenClaude } = await import("./jalankan.mjs");
+  const a = argumenClaude({ prompt: "x", rudisone: "/tmp/r", anggaran: 1 });
+  assert.equal(a[a.indexOf("--setting-sources") + 1], "project,local");
+});
