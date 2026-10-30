@@ -13,13 +13,14 @@ import os from "node:os";
 import path from "node:path";
 import readline from "node:readline";
 import { fileURLToPath } from "node:url";
+import { RUMAH_TAMPIL } from "./lib/lokasi.mjs";
 import { posix } from "./lib/platform.mjs";
 
 const HOME = os.homedir();
 const INI = fileURLToPath(import.meta.url);
 const ROOT = process.env.RUDISONE_ROOT || path.resolve(path.dirname(INI), "..");
 const SETTINGS = process.env.RUDISONE_SETTINGS_USER || path.join(HOME, ".claude", "settings.json");
-const RUMAH = "~/Documents/Neuron/ai-agent/RudisOne";
+const RUMAH = RUMAH_TAMPIL;   // satu sumber: lib/lokasi.mjs
 const PENANDA = `"${INI}"`;   // path absolut skrip ini — hook sistem lain tidak dianggap milik kita
 const INI_LURUS = posix(INI);   // Windows: perintah hook ditulis dengan `/`; bentuk `\` lama tetap dikenali
 const dikenaliMilik = (c) => { const s = String(c ?? ""); return s.includes(PENANDA) || s.includes(`"${INI_LURUS}"`); };

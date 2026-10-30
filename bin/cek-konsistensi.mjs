@@ -12,6 +12,7 @@ import path from "node:path";
 import { execFileSync, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { bangun as bangunPeran, daftarPeran } from "./peran.mjs";
+import { RUMAH_TAMPIL } from "./lib/lokasi.mjs";
 import { periksaTautan } from "./lib/tautan.mjs";
 import { deteksiProyek } from "./perkakas.mjs";
 import { agentsCli, backendSesi, folderDesktop, normalAgents, sumberBaca } from "./sesi.mjs";
@@ -19,7 +20,7 @@ import { agentsCli, backendSesi, folderDesktop, normalAgents, sumberBaca } from 
 const HOME = os.homedir();
 const INI = fileURLToPath(import.meta.url);
 const ROOT = process.env.RUDISONE_ROOT || path.resolve(path.dirname(INI), "..");
-const RUMAH = "~/Documents/Neuron/ai-agent/RudisOne";
+const RUMAH = RUMAH_TAMPIL;   // satu sumber: lib/lokasi.mjs
 const SKILLS_USER = process.env.RUDISONE_SKILLS_USER || path.join(HOME, ".claude", "skills");
 const AGENTS_USER = process.env.RUDISONE_AGENTS_USER || path.join(HOME, ".claude", "agents");
 const DESKTOP = folderDesktop();

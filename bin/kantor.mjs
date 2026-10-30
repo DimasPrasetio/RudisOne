@@ -25,7 +25,8 @@ const sidik = () => crypto.createHash("sha1").update(fs.readFileSync(SERVER)).di
 
 /** Isi /health bila server menjawab 200, selain itu null. */
 const sehat = () => new Promise((selesai) => {
-  const req = http.get(`${ALAMAT}/health`, { timeout: 2000 }, (res) => {
+  // agent: false → tanpa keep-alive: soket lama ke server yang baru dimatikan tidak dipakai ulang
+  const req = http.get(`${ALAMAT}/health`, { timeout: 2000, agent: false }, (res) => {
     let b = "";
     res.on("data", (d) => { b += d; });
     res.on("end", () => selesai(res.statusCode === 200 ? b.trim() : null));

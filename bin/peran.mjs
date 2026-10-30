@@ -8,10 +8,11 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { RUMAH_TAMPIL } from "./lib/lokasi.mjs";
 
 const INI = fileURLToPath(import.meta.url);
 const ROOT = process.env.RUDISONE_ROOT || path.resolve(path.dirname(INI), "..");
-const RUMAH = "~/Documents/Neuron/ai-agent/RudisOne";
+const RUMAH = RUMAH_TAMPIL;   // satu sumber: lib/lokasi.mjs
 /** COO tidak dibangkitkan: ia utas utama (settings "agent": "coo" atau skill /rudisone), bukan subagent. */
 const BUKAN_SUBAGENT = new Set(["coo"]);
 

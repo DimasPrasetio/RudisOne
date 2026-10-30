@@ -62,6 +62,8 @@ export function periksaTautan(tujuan, root) {
 }
 
 function buatSymlink(sumber, tujuan, folder) {
+  // uji: RUDISONE_TAUTAN_SALIN=1 memaksa jalur salinan (meniru Windows tanpa hak symlink) di OS mana pun
+  if (process.env.RUDISONE_TAUTAN_SALIN === "1") throw Object.assign(new Error("symlink dimatikan untuk uji"), { code: "EPERM" });
   const jenis = process.platform === "win32" ? (folder ? "junction" : "file") : (folder ? "dir" : "file");
   fs.symlinkSync(sumber, tujuan, jenis);
 }
