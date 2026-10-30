@@ -10,7 +10,7 @@
 if [ -n "${RUDISONE_ASKPASS_LAYANAN:-}" ]; then
   case "${1:-}" in
     Username*) printf '%s\n' "${RUDISONE_ASKPASS_PENGGUNA:-oauth2}" ;;
-    *) if [ -n "${RUDISONE_ASKPASS_BERKAS:-}" ]; then head -n 1 "$RUDISONE_ASKPASS_BERKAS"
+    *) if [ -n "${RUDISONE_ASKPASS_BERKAS:-}" ]; then head -n 1 "$RUDISONE_ASKPASS_BERKAS" | tr -d '\r'
        else exec "${RUDISONE_KEYCHAIN_BIN:-security}" find-generic-password -s "$RUDISONE_ASKPASS_LAYANAN" -w; fi ;;
   esac
   exit 0

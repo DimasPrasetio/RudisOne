@@ -86,7 +86,7 @@ RudisOne berjalan di **macOS**, **Linux**, dan **Windows lewat WSL2** (jalur Lin
 
 | | macOS | Linux (Ubuntu/Debian) | Windows (WSL2) |
 |---|---|---|---|
-| Shell & alat | bawaan (bash, git dari Xcode CLT) | `sudo apt install git curl` | `wsl --install -d Ubuntu` (PowerShell admin), lalu semua langkah di terminal **Ubuntu** seperti Linux |
+| Shell & alat | bawaan (bash, git dari Xcode CLT) | `sudo apt install git curl zip unzip` | `wsl --install -d Ubuntu` (PowerShell admin), lalu semua langkah di terminal **Ubuntu** seperti Linux |
 | Node.js ≥ 18 | `brew install node` | nvm atau paket NodeSource | sama dengan Linux, di dalam WSL |
 | GitHub CLI `gh` (login) | `brew install gh` | paket resmi cli.github.com | sama dengan Linux |
 | Claude Code | installer resmi Claude Code | installer resmi Claude Code | di dalam WSL (bukan Claude Code Windows) |
@@ -99,6 +99,11 @@ RudisOne berjalan di **macOS**, **Linux**, dan **Windows lewat WSL2** (jalur Lin
 - **Symlink:** repo memuat symlink (`.claude/agents/coo.md`, `ruang/*/.claude/agents/*.md`) dan `install.sh` menautkan
   skill & subagent ke `~/.claude`. macOS/Linux/WSL mendukungnya bawaan; pastikan `git config --get core.symlinks` tidak
   `false` (bila `false`: `git config core.symlinks true && git checkout -- .`).
+- **Batas di Linux/WSL2 (belum diverifikasi di mesin sungguhan):** Claude Desktop tidak tersedia untuk Linux, sedangkan
+  pembentukan sesi inti (Tech Lead, IT Operations) dan pesan antar-sesi COO memakai alat sesi Claude Desktop. Dengan
+  Claude Code CLI saja, COO bekerja lewat subagent `rudis-<peran>` (sesi lain dibuka manual di terminal), dan Kantor hanya
+  menampilkan sesi dari transkrip (`~/.claude/projects`), tanpa metadata sesi Desktop. Tes, pemeriksa, perkakas, dan hook
+  berjalan sama.
 - Daftar uji Linux & Windows/WSL2 untuk rekan: `handoff/T-20261030-10/uji-windows.md` (per device, tidak di-commit; minta COO).
 
 1. `git clone https://github.com/DimasPrasetio/RudisOne.git ~/Documents/Neuron/ai-agent/RudisOne` (repo publik; harus di path ini —
@@ -116,7 +121,7 @@ RudisOne berjalan di **macOS**, **Linux**, dan **Windows lewat WSL2** (jalur Lin
    izin deploy tetap — lihat bagian di bawah.
 5. RUDIS SDD (repo privat git.neuron.id) butuh PAT GitLab (`read_repository` + `read_api`), diketik saat diminta —
    tidak pernah di argumen atau di repo. `install.sh`/`bin/perkakas.sh siapkan` menampilkan perintah yang sesuai OS:
-   macOS `security add-generic-password -s rudisone-rudis-sdd -a "$USER" -w` (Keychain); Linux/WSL2
+   macOS `security add-generic-password -U -s rudisone-rudis-sdd -a "$USER" -w` (Keychain); Linux/WSL2
    `~/Documents/Neuron/ai-agent/RudisOne/bin/perkakas.sh pat rudisone-rudis-sdd` (berkas 0600 di
    `~/.config/rudisone/rahasia/`). Perintah yang sama memperbarui PAT yang ditolak.
 6. Buka sesi di folder proyek mana pun dan ketik **`/rudisone`** — COO siap; sesi lain dibentuk saat ada tugasnya.
