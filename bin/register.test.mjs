@@ -91,6 +91,67 @@ test("ubah: kolom diperbarui; selesai/dibatalkan mengisi selesai_pada; kembali a
   assert.deepEqual(JSON.parse(tampil.stdout).map((x) => x.id), [id]);
 });
 
+test("jalur SDD: mode/jalur_awal/jalur_akhir/reroute di-set lewat tambah & ubah, divalidasi, tampil di MD & ringkasan, bisa dihapus", () => {
+  const l = lokasi();
+  const id = jalankan(l, "tambah", "--judul", "Bug stok", "--status", "berjalan", "--folder", "~/x", "--divisi", "Engineering",
+    "--pemilik", "Tech Lead · x", "--mode-saat-mulai", "b", "--jalur-awal", "Tracer").stdout.trim();
+  let t = baca(l).tugas[0];
+  assert.equal(t.id, id);
+  assert.equal(t.mode_saat_mulai, "B");                                // dinormalkan: huruf besar
+  assert.equal(t.jalur_awal, "tracer");                                // dinormalkan: huruf kecil
+  assert.equal("jalur_akhir" in t, false);
+  let md = fs.readFileSync(l.md, "utf8");
+  assert.ok(md.includes("## Jalur (skill rudis-sdd)\n\n| ID | Mode | Jalur awal | Jalur akhir | Re-route |\n|---|---|---|---|---|\n"));
+  assert.ok(md.includes(`| ${id} | B | tracer | — | — |`));
+  // re-route tanpa alasan ditolak, register tidak berubah
+  const tanpaAlasan = jalankan(l, "ubah", id, "--jalur-akhir", "redesign");
+  assert.equal(tanpaAlasan.status, 1);
+  assert.match(tanpaAlasan.stderr, /jalur_akhir \(redesign\) ≠ jalur_awal \(tracer\) wajib reroute/);
+  assert.equal("jalur_akhir" in baca(l).tugas[0], false);
+  const r = jalankan(l, "ubah", id, "--jalur-akhir", "redesign", "--reroute", "tracer: perilaku sesuai brd, permintaan = fitur");
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /· jalur B:tracer→redesign$/m);
+  t = baca(l).tugas[0];
+  assert.deepEqual([t.jalur_akhir, t.reroute], ["redesign", "tracer: perilaku sesuai brd, permintaan = fitur"]);
+  md = fs.readFileSync(l.md, "utf8");
+  assert.ok(md.includes(`| ${id} | B | tracer | redesign | tracer: perilaku sesuai brd, permintaan = fitur |`));
+  assert.match(jalankan(l, "tampil").stdout, /jalur B:tracer→redesign/);
+  // jalur akhir = awal tidak butuh alasan; nilai tidak sah ditolak
+  assert.equal(jalankan(l, "ubah", id, "--jalur-akhir", "tracer", "--reroute", "").status, 0);
+  assert.equal("reroute" in baca(l).tugas[0], false);
+  for (const [k, v, pola] of [["--mode-saat-mulai", "C", /mode_saat_mulai harus A\|B\|-/], ["--jalur-awal", "red design", /jalur_awal harus nilai pendek/],
+    ["--jalur-awal", "x".repeat(41), /jalur_awal harus nilai pendek/], ["--reroute", "a | b", /reroute harus alasan satu baris/]]) {
+    const g = jalankan(l, "ubah", id, k, v);
+    assert.equal(g.status, 1, `${k} ${v}`);
+    assert.match(g.stderr, pola);
+  }
+  assert.equal(jalankan(l, "ubah", id, "--mode-saat-mulai", "—").status, 0);
+  assert.equal(baca(l).tugas[0].mode_saat_mulai, "-");
+  assert.equal(jalankan(l, "ubah", id, "--jalur-awal", "").status, 1);  // jalur_akhir masih ada → butuh jalur_awal
+  // hapus semua kolom jalur → bagian Jalur hilang dari MD
+  const h = jalankan(l, "ubah", id, "--mode-saat-mulai", "", "--jalur-awal", "", "--jalur-akhir", "");
+  assert.equal(h.status, 0, h.stderr);
+  t = baca(l).tugas[0];
+  for (const k of R.JALUR) assert.equal(k in t, false, k);
+  assert.doesNotMatch(fs.readFileSync(l.md, "utf8"), /## Jalur/);
+  assert.deepEqual(R.validasi(baca(l)), []);
+});
+
+test("jalur SDD: register lama tanpa kolom jalur tetap valid & MD tanpa bagian Jalur; bagian Jalur tidak terbaca sebagai tugas oleh Kantor/impor", () => {
+  const lama = { versi: 1, diperbarui: kini, tugas: [tugas("T-20261030-1"), tugas("T-20261030-2", { status: "selesai", selesai_pada: "2026-10-30" })] };
+  assert.deepEqual(R.validasi(lama), []);
+  assert.doesNotMatch(R.bangkitkanMd(lama), /## Jalur/);
+  const baru = { ...lama, tugas: [...lama.tugas, tugas("T-20261030-3", { mode_saat_mulai: "A", jalur_awal: "pasang+sesuaikan" }),
+    tugas("T-20261030-4", { status: "selesai", selesai_pada: "2026-10-30", mode_saat_mulai: "B", jalur_awal: "upgrade", jalur_akhir: "tracer", reroute: "upgrade ternyata bug" })] };
+  assert.deepEqual(R.validasi(baru), []);
+  const md = R.bangkitkanMd(baru);
+  assert.ok(md.includes("| T-20261030-3 | A | pasang+sesuaikan | — | — |"));
+  assert.ok(md.includes("| T-20261030-4 | B | upgrade | tracer | upgrade ternyata bug |"));   // tugas selesai ikut (bahan metrik akurasi jalur)
+  assert.deepEqual(bacaRegister(md).map((t) => t.id), ["T-20261030-1", "T-20261030-3"]);
+  assert.deepEqual(R.imporMd(md).tugas.map((t) => t.id).sort(), ["T-20261030-1", "T-20261030-2", "T-20261030-3", "T-20261030-4"]);
+  assert.match(R.validasi({ ...lama, tugas: [tugas("T-20261030-5", { jalur_akhir: "redesign" })] }).join("\n"), /jalur_akhir butuh jalur_awal/);
+});
+
 test("kunci-cek: bentrok dengan tugas aktif (termasuk awalan repo:x ⊃ repo:x:a), bebas bila hanya tugas tutup/penyelarasan", () => {
   const l = lokasi();
   fs.writeFileSync(l.json, JSON.stringify({ versi: 1, diperbarui: kini, tugas: [

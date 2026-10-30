@@ -4,6 +4,7 @@
 // Pemakaian (bin/register.sh <perintah> …):
 //   tambah --judul … [--id baru|T-…] [--folder --divisi --pemilik --prioritas --status --fase --kunci a,b --bergantung x --perkakas]
 //   ubah <ID> --<kolom> <nilai> …     (status selesai/dibatalkan mengisi selesai_pada; --bukti)
+//     jalur SDD (opsional, skill rudis-sdd): --mode-saat-mulai A|B|- --jalur-awal x --jalur-akhir y --reroute "alasan"; nilai "" menghapus
 //   tampil [--json] [--semua]         ringkasan tugas aktif (urut prioritas lalu dibuat)
 //   kunci-cek <ID> | --kunci a,b [--kecuali ID]   keluar 1 + daftar tugas aktif yang berbagi kunci; 0 bila bebas
 //   validasi · bangkitkan · impor [--dari <md>] [--timpa] · rapikan (buang selesai/dibatalkan > 14 hari)
@@ -25,7 +26,12 @@ const TIDAK_MEMEGANG_KUNCI = new Set([...TUTUP, "penyelarasan"]);
 const RE_ID = /^T-\d{8}-\d+(\.\d+)?$/;
 const TEKS = ["judul", "folder", "divisi", "pemilik", "fase", "perkakas"];
 const DAFTAR = ["kunci", "bergantung"];
-const KOLOM_TUGAS = new Set(["id", ...TEKS, "prioritas", "status", ...DAFTAR, "dibuat", "diperbarui", "selesai_pada", "bukti"]);
+/** Kolom opsional jalur SDD (skill rudis-sdd › Jalur dua sumbu): mode proyek saat tugas mulai, jalur awal/akhir, alasan re-route. */
+export const JALUR = ["mode_saat_mulai", "jalur_awal", "jalur_akhir", "reroute"];
+export const MODE = ["A", "B", "-"];
+const RE_JALUR = /^[a-z0-9][a-z0-9+-]{0,39}$/;
+const REROUTE_MAKS = 200;
+const KOLOM_TUGAS = new Set(["id", ...TEKS, "prioritas", "status", ...DAFTAR, "dibuat", "diperbarui", "selesai_pada", "bukti", ...JALUR]);
 /** Kolom yang boleh "?" — hanya selama status penyelarasan. */
 const BOLEH_TANYA = new Set(["folder", "divisi", "pemilik", "prioritas", "fase", "perkakas"]);
 const RAPIKAN_HARI = 14;
@@ -71,6 +77,16 @@ export function validasi(reg) {
     if ("selesai_pada" in t && !tanggalValid(t.selesai_pada)) g.push(`${di}: selesai_pada harus tanggal YYYY-MM-DD`);
     if (TUTUP.has(t.status) && !("selesai_pada" in t)) g.push(`${di}: status ${t.status} wajib selesai_pada`);
     if ("bukti" in t && (typeof t.bukti !== "string" || /[\n|]/.test(t.bukti))) g.push(`${di}: bukti harus teks satu baris tanpa "|"`);
+    // jalur SDD (opsional)
+    if ("mode_saat_mulai" in t && !MODE.includes(t.mode_saat_mulai)) g.push(`${di}: mode_saat_mulai harus ${MODE.join("|")}`);
+    for (const k of ["jalur_awal", "jalur_akhir"]) {
+      if (k in t && (typeof t[k] !== "string" || !RE_JALUR.test(t[k]))) g.push(`${di}: ${k} harus nilai pendek huruf kecil/angka/"-"/"+" (≤ 40), mis. tracer, redesign, pasang+sesuaikan`);
+    }
+    if ("reroute" in t && (typeof t.reroute !== "string" || !t.reroute.trim() || /[\n|]/.test(t.reroute) || t.reroute.length > REROUTE_MAKS)) {
+      g.push(`${di}: reroute harus alasan satu baris tanpa "|" (≤ ${REROUTE_MAKS} karakter)`);
+    }
+    if ("jalur_akhir" in t && !("jalur_awal" in t)) g.push(`${di}: jalur_akhir butuh jalur_awal`);
+    else if ("jalur_akhir" in t && t.jalur_akhir !== t.jalur_awal && !("reroute" in t)) g.push(`${di}: jalur_akhir (${t.jalur_akhir}) ≠ jalur_awal (${t.jalur_awal}) wajib reroute (alasan re-route)`);
   });
   return g;
 }
@@ -156,7 +172,13 @@ function terapkanKolom(t, opsi) {
   for (const [k, v] of Object.entries(opsi)) {
     if (k === "id") continue;
     if (DAFTAR.includes(k)) t[k] = pisahDaftar(v);
-    else if (k === "selesai_pada" || k === "bukti" || TEKS.includes(k) || k === "prioritas" || k === "status") t[k] = String(v).trim();
+    else if (JALUR.includes(k)) {
+      const s = String(v).trim();
+      if (!s) delete t[k];                                            // "" menghapus kolom opsional
+      else if (k === "mode_saat_mulai") t[k] = /^[—–-]$/.test(s) ? "-" : s.toUpperCase();
+      else if (k === "reroute") t[k] = s;
+      else t[k] = s.toLowerCase();
+    } else if (k === "selesai_pada" || k === "bukti" || TEKS.includes(k) || k === "prioritas" || k === "status") t[k] = String(v).trim();
     else throw new Error(`kolom tidak dikenal: --${k}`);
   }
   if (TUTUP.has(t.status)) t.selesai_pada ??= tanggalLokal();
@@ -248,7 +270,22 @@ export function bangkitkanMd(reg) {
     ...tutup.map((t) => baris([t.id, sel(String(t.selesai_pada).slice(0, 10)), sel(t.judul), folderSel(t.folder), sel(t.pemilik), sel(t.status),
       sel(t.perkakas), sel(t.bukti)])),
     "",
+    ...bagianJalur(reg.tugas),
   ].join("\n");
+}
+
+export const KEPALA_JALUR = ["ID", "Mode", "Jalur awal", "Jalur akhir", "Re-route"];
+/** Bagian "Jalur" hanya bila ada tugas yang mengisi kolom jalur SDD (tanpa kolom Status → Kantor & impor melewatinya). */
+function bagianJalur(tugas) {
+  const isi = urut(tugas.filter((t) => JALUR.some((k) => k in t)));
+  if (!isi.length) return [];
+  return [
+    "## Jalur (skill rudis-sdd)",
+    "",
+    baris(KEPALA_JALUR), pemisah(KEPALA_JALUR.length),
+    ...isi.map((t) => baris([t.id, sel(t.mode_saat_mulai), sel(t.jalur_awal), sel(t.jalur_akhir), sel(t.reroute)])),
+    "",
+  ];
 }
 
 // ---------- impor satu kali dari MD lama ----------
@@ -341,7 +378,8 @@ export function uraiArg(argv) {
 
 function ringkas(t) {
   const kunci = t.kunci.length ? ` · kunci ${t.kunci.join(", ")}` : "";
-  return `${t.id}  [${t.prioritas}] ${t.status.padEnd(12)} ${t.judul} — ${t.pemilik}${kunci}`;
+  const jalur = t.jalur_awal ? ` · jalur ${t.mode_saat_mulai ? `${t.mode_saat_mulai}:` : ""}${t.jalur_awal}${t.jalur_akhir && t.jalur_akhir !== t.jalur_awal ? `→${t.jalur_akhir}` : ""}` : "";
+  return `${t.id}  [${t.prioritas}] ${t.status.padEnd(12)} ${t.judul} — ${t.pemilik}${kunci}${jalur}`;
 }
 
 export function main(argv) {
@@ -416,7 +454,7 @@ export function main(argv) {
         return 0;
       }
       default:
-        console.error(fs.readFileSync(INI, "utf8").split("\n").slice(1, 10).map((l) => l.replace(/^\/\/ ?/, "")).join("\n"));
+        console.error(fs.readFileSync(INI, "utf8").split("\n").slice(1, 11).map((l) => l.replace(/^\/\/ ?/, "")).join("\n"));
         return 2;
     }
   } catch (e) {
