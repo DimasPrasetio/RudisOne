@@ -510,6 +510,15 @@ function klasifikasiSegmen(s, K, ctx) {
     return { aman: false, ubahSendiri: !BACA_SENDIRI[skrip].includes(subp),
       bacaSendiri: BACA_SENDIRI[skrip].includes(subp) && alihOk && prefiks.every((p) => /^RUDISONE_[A-Z_]+=/.test(p)) };
   }
+  // Backend sesi cli (T-20261030-11): dikenali dari nama program di path mana pun (agar pembatasan tidak lolos lewat
+  // ~/.local/bin/claude), tetapi hanya boleh ikut diloloskan bila dipanggil dengan nama standar.
+  if (nama === "claude") { const h = klasifikasiClaude(args, dasarAman, ctx); return { ...h, claude: true, aman: h.aman && programStandar(prog) }; }
+  // lewat pembungkus (timeout 60 claude …, nohup/env/command/exec/nice claude …): pembatasan tetap berlaku, tidak pernah allow
+  if (/^(g?timeout|nohup|command|exec|nice|env|stdbuf|time|caffeinate)$/.test(nama)) {
+    let i = 1;
+    while (i < w.length && /^(-.*|\d+(\.\d+)?[smhd]?|[A-Za-z_][A-Za-z0-9_]*=.*)$/.test(w[i].nilai)) i++;
+    if (path.basename(w[i]?.nilai ?? "") === "claude") return { ...klasifikasiClaude(w.slice(i + 1).map((x) => x.nilai), false, ctx), claude: true, aman: false };
+  }
   if (!programStandar(prog)) return { aman: false };
   const cli = Object.entries(K.penyedia).find(([, p]) => p.jenis === "cli" && p.perintah === nama);
   if (cli) {
@@ -558,6 +567,114 @@ function klasifikasiSegmen(s, K, ctx) {
       && !ARG_BERBAHAYA[nama]?.(args) && !ARG_BERBAHAYA_LOKAL[nama]?.(args);
     return { aman };
   }
+  return { aman: false };
+}
+
+// ---------- backend sesi cli: perintah `claude` (T-20261030-11) ----------
+// Membentuk/menghentikan sesi latar = kemampuan "sesi" (hanya COO, jenjang 1). `claude --bg` hanya dikenali aman dengan
+// opsi dari daftar tetap DAN tepat satu `--settings` = pengaman RudisOne (bgIsolation none, deny push/rm, bypass mati).
+// Selalu ditanya (jenjang 3, semua jabatan): bypassPermissions, `claude rm` (menghapus worktree), `claude attach` (milik
+// pengguna di terminalnya), `respawn --all`, opsi di luar daftar. `claude agents --json` = baca, semua jabatan.
+const SETTINGS_SESI = path.join(ROOT, "konfigurasi", "sesi-cli.settings.json");
+const BAHAYA_CLAUDE = /^--(dangerously-skip-permissions|allow-dangerously-skip-permissions)(=|$)|bypassPermissions/i;
+const MODE_AMAN = new Set(["default", "auto", "acceptEdits", "plan", "manual", "dontAsk"]);
+// --agent sengaja tidak ada: definisi agent proyek (<cwd>/.claude/agents) bisa menimpa milik pengguna dan membawa hooks/MCP.
+const OPSI_BG = new Set(["-n", "--name", "-r", "--resume", "--model", "--permission-mode", "--settings"]);
+// Subperintah CLI: commander tetap men-dispatch-nya walau opsi root di depannya → tidak boleh berdiri sebagai "prompt".
+const SUB_CLAUDE = new Set(["agents", "attach", "auth", "auto-mode", "config", "doctor", "gateway", "import", "install", "kill", "logs",
+  "mcp", "migrate-installer", "plugin", "plugins", "project", "respawn", "rm", "setup-token", "stop", "ultrareview", "update", "upgrade"]);
+/** Lapis gagal-tertutup: teks perintah yang menyebut `claude` di posisi perintah dengan aksi sesi/bypass, tetapi bentuknya
+ *  tidak dikenali pengurai (bash -c, sudo, xargs, kata kunci shell, $( ), opsi pembungkus bernilai, --bg=…) → jenjang 3. */
+const AWAL_CLAUDE = "(?:(?:^|[\\n;&|({`!]|\\$\\(|\\b(?:then|do|else)\\s|-c\\s*[\"'])\\s*"
+  + "|\\b(?:sudo|xargs|setsid|exec|env|nohup|g?timeout|stdbuf|nice|command|time|caffeinate)\\s(?:[^;&|\\n`)]*\\s)?)"
+  + "(?:[^\\s;&|()`'\"]*\\/)?claude(?:\\.exe)?\\s+";
+const CLAUDE_SESI_MENTAH = new RegExp(`${AWAL_CLAUDE}(?:[^;&|\\n\`)]*\\s)?(?:--bg|--background|stop|kill|respawn|rm|attach)\\b`);
+const CLAUDE_BYPASS_MENTAH = new RegExp(`${AWAL_CLAUDE}[^;&|\\n\`)]*bypass`, "i");
+const HEREDOC = /<<-?\s*(['"]?)([A-Za-z_]\w*)\1[^\n]*\n([\s\S]*?)(?:\n[ \t]*\2[ \t]*(?=\n|$)|$)/g;
+const SHELL = "(?:\\S*\\/)?(?:ba|z|da|k)?sh";
+const keShell = (semua, off) => new RegExp(`(?:^|[;&|(]\\s*)${SHELL}(?:\\s+-\\S+)*\\s*$`).test(semua.slice(semua.lastIndexOf("\n", off) + 1, off).trimEnd())
+  || new RegExp(`\\|\\s*${SHELL}\\b`).test(semua.slice(off, (semua.indexOf("\n", off) + 1 || semua.length + 1) - 1));   // cat <<EOF | bash
+/** Potongan badan heredoc (dipecah seperti pengurai: baris, ;, &&, ||, |) yang diberikan ke program selain shell. */
+function badanHeredoc(cmd) {
+  const b = [];
+  for (const m of cmd.matchAll(HEREDOC)) if (!keShell(cmd, m.index)) b.push(...m[3].split(/\n|&&|\|\||[;&|]/).map((x) => x.trim()).filter(Boolean));
+  return b;
+}
+/** Teks yang benar-benar dijalankan shell dari satu segmen: isi kutip (pesan commit, JSON, argumen grep) dan badan heredoc
+ *  dibuang, KECUALI argumen `-c` (bash -c "…"), isi `$( )`/backtick di dalam kutip ganda, dan heredoc ke shell (bash <<EOF). */
+export function teksKode(t) {
+  // badan heredoc dibuang, kecuali heredoc yang diberikan ke shell (`bash <<EOF`, `… | sh <<EOF`)
+  t = t.replace(HEREDOC, (m, _q, _d, _b, off, semua) => (keShell(semua, off) ? m : m.slice(0, m.indexOf("\n") + 1)));
+  let out = "";
+  for (let i = 0; i < t.length; i++) {
+    const c = t[i];
+    if (c === "\\") { out += t.slice(i, i + 2); i++; continue; }
+    if (c !== "'" && c !== '"') { out += c; continue; }
+    let j = i + 1;
+    while (j < t.length && t[j] !== c) j += c === '"' && t[j] === "\\" ? 2 : 1;
+    const isi = t.slice(i + 1, j);
+    if (/-c\s*$/.test(out)) out += ` ; ${isi} ;`;
+    else if (c === '"') out += ` ${[...isi.matchAll(/\$\(([^)]*)\)?|`([^`]*)`?/g)].map((m) => `; ${m[1] ?? m[2] ?? ""}`).join(" ")} `;
+    else out += " ";
+    i = j;
+  }
+  return out;
+}
+function klasifikasiClaude(args, dasarAman, ctx) {
+  const tanya = (aksi) => ({ aman: false, aksi: [{ kemampuan: "sesi", jenjang: 3, aksi }] });
+  if (args.some((a) => BAHAYA_CLAUDE.test(a))) return tanya("claude dengan bypassPermissions — tidak pernah dipakai RudisOne");
+  if (args.some((a) => /^--(bg|background)=/.test(a))) return tanya("claude --bg=… — bentuk di luar daftar aman");
+  const sub = args[0] ?? "";
+  // bantuan (--help/-h) dicetak lalu keluar tanpa menjalankan subperintah → baca
+  if (args.some((a) => a === "--help" || a === "-h")) return { aman: dasarAman, aksi: [{ kemampuan: "sesi-baca", jenjang: 1, aksi: "claude --help" }] };
+  if (sub === "rm") return tanya("claude rm — menghapus sesi & worktree; RudisOne memakai claude stop");
+  if (sub === "attach") return tanya("claude attach — dijalankan pengguna di terminalnya sendiri");
+  if (sub === "agents") {
+    const r = args.slice(1);
+    let ok = r.includes("--json");
+    for (let i = 0; ok && i < r.length; i++) {
+      if (r[i] === "--json" || r[i] === "--all") continue;
+      if (r[i] === "--cwd" && r[i + 1] !== undefined && !r[i + 1].startsWith("-")) { i++; continue; }
+      ok = false;
+    }
+    return ok ? { aman: dasarAman, aksi: [{ kemampuan: "sesi-baca", jenjang: 1, aksi: "claude agents --json" }] } : { aman: false };
+  }
+  if (["stop", "kill", "respawn", "logs"].includes(sub)) {
+    const ok = args.length === 2 && /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(args[1]);
+    return { aman: dasarAman && ok, aksi: [{ kemampuan: "sesi", jenjang: ok ? 1 : 3, aksi: `claude ${args.join(" ")}`.slice(0, 80) }] };
+  }
+  if (args.includes("--bg") || args.includes("--background")) {
+    if (args[0] !== "--bg" && args[0] !== "--background") return tanya("claude --bg harus diletakkan pertama: claude --bg --name … --settings <abs> '<prompt>'");
+    let pengaman = 0, settingsLain = 0, prompt = 0, asing = null, namaSesi = "";
+    for (let i = 0; i < args.length && !asing; i++) {
+      const a = args[i];
+      if (a === "--bg" || a === "--background") continue;
+      const sama = a.startsWith("--") ? a.indexOf("=") : -1;
+      const k = sama > 0 ? a.slice(0, sama) : a;
+      if (OPSI_BG.has(k)) {
+        const v = sama > 0 ? a.slice(sama + 1) : args[++i];
+        if (v === undefined || v === "" || v.startsWith("-")) { asing = `${k} tanpa nilai`; break; }
+        if (k === "--permission-mode" && !MODE_AMAN.has(v)) asing = `${k} ${v}`;
+        if (k === "-n" || k === "--name") namaSesi = v;
+        // hanya path absolut harfiah yang persis sama: CLI tidak mengekspansi `~`, dan path relatif/symlink diselesaikan CLI
+        // dari cwd fisik yang tidak selalu sama dengan cwd yang dilacak hook (cd gagal, cd lewat symlink)
+        // `..` diselesaikan CLI secara fisik (lewat symlink) → hanya bentuk ternormal tanpa `.`/`..`/`//`
+        if (k === "--settings") { if (v.startsWith("/") && path.normalize(v) === v && normal(v) === normal(SETTINGS_SESI)) pengaman++; else settingsLain++; }
+        continue;
+      }
+      if (a.startsWith("-")) { asing = a; break; }
+      if (SUB_CLAUDE.has(a)) { asing = `subperintah ${a}`; break; }
+      prompt++;
+    }
+    if (!asing && prompt > 1) asing = "lebih dari satu argumen prompt (kutip prompt dengan tanda kutip tunggal)";
+    if (asing) return tanya(`claude --bg dengan opsi di luar daftar aman (${asing})`);
+    if (pengaman !== 1 || settingsLain) return tanya("claude --bg tanpa tepat satu --settings pengaman RudisOne (konfigurasi/sesi-cli.settings.json)");
+    return { aman: dasarAman, aksi: [{ kemampuan: "sesi", jenjang: 1, aksi: `bentuk sesi latar ${namaSesi}`.trim() }] };
+  }
+  if (args.some((a) => a === "--settings" || a.startsWith("--settings=")))
+    return tanya("claude dengan --settings di luar pembentukan sesi latar — settings tambahan diputuskan pemilik");
+  if (args.length === 1 && ["--version", "-v"].includes(sub))
+    return { aman: dasarAman, aksi: [{ kemampuan: "sesi-baca", jenjang: 1, aksi: "claude --version" }] };
   return { aman: false };
 }
 
@@ -686,8 +803,11 @@ function analisisBash(input, K) {
   ctx.awal = ctx.cwd;
   const hasil = [];
   let sebut = null, ubahSendiri = false;
+  // urai memecah badan heredoc menjadi segmen; baris badan heredoc ke program selain shell bukan perintah claude
+  const badan = badanHeredoc(cmd);
   for (const s of u.segmen) {
-    const h = klasifikasiSegmen(s, K, ctx);
+    let h = klasifikasiSegmen(s, K, ctx);
+    if (h.claude) { const t = s.teks.trim(), n = badan.indexOf(t); if (t && n >= 0) { badan.splice(n, 1); h = { aman: false }; } }
     hasil.push(h);
     if (h.ubahSendiri) ubahSendiri = true;
     // T-20261030-6 A9: hanya TARGET PENULISAN nyata yang diperiksa (pengalihan keluar, tee, sed/perl -i, cp/mv/rm/…,
@@ -705,6 +825,14 @@ function analisisBash(input, K) {
     }
   }
   const aksi = hasil.flatMap((h) => h.aksi ?? []);
+  // backend sesi cli: segmen yang menyebut `claude` di posisi perintah dengan aksi sesi/bypass tetapi tidak diurai sebagai
+  // perintah claude (bash -c, sudo, xargs, kata kunci shell, $( ) …) → ditanya
+  // dihitung atas teks kode seluruh perintah (heredoc ke program lain & isi kutip bukan kode): lebih banyak kemunculan daripada
+  // segmen claude yang sudah diurai → ada bentuk yang lolos dari pengurai
+  const sesiMentah = (k) => [...k.matchAll(new RegExp(CLAUDE_SESI_MENTAH.source, "g"))].length
+    + [...k.matchAll(new RegExp(CLAUDE_BYPASS_MENTAH.source, "gi"))].length;
+  if (sesiMentah(teksKode(cmd)) > u.segmen.reduce((n, s, i) => n + (hasil[i].claude ? sesiMentah(teksKode(s.teks)) : 0), 0))
+    aksi.push({ kemampuan: "sesi", jenjang: 3, aksi: "perintah claude untuk sesi latar dalam bentuk yang tidak dikenali" });
   const aman = !u.kompleks && !u.ekspansi && hasil.length > 0 && hasil.every((h) => h.aman);
   const terlindung = ubahSendiri ? "pengelola kebijakan/hook (pasang, lepas, …)" : sebut;
   return { aksi, aman, terlindung, ringkasan: cmd };

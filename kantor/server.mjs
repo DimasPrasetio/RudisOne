@@ -10,6 +10,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { bacaKonfig } from "../bin/konfig.mjs";
+import { agentsCli, backendSesi, folderDesktop, normalAgents } from "../bin/sesi.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const HOME = os.homedir();
@@ -178,9 +179,10 @@ export function describeTool(name, input = {}, resolveAgent = () => null) {
   }
 }
 
-// ---------- metadata sesi Claude Desktop (opsional) ----------
-// Format internal aplikasi (bukan API resmi): bila tidak ada/berubah, kantor tetap jalan dari transkrip saja.
-const DESKTOP_SESSIONS = process.env.RUDISONE_KANTOR_DESKTOP || path.join(HOME, "Library", "Application Support", "Claude", "claude-code-sessions");
+// ---------- metadata sesi: Claude Desktop (backend desktop) atau `claude agents --json` (backend cli) ----------
+// Desktop: format internal aplikasi (bukan API resmi), path per OS (bin/sesi.mjs › folderDesktop). cli: antarmuka resmi
+// untuk dibaca dari sesi lain. Bila tidak ada/berubah, kantor tetap jalan dari transkrip saja.
+const DESKTOP_SESSIONS = folderDesktop();
 /** cliSessionId → {localId, archived, title} */
 let desktop = new Map();
 let desktopReadAt = 0;
@@ -188,6 +190,10 @@ const desktopCache = new Map(); // file → {mtimeMs, entry}
 function loadDesktop(now) {
   if (now - desktopReadAt < 10e3) return;
   desktopReadAt = now;
+  if (backendSesi().backend === "cli") {
+    try { desktop = new Map(normalAgents(agentsCli({ timeout: 4000 })).map((e) => [e.cli, e])); } catch { desktop = new Map(); }
+    return;
+  }
   const next = new Map();
   let accounts = [];
   try { accounts = fs.readdirSync(DESKTOP_SESSIONS); } catch { desktop = next; return; }
@@ -554,7 +560,7 @@ export function buildState(now = Date.now()) {
     if (d?.archived || now - s.lastTs > IN_OFFICE_MS) continue; // diarsipkan / sudah lama
     let st = sessionStatus(s, now);
     if (d?.awaiting && st.status !== "menunggu") // sesi berhenti menunggu keputusan pengguna (mis. izin)
-      st = { status: "menunggu", label: "Menunggu keputusan Anda", detail: "", icon: "tunggu", since: s.lastTs };
+      st = { status: "menunggu", label: "Menunggu keputusan Anda", detail: d.perintah ?? "", icon: "tunggu", since: s.lastTs };
     byAgent.get(agent).push({ title, cwd: s.cwd?.replace(HOME, "~") ?? "", lastTs: s.lastTs, ...st });
     catat(s, agent);
   }

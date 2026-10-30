@@ -6,4 +6,5 @@ handoff/*
 **/.claude/settings.local.json
 /konfigurasi/*
 !/konfigurasi/server.contoh.json
+!/konfigurasi/sesi-cli.settings.json
 .DS_Store

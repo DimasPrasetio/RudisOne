@@ -56,10 +56,8 @@ Technical Writer) · IT Operations: Head of IT Operations memimpin System Admini
   Head of IT Operations; leader berhalangan → COO menugaskan anggota langsung, tembusan leader.
 
 ## Model sesi: inti kecil + subagent
-Peran **ada** tidak sama dengan sesi **hidup**. Dua belas jabatan tetap menjadi katalog (routing, akses, SOP,
-akuntabilitas); yang hidup sebagai sesi hanya inti.
-- **Sesi tetap (inti):** COO dan **Tech Lead per proyek yang punya tugas aktif** (worktree integrasi, dibentuk saat tugas
-  pertama proyek itu dijadwalkan).
+Peran **ada** tidak sama dengan sesi **hidup**: dua belas jabatan = katalog (routing, akses, SOP, akuntabilitas); sesi hanya inti.
+- **Sesi tetap (inti):** COO dan **Tech Lead per proyek yang punya tugas aktif** (worktree integrasi, dibentuk saat tugas pertama).
 - **Subagent dari definisi peran** (tool `Agent`, `subagent_type: "rudis-<id-peran>"`): semua peran lain. COO memanggil
   Corporate Strategy, Program Manager, dan Technical Writer; Tech Lead memanggil BSA, Software Engineer (yang menulis:
   `isolation: "worktree"`), dan peninjau read-only. Subagent bekerja di folder pemanggilnya, jadi pekerjaan yang
@@ -69,7 +67,9 @@ akuntabilitas); yang hidup sebagai sesi hanya inti.
   server, prompt jenjang 3, dan izin deploy tetap melekat): hanya saat ada tugas server, insiden, data production, atau
   deploy, atau atas permintaan pengguna — bukan di setiap `/rudisone`, bukan di Inisiasi proyek. Peran lain: bila tugas
   panjang perlu dipantau/disela pengguna, butuh prompt izin sendiri, atau pengguna memintanya (judul `<Jabatan>` / `<Jabatan> · <proyek>`).
-- Pola lama (organisasi penuh sebagai sesi) dipulihkan lewat rollback utuh (README › Rollback), tidak dicampur.
+- **Backend sesi per device** (`bin/sesi.sh backend`): `desktop` (macOS/Windows — alat sesi Claude Desktop) atau `cli`
+  (Linux/WSL2 — `claude --bg`, `claude agents --json`, `SendMessage` lintas sesi lokal, `claude stop`); padanan tiap aksi:
+  skill `rudisone` › `backend-cli.md`. Satu backend per device. Pola lama: rollback utuh (README › Rollback), tidak dicampur.
 
 ## Pola pengerjaan
 Multi-agent membantu tugas yang bisa dipecah tetapi merugikan tugas berurutan dan berat alat (arXiv 2512.08296).
@@ -192,9 +192,9 @@ Alat dan akun RudisOne adalah aset perusahaan (`penyedia.md`). Akses per jabatan
 - Fakta proyek tetap di repo proyek; RudisOne hanya menyimpan pengetahuan tingkat tim/device.
 
 ## Batasan platform (bukan bug)
-- Hanya COO yang membuat sesi, dan hanya pada giliran yang dipicu ketikan pengguna di sesi COO.
-- Pesan antar-sesi diterima pada putaran berikutnya penerima; laporan otomatis akhir-giliran hanya ke pembuat sesi.
-- `clear_session` hanya untuk diri sendiri atau sesi buatan sendiri. Desktop hanya menampilkan 20 sesi terbaru —
-  `TEAM.md` adalah buku alamat.
+- Hanya COO yang membuat sesi, dan hanya pada giliran yang dipicu ketikan pengguna di sesi COO. cli: `claude --bg` (hook).
+- Pesan antar-sesi diterima pada putaran berikutnya penerima; laporan otomatis akhir-giliran hanya ke pembuat sesi
+  (cli: tidak ada — COO berlangganan `notify_when_idle`). cli: prompt izin sesi latar dijawab pengguna `claude attach`.
+- `clear_session` hanya untuk diri sendiri atau sesi buatan sendiri. `TEAM.md` adalah buku alamat.
 - Pengaman auto mode menolak perubahan aturan izin oleh Claude dan persetujuan yang dikutip lewat pesan untuk aksi
   produksi yang tidak tercakup izin tetap — jangan diakali.

@@ -803,3 +803,63 @@ test("U3 L2: denyut hanya dari peristiwa hook nyata; disableAllHooks dilaporkan 
   assert.match(cli("cek"), /disableAllHooks/);
   assert.ok(["PreToolUse", "PostToolUse", "PostToolUseFailure"].every((ev) => s.hooks[ev]?.length === 1));
 });
+
+test("backend sesi cli: claude --bg/stop/kill/respawn/logs hanya COO; rm/attach/bypass/opsi asing selalu ditanya; red-team majemuk", () => {
+  const PENGAMAN = path.join(ROOT, "konfigurasi", "sesi-cli.settings.json");
+  const TL = "/x/toko/.claude/worktrees/r1-lead-toko", RA = path.join(ROOT, "ruang", "research-analyst");
+  const bg = (sisa = "") => `cd /x/toko/.claude/worktrees/r1-lead-toko && claude --bg --name r1-lead-toko --settings ${PENGAMAN}${sisa} 'Kamu adalah Tech Lead. Jawab satu baris: Siap'`;
+  // COO: bentuk, pulihkan, status, hentikan → allow (tanpa prompt baru)
+  for (const c of [bg(), bg(" --permission-mode auto"), `claude --bg --resume 9b2c7e57-fcca --settings ${PENGAMAN} 'lanjutkan'`,
+    `claude --bg -n rudis-sysadmin --settings=${PENGAMAN} 'Siap?'`, `claude --bg --resume 9b2c7e57-fcca --settings ${PENGAMAN}`, "claude agents --json", "claude agents --json --all",
+    `claude agents --json --cwd ${ROOT}`, "claude stop r1-lead-toko", "claude kill 9b2c7e57", "claude respawn r1-lead-toko",
+    "claude logs r1-lead-toko", "claude --version", "claude stop --help", "claude attach --help", "claude rm -h", `${ROOT}/bin/sesi.sh daftar`.replace(ROOT, path.join(SINI, ".."))]) {
+    if (c.includes("bin/sesi.sh")) continue;   // perkakas asli hanya dari ROOT uji — diuji di bawah lewat kep != ask
+    assert.equal(kep(bash(COO, c)), "allow", c);
+  }
+  // jabatan lain: bentuk/hentikan → ask; baca status → allow
+  for (const cwd of [TL, SA, RA]) {
+    for (const c of [bg(), "claude stop r1-lead-toko", "claude respawn x", "claude logs x", `timeout 60 ${bg().split(" && ")[1]}`])
+      assert.equal(kep(bash(cwd, c)), "ask", `${cwd}: ${c}`);
+    assert.equal(kep(bash(cwd, "claude agents --json --all")), "allow", cwd);
+  }
+  // selalu ditanya, juga untuk COO
+  for (const c of ["claude rm r1-lead-toko", "claude attach r1-lead-toko", "claude respawn --all", "claude stop", "claude stop a b",
+    bg(" --permission-mode bypassPermissions"), bg(" --dangerously-skip-permissions"), "claude --dangerously-skip-permissions -p hai",
+    "claude -p --permission-mode=bypassPermissions hai", "claude agents --allow-dangerously-skip-permissions",
+    `claude --bg --name x 'tanpa pengaman'`, `claude --bg --settings /tmp/lain.json 'x'`,
+    `claude --bg --settings ${PENGAMAN} --settings '{"permissions":{"allow":["Bash"]}}' 'x'`,
+    `claude --bg --settings '{"worktree":{"bgIsolation":"auto"}}' --settings ${PENGAMAN} 'x'`,
+    bg(" --add-dir /"), bg(" --mcp-config /tmp/m.json"), bg(" --allowedTools Bash"), bg(" --plugin-dir /tmp/p"), bg(" --system-prompt x"),
+    bg(" --permission-mode"), `claude --bg --settings ${PENGAMAN} satu dua`, `~/.local/bin/claude rm x`,
+    `gh pr list && claude rm x`, `claude agents --json; claude rm x`, "timeout 60 claude --bg --name x 'tanpa pengaman'",
+    "nohup claude rm x", "env A=1 claude --dangerously-skip-permissions", "command claude attach x",
+    // tinjauan keamanan T-20261030-11: ~ harfiah, relatif, subperintah sebagai prompt, --agent, bentuk tak terurai
+    `claude --bg --settings=~${PENGAMAN.slice(os.homedir().length)} x`, `claude --bg --settings '~${PENGAMAN.slice(os.homedir().length)}' x`,
+    `claude --bg --settings konfigurasi/sesi-cli.settings.json 'x'`, `cd ${ROOT}/tidakada; claude --bg --settings ../konfigurasi/sesi-cli.settings.json x`,
+    `claude --bg --settings ${PENGAMAN} update`, `claude --bg --settings ${PENGAMAN} install`, `claude update --bg --settings ${PENGAMAN}`,
+    `claude --name x --bg --settings ${PENGAMAN} 'x'`, bg(" --agent rudis-tech-lead"), "claude --bg=true x", "claude --background=1 x",
+    "env -u FOO claude --bg x", "timeout -s KILL 60 claude --bg x", "stdbuf -o L claude --bg x", "exec -a n claude --bg x",
+    "env -C /tmp claude --bg x", `bash -c "claude --bg x"`, "sudo claude --bg x", "xargs claude --bg < /dev/null", "setsid claude --bg x",
+    "if true; then claude --bg x; fi", "! claude --bg x", "{ claude --bg x; }", "echo $(claude --bg x)",
+    `claude -p --settings '{"permissions":{"defaultMode":"bypass\u0050ermissions"}}' hi`, "claude -p --settings /tmp/s.json hi",
+    `claude --bg --name y --settings ${ROOT}/x/../konfigurasi/sesi-cli.settings.json 'x'`, `claude --bg --settings ${PENGAMAN.replace("/konfigurasi/", "/./konfigurasi/")} x`,
+    `claude --bg --settings ${PENGAMAN.replace("/konfigurasi/", "//konfigurasi/")} x`, "cat <<EOF > /tmp/x\nhai\nEOF\nclaude rm x"]) {
+    assert.equal(kep(bash(COO, c)), "ask", c);
+  }
+  // red-team: tidak pernah allow (alur biasa atau ask) bila digandeng/disamarkan
+  for (const c of [`${bg()} && rm -rf /tmp/x`, `${bg()}; git push`, `claude --bg --settings ${PENGAMAN} "$(cat /tmp/p)"`,
+    `claude --bg --settings ${PENGAMAN} "\`id\`"`, `X=1 ${bg()}`, `${bg()} > /tmp/out`, `claude --bg --settings $F 'x'`,
+    `/tmp/claude --bg --settings ${PENGAMAN} 'x'`, `claude --bg --settings ${PENGAMAN} 'x' | sh`, "claude agents", "claude agents --json --settings x",
+    `cd $D && claude --bg --settings ${path.relative(ROOT, PENGAMAN)} 'x'`, "claude -p hai", "claude", `timeout 60 ${bg()}`]) {
+    assert.notEqual(kep(bash(COO, c)), "allow", c);
+  }
+  // perintah teks biasa yang hanya MENYEBUT claude/bypass tidak ditanya (tanpa prompt baru)
+  for (const c of [`grep -n "claude --bg" README.md`, "grep -rn bypassPermissions bin/", "cat ~/.claude/settings.json | grep bypass",
+    "git log --oneline -3", `git commit -qm "feat: backend (claude --bg, claude stop)"`, "python3 - <<'EOF'\nx = 'claude --bg; claude rm'\nEOF",
+    `bin/kebijakan.sh uji "{\\"command\\":\\"claude rm x\\"}"`, "cat <<EOF > /tmp/x.md\nclaude stop a\nEOF",
+    "git commit -F - <<'EOF'\nfix: claude --bg; claude rm dilarang\nEOF", "grep -rn claude docs/bypass.md", "grep -n claude a.md -e bypassPermissions"])
+    for (const cwd of [COO, path.join(ROOT, "ruang", "research-analyst")]) assert.notEqual(kep(bash(cwd, c)), "ask", c);
+  // …tetapi yang benar-benar dijalankan shell tetap ditanya
+  for (const c of ["bash <<'EOF'\nclaude --bg x\nEOF", "cat <<EOF | bash\nclaude --bg x\nEOF", `bash -c 'claude --bg x'`, `echo "$(claude --bg x)"`, "echo \"`claude rm x`\""])
+    assert.equal(kep(bash(path.join(ROOT, "ruang", "research-analyst"), c)), "ask", c);
+});
