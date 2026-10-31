@@ -55,14 +55,16 @@ Jalur cadangan COO saat sesi Tech Lead tidak bisa dibentuk (`agents/coo.md` › 
   `handoff/<ID>/intake.md`; fakta deploy yang belum ada dibiarkan menjadi penanda (skill `rudis-sdlc` › Proyek baru) —
   aplikasi tetap jalan lokal, jangan `[Terhambat]` karena itu.
 - **`.env` & database lokal oleh kamu** (izin tetap pengguna 2026-10-31; skill `rudis-sdlc` › `.env` & database lokal):
-  langsung setelah scaffold, `.env` lokal lengkap tanpa placeholder (login lokal bawaan `admin` / `admin@gmail.com` /
-  `admin123` — nilai publik, hanya lokal) dan kamu sendiri menjalankan `db-local.mjs` mode agent, lalu memakai database itu
-  lewat kode proyek (migrasi, seed, aplikasi, tes). Batasnya: hanya MySQL localhost, hanya database & akun proyek itu,
-  tanpa menghapus data (reset hanya `<slug>_test`), `<slug>_*` sudah ada → berhenti tanpa mengganti sandi, sandi akun DB
-  dan admin MySQL tidak pernah di chat/brief/laporan/berkas RudisOne, `.env` tidak kamu baca. Admin bersandi atau MySQL
-  tidak menjawab → berhenti, tulis satu langkah untuk pengguna di laporan (perintah interaktif dijalankan pengguna di path
-  absolut worktree-mu; sesudahnya verifikasi lewat migrasi/tes, jangan mengulang mode agent). MySQL di luar kasus ini
-  (tes platform, database lain, menyalakan layanan) tetap hanya bila brief mengizinkan.
+  langsung setelah scaffold dan setiap `module.mjs add`, `node scripts/env-local.mjs` mengisi `.env` tanpa placeholder
+  (login lokal bawaan: email `admin@gmail.com`, sandi `admin123`, nama `admin` — nilai publik, hanya lokal; `deploy.sh`
+  menolaknya). Bila kunci DB `.env` masih kosong (`grep -cE '^DB_DSN=.+' .env` → `0`), kamu sendiri menjalankan
+  `node scripts/db-local.mjs --admin-password-empty` dari root worktree, lalu memakai database itu lewat kode proyek
+  (migrasi, seed, aplikasi, tes). Batasnya: hanya MySQL localhost, hanya database & akun proyek itu, tanpa menghapus data
+  (reset hanya `<slug>_test`), sandi akun DB dan admin MySQL tidak pernah di chat/brief/laporan/berkas RudisOne, `.env`
+  tidak kamu baca. Exit 3 (root bersandi / MySQL tidak menjawab) atau 4 (`<slug>_*` sudah ada) → berhenti, tulis di
+  laporan satu langkah pengguna: `node scripts/db-local.mjs` di path absolut worktree-mu; sesudahnya verifikasi lewat
+  migrasi/tes, jangan mengulang mode agent. MySQL di luar kasus ini (tes platform, database lain, menyalakan layanan)
+  tetap hanya bila brief mengizinkan.
 - **Rakit dulu, bangun sesudahnya**: `module.mjs add` baru setelah tabel perakitan (draf BSA) disetujui di Persetujuan
   Rancangan. Baris *bangun* / *pasang + sesuaikan* → skill `rudis-sdd`. Modul kustom memenuhi aturan pustaka
   (`~/Documents/Neuron/ai-agent/rudis-modules/AGENTS.md`) agar kelak bisa di-promote; `promote` adalah tugas Jalur Platform.

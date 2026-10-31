@@ -142,36 +142,36 @@ tanpa pengguna menyunting `.env`. **Izin tetap pengguna** (2026-10-31,
 T-20261031-1): "Agent siapkan sendiri (Rekomendasi)". Izin ini menggantikan "izin per kali" **hanya** untuk database lokal
 proyek yang sedang dibangun: menyiapkannya, lalu memakainya lewat kode proyek (migrasi, seed, menjalankan aplikasi, tes
 ber-database) pada `<slug>_db`/`<slug>_test`. MySQL lain (tes platform §4, database lain, menyalakan layanan) tetap per kali.
-1. **`.env`** dibuat skill `rudis-monorepo` saat scaffold dan `module.mjs add` (gitignored, di samping `.env.example`):
-   APP_*, `JWT_SECRET` acak, kunci modul terisi nilai lokal. **Login awal lokal bawaan** selalu `admin` / `admin@gmail.com`
-   / `admin123` (keputusan pengguna 2026-10-31): nilai bawaan lokal yang **publik, bukan rahasia** — boleh dilaporkan.
-   Tidak pernah di `.env.production*`, server, atau deploy (pemeriksaan deploy skill menolak `admin123`/`admin@gmail.com`:
-   ⟨**SEMENTARA** — Tim 3⟩). Jangan diganti diam-diam; kebijakan sandi production tidak dilemahkan.
-2. **Database:** Tech Lead proyek menjalankan sendiri, tanpa interaksi, di folder proyek (worktree):
-   `node scripts/db-local.mjs --admin-password-empty` ⟨**SEMENTARA** — final dari Tim 3, T-20261031-1.1⟩. Skrip memeriksa
-   `SELECT VERSION()`, membuat `<slug>_db`, `<slug>_test`, dan akun `<slug>_dev@'127.0.0.1'` (`caching_sha2_password`,
-   berhak hanya atas dua database itu) bersandi acak, menulis kunci DB ke `.env`, lalu mencoba login dengan akun itu.
+1. **`.env` non-DB:** `node scripts/env-local.mjs` (skill `rudis-monorepo`; scaffold menjalankannya sekali, Tech Lead
+   menjalankannya lagi setelah setiap `module.mjs add`): JWT acak, login lokal di kunci `*BOOTSTRAP*`, kunci lain dari
+   `.env.example`; nilai yang ada tidak diubah; placeholder tak dikenal → exit 1 + namanya. **Login awal lokal bawaan**
+   (keputusan pengguna 2026-10-31): email `admin@gmail.com`, sandi `admin123`, nama `admin` (`USERS_BOOTSTRAP_NAME`; modul
+   users tanpa kolom username) — nilai lokal **publik, bukan rahasia**. Tidak pernah di
+   `.env.production*`/server: `deploy.sh` › `[0/5] preflight` menolaknya (exit 1) sebelum apa pun berubah.
+2. **Database** — hanya bila kunci DB `.env` masih kosong (cek tanpa menampilkan nilai: `grep -cE '^DB_DSN=.+' .env`
+   → `0`); terisi → lewati. Tech Lead menjalankan dari root proyek (worktree), tanpa interaksi:
+   `node scripts/db-local.mjs --admin-password-empty` — memeriksa `SELECT VERSION()`, membuat `<slug>_db`, `<slug>_test`,
+   akun `<slug>_dev@'127.0.0.1'` (`caching_sha2_password`, berhak hanya atas keduanya) bersandi acak, menulis kunci DB ke
+   `.env`, lalu mencoba login. Exit 0 = siap · 4 = `<slug>_*` sudah ada, tidak ada yang diubah · 3 = root bersandi atau
+   MySQL tidak menjawab, tidak ada yang diubah · 1 = sebab lain (baca pesannya).
    **Batas** (wajib, dikutip di brief Konstruksi):
    - hanya MySQL di **localhost** (`127.0.0.1`/`localhost`/`::1`) — tidak pernah host lain, server, atau production;
    - hanya database dan akun **proyek itu** (`<slug>_*`); database/akun lain tidak dibaca dan tidak diubah;
    - **tanpa menghapus data**: skrip persiapan tidak menjalankan `DROP`/`TRUNCATE`/`DELETE`; data `<slug>_db` hanya diubah
      migrasi maju & seed proyek; reset/migrasi turun/pengosongan hanya pada `<slug>_test` oleh tes;
-   - **`<slug>_*` sudah ada** (proyek lama, checkout lain) → mode agent **berhenti** tanpa mengganti sandi akun dan
-     tanpa memakai database itu; COO menanyakan pengguna;
+   - **`<slug>_*` sudah ada** (exit 4) → berhenti, tanpa memakai database itu; COO menanyakan pengguna;
    - **sandi** (sandi akun DB acak dan sandi admin MySQL) tidak pernah lewat chat, brief, laporan, log, atau berkas
      RudisOne. Agent tidak membaca `.env` — skrip menulis & menguji login; aplikasi/tes memuat `.env` sendiri, jadi brief
      cukup menyebut nama database. Laporan: "DB siap, login akun proyek berhasil" + nama database.
-3. **Agent berhenti, satu langkah pengguna** (tanpa menebak sandi/host lain) di laporan, diteruskan COO persis
-   (PowerShell 5.1: tanpa `&&`); setelah pengguna menjawab "sudah":
-   - admin MySQL bersandi → pengguna menjalankan `node scripts/db-local.mjs` di **path absolut worktree** Tech Lead
-     (interaktif; sandi diketik di terminalnya, tersembunyi; `--print-sql` = pratinjau). Lalu Tech Lead **tidak**
-     mengulang mode agent (`<slug>_*` kini ada): ia memverifikasi lewat kode proyek (migrasi/tes memuat `.env`);
-   - MySQL tidak menjawab → pengguna menyalakan MySQL-nya (agent tidak menyalakan layanan); Tech Lead mengulang mode agent.
-4. Tanpa MySQL lokal → tes tanpa database jalan terus; kriteria ber-database "belum terverifikasi", bukan `[Terhambat]`.
+3. **Exit 3 atau 4 → agent berhenti, satu langkah pengguna** (tanpa menebak sandi/host lain) di laporan, diteruskan COO
+   persis (PowerShell 5.1: tanpa `&&`): pengguna (menyalakan MySQL bila mati — agent tidak menyalakan layanan — lalu)
+   menjalankan `node scripts/db-local.mjs` di **path absolut worktree** Tech Lead (interaktif; sandi diketik di
+   terminalnya, tersembunyi; `--print-sql` = pratinjau). Exit 4: COO menanyakan pengguna dulu. Setelah "sudah", Tech Lead
+   **tidak** mengulang mode agent; verifikasi lewat kode proyek (migrasi/tes memuat `.env`).
+4. Tanpa MySQL lokal → tes non-DB jalan terus; kriteria ber-database "belum terverifikasi", bukan `[Terhambat]`.
    Hasil dicatat di *Database lokal* `templat/intake-proyek.md` (tanpa sandi/DSN).
-5. **Serah ke checkout pengguna**: `.env` di-gitignore sehingga tidak ikut merge — Tech Lead menyalin berkas `.env`
-   worktree ke checkout utama bila di sana **belum ada** (salin berkas, tanpa membaca; tidak pernah menimpa) agar
-   aplikasi langsung jalan di folder pengguna (`agents/tech-lead.md` › Serah ke branch utama).
+5. **Serah**: `.env` (gitignored, tidak ikut merge) disalin ke checkout utama bila di sana **belum ada**, tanpa
+   dibaca dan tanpa menimpa (`agents/tech-lead.md` › Serah ke branch utama).
 6. Uji penolakan penjaga skrip: pada fungsi penjaga, bukan dengan menjalankan skrip (`protokol.md` › Ruang kerja Engineering).
 
 ### Artefak milik proyek
