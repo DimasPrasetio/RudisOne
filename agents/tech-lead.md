@@ -53,6 +53,12 @@ Jalur cadangan COO saat sesi Tech Lead tidak bisa dibentuk (`agents/coo.md` › 
 - Proyek baru: scaffold di worktree-mu, di branch `rudis/<ID>`, dengan `--dir <worktree> --force` dan fakta dari
   `handoff/<ID>/intake.md`; fakta deploy yang belum ada dibiarkan menjadi penanda (skill `rudis-sdlc` › Proyek baru) —
   aplikasi tetap jalan lokal, jangan `[Terhambat]` karena itu.
+- **`.env` & database lokal oleh kamu** (izin tetap pengguna 2026-10-31; skill `rudis-sdlc` › `.env` & database lokal):
+  langsung setelah scaffold, `.env` lokal lengkap tanpa placeholder (login lokal `admin` / `admin@gmail.com` / `admin123`,
+  hanya lokal) dan kamu sendiri menjalankan `db-local.mjs` mode agent. Batasnya: hanya MySQL localhost, hanya database &
+  akun proyek itu, tanpa menghapus data, sandi tidak pernah di chat/brief/laporan/berkas RudisOne, `.env` tidak kamu baca.
+  Admin bersandi / koneksi gagal → berhenti, tulis satu perintah untuk pengguna di laporan. MySQL di luar kasus ini
+  (tes platform, database lain) tetap hanya bila brief mengizinkan.
 - **Rakit dulu, bangun sesudahnya**: `module.mjs add` baru setelah tabel perakitan (draf BSA) disetujui di Persetujuan
   Rancangan. Baris *bangun* / *pasang + sesuaikan* → skill `rudis-sdd`. Modul kustom memenuhi aturan pustaka
   (`~/Documents/Neuron/ai-agent/rudis-modules/AGENTS.md`) agar kelak bisa di-promote; `promote` adalah tugas Jalur Platform.

@@ -71,7 +71,7 @@ restrukturisasi ke standar tetap tugas eksplisit.
 | Inisiasi | COO | Head of Strategy bila perlu nilai bisnis; **tanpa server** — IT Operations tidak dilibatkan | Step 0 (backend); Step 0b ditunda ke Penerapan | `handoff/<ID>/pemahaman.md` + `intake.md` (`templat/pemahaman-bersama.md`, `templat/intake-proyek.md`) | **Persetujuan Inisiasi** |
 | Analisis & perakitan | Tech Lead | Business Systems Analyst (kemampuan, tabel perakitan, MODULE_MAP, API); C: Financial Controller/HR Business Partner bila domainnya | `module-library.md` §1–3, `backend-modular-monolith.md`, `api-standard.md` | `templat/tabel-perakitan.md` → `analysis/` proyek | **Persetujuan Rancangan** |
 | Desain UI | Tech Lead | Research Analyst (paralel dengan Analisis) | `design-research.md` | draf → `knowledge/DESIGN.md` proyek | ikut **Persetujuan Rancangan** |
-| Konstruksi | Tech Lead | Software Engineer #1/#2, asisten | Langkah 1 (scaffold), `module-library.md` §4–6, referensi stack, `frontend.md` | branch `rudis/<ID>` | — |
+| Konstruksi | Tech Lead | Software Engineer #1/#2, asisten | Langkah 1 (scaffold), `module-library.md` §4–6, referensi stack, `frontend.md`; `.env` & database lokal (izin tetap) | branch `rudis/<ID>`; `.env` lokal tanpa placeholder | — |
 | Pengujian | Tech Lead | peninjau berkonteks bersih (subagent `rudis-software-engineer`, tinjauan silang), BSA (cocok spesifikasi) | Final Checklist | laporan divisi + checklist terisi | — |
 | Rilis & penerapan | Head of IT Operations | System Administrator; Tech Lead (sha + catatan rilis, isi penanda) | Step 0b, `docker-deployment.md` | `templat/onboarding-app.md`, `templat/laporan-deploy.md` | **Persetujuan Rilis**, **Persetujuan Penerapan** |
 | Operasi & pemeliharaan | Head of IT Operations (operasi) · Tech Lead (kode) | — | `module-library.md` (status/upgrade), `backend-go.md` › Kernel versions | tugas baru per perubahan | sesuai jenisnya |
@@ -132,27 +132,39 @@ COO menanyakannya di gerbang yang sesuai dan meneruskan jawabannya apa adanya.
    scaffold without the deploy flags*); Step 0b (membaca target/server) dilewati sampai Penerapan. Aplikasi tetap
    dijalankan & diuji lokal — hanya `deploy.sh` yang menolak jalan sampai penanda diisi; penanda yang disengaja lulus
    Final Checklist (*left as markers on purpose*). Fakta deploy kosong tidak pernah menjadi alasan `[Terhambat]`.
+   Penanda deploy berbeda dengan `.env` lokal: `.env` lokal **tidak pernah** berisi placeholder — langsung setelah
+   scaffold Tech Lead menyiapkan `.env` dan database lokal (*`.env` & database lokal* di bawah) agar aplikasi langsung jalan.
 6. Repo GitHub dibuat hanya saat pengguna meminta push pertama (Persetujuan Rilis) — oleh COO (`gh repo create`, privat).
 7. Deploy pertama hanya bila pengguna memintanya → Persetujuan Penerapan (fakta *Sebelum penerapan pertama*).
 
-### Database lokal (awal Konstruksi — sebelum scaffold, bukan sesudahnya)
-Tes integrasi, smoke, dan jalan lokal butuh MySQL di device pengguna; kredensial tidak pernah lewat chat dan agent
-tidak menyentuh MySQL tanpa izin per kali. Agar Konstruksi tidak berhenti menunggu (T-20261030-1):
-1. **COO bertanya bersama pesan Persetujuan Rancangan** (satu pesan, tidak menambah gerbang), bagian *Database lokal*
-   `templat/intake-proyek.md`: jenis MySQL (layanan Windows/macOS, Docker, XAMPP/Laragon, belum ada), versinya (pengguna
-   menjalankan `mysql --version` atau `SELECT VERSION();` — 8.4+/9.x tidak memuat `mysql_native_password`, akun memakai
-   `caching_sha2_password`), dan cara pengguna mengisi `.env` (menyunting berkasnya sendiri; nilai tidak dikirim ke chat).
-2. Setelah scaffold, Tech Lead melapor perintah **satu baris yang dijalankan pengguna sendiri** di terminal, di folder
-   proyek: `node scripts/db-local.mjs` (skrip skill `rudis-monorepo`, ikut ter-scaffold; opsi rinci di README proyek).
-   Skrip menanyakan sandi admin MySQL (masukan tersembunyi, tidak lewat chat), memeriksa `SELECT VERSION()`, membuat
-   **dua** database `<slug>_db` dan `<slug>_test` serta akun `<slug>_dev@'127.0.0.1'` (`caching_sha2_password` di
-   MySQL 8+, berhak hanya atas dua database itu) bersandi acak, lalu menulis `DB_DSN` dan `TEST_DB_DSN` ke `.env`
-   (gitignored; `.env.example` tidak berisi DSN sah). `--print-sql` = mode kering tanpa koneksi, untuk ditinjau
-   pengguna lebih dulu. COO meneruskan perintah itu persis (PowerShell 5.1: tanpa `&&`).
-3. Pengguna menjawab "sudah" → itu izin per kali untuk tes ber-database di tugas itu (kutip di brief). Belum ada MySQL →
-   tes tanpa database jalan terus; kriteria yang butuh database dilaporkan "belum terverifikasi", bukan `[Terhambat]`.
-4. Agent tidak pernah menjalankan skrip itu, membaca `.env`, atau menguji penolakan lewat skrip berefek samping
-   (`protokol.md` › Ruang kerja Engineering — uji penolakan pada fungsi penjaga).
+### `.env` & database lokal (Konstruksi, langsung setelah scaffold) — disiapkan agent
+Proyek yang dibangun RudisOne **langsung bisa dijalankan**: `.env` lokal lengkap tanpa placeholder (`__ISI_…__`,
+`change-me`) dan database lokal siap, tanpa pengguna menyunting `.env`. **Izin tetap pengguna** (2026-10-31,
+T-20261031-1): "Agent siapkan sendiri (Rekomendasi)". Izin ini menggantikan "izin per kali" **hanya** untuk persiapan
+database lokal proyek yang sedang dibangun. MySQL untuk tes platform (§4) tetap izin per kali.
+1. **`.env`** dibuat skill `rudis-monorepo` saat scaffold dan `module.mjs add` (gitignored, di samping `.env.example`):
+   APP_*, `JWT_SECRET` acak, dan kunci modul terisi nilai lokal. **Login awal lokal bawaan** selalu
+   `admin` / `admin@gmail.com` / `admin123` (keputusan pengguna 2026-10-31). Nilai itu **hanya** untuk `.env` lokal:
+   tidak pernah di `.env.production*`, server, atau deploy — pemeriksaan deploy skill menolaknya. Tech Lead melaporkan
+   akun ini di laporan rilis lokal; jangan mengganti dengan sandi lain diam-diam, jangan melemahkan kebijakan sandi production.
+2. **Database:** Tech Lead proyek menjalankan sendiri, tanpa interaksi, di folder proyek (worktree):
+   `node scripts/db-local.mjs --agent` ⟨**SEMENTARA** — nama/flag final dari Tim 3, T-20261031-1.1⟩. Skrip memeriksa
+   `SELECT VERSION()`, membuat `<slug>_db`, `<slug>_test`, dan akun `<slug>_dev@'127.0.0.1'` (`caching_sha2_password`,
+   berhak hanya atas dua database itu) bersandi acak, menulis kunci DB ke `.env`, lalu mencoba login dengan akun itu.
+   **Batas** (wajib, dikutip di brief Konstruksi):
+   - hanya MySQL di **localhost** (`127.0.0.1`/`localhost`/`::1`) — tidak pernah host lain, server, atau production;
+   - hanya database dan akun **proyek itu** (`<slug>_*`); database/akun lain tidak dibaca dan tidak diubah;
+   - **tanpa menghapus data**: tidak ada `DROP`/`TRUNCATE`/`DELETE`; database/akun yang sudah ada dipakai, tidak dibuat ulang;
+   - **sandi tidak pernah** lewat chat, brief, laporan, log, atau berkas RudisOne. Agent tidak membaca `.env` — skrip yang
+     menulis dan menguji login; laporan hanya menyebut "DB siap, login akun proyek berhasil" + nama database.
+3. **Admin MySQL bersandi atau koneksi gagal** → agent berhenti (bukan menebak sandi, bukan mencoba host lain) dan menulis
+   di laporan **satu** perintah untuk pengguna: `node scripts/db-local.mjs` di folder proyek (interaktif; sandi admin
+   diketik di terminal pengguna, masukan tersembunyi; `--print-sql` = pratinjau tanpa koneksi). COO meneruskannya persis
+   (PowerShell 5.1: tanpa `&&`), lalu Tech Lead melanjutkan setelah pengguna menjawab "sudah".
+4. Tidak ada MySQL lokal sama sekali → tes tanpa database jalan terus; kriteria yang butuh database "belum terverifikasi",
+   bukan `[Terhambat]`. Hasil dicatat di bagian *Database lokal* `templat/intake-proyek.md` (tanpa sandi/DSN).
+5. Uji penolakan penjaga skrip (host bukan localhost, nama database salah) dijalankan pada fungsi penjaga lewat unit test,
+   bukan dengan menjalankan skrip (`protokol.md` › Ruang kerja Engineering).
 
 ### Artefak milik proyek
 Hasil yang menjadi bagian proyek (`analysis/`, `knowledge/DESIGN.md`, ADR di `knowledge/decisions/`,
@@ -187,3 +199,4 @@ pustaka); skill `rudis-riset-desain` RudisOne dipakai untuk proyek lain dan untu
 - Pemeriksa batas modul otomatis untuk proyek hasil scaffold (`arch:check`) — usulan perbaikan skill; disarankan
   sebagai tugas Jalur Platform pertama sebelum proyek baru pertama.
 - Izin tetap menyalakan MySQL lokal khusus tes platform — saat ini izin per kali.
+  Persiapan database lokal **proyek** sudah izin tetap sejak 2026-10-31 (*`.env` & database lokal*).
