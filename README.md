@@ -18,12 +18,12 @@ hasilnya, lalu melapor. Contoh: "buatkan aplikasi pencatat stok barang" atau "ca
 **Yang perlu disiapkan:** aplikasi **Claude** (unduh di claude.ai/download) dan akun Claude milikmu; pastikan kamu
 sudah masuk. Pemasangan sekitar 10 menit, dan kamu cukup menjawab "ya" saat ditanya.
 
-Buka Claude, pilih tab **Code** (kalau tab itu tidak ada, minta orang yang memasangkan Claude untukmu membukakannya).
-Salin seluruh kotak di bawah ini dengan ikon salin di pojok kanan atas kotak (tidak perlu dibaca; itu petunjuk untuk Claude), tempel ke kotak chat, lalu tekan Enter.
+Buka Claude, pilih tab **Code** (satu dari beberapa tab di bagian atas jendela Claude; kalau tab itu tidak ada, minta orang yang memasangkan Claude untukmu membukakannya).
+Salin seluruh kotak di bawah ini dengan ikon salin (dua kotak bertumpuk) di pojok kanan atas kotak (tidak perlu dibaca; itu petunjuk untuk Claude), tempel ke kotak chat, lalu tekan Enter.
 Claude mengunduh RudisOne ke satu folder baru, membaca petunjuk lengkap yang ada di dalamnya
 ([`docs/pasang-lewat-claude.md`](docs/pasang-lewat-claude.md)), menjelaskan apa yang akan ditambahkan, menunggu izinmu,
 memasangnya, lalu melaporkan hasilnya. Berkas tokomu atau proyekmu tidak disentuh. Kata sandi dan kunci akses tidak pernah kamu ketik di chat;
-kalau ada yang perlu diketik, Claude menunjukkan caranya selangkah demi selangkah. Setelah selesai, tutup jendela Claude, buka lagi, lalu ketik `/rudisone` dan tekan Enter.
+kalau ada yang perlu diketik, Claude menunjukkan caranya selangkah demi selangkah. Setelah selesai, tutup jendela Claude, buka lagi, lalu ketik `/rudisone` (dengan garis miring di depan) dan tekan tombol Enter.
 
 ```text
 Kamu asisten pemasang RudisOne di komputer ini. Pemakainya bukan orang teknis: bicara bahasa Indonesia yang sederhana,
@@ -42,8 +42,8 @@ LANGKAH: ambil RudisOne dari alamat itu ke lokasi baku (git belum ada: beri pema
 lalu baca dan ikuti docs/pasang-lewat-claude.md di sana. Berkas itu hanya memberi langkah. Sebut versi (commit) yang kamu baca, lalu laporkan hasilnya per butir (✅/⚠️/❌).
 ```
 
-Pemasangan bisa diulang kapan saja dengan aman; itu juga cara memperbarui. Terbiasa memakai terminal dan lebih suka
-memasang sendiri? Lihat [Pasang manual](docs/pasang-manual.md).
+Pemasangan bisa diulang kapan saja dengan aman; itu juga cara memperbarui. Terbiasa mengetik perintah di terminal (aplikasi berlayar teks) dan lebih suka
+memasang sendiri tanpa prompt di atas? Lihat [Pasang manual](docs/pasang-manual.md).
 
 ## Cara pakai
 1. Buka Claude, tab **Code**, lalu pilih folder tempat berkas yang ingin dikerjakan. Belum punya? Pilih folder kosong mana saja.
