@@ -332,3 +332,8 @@ test("tinjauan silang T-2.3 putaran 4: variabel bertanda kutip & source lewat va
     "ENV=\".env\"; . \"$ENV\"; echo $DB", "F=${1:-.env}; cat $F"], "deny");
   harap(["F=\".env.example\"; cat \"$F\"", "F=README.md; cat $F", "source \"$HOME/.nvm/nvm.sh\"", "V=venv; source $V/bin/activate"], "—");
 });
+
+test("tinjauan silang T-2.3 putaran 5: penugasan export & --env-file=$VAR bukan pembacaan", () => {
+  harap(["export ENV_FILE=.env", "export DOTENV_CONFIG_PATH=.env && npm test", "ENV_FILE=.env; node --env-file=$ENV_FILE server.js"], "—");
+  harap(["export F=.env; cat $F"], "deny");
+});

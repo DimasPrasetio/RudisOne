@@ -1072,7 +1072,7 @@ export function substitusi(cmd) {
 /** Program yang tidak membaca masukan standarnya (pengalihan `< .env` ke program ini tidak mengeluarkan isi). */
 const ENV_STDIN_ABAI = new Set(["echo", "printf", "ls", "stat", "test", "[", "[[", "true", "false", "touch", "chmod", "chown", "rm",
   "mkdir", "cd", "wc", "file", "du", "realpath", "readlink", "basename", "dirname"]);
-const ENV_KATA_KUNCI = /^(for|select|local|declare|typeset|readonly|alias|unset|function|fi|done|esac|\})$/;
+const ENV_KATA_KUNCI = /^(for|select|local|declare|typeset|readonly|export|alias|unset|function|fi|done|esac|\})$/;
 /** API dotenv pengembali nilai / pencetakan di kode yang memuat pemuat env (console.log(require('dotenv').config())). */
 const ENV_CETAK = /dotenv_values|\.parsed\b|\.parse\(|\b(console\.(log|dir|error|info|table)|print|pprint|puts|p|JSON\.stringify|util\.inspect|echo|var_dump|print_r)\s*\(/;
 /** Akses lingkungan proses di kode (dipakai bersama pemuat env = membuang nilai .env ke transkrip). */
@@ -1227,6 +1227,7 @@ export function envSegmen(s, K, ctx, semua = s.teks, dalam = 0) {
   // glob/ekspansi yang bisa menunjuk berkas env: cat .e*, F=.env; cat $F, cat $(echo .env)
   const kodeSeg = teksKode(s.teks), kodeSemua = teksKode(semua);
   for (const k of kataArgs) {
+    if (/^--env-file(-if-exists)?=/.test(k.nilai)) continue;   // nilai pemuat (--env-file=$F): dimuat, bukan dibaca
     if (k.glob) { const g = globEnv(k.nilai, folder, K); if (g) return hasil(g, "glob mencocokkan berkas env"); }
     const ekspansi = k.ekspansi || (/`|\$\(/.test(k.nilai) && /`|\$\(/.test(kodeSeg));
     // sebutan env di segmen ini, atau sebagai nilai variabel/daftar di bagian lain perintah (F=.env; cat $F)
