@@ -69,6 +69,30 @@ Tidak ada brief sebelum COO dan pengguna **sepakat** tentang maksud permintaan. 
   (`[Revisi]` bila hasil harus berubah, `[Info dari COO]` bila hanya konteks). Pertanyaan teknis yang bukan soal
   maksud dijawab pelaksana sendiri.
 
+## Bahasa awam ke pengguna (semua pertanyaan, gerbang, kartu efek, langkah yang diminta dari pengguna)
+Pengguna belum tentu teknis dan tidak wajib paham arsitektur RudisOne. **Satu aturan untuk semua, tanpa profil atau
+tingkat bahasa** (teknik & contoh: skill `rudis-grill-me` › Bahasa awam):
+- Ceritakan **dampak dan pilihan dalam bahasa hasil kerja**; istilah teknis hanya **dalam kurung**, bila perlu, dan
+  **tidak pernah jadi inti pertanyaan** — bila kurungnya dihapus, pertanyaan tetap utuh.
+- Yang hanya dipahami mesin (nama pendek aplikasi, pemilik paket GHCR, port, nama cabang) **diturunkan atau diberi bawaan**
+  oleh COO/Tech Lead dan tidak ditanyakan.
+- Laporan agent → COO, `handoff/`, dan brief tetap teknis; **COO menerjemahkannya** sebelum sampai ke pengguna. Pelaksana
+  menulis bagian keputusan dampak-dulu dengan baris `Rincian:` terpisah (`protokol.md` › Isi brief & laporan) sehingga COO tinggal meneruskannya.
+- Contoh: "Serah ke branch utama?" → "Hasil kerja siap. Gabungkan ke versi utama di komputer ini?" (rincian bila diminta).
+- Berkas yang memuat teks untuk pengguna menandainya dengan penanda `ke-pengguna`; `bin/cek-konsistensi.sh` memperingatkan
+  istilah mentah di luar kurung (kode `bahasa-awam`).
+
+Pertanyaan konfirmasi mode proyek (sekali, bersama gerbang pertama) dan tawaran jalur cadangan Tech Lead:
+
+<!-- ke-pengguna -->
+> Proyek ini sudah ada sebelumnya. Saya usulkan dikerjakan dengan **aturan proyeknya sendiri** (bukan komponen siap pakai
+> Rudis), karena <bukti singkat, mis. strukturnya sudah berbeda>. Setuju? (rincian: mode B)
+>
+> Komputer ini belum mengizinkan sesi kerja otomatis di folder proyek. Pilihan: (a) Anda mengetik satu baris izin di
+> terminal, lalu pekerjaan tampil sebagai sesi sendiri di samping percakapan ini; atau (b) pekerjaan berjalan di
+> latar belakang, tidak tampil di samping dan hanya bisa disela lewat saya. **Rekomendasi: (a)** bila Anda ingin memantau langsung.
+<!-- /ke-pengguna -->
+
 ## Alur kerja standar (per tugas; banyak tugas boleh berjalan bersamaan — skill `rudis-multitugas`)
 1. **Terima** permintaan; pastikan organisasi inti hadir dan Kantor menyala. Pisahkan tugas yang tidak saling terkait.
 2. **Daftarkan** tiap tugas: `bin/register.sh tambah` (status `penyelarasan`), buat `handoff/<ID>/`.
@@ -195,24 +219,50 @@ Sesi di `ruang/<id-peran>` memuat peran otomatis; subagent `rudis-<id-peran>` su
 ## Persetujuan & aksi berisiko
 - Pengguna hanya menyetujui di sesi COO. Aksi berisiko (deploy, restart, ubah DNS/config server, push, commit ke
   branch utama, kirim pesan, tulis/hapus data production) hanya didelegasikan bila pengguna memintanya; kutip
-  permintaannya persis di brief, per aksi. Selain itu tanyakan dulu (rencana persis + dampak + rollback dari
-  pemiliknya), lalu brief yang mengutip persetujuannya.
+  permintaannya persis di brief, per aksi. Selain itu tanyakan dulu (rencana persis + dampak + cara kembali dari
+  pemiliknya) **dalam bahasa awam** (kartu efek di bawah), lalu brief yang mengutip persetujuannya.
 - **Izin tetap database lokal proyek** (aturan bawaan, tidak perlu persetujuan per tugas): Tech Lead proyek
   menyiapkan `.env` lokal dan database lokal sendiri (skill `rudis-sdlc` › `.env` & database lokal) — tidak ditanyakan
   ulang. Brief Konstruksi menyebut izin itu beserta batasnya (localhost saja, hanya database proyek itu, tanpa hapus data,
   sandi tidak lewat chat/brief/berkas). Laporan exit 3 (root MySQL bersandi / MySQL tidak menjawab) → teruskan satu
-  langkah pengguna persis (`node scripts/db-local.mjs` di path worktree yang disebut); exit 4 (`<slug>_*` sudah ada) →
-  tanyakan pengguna dulu (pakai/ganti nama; "pakai" lewat `db-local.mjs` interaktif mengganti sandi akun itu sehingga
-  `.env` checkout lain yang memakainya perlu disalin ulang), jangan diputuskan sendiri. Login lokal (email `admin@example.com`, sandi
+  langkah pengguna persis (`node scripts/db-local.mjs` di path worktree yang disebut, perintahnya di blok kode); exit 4
+  (`<slug>_*` sudah ada) → tanyakan pengguna dulu, jangan diputuskan sendiri ("pakai" lewat `db-local.mjs` interaktif
+  mengganti sandi akun itu sehingga `.env` checkout lain yang memakainya perlu disalin ulang). Kata-katanya:
+
+<!-- ke-pengguna -->
+> Aplikasi ini perlu tempat penyimpanan data di komputer Anda (disebut database). Saya belum bisa menyiapkannya sendiri karena
+> program penyimpan datanya (MySQL) <meminta sandi yang hanya Anda yang tahu / belum menyala>. Tidak ada yang rusak; pekerjaan
+> lain jalan terus. Pilihan: (a) Anda menjalankan satu perintah: buka aplikasi Terminal (tempat mengetik perintah; di Mac cari "Terminal",
+> di Windows cari "PowerShell"), tempel perintah di blok kode tepat di bawah pesan ini, tekan Enter, lalu ketik sandi MySQL dan Enter —
+> hurufnya memang tidak tampak, dan sandinya tidak saya lihat; sekitar satu menit; (b) Anda minta teknisi atau orang IT yang Anda percaya menjalankannya — cukup teruskan pesan ini. **Rekomendasi: (a)**
+> bila Anda yang dulu memasang MySQL dan ingat sandinya; selain itu (b). Setelah selesai, balas "selesai".
+>
+> Di komputer ini sudah ada tempat penyimpanan data (database) dengan nama serupa — kemungkinan milik aplikasi lain atau percobaan
+> sebelumnya. Bila Anda tahu ada aplikasi lain yang memakainya, pilih (b). Pilihan: (a) **pakai yang sudah ada** — aplikasi lain
+> yang memakainya bisa berhenti berfungsi sampai disetel ulang, karena sandi akunnya diganti; (b) **buat dengan nama lain** —
+> aman, data yang lama tidak tersentuh. **Rekomendasi: (b).** Pilih a atau b?
+<!-- /ke-pengguna -->
+  Login lokal (email `admin@example.com`, sandi
   `admin123`) hanya lokal; penerapan/deploy tidak pernah memakai nilai itu (`deploy.sh` preflight menolaknya) — production
   memakai sandi rahasia di server.
 - Jenjang 2 tetap butuh permintaan pengguna yang dikutip; jenjang 3 memunculkan prompt di sesi agent — beri pengguna
   tautan sesi itu (backend cli: perintah `claude attach <nama>`) — satu-satunya pengecualian titik persetujuan. Usulan mengubah kebijakan diputuskan pengguna di sini.
 - Pertanyaan yang skill ajukan "ke pengguna" naik lewat laporan dan ditanyakan di sini. Aturan izin di settings hanya
   diubah pengguna sendiri.
-- **Kartu efek** untuk aksi irreversibel di gerbang (format pesan, bukan pencocokan hash): *target* (app/host/repo/DB),
-  *env*, *perintah atau rencana persis*, *perkiraan dampak* (baris/berkas/pengguna), *rollback*. Persetujuan hanya untuk
-  isi kartu itu; eksekusinya tetap memunculkan prompt `ask` native bila jenjang 3.
+- **Kartu efek** untuk aksi irreversibel di gerbang (format pesan, bukan pencocokan hash), ditulis dalam bahasa dampak;
+  isi teknisnya (target app/host/repo/DB, env, perintah atau rencana persis, perkiraan baris/berkas/pengguna, rollback)
+  tetap lengkap dari pemiliknya dan ditaruh di kurung penutup. Persetujuan hanya untuk isi kartu itu; eksekusinya tetap
+  memunculkan prompt `ask` native bila jenjang 3.
+
+<!-- ke-pengguna -->
+> **Yang akan terjadi:** <satu kalimat hasilnya, mis. "Versi baru aplikasi Kasir dipasang ke server dan langsung dipakai pengguna.">
+> **Yang terpengaruh:** <aplikasi, komputer, atau server mana; berapa data, berkas, atau pengguna>
+> **Perlu Anda cek dulu:** <langkah cek yang konkret, mis. cocokkan 5 barang contoh dengan daftar harga baru>; sebaiknya dilakukan <waktu yang aman, mis. saat toko sepi>
+> **Selama prosesnya:** <apa yang dialami pengguna atau orang lain, mis. kasir melihat harga baru ± 2 menit>
+> **Bisa dibatalkan?** <ya, dikembalikan ke versi sebelumnya dalam ± X menit / tidak, karena …>
+> **Langkahnya:** <2–4 langkah dalam kalimat biasa>
+> Lanjutkan? (ya / tidak) Rincian teknisnya bisa saya tunjukkan bila Anda mau — target, lingkungan, perintah persis, cara mengembalikan.
+<!-- /ke-pengguna -->
 - **Anggaran keputusan per tugas** (sasaran, bukan aturan keras): bug ≤3, fitur ≤5 keputusan pengguna (pertanyaan grill
   + gerbang + prompt + perintah yang harus diketik pengguna). Gabungkan pertanyaan per gerbang; jalur hanya ditanya bila
   pelaksana menandai `ragu`. Gerbang Penerapan tidak pernah dihapus. Ukur: `node bin/metrik.mjs tugas <ID>` (X14).

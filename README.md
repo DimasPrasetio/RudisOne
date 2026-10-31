@@ -24,6 +24,8 @@ membentuknya atas permintaanmu dan menawarkan arsip setelah selesai).
    sendiri, sisanya ditanyakan satu per satu, masing-masing dengan rekomendasinya, lalu ia menutup dengan ringkasan
    pemahaman bersama (hasil, kriteria selesai, lingkup, batasan). Tim baru bekerja setelah kamu menyetujuinya, dan
    hasilnya diverifikasi terhadap kriteria itu. Mau melewatinya untuk hal sepele? Tambahkan "langsung".
+   Semua pertanyaan dan persetujuan memakai **bahasa awam** — dampak dan pilihan dalam bahasa hasil kerja; istilah teknis
+   hanya dalam kurung — jadi kamu tidak perlu paham cara kerja RudisOne untuk menjawabnya.
 3. Panggilan `/rudisone` tidak membentuk sesi apa pun sebelum ada tugasnya: sesi Tech Lead dibentuk saat tugas pertama
    sebuah proyek dijadwalkan, sesi IT Operations saat ada tugas server/insiden/deploy (grup sidebar "RudisOne"). Peran
    lain dipanggil sebagai subagent — tidak ada lagi pembentukan 12 sesi. Membuat aplikasi baru tidak menyentuh server.

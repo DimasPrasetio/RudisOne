@@ -16,5 +16,6 @@
 - Verifikasi: yang sudah dicek dan hasilnya; yang belum bisa diverifikasi.
 
 ## 4. Tindak lanjut
-- Keputusan untuk pengguna / pemberi tugas, termasuk perintah persis untuk aksi berisiko.
+- Keputusan untuk pengguna / pemberi tugas, termasuk perintah persis untuk aksi berisiko. Bila sampai ke pengguna: kalimat
+  dampak & pilihan dulu (bahasa awam), lalu baris `Rincian:` teknis.
 - Hal yang bertentangan dengan pemahaman bersama atau di luar lingkupnya (bila ada) — untuk diselaraskan ulang.

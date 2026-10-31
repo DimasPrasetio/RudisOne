@@ -34,6 +34,28 @@ Templat di `~/Documents/Neuron/ai-agent/RudisOne/templat/`: `brief-tugas.md`, `l
 `riset.md`, `spesifikasi.md`, `user-story.md` (Business Systems Analyst), `status-rilis.md`, `laporan-deploy.md`, `brief-desain.md`,
 `insiden.md`, `koreksi-data.md`, `pemahaman-bersama.md` (COO), `infra.md` (fakta server per device), dan untuk SDLC: `intake-proyek.md`, `tabel-perakitan.md`, `onboarding-app.md`, `kartu-proyek.md`, `constitution-rudis.md`, `constitution-legacy.md`. Format laporan di file peran didahulukan.
 
+## Pemeriksaan & pembaruan otomatis (`bin/perkakas.sh`)
+- COO menjalankan `bin/perkakas.sh siapkan` di awal setiap `/rudisone` (fetch paling sering 30 menit sekali),
+  dan `bin/perkakas.sh siapkan --segera` tepat sebelum mengirim brief yang memakai perkakas (proyek baru, pasang/
+  upgrade modul, Jalur Platform). `install.sh` juga menjalankannya.
+- Yang dilakukan: belum ada → `git clone` (dangkal; entri `"clone": "penuh"` — riwayat/tagnya dipakai — penuh)
+  (+ `core.hooksPath` hook repo); tertinggal dan bersih → `git pull
+  --ff-only`; skill terpasang beda dari paket `dist/` di repo → `install.sh` milik repo skill.
+- Yang **tidak pernah** dilakukan: menyentuh repo yang punya perubahan belum di-commit atau yang bercabang dari
+  origin, `stash`/`reset`, commit, push. Repo seperti itu dipakai apa adanya dan disebut di keluaran.
+- Ditunda bila ada tugas Engineering berstatus berjalan/ditinjau/terhambat yang kolom Perkakas-nya bukan `—` —
+  agar agent yang sedang bekerja tidak membaca campuran versi lama dan baru. `--paksa` hanya atas permintaan
+  pengguna.
+- Exit 1 tidak menghentikan kerja (versi yang ada dipakai). COO menyebutnya ke pengguna dalam satu baris hanya
+  bila berpengaruh (mis. pembaruan tertunda, repo sumber sedang diubah, clone gagal).
+- **Izin tetap** (aturan bawaan): clone, `pull --ff-only`, pasang ulang skill, dan
+  `core.hooksPath` pada clone baru. Mengubah repo sumber tetap lewat Jalur Platform.
+
+## Versi tercatat
+Kolom **Perkakas** register tugas = keluaran `bin/perkakas.sh versi` (mis. `rudis@b444853 lib@43e552f`, ditambah `sdd@<sha>` bila RUDIS SDD terpasang) saat tugas
+Engineering dimulai atau dilanjutkan dari parkir; `—` untuk tugas yang tidak memakai perkakas. Akhiran `+lokal`
+berarti versi itu belum ada di origin.
+
 ## Batasan platform sesi (dari protokol inti)
 - Hanya COO yang membuat sesi, dan hanya pada giliran yang dipicu ketikan pengguna di sesi COO. cli: `claude --bg` (hook).
 - Pesan antar-sesi diterima pada putaran berikutnya penerima; laporan otomatis akhir-giliran hanya ke pembuat sesi

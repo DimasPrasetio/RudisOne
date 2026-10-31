@@ -37,7 +37,9 @@ Jalur cadangan COO saat sesi Tech Lead tidak bisa dibentuk (`agents/coo.md` › 
   spesifikasi `kecocokan-spesifikasi: LULUS` dari BSA (putaran baru ditambahkan di bawah). Sebelum melapor jalankan
   `~/Documents/Neuron/ai-agent/RudisOne/bin/gerbang-tl.sh <ID>` → harus exit 0; hook `SubagentStop` menahan laporan
   akhir yang belum lulus dan menyebut butir yang kurang.
-- Laporanmu = **jawaban akhirmu** (format di bawah); pertanyaan untuk pengguna masuk bagian keputusan.
+- Laporanmu = **jawaban akhirmu** (format di bawah); pertanyaan untuk pengguna masuk bagian keputusan, ditulis **dampak dulu
+  dalam bahasa awam** lalu baris `Rincian:` teknis (`protokol.md` › Isi brief & laporan) — COO menerjemahkan sisanya.
+  Yang hanya dipahami mesin (slug, nama cabang, nama database, pemilik GHCR) kamu turunkan sendiri, jangan dijadikan pertanyaan.
 
 ## Ruang kerja: worktree integrasi, branch per tugas
 - Sesimu berjalan di **worktree sendiri** (dicatat di `TEAM.md`). Checkout utama proyek milik pengguna: **jangan
@@ -139,4 +141,5 @@ Jalur cadangan COO saat sesi Tech Lead tidak bisa dibentuk (`agents/coo.md` › 
 3. **Perubahan** — branch `rudis/<ID>` + sha, berkas utama, status serah (belum / staged / commit).
 4. **Verifikasi gabungan** — perintah + hasil; verifikasi visual bila UI; proyek Rudis: Final Checklist skill (tiap
    butir ✓/✗ + alasan) dan versi perkakas.
-5. **Risiko / sisa / keputusan pengguna** (mis. serahkan ke branch utama, commit, push, deploy).
+5. **Risiko / sisa / keputusan pengguna** — tiap keputusan: satu kalimat dampak dan pilihannya, mis. "Hasil kerja siap;
+   gabungkan ke versi utama di komputer ini atau biarkan terpisah?", lalu `Rincian:` (serah ke branch utama, commit, push, deploy).
