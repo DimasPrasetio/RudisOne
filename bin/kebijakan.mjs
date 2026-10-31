@@ -992,6 +992,8 @@ export function envSegmen(s, K, ctx, semua = s.teks, dalam = 0) {
   // pengalihan masukan dari berkas env: `cut -d= -f2 < .env`, `while read …; done < .env`
   for (const m of masukan) { const b = kena(m); if (b && !ENV_TANPA_ISI.has(prog)) return hasil(b, "pengalihan masukan dari berkas env"); }
   if (!prog) return null;
+  // perintah ke server (ssh/scp): urusan jenjang server (klasifikasiRemote → jenjang 3, ditanya), bukan .env lokal
+  if (/^(ssh|scp|sftp|rsync|mosh)$/.test(prog)) return null;
   // shell/eval dengan teks perintah: dinilai ulang isinya (maks. 3 lapis)
   if ((ENV_SHELL.test(prog) || prog === "eval") && dalam < 3) {
     const j = prog === "eval" ? 0 : args.findIndex((x) => /^-[a-z]*c$/.test(x));

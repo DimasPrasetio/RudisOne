@@ -925,18 +925,18 @@ test("T-20261030-12: berkas kredensial (gh & lainnya) tidak pernah allow lewat c
 });
 
 test("T1: matcher hook dinilai per OS — tanpa PowerShell tetap mutakhir di macOS/Linux, wajib di Windows; pesan menyebut yang kurang", async () => {
-  const { matcherMutakhir, kekuranganHook, alatWajib, MATCHER: MATCHER_KINI } = await import("./kebijakan.mjs");
+  const { matcherMutakhir, kekuranganHook, alatWajib, MATCHER: MATCHER_KINI, ATURAN_IZIN_ENV } = await import("./kebijakan.mjs");
   const S = process.env.RUDISONE_SETTINGS_USER;
   fs.mkdirSync(path.dirname(S), { recursive: true });
   const entri = (matcher) => ({ matcher, hooks: [{ type: "command", command: `"${process.execPath}" "${path.join(SINI, "kebijakan.mjs")}" hook`, timeout: 30 }] });
   const tulis = (matcher, peristiwa = ["PreToolUse", "PostToolUse", "PostToolUseFailure"]) =>
-    fs.writeFileSync(S, JSON.stringify({ hooks: Object.fromEntries(peristiwa.map((ev) => [ev, [entri(matcher)]])) }));
+    fs.writeFileSync(S, JSON.stringify({ permissions: { deny: ATURAN_IZIN_ENV }, hooks: Object.fromEntries(peristiwa.map((ev) => [ev, [entri(matcher)]])) }));
   const cek = (sistem) => spawnSync(process.execPath, [path.join(SINI, "kebijakan.mjs"), "cek"], { encoding: "utf8", env: { ...process.env, RUDISONE_OS: sistem } });
   assert.ok(alatWajib("win32").includes("PowerShell"));
   assert.ok(!alatWajib("darwin").includes("PowerShell") && !alatWajib("linux").includes("PowerShell"));
   try {
-    // matcher versi sebelum dukungan Windows (instalasi Mac/Linux yang sudah ada)
-    tulis("^(Bash|Write|Edit|MultiEdit|NotebookEdit|mcp__.*)$");
+    // matcher tanpa PowerShell (instalasi Mac/Linux; Read/Grep/Glob sejak T-20261031-2.3)
+    tulis("^(Bash|Read|Grep|Glob|Write|Edit|MultiEdit|NotebookEdit|mcp__.*)$");
     for (const os_ of ["darwin", "linux"]) {
       assert.equal(matcherMutakhir(os_), true, os_);
       const r = cek(os_);
