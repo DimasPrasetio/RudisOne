@@ -144,11 +144,11 @@ proyek yang sedang dibangun: menyiapkannya, lalu memakainya lewat kode proyek (m
 ber-database) pada `<slug>_db`/`<slug>_test`. MySQL lain (tes platform §4, database lain, menyalakan layanan) tetap per kali.
 1. **`.env`** dibuat skill `rudis-monorepo` saat scaffold dan `module.mjs add` (gitignored, di samping `.env.example`):
    APP_*, `JWT_SECRET` acak, kunci modul terisi nilai lokal. **Login awal lokal bawaan** selalu `admin` / `admin@gmail.com`
-   / `admin123` (keputusan pengguna 2026-10-31): nilai bawaan lokal yang **publik, bukan rahasia** — boleh disebut di laporan.
-   Tidak pernah di `.env.production*`, server, atau deploy (penolakan oleh pemeriksaan deploy skill: ⟨**SEMENTARA** — Tim 3,
-   T-20261031-1.1⟩). Jangan mengganti diam-diam, jangan melemahkan kebijakan sandi production.
+   / `admin123` (keputusan pengguna 2026-10-31): nilai bawaan lokal yang **publik, bukan rahasia** — boleh dilaporkan.
+   Tidak pernah di `.env.production*`, server, atau deploy (pemeriksaan deploy skill menolak `admin123`/`admin@gmail.com`:
+   ⟨**SEMENTARA** — Tim 3⟩). Jangan diganti diam-diam; kebijakan sandi production tidak dilemahkan.
 2. **Database:** Tech Lead proyek menjalankan sendiri, tanpa interaksi, di folder proyek (worktree):
-   `node scripts/db-local.mjs --agent` ⟨**SEMENTARA** — nama/flag final dari Tim 3, T-20261031-1.1⟩. Skrip memeriksa
+   `node scripts/db-local.mjs --admin-password-empty` ⟨**SEMENTARA** — final dari Tim 3, T-20261031-1.1⟩. Skrip memeriksa
    `SELECT VERSION()`, membuat `<slug>_db`, `<slug>_test`, dan akun `<slug>_dev@'127.0.0.1'` (`caching_sha2_password`,
    berhak hanya atas dua database itu) bersandi acak, menulis kunci DB ke `.env`, lalu mencoba login dengan akun itu.
    **Batas** (wajib, dikutip di brief Konstruksi):
