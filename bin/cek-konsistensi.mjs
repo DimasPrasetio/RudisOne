@@ -190,24 +190,34 @@ const PENANDA_BUKA = /^\s*<!--\s*ke-pengguna\s*-->\s*$/, PENANDA_TUTUP = /^\s*<!
  *  Mengembalikan [{baris, pesan}]. */
 export function cekBahasaAwam(teks) {
   const hasil = [], baris = String(teks).split("\n");
-  let buka = 0, kode = false, kurung = 0;
-  for (let i = 0; i < baris.length; i++) {
-    const b = baris[i];
-    if (PENANDA_BUKA.test(b)) { if (buka) hasil.push({ baris: i + 1, pesan: "penanda ke-pengguna dibuka lagi sebelum ditutup" }); buka = i + 1; kode = false; kurung = 0; continue; }
-    if (PENANDA_TUTUP.test(b)) { if (!buka) hasil.push({ baris: i + 1, pesan: "penanda /ke-pengguna tanpa pembuka" }); buka = 0; continue; }
-    if (!buka) continue;
-    if (/^\s*>?\s*$/.test(b)) kurung = 0;   // paragraf baru: kurung yang tak tertutup tidak boleh menelan sisa blok
-    if (/^\s*(?:>\s*)?(?:```|~~~)/.test(b)) { kode = !kode; continue; }
-    if (kode) continue;
-    let tampak = "";
-    for (const c of b.replace(/`[^`]*`/g, "").replace(/^\s*>\s?/, "")) {
-      if (c === "(") kurung++;
-      else if (c === ")") { if (kurung > 0) kurung--; }
-      else if (!kurung) tampak += c;
-    }
+  let buka = 0, kode = false, para = [];
+  const laporkan = (i, tampak) => {
     const ketemu = [...new Set([...tampak.matchAll(POLA_ISTILAH)].map((m) => m[1].toLowerCase().replace(/\s+/g, " ")))];
     if (ketemu.length) hasil.push({ baris: i + 1, pesan: `istilah mentah di luar kurung: ${ketemu.join(", ")} — tulis dalam bahasa awam (agents/coo.md › Bahasa awam ke pengguna)` });
+  };
+  /** Satu paragraf (baris berurutan): isi (kurung) dibuang; bila kurungnya tak seimbang, tak ada yang dibuang (tak boleh menelan teks). */
+  const selesaikan = () => {
+    let kurung = 0, seimbang = true;
+    const tampak = para.map(({ i, s }) => {
+      let out = "";
+      for (const c of s) { if (c === "(") kurung++; else if (c === ")") { if (kurung > 0) kurung--; else seimbang = false; } else if (!kurung) out += c; }
+      return { i, out };
+    });
+    if (kurung !== 0 || !seimbang) { for (const { i, s } of para) laporkan(i, s.replace(/[()]/g, " ")); }
+    else for (const { i, out } of tampak) laporkan(i, out);
+    para = [];
+  };
+  for (let i = 0; i < baris.length; i++) {
+    const b = baris[i];
+    if (PENANDA_BUKA.test(b)) { if (buka) hasil.push({ baris: i + 1, pesan: "penanda ke-pengguna dibuka lagi sebelum ditutup" }); selesaikan(); buka = i + 1; kode = false; continue; }
+    if (PENANDA_TUTUP.test(b)) { if (!buka) hasil.push({ baris: i + 1, pesan: "penanda /ke-pengguna tanpa pembuka" }); selesaikan(); buka = 0; continue; }
+    if (!buka) continue;
+    if (/^\s*(?:>\s*)?(?:```|~~~)/.test(b)) { kode = !kode; continue; }
+    if (kode) continue;
+    if (/^\s*>?\s*$/.test(b)) { selesaikan(); continue; }
+    para.push({ i, s: b.replace(/`[^`]*`/g, "").replace(/^\s*>\s?/, "") });
   }
+  selesaikan();
   if (buka) hasil.push({ baris: buka, pesan: "penanda ke-pengguna tidak pernah ditutup" });
   return hasil;
 }
