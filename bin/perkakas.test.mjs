@@ -67,7 +67,9 @@ tulis(path.join(kerjaSkill, "install.sh"), `#!/usr/bin/env bash
 set -euo pipefail
 DIR="$(cd "$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
 rm -rf "$HOME/.claude/skills/rudis-monorepo"; mkdir -p "$HOME/.claude/skills"
-cp -r "$DIR/dist/rudis-monorepo" "$HOME/.claude/skills/"
+# UJI_PASANG_LEWATI: tidak menyalin (pemasangan gagal sungguhan) · UJI_PASANG_KELUAR: kode keluar (mis. 1 = peringatan unzip)
+if [ -z "\${UJI_PASANG_LEWATI:-}" ]; then cp -r "$DIR/dist/rudis-monorepo" "$HOME/.claude/skills/"; fi
+if [ -n "\${UJI_PASANG_KELUAR:-}" ]; then echo "warning:  rudis-monorepo\\\\SKILL.md appears to use backslashes as path separators" >&2; exit "$UJI_PASANG_KELUAR"; fi
 `);
 rilisSkill("versi-1");
 commitLib("auth");
@@ -336,6 +338,24 @@ test("skill terpasang yang diubah tangan dipulihkan dari paket; jeda fetch dihor
   fs.writeFileSync(TERPASANG, "diubah tangan");
   const r = perkakas("siapkan"); // tanpa --segera: fetch dilewati (baru saja), pemeriksaan lokal tetap jalan
   assert.match(r.stdout, /skill dipasang ulang dari paket sumber/);
+  assert.equal(fs.readFileSync(TERPASANG, "utf8"), "versi-3");
+});
+
+test("skrip pasang keluar non-nol tetapi isi terpasang = paket → peringatan jujur, bukan 'pemasangan gagal'", () => {
+  const siapkanDgn = (envTambah) => spawnSync("node", [SKRIP, "siapkan"], { env: { ...ENV, ...envTambah }, encoding: "utf8" });
+  fs.writeFileSync(TERPASANG, "diubah tangan");
+  let r = siapkanDgn({ UJI_PASANG_KELUAR: "1" });
+  assert.doesNotMatch(r.stdout, /pemasangan gagal/);
+  assert.match(r.stdout, /skill dipasang ulang \(terpasang = paket sumber\), tetapi install\.sh keluar dengan kode 1 — warning: .*backslashes/);
+  assert.equal(fs.readFileSync(TERPASANG, "utf8"), "versi-3");
+  // Isi tidak terpasang → tetap gagal: pesan skrip bila keluar non-nol, keterangan beda bila keluar 0
+  fs.writeFileSync(TERPASANG, "diubah tangan");
+  r = siapkanDgn({ UJI_PASANG_LEWATI: "1", UJI_PASANG_KELUAR: "1" });
+  assert.match(r.stdout, /pemasangan gagal — warning: .*backslashes/);
+  r = siapkanDgn({ UJI_PASANG_LEWATI: "1" });
+  assert.match(r.stdout, /pemasangan gagal — skill terpasang masih beda dari paket sumber/);
+  // Pulih untuk uji berikutnya
+  assert.match(siapkanDgn({}).stdout, /skill dipasang ulang dari paket sumber/);
   assert.equal(fs.readFileSync(TERPASANG, "utf8"), "versi-3");
 });
 
