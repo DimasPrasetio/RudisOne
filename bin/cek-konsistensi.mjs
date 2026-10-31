@@ -4,6 +4,8 @@
 //           terpasang, hook + kesehatannya, TEAM.md vs sesi hidup, register, kebersihan catatan/).
 //   --proyek <folder> [--serah <branch>] [--json]  kartu proyek vs deteksi mesin (templat/kartu-proyek.md); dengan
 //           --serah: spec yang mungkin basi karena kode yang dirujuknya berubah di branch itu.
+// Tabel pemetaan migrasi (R7) adalah alat pengembang per device, bukan bagian repo: dibaca dari RUDISONE_PEMETAAN atau
+// <root>/handoff/pemetaan/ (dari worktree: RUDISONE_PEMETAAN=~/Documents/Neuron/ai-agent/RudisOne/handoff/pemetaan); tidak ada → dilewati (info).
 // Exit: 0 bersih · 1 hanya peringatan · 2 ada galat (--serah tanpa --proyek: 0 · 2).
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -16,6 +18,7 @@ import { RUMAH_TAMPIL } from "./lib/lokasi.mjs";
 import { periksaTautan } from "./lib/tautan.mjs";
 import { deteksiProyek } from "./perkakas.mjs";
 import { agentsCli, backendSesi, folderDesktop, normalAgents, sumberBaca } from "./sesi.mjs";
+import { periksaTerlacak } from "./bersih.mjs";
 
 const HOME = os.homedir();
 const INI = fileURLToPath(import.meta.url);
@@ -24,7 +27,7 @@ const RUMAH = RUMAH_TAMPIL;   // satu sumber: lib/lokasi.mjs
 const SKILLS_USER = process.env.RUDISONE_SKILLS_USER || path.join(HOME, ".claude", "skills");
 const AGENTS_USER = process.env.RUDISONE_AGENTS_USER || path.join(HOME, ".claude", "agents");
 const DESKTOP = folderDesktop();
-export const BATAS_INTI = 185;   // T-20261031-2.3: inti dirampingkan ke ±182 baris; tambah aturan → pindahkan ke skill/mekanisme dulu
+export const BATAS_INTI = 185;   // inti dirampingkan ke ±182 baris; tambah aturan → pindahkan ke skill/mekanisme dulu
 /** Batas isi skill yang dipertahankan setelah kompaksi (≈5.000 token; perkiraan 1 token ≈ 4 byte). */
 const BATAS_SKILL_BYTE = 20_000;
 /** Berkas per device / di luar repo: tidak wajib ada di repo. */
@@ -72,7 +75,11 @@ function berkasAkarLama(root, ref) {
     const out = execFileSync("git", ["ls-tree", "--name-only", ref || "3b1c888"], { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
     return new Set(out.split("\n").filter((f) => /^[\w-]+\.md$/.test(f) && !/^(TEAM|README|CLAUDE)\.md$/.test(f)));
   } catch {
-    if (fs.existsSync(path.join(root, ".git"))) catat("peringatan", "path", `ref ${ref || "3b1c888"} tidak terbaca (clone dangkal?) — rujukan ke berkas akar yang dipindah tidak diperiksa`);
+    if (fs.existsSync(path.join(root, ".git"))) {
+      // clone dangkal (cara pasang bawaan) memang tidak membawa riwayat: bukan masalah, cukup diberitahukan
+      const dangkal = spawnSync("git", ["rev-parse", "--is-shallow-repository"], { cwd: root, encoding: "utf8" }).stdout?.trim() === "true";
+      catat(dangkal ? "info" : "peringatan", "path", `ref ${ref || "3b1c888"} tidak terbaca${dangkal ? " (clone dangkal)" : ""} — rujukan ke berkas akar yang dipindah tidak diperiksa`);
+    }
     return new Set();
   }
 }
@@ -145,21 +152,24 @@ export function cekRepo(root = ROOT, opsi = {}) {
     }
   }
 
-  // R8 — berkas per device yang masih dilacak git padahal di-.gitignore (mis. catatan/ sebelum serah migrasi v5):
-  // merge berikutnya bisa batal atau menghapusnya dari disk → README › Serah migrasi v5 ke main
+  // R8 — berkas per device yang masih dilacak git padahal di-.gitignore (mis. catatan/): merge berikutnya bisa batal atau
+  // menghapusnya dari disk → agents/tech-lead.md › Serah ke branch utama
   try {
     const out = execFileSync("git", ["ls-files", "-ci", "--exclude-standard"], { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
     if (out) {
       const daftar = out.split("\n");
       const folder = [...new Set(daftar.map((f) => f.split("/")[0]))];
-      catat("peringatan", "git-abaikan", `${daftar.length} berkas di-.gitignore tetapi masih dilacak git (${folder.join(", ")}) — keluarkan dari indeks dulu: git rm -r --cached ${folder.join(" ")} && git commit (README › Serah migrasi v5 ke main)`);
+      catat("peringatan", "git-abaikan", `${daftar.length} berkas di-.gitignore tetapi masih dilacak git (${folder.join(", ")}) — keluarkan dari indeks dulu: git rm -r --cached ${folder.join(" ")} && git commit (agents/tech-lead.md › Serah ke branch utama)`);
     }
   } catch { /* bukan repo git */ }
 
-  // R7 — pemetaan aturan lama → lokasi baru (100%)
+  // R7 — pemetaan aturan lama → lokasi baru (100%) — tabel per device (alat pengembang), lihat folderPemetaan
   cekPemetaan(root, ref);
-  // R7b — pemetaan v6 (T-20261031-2.3): setiap unit aturan ref lama ada di HEAD (otomatis) atau di tabel
+  // R7b — pemetaan v6: setiap unit aturan ref lama ada di HEAD (otomatis) atau di tabel
   cekPemetaanV6(root);
+
+  // R9 — kebersihan: berkas produk bebas laporan uji device, ID tugas, kutipan keputusan bertanggal, nama sistem lain
+  for (const t of periksaTerlacak(root) ?? []) catat("galat", "bersih", `${t.rel}${t.baris ? `:${t.baris}` : ""} [${t.jenis}] ${t.cuplikan} — bin/bersih.mjs`);
   return temuan;
 }
 
@@ -173,20 +183,25 @@ function berkasInstruksi(root) {
   return out;
 }
 
-/** Tabel pemetaan v6 (`docs/pemetaan-aturan-v6.md`, kepala `Ref: <sha>`). Unit aturan ref lama (bin/inventaris-aturan.mjs,
+/** Folder tabel pemetaan migrasi — alat pengembang per device, bukan bagian repo (repo adalah sumber instalasi klien). */
+export const folderPemetaan = (root = ROOT) => process.env.RUDISONE_PEMETAAN || path.join(root, "handoff", "pemetaan");
+const tampilPemetaan = (root, nama) => { const f = path.join(folderPemetaan(root), nama); const r = path.relative(root, f); return r && !r.startsWith("..") && !path.isAbsolute(r) ? r.split(path.sep).join("/") : f; };
+
+/** Tabel pemetaan v6 (`pemetaan-aturan-v6.md` di folderPemetaan, kepala `Ref: <sha>`). Unit aturan ref lama (bin/inventaris-aturan.mjs,
  *  sumber v6) yang teksnya — spasi dinormalkan — masih ada persis di berkas yang sama = `tetap` otomatis, di berkas
  *  instruksi lain = `pindah` otomatis; sisanya WAJIB punya baris tabel: jangkar di lokasi baru, `mekanisme` = judul tes
  *  persis di berkas tes, atau `dihapus` + alasan. Mengembalikan ringkasan (juga dicatat sebagai info). */
 export function cekPemetaanV6(root = ROOT) {
-  const f = path.join(root, "docs", "pemetaan-aturan-v6.md");
+  const f = path.join(folderPemetaan(root), "pemetaan-aturan-v6.md");
+  const nf = tampilPemetaan(root, "pemetaan-aturan-v6.md");
   if (!fs.existsSync(f)) {
-    // repo RudisOne sungguhan (punya pemeriksa ini) wajib punya tabelnya — menghapusnya tidak boleh meloloskan cek diam-diam
-    if (fs.existsSync(path.join(root, "bin", "inventaris-aturan.mjs"))) catat("galat", "pemetaan-v6", "docs/pemetaan-aturan-v6.md tidak ada");
+    // clone bersih (device klien) tidak punya tabelnya: pemeriksaan migrasi hanya berjalan di device pengembang
+    if (fs.existsSync(path.join(root, "bin", "inventaris-aturan.mjs"))) catat("info", "pemetaan-v6", `${nf} tidak ada di device ini (alat pengembang) — pemetaan v6 dilewati`);
     return null;
   }
   const teks = fs.readFileSync(f, "utf8");
   const ref = teks.match(/^Ref:\s*`?([0-9a-f]{7,40})`?/m)?.[1];
-  if (!ref) { catat("galat", "pemetaan-v6", "docs/pemetaan-aturan-v6.md tanpa baris `Ref: <sha>`"); return null; }
+  if (!ref) { catat("galat", "pemetaan-v6", `${nf} tanpa baris \`Ref: <sha>\``); return null; }
   const rata = (x) => String(x).replace(/\s+/g, " ").trim();
   const isi = new Map();
   const baca = (p) => { if (!isi.has(p)) { try { isi.set(p, rata(fs.readFileSync(path.join(root, p), "utf8"))); } catch { isi.set(p, null); } } return isi.get(p); };
@@ -227,8 +242,8 @@ export function cekPemetaanV6(root = ROOT) {
 
 /** Tabel pemetaan: | Kode | Aturan lama | Lokasi baru | Jangkar | — jangkar harus ada (persis, spasi dinormalkan) di lokasi baru. */
 export function cekPemetaan(root = ROOT, ref = null) {
-  const f = path.join(root, "docs", "pemetaan-aturan-v5.md");
-  if (!fs.existsSync(f)) { catat("galat", "pemetaan", "docs/pemetaan-aturan-v5.md tidak ada"); return; }
+  const f = path.join(folderPemetaan(root), "pemetaan-aturan-v5.md");
+  if (!fs.existsSync(f)) { catat("info", "pemetaan", `${tampilPemetaan(root, "pemetaan-aturan-v5.md")} tidak ada di device ini (alat pengembang) — pemetaan v5 dilewati`); return; }
   const baris = fs.readFileSync(f, "utf8").split("\n").filter((l) => /^\|\s*[A-Z]+-\d+/.test(l));
   const kode = new Set();
   const isiBerkas = new Map();
@@ -304,7 +319,7 @@ export function cekDevice(root = ROOT) {
   for (const id of daftarPeran(root)) {
     periksaPasang(path.join(AGENTS_USER, `rudis-${id}.md`), "subagent-terpasang", `subagent rudis-${id} di ~/.claude/agents`, "jalankan install.sh");
   }
-  // D2 skill sistem lain (mis. TimAgent) — tidak disentuh, hanya diberitahukan
+  // D2 skill milik sistem lain — tidak disentuh, hanya diberitahukan
   try {
     for (const n of fs.readdirSync(SKILLS_USER)) {
       const p = path.join(SKILLS_USER, n);

@@ -524,7 +524,7 @@ function peranSubagent(s) {
  *  deskripsi/pembuka ("#2"), selain itu kursi engineer pertama yang masih kosong (`terisi` = byAgent). */
 /** Proyek subagent tim yang dipanggil COO (mis. Tech Lead sebagai subagent): dari ID tugas di brief-nya → folder tugas di
  *  register; selain itu dari folder kerja worktree yang pernah dipakainya; terakhir folder kerja terakhir. Folder kerja
- *  awal subagent = folder pemanggil (COO di induk proyek, mis. `d:\PENGEMBANGAN-RUDIS`), jadi tidak didahulukan. */
+ *  awal subagent = folder pemanggil (COO di induk proyek, mis. `d:\proyek`), jadi tidak didahulukan. */
 function proyekSubagent(s) {
   const id = String(s.firstPrompt ?? "").match(/\bT-\d{8}-\d+(?:\.\d+)*\b/)?.[0];
   // ID persis dulu, lalu induk terdekat (awalan terpanjang): sub-tugas T-x.2 tidak boleh jatuh ke folder induk T-x

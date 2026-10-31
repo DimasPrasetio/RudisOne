@@ -96,7 +96,7 @@ function siapkanLog() {
  *  Proses anak di Windows mewarisi job object induknya; sesi Claude Code/Desktop menjalankan alatnya di dalam job, dan
  *  `detached` Node tidak melepaskannya (libuv tidak memakai CREATE_BREAKAWAY_FROM_JOB). Proses yang dibuat WMI berinduk
  *  WmiPrvSE, di luar job itu, sehingga Kantor tidak mati saat sesi yang menyalakannya berhenti. WMI tidak mewariskan env
- *  dan stdio: port dan log lewat argumen (server.mjs `--kantor-port=`, `--log=`). Uji: uji/windows-kantor.md. */
+ *  dan stdio: port dan log lewat argumen (server.mjs `--kantor-port=`, `--log=`). */
 function nyalakanLepas() {
   // string PowerShell berkutip tunggal; kutip tipografis ‘ ’ ‚ ‛ juga pembatas di PowerShell → digandakan
   const kutip = (t) => `'${String(t).replace(/['‘-‛]/g, "$&$&")}'`;

@@ -4,6 +4,9 @@
 // pekerjaan pengguna di repo sumbernya. Dipanggil COO di awal setiap /rudisone dan oleh install.sh.
 // Pemakaian: bin/perkakas.sh [siapkan|cek|versi|proyek <folder>|pastikan <skill>|skill|marketplace cek [<sumber>]|sdd <argumen rudis…>] [--segera] [--paksa]
 //   siapkan  (default) clone bila belum ada · pull --ff-only bila bersih · pasang ulang skill bila beda dari paketnya
+//            Clone dangkal (--depth 1) bawaan: riwayat tidak dipakai saat berjalan dan pull --ff-only tetap memperbaruinya.
+//            Entri `"clone": "penuh"` (riwayat/tag bagian dari kontraknya, mis. commit pustaka di modules.lock proyek dan
+//            tag kernel skill) di-clone penuh; clone dangkal yang sudah ada untuk entri itu diperingatkan (fetch --unshallow).
 //   cek      laporkan keadaan tanpa mengubah apa pun (git fetch tetap jalan)
 //   versi    satu baris untuk kolom "Perkakas" register tugas, mis. rudis@b444853 lib@43e552f sdd@e216888
 //   proyek   <folder> [--json]: rudis-pustaka · rudis-deploy · lain, lalu mode-mesin A|B|ragu, backend, bukti, kartu
@@ -357,7 +360,7 @@ function siapkan(t, { ubah, segera, paksa, sibuk, state }) {
   // 1. Repo sumber
   if (!fs.existsSync(dir)) {
     if (!ubah) { awas(`${nama}: belum ada di ${t.lokal}`); return catat; }
-    const r = jalankan("git", [...akses.args, "clone", "--quiet", t.repo, dir], undefined, akses.env, 600_000);
+    const r = jalankan("git", [...akses.args, "clone", "--quiet", ...(t.clone === "penuh" ? [] : ["--depth", "1"]), t.repo, dir], undefined, akses.env, 600_000);
     if (!r.ok) { awas(ditolak(`clone ${t.repo}`, r.err) ?? `${nama}: clone ${t.repo} gagal — ${baris1(r.err)}`); return catat; }
     if (t.hooks) git(dir, "config", "core.hooksPath", t.hooks);
     ok(`${nama}: di-clone ke ${t.lokal}`);
@@ -389,6 +392,9 @@ function siapkan(t, { ubah, segera, paksa, sibuk, state }) {
       else ok(`${nama}: mutakhir dengan origin`);
     }
     if (kotor && !catat.some(([, s]) => s.includes("belum di-commit"))) info(`${nama}: ada perubahan belum di-commit di ${t.lokal} — tidak disentuh`);
+    if (t.clone === "penuh" && git(dir, "rev-parse", "--is-shallow-repository").out === "true") {
+      awas(`${nama}: clone dangkal, padahal riwayatnya dipakai (commit di modules.lock/tag rilis) — jalankan: git -C ${t.lokal} fetch --unshallow --tags`);
+    }
     if (t.hooks && git(dir, "config", "core.hooksPath").out !== t.hooks) {
       awas(`${nama}: hook pre-commit belum aktif — jalankan: git -C ${t.lokal} config core.hooksPath ${t.hooks}`);
     }

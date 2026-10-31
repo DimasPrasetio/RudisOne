@@ -1,0 +1,7 @@
+#!/bin/sh
+# Penjaga kebersihan repo RudisOne (diaktifkan install.sh: git config core.hooksPath .githooks).
+# Menolak commit yang membawa laporan uji device, ID tugas, kutipan keputusan bertanggal, atau nama sistem lain ke berkas
+# produk — tempatnya handoff/ (per device). Rinci: bin/bersih.mjs.
+akar=$(git rev-parse --show-toplevel) || exit 1
+command -v node >/dev/null 2>&1 || { echo "pre-commit: node tidak ditemukan — penjaga kebersihan dilewati" >&2; exit 0; }
+exec node "$akar/bin/bersih.mjs" --staged

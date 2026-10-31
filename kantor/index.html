@@ -1470,10 +1470,10 @@ function demo() {
       .filter(([, , a, b]) => terakhir >= a && terakhir < b + 8)
       .map(([id, induk, a, b, label, icon, deskripsi]) => ({ id, induk, status: terakhir >= b ? "selesai" : "aktif", label, icon, deskripsi, jenis: "general-purpose" }));
     render({ now, agents, feed: [...feed].reverse(), asisten, tim: [{ n: 1, proyek: "kasir" }, { n: 2, proyek: "toko-b" }], tugas: [
-      { id: "T-20261024-3", tugas: "Insiden stok minus cabang 2", folder: "~/Documents/Neuron/ai-agent/RudisOne/ruang/head-of-it-operations", pemilik: "Head of IT Operations", prioritas: "segera", status: "berjalan" },
-      { id: "T-20261024-2", tugas: "Perbaikan cetak SJ paging", folder: "~/Documents/kasir", pemilik: "Tech Lead · Tim 1", prioritas: "normal", status: "berjalan" },
-      { id: "T-20261024-4", tugas: "Landing page toko-b", folder: "~/Documents/toko-b", pemilik: "Tech Lead · Tim 2", prioritas: "normal", status: "berjalan" },
-      { id: "T-20261024-5", tugas: "Kelayakan paket harga toko-b", folder: "~/Documents/Neuron/ai-agent/RudisOne/ruang/head-of-strategy", pemilik: "Head of Strategy", prioritas: "normal", status: "berjalan" },
+      { id: "T-20260101-3", tugas: "Insiden stok minus cabang 2", folder: "~/Documents/Neuron/ai-agent/RudisOne/ruang/head-of-it-operations", pemilik: "Head of IT Operations", prioritas: "segera", status: "berjalan" },
+      { id: "T-20260101-2", tugas: "Perbaikan cetak SJ paging", folder: "~/Documents/kasir", pemilik: "Tech Lead · Tim 1", prioritas: "normal", status: "berjalan" },
+      { id: "T-20260101-4", tugas: "Landing page toko-b", folder: "~/Documents/toko-b", pemilik: "Tech Lead · Tim 2", prioritas: "normal", status: "berjalan" },
+      { id: "T-20260101-5", tugas: "Kelayakan paket harga toko-b", folder: "~/Documents/Neuron/ai-agent/RudisOne/ruang/head-of-strategy", pemilik: "Head of Strategy", prioritas: "normal", status: "berjalan" },
     ] });
   };
   setInterval(() => {

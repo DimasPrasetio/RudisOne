@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Pengaman git untuk command RUDIS (T-20261030-6 · A6). Command /rudis.redesign|revamp|upgrade|implement menawarkan
+// Pengaman git untuk command RUDIS. Command /rudis.redesign|revamp|upgrade|implement menawarkan
 // checkpoint "commit atau stash" dan rollback `git reset --hard` / `git checkout <sha> -- <path>` — dilarang protokol
 // (stash dipakai bersama semua worktree; reset/checkout -- membuang kerja). Penggantinya: checkpoint = commit di branch
 // tugas, rollback = commit baru yang memulihkan path dari checkpoint. Tidak ada yang hilang dari riwayat.

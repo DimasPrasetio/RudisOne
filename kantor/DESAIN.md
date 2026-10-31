@@ -101,7 +101,7 @@ cerita gerak) tetap. Denah 40 × 21:
 - Papan nama tim menampilkan proyeknya; tim tanpa proyek diredupkan dan disembunyikan dari panel & linimasa.
 - 20 titik santai (bar, sofa, pouf, meja bundar, bangku, berdiri) — cukup untuk semua kursi selain COO.
 
-## v6 — inti kecil + subagent, register JSON (2026-10-30, T-20261030-2 F3/F4)
+## v6 — inti kecil + subagent, register JSON (2026-10-30)
 Organisasi kini "inti kecil + subagent": sesi tetap hanya COO, IT Operations (Head of IT Operations dan
 System Administrator), dan Tech Lead tim yang punya proyek. Peran lain dipanggil sebagai subagent dari definisi
 peran `rudis-<id-peran>`. Denah dan bahasa visual tidak berubah; yang berubah arti kursi kosong.
@@ -255,7 +255,7 @@ menghampiri agent.
 - Desain avatar & indikator status: https://setproduct.com/blog/avatar-ui-design
 - ServiceNow Horizon — presence icon: https://horizon.servicenow.com/components/now-icon-presence
 
-## v7 — IT Operations saat dibutuhkan (2026-10-30, T-20261030-7)
+## v7 — IT Operations saat dibutuhkan (2026-10-30)
 Sesi tetap hanya COO dan Tech Lead tim yang punya proyek. Kursi Head of IT Operations dan System Administrator tanpa
 sesi hidup tampil *katalog* ("Dipanggil saat perlu"), bukan *absen*; sesinya dibentuk COO saat ada tugas server,
 insiden, data production, atau deploy.

@@ -5,8 +5,9 @@ description: Prosedur RudisOne untuk RUDIS SDD (CLI rudis, command /rudis.*, fol
 
 # RUDIS SDD di RudisOne
 
-Dasar: T-20261029-1 (kelayakan, S1–S8, K1–K12), T-20261030-3 (brownfield, §4.2, §7), T-20261030-4 §6.4 (menang bila
-bertentangan) dan `handoff/T-20261030-6/pemahaman.md` (Keputusan 1–5) — per device; bila tidak ada, minta ringkasan ke Tech Lead.
+Dasar: kajian kelayakan (S1–S8, K1–K12), riset brownfield, dan keputusan pemilik tentang RUDIS SDD — dokumen per device
+di `handoff/`, bukan bagian repo; bila ada dan bertentangan dengan skill ini, keputusan pemilik di sana menang; bila tidak
+ada, minta ringkasan ke Tech Lead.
 Peran, gerbang, urutan fase: skill `rudis-sdlc`. Soal teknis repo standar: skill `rudis-monorepo` menang.
 
 ## 1. Mode proyek (kartu proyek)
@@ -170,7 +171,7 @@ Command RUDIS ditulis untuk agent yang bicara langsung dengan pengguna (`clarify
 - **Celah alat:** Semgrep diff-aware tidak lintas berkas; .NET dan SpotBugs tanpa baseline sejati.
 - **GL_TOKEN:** token sesi device ditolak 401; tanpa PAT di penyimpannya (Keychain/berkas rahasia) `init` gagal. Paket template lokal = keputusan pengguna (U1).
 - **Penomoran paralel (K12):** selalu `--number N` dari register.
-- **K2 letak `specs/`:** masuk standar rudis-monorepo (T-20261030-6 bagian B, kernel/v7.1) — belum di main sampai pengguna
+- **K2 letak `specs/`:** masuk standar rudis-monorepo (kernel/v7.1) — belum di main sampai pengguna
   menyerahkannya; sementara itu ikuti tabel §8 (namanya sama).
 - **Biaya dokumen (K11):** ±2.000 baris per modul kecil; `clarify`/`checklist` boleh dilewati untuk baris kecil.
 - Allowlist marketplace: `rudis init` tidak menegakkan pin — periksa `.claude/settings.json` sesudahnya.
@@ -178,4 +179,4 @@ Command RUDIS ditulis untuk agent yang bicara langsung dengan pengguna (`clarify
 ## 12. Rujukan
 skill `rudis-sdlc` (fase, gerbang, "Tanya pengguna") · `protokol.md` (git/worktree) · `templat/tabel-perakitan.md` ·
 `templat/spesifikasi.md` · `templat/constitution-rudis.md` · `templat/constitution-legacy.md` · `perkakas.json` ·
-command RUDIS di proyek: `.claude/commands/rudis.<cmd>.md` · riset T-20261030-3 §4.2, §7 · T-20261030-4 §3.2, §6.4.
+command RUDIS di proyek: `.claude/commands/rudis.<cmd>.md`.

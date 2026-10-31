@@ -55,7 +55,7 @@ export function muatKebijakan(file = FILE_KEBIJAKAN, fileKonfig = FILE_KONFIG) {
 
 // ---------- pengenal sesi RudisOne & jabatan ----------
 // Jabatan TIDAK dibaca dari `input.cwd` (ikut `cd`, dok hooks) maupun dari berkas yang bisa ditulis agent sebagai sumber
-// kebenaran (T-20261030-5 · F2). Sumbernya: folder AWAL sesi (`cwd` baris pertama transkrip), pembuka peran di pesan
+// kebenaran. Sumbernya: folder AWAL sesi (`cwd` baris pertama transkrip), pembuka peran di pesan
 // PERTAMA sesi, atau pemanggilan /rudisone yang posisinya di transkrip diverifikasi ulang setiap kali dipakai.
 const WORKTREE = { lead: "tech-lead", bsa: "business-systems-analyst", se1: "software-engineer", se2: "software-engineer" };
 const POLA_WORKTREE = /[\\/]\.claude[\\/]worktrees[\\/]r[1-3]-(lead|bsa|se1|se2)-[^\\/]+(?:[\\/]|$)/;   // pemisah / atau \ (Windows)
@@ -510,7 +510,7 @@ function perkakasAsli(prog, ctx) {
   // junction/symlink (dibuat tanpa hak admin) — kedua hasil bisa beda, jadi path ber-`..` bukan perkakas resmi.
   if (path.sep === "\\" && /(^|[\\/])\.\.([\\/]|$)/.test(mentah)) return false;
   // Path diselesaikan seperti kernel (realpath.native, bukan path.resolve yang memotong `..` secara teks): symlink +
-  // `..` tidak bisa membawa skrip lain masuk sebagai perkakas resmi (T-20261030-6 U3 H2).
+  // `..` tidak bisa membawa skrip lain masuk sebagai perkakas resmi.
   let asliP = null, asliBin = null;
   try { asliP = fs.realpathSync.native(mentah); } catch { /* tidak ada */ }
   if (!asliP) return path.dirname(path.resolve(mentah)) === path.join(ROOT, "bin");   // berkas tidak ada → tidak ada yang dijalankan
@@ -565,7 +565,7 @@ function klasifikasiSegmen(s, K, ctx) {
     const sub = K.perkakas_perintah?.[pk]?.[pkArgs[0]];
     if (sub) return { aman: pkAman, aksi: [{ kemampuan: sub, jenjang: 1, aksi: `perkakas ${pk} ${pkArgs.slice(0, 2).join(" ")}`, ...ciri }] };
   }
-  // installer RudisOne memasang hook & aturan izin di settings pengguna (T-20261031-2.3) → mengubah berkas terlindung
+  // installer RudisOne memasang hook & aturan izin di settings pengguna → mengubah berkas terlindung
   const ins = /^node(js)?(\.exe)?$/i.test(nama) ? args.find((x) => !x.startsWith("-")) : prog;
   if (/^install\.(sh|mjs|cmd)$/.test(path.basename(ins ?? "")) && ctx.cwd) {
     const d = path.dirname(path.resolve(ctx.cwd, rumah(ins)));
@@ -578,7 +578,7 @@ function klasifikasiSegmen(s, K, ctx) {
     return { aman: false, ubahSendiri: !BACA_SENDIRI[skrip].includes(subp),
       bacaSendiri: BACA_SENDIRI[skrip].includes(subp) && alihOk && prefiks.every((p) => /^RUDISONE_[A-Z_]+=/.test(p)) };
   }
-  // Backend sesi cli (T-20261030-11): dikenali dari nama program di path mana pun (agar pembatasan tidak lolos lewat
+  // Backend sesi cli: dikenali dari nama program di path mana pun (agar pembatasan tidak lolos lewat
   // ~/.local/bin/claude), tetapi hanya boleh ikut diloloskan bila dipanggil dengan nama standar.
   if (nama === "claude") { const h = klasifikasiClaude(args, dasarAman, ctx); return { ...h, claude: true, aman: h.aman && programStandar(prog) }; }
   // lewat pembungkus (timeout 60 claude …, nohup/env/command/exec/nice claude …): pembatasan tetap berlaku, tidak pernah allow
@@ -595,7 +595,7 @@ function klasifikasiSegmen(s, K, ctx) {
     if (nama === "git") while (rest.length && rest[0].startsWith("-")) rest = rest.slice(["-C", "-c", "--git-dir", "--work-tree"].includes(rest[0]) ? 2 : 1);
     const a = rest.join(" ");
     // git yang menimpa/menghapus kerja (stash, reset --hard, checkout --, clean -f, restore, hapus worktree/branch) — protokol
-    // › Ruang kerja Engineering (T-20261031-2.3): jenjang 3, selalu ditanya di sesi RudisOne; padanan aman bin/rudis-git.sh
+    // › Ruang kerja Engineering: jenjang 3, selalu ditanya di sesi RudisOne; padanan aman bin/rudis-git.sh
     if (p.lokal_perusak && new RegExp(p.lokal_perusak).test(a))
       return { aman: false, aksi: [{ kemampuan: p.kemampuan, jenjang: 3, aksi: `${nama} ${a} — menimpa/menghapus kerja (bin/rudis-git.sh untuk checkpoint/rollback)`.slice(0, 120) }] };
     // git: push = jenjang 3; git lain = perintah lokal biasa, TIDAK pernah ikut diloloskan.
@@ -634,7 +634,7 @@ function klasifikasiSegmen(s, K, ctx) {
   if (BACA_LOKAL.has(nama) && K.lokal_netral.includes(nama)) {
     const rahasia = new RegExp(K.ssh_rahasia + RAHASIA_LOKAL, "i");
     const dibaca = [...args, ...s.alih.filter((a) => a.op.endsWith("<")).map((a) => a.target)];
-    // T-20261030-12: selain teks argumen, path yang BENAR-BENAR dibaca (diselesaikan dari folder sekarang, `.`/`..`/`//`
+    // selain teks argumen, path yang BENAR-BENAR dibaca (diselesaikan dari folder sekarang, `.`/`..`/`//`
     // dirapikan, symlink diikuti) tidak boleh berada di lokasi kredensial — `cd ~/.config && cat gh/hosts.yml` dsb.
     // nilai opsi: `--opt=val`, dan opsi pendek yang menempel (`-fFILE`, `-nfFILE`) → setiap sisa sesudah huruf opsi
     const nilai = dibaca.flatMap((x) => (x.startsWith("--") ? (x.includes("=") ? [x.slice(x.indexOf("=") + 1)] : [])
@@ -650,7 +650,7 @@ function klasifikasiSegmen(s, K, ctx) {
   return { aman: false };
 }
 
-// ---------- backend sesi cli: perintah `claude` (T-20261030-11) ----------
+// ---------- backend sesi cli: perintah `claude` ----------
 // Membentuk/menghentikan sesi latar = kemampuan "sesi" (hanya COO, jenjang 1). `claude --bg` hanya dikenali aman dengan
 // opsi dari daftar tetap DAN tepat satu `--settings` = pengaman RudisOne (bgIsolation none, deny push/rm, bypass mati).
 // Selalu ditanya (jenjang 3, semua jabatan): bypassPermissions, `claude rm` (menghapus worktree), `claude attach` (milik
@@ -763,7 +763,7 @@ function klasifikasiClaude(args, dasarAman, ctx) {
   return { aman: false };
 }
 
-// ---------- berkas terlindung (T-20261030-5 · F2) ----------
+// ---------- berkas terlindung ----------
 // Berkas yang menentukan keputusan hook ini atau izin Claude Code. Write/Edit/MultiEdit/NotebookEdit ke sana, dan
 // perintah Bash yang MENULISNYA secara nyata (targetTulis), SELALU "ask" — di semua sesi. Membaca/menjalankan/menyebut
 // tidak (A9). Batas: penulisan yang disamarkan (variabel, glob, interpreter, skrip) tidak terlihat; penegakan kerasnya
@@ -885,7 +885,7 @@ export function targetTulis(s, cwd) {
   return out.filter((t) => t.path);
 }
 
-// ---------- penjaga .env (T-20261031-2.3) ----------
+// ---------- penjaga .env ----------
 // Agent RudisOne tidak membaca ISI berkas .env* (kecuali contoh): Read/Grep tool atau perintah Bash yang mengeluarkan isinya
 // → deny tanpa prompt + catatan audit. Kebutuhan sahnya dipenuhi bin/env-kunci.sh (status kunci tanpa nilai). Aplikasi,
 // tes, dan skrip proyek yang memuat .env sendiri (npm test, go test, node --env-file=.env server.js, db-local.mjs) tidak
@@ -1329,7 +1329,7 @@ function analisisBash(input, K) {
   // cwd berjalan: `cd <path harfiah>` diikuti; cd lain (variabel, -, pushd/popd) → tidak diketahui (null)
   const ctx = { cwd: input.cwd ? rumah(input.cwd) : HOME };
   ctx.awal = ctx.cwd;
-  // Folder yang MUNGKIN aktif (T-20261030-12): cd bisa gagal (`cd x; …`, `cd x || …`) atau berjalan di subshell (`cd x | …`,
+  // Folder yang MUNGKIN aktif: cd bisa gagal (`cd x; …`, `cd x || …`) atau berjalan di subshell (`cd x | …`,
   // `cd x &`), jadi folder sebelumnya tidak pernah dibuang; null = tak diketahui.
   ctx.mungkin = ctx.cwd ? [ctx.cwd] : null;
   const hasil = [];
@@ -1351,7 +1351,7 @@ function analisisBash(input, K) {
     hasil.push(h);
     if (h.ubahSendiri) ubahSendiri = true;
 
-    // T-20261030-6 A9: hanya TARGET PENULISAN nyata yang diperiksa (pengalihan keluar, tee, sed/perl -i, cp/mv/rm/…,
+    // hanya TARGET PENULISAN nyata yang diperiksa (pengalihan keluar, tee, sed/perl -i, cp/mv/rm/…,
     // git checkout/restore/… dengan path). Membaca, menjalankan, menguji, atau sekadar menyebut path → bukan urusan ini.
     for (const t of targetTulis(s, ctx.cwd)) {
       if (sebut) break;
@@ -1384,7 +1384,7 @@ function analisisBash(input, K) {
 }
 
 const ALAT_TULIS = new Set(["Write", "Edit", "MultiEdit", "NotebookEdit"]);
-/** Alat baca yang dilihat hook hanya untuk penjaga .env (T-20261031-2.3). */
+/** Alat baca yang dilihat hook hanya untuk penjaga .env. */
 const ALAT_BACA = new Set(["Read", "Grep", "Glob"]);
 /** Pemanggil subagent: brief ke subagent peran rudis-* wajib ber-ID tugas di baris pertama (protokol › Tugas 1). */
 const ALAT_AGENT = new Set(["Agent", "Task"]);
@@ -1649,7 +1649,7 @@ export function catatSesudah(input, K) {
 }
 
 // ---------- pemasangan (dijalankan pengguna) ----------
-/** Alat yang dilihat hook. Write/Edit/MultiEdit/NotebookEdit sejak T-20261030-5 (berkas terlindung). */
+/** Alat yang dilihat hook. Write/Edit/MultiEdit/NotebookEdit untuk berkas terlindung. */
 export const MATCHER = "^(Bash|PowerShell|Read|Grep|Glob|Agent|Task|Write|Edit|MultiEdit|NotebookEdit|mcp__.*)$";
 /** PostToolUseFailure: perintah yang gagal (exit ≠ 0) tetap bisa sudah mengembalikan data prod ke transkrip (U3 M3). */
 const PERISTIWA = ["PreToolUse", "PostToolUse", "PostToolUseFailure"];
@@ -1708,7 +1708,7 @@ function tulisSettings(s) {
   fs.mkdirSync(path.dirname(SETTINGS), { recursive: true });
   fs.writeFileSync(SETTINGS, `${JSON.stringify(s, null, 2)}\n`);
 }
-/** Lapis tertutup penjaga .env (T-20261031-2.3): permissions.deny Read berlaku di sesi mana pun, juga saat hook gagal
+/** Lapis tertutup penjaga .env: permissions.deny Read berlaku di sesi mana pun, juga saat hook gagal
  *  terbuka, untuk alat Read dan perintah berkas yang dikenali Claude Code di Bash (cat/head/tail/sed/…). Path `//**` =
  *  di mana pun (bukan hanya di bawah folder kerja). Contoh (.env.example) tidak tercakup; sisanya dijaga hook. */
 export const ATURAN_IZIN_ENV = [".env", ".env.local", ".env.production", ".env.development", ".env.test", ".env.staging",

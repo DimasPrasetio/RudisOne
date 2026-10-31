@@ -50,7 +50,7 @@ export const sumberBaca = (backend = backendSesi().backend) => (backend === "aut
  *  Windows: Claude Desktop versi Store/MSIX (paket `Claude_<id>`) menulis %APPDATA%\Claude secara tervirtualisasi ke
  *  %LOCALAPPDATA%\Packages\Claude_<id>\LocalCache\Roaming\Claude. Hanya proses DI DALAM paket (sesi Desktop) yang
  *  melihatnya di %APPDATA%; Kantor/perkakas yang dinyalakan dari VS Code, terminal, atau WMI tidak — jadi letak paket
- *  diperiksa bila letak biasa tidak ada (terbukti di Windows 11, Claude 4.4212, T-20261030-2.1). */
+ *  diperiksa bila letak biasa tidak ada (terbukti di Windows 11, Claude 4.4212). */
 export function folderDesktop(platform = process.platform, env = process.env, home = HOME, { ada = fs.existsSync, daftar = fs.readdirSync } = {}) {
   if (env.RUDISONE_KANTOR_DESKTOP) return env.RUDISONE_KANTOR_DESKTOP;
   // join menurut OS tujuan (bukan OS yang menjalankan), agar hasilnya sama dengan yang dihitung di OS itu
@@ -154,13 +154,13 @@ export function folderDipercaya() {
   return Object.entries(proyek).filter(([, v]) => v?.hasTrustDialogAccepted).map(([k]) => k);
 }
 
-/** Status kepercayaan satu folder untuk `claude --bg` (uji terkontrol 2.1.302 di Windows, T-20261030-2.1 — log di
+/** Status kepercayaan satu folder untuk `claude --bg` (uji terkontrol 2.1.302 di Windows — hasilnya di
  *  skill rudisone › backend-cli.md › Kepercayaan folder):
  *   dipercaya   — entri persis folder ini.
  *   diwarisi    — di dalam folder yang dipercaya, di repo git yang sama (tidak ada `.git` di antara keduanya): `--bg`
  *                 diterima tanpa entri sendiri (terbukti). Folder non-git di bawah induk non-git: `nonGit: true`, belum diuji.
  *   batas-repo  — ada folder leluhur yang dipercaya, tetapi folder ini (atau leluhurnya di bawah induk itu) adalah repo git
- *                 sendiri, mis. proyek di D:\PENGEMBANGAN-RUDIS\inventory atau worktree-nya: `--bg` menolak (terbukti).
+ *                 sendiri, mis. proyek di D:\proyek\inventory atau worktree-nya: `--bg` menolak (terbukti).
  *   belum       — tidak ada entri untuk folder ini maupun leluhurnya. */
 export function statusPercaya(folder, dipercaya = folderDipercaya(), { adaGit = (d) => fs.existsSync(path.join(d, ".git")) } = {}) {
   const f = bakuPath(folder);
@@ -259,7 +259,7 @@ function main(argv) {
       }
       console.log("       Pengguna sekali per folder: jalankan satu baris sesuai shell-nya, terima prompt percaya, lalu /exit."
         + "\n       Sesudahnya jalankan lagi `bin/sesi.sh cek`: folder yang masih tercantum = kepercayaannya tidak tercatat"
-        + "\n       (terjadi di T-20261030-2.1) — jangan diulang, pakai jalur subagent."
+        + "\n       (pernah terjadi di Windows) — jangan diulang, pakai jalur subagent."
         + "\n       Tidak mau/bisa? COO memakai jalur subagent (Tech Lead sebagai subagent — skill rudisone › backend-cli.md).");
     }
     return perlu && backend === "cli" ? 1 : 0;

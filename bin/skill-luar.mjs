@@ -74,7 +74,7 @@ export function cariEntri(daftar, target) {
 function pasangGit(e, catat, dir) {
   const lokal = rumah(e.lokal);
   if (!fs.existsSync(lokal)) {
-    const r = jalankan("git", ["clone", "--quiet", e.repo, lokal]);
+    const r = jalankan("git", ["clone", "--quiet", "--depth", "1", e.repo, lokal]);   // dangkal: hanya isi terbaru yang dipasang
     if (!r.ok) return catat("!!", `${e.id}: clone ${e.repo} gagal — ${baris1(r.err)}`), false;
     catat("ok", `${e.id}: repo disimpan di ${e.lokal}`);
   } else if (fs.existsSync(path.join(lokal, ".git")) && !jalankan("git", ["-C", lokal, "status", "--porcelain", "--untracked-files=no"]).out) {

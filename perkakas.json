@@ -9,7 +9,9 @@
       "paket": "dist/rudis-monorepo.skill",
       "pasang": "install.sh",
       "terpasang": "~/.claude/skills/rudis-monorepo",
-      "hooks": ".githooks"
+      "hooks": ".githooks",
+      "clone": "penuh",
+      "clone_alasan": "tag kernel rudis-monorepo/kernel/v* dibaca kernel-sync pustaka dan kernel-tag skill"
     },
     {
       "id": "rudis-modules",
@@ -17,7 +19,9 @@
       "label": "lib",
       "repo": "https://github.com/DimasPrasetio/rudis-modules.git",
       "lokal": "~/Documents/Neuron/ai-agent/rudis-modules",
-      "hooks": ".githooks"
+      "hooks": ".githooks",
+      "clone": "penuh",
+      "clone_alasan": "proyek mengunci commit pustaka di modules.lock.json; upgrade/diff modul membaca commit lama atau tag rilis <id>/v*"
     },
     {
       "id": "rudis-sdd",
@@ -50,7 +54,7 @@
         "run": "U2 — rudis run berjalan tanpa izin tulis dan tetap melapor sukses; pakai command /rudis.<langkah> per langkah (S1). Termasuk run ultimate (S1), run deploy/operate (milik IT Operations, analisis §2.2)",
         "tui": "antarmuka interaktif; init lewat TUI bisa melewati --no-marketplace"
       },
-      "dasar": "handoff/T-20261029-1/analisis-kelayakan.md (S1–S8, K4, K7, K8)"
+      "dasar": "kajian kelayakan RUDIS SDD (S1–S8, K4, K7, K8) — dokumen per device di handoff/, bukan bagian repo"
     }
   ],
   "kebijakan_marketplace": {

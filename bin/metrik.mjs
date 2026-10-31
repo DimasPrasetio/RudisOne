@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Metrik lintas sesi per ID tugas (M2–M6, handoff/T-20261030-2/metrik-definisi.md) dari transkrip Claude Code.
+// Metrik lintas sesi per ID tugas (token & biaya, sesi, pesan, revisi M2, intervensi, waktu, beban keputusan X14) dari transkrip Claude Code.
 // Node ≥18, tanpa dependensi. Hanya membaca: ~/.claude/projects/*/*.jsonl (+ <sesi>/subagents/agent-*.jsonl) dan
 // metadata Desktop (judul sesi). Override untuk uji: RUDISONE_METRIK_PROJECTS, RUDISONE_METRIK_DESKTOP, RUDISONE_METRIK_TARIF.
 //
@@ -28,7 +28,7 @@ const PROJECTS = () => process.env.RUDISONE_METRIK_PROJECTS || path.join(HOME, "
 const DESKTOP = () => process.env.RUDISONE_METRIK_DESKTOP || folderDesktop();
 
 const AUDIT = () => process.env.RUDISONE_AUDIT || path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "handoff", "audit");
-/** Anggaran keputusan pengguna per jenis tugas (T-20261030-6 · F8): sasaran, bukan aturan keras. */
+/** Anggaran keputusan pengguna per jenis tugas: sasaran, bukan aturan keras. */
 export const ANGGARAN_KEPUTUSAN = { bug: 3, fitur: 5 };
 export const POLA_ID = /T-\d{8}-\d+/;
 const POLA_ID_G = /T-\d{8}-\d+/g;

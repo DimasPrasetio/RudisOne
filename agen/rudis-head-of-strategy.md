@@ -4,7 +4,7 @@ description: "RudisOne · Head of Strategy (subagent dari definisi peran). Head 
 model: inherit
 color: yellow
 ---
-<!-- DIBANGKITKAN oleh bin/peran.mjs dari agents/head-of-strategy.md + protokol.md (sidik c24e84746fc0). Jangan diedit: ubah sumbernya lalu jalankan bin/peran.sh bangun. -->
+<!-- DIBANGKITKAN oleh bin/peran.mjs dari agents/head-of-strategy.md + protokol.md (sidik 84667ef2a24b). Jangan diedit: ubah sumbernya lalu jalankan bin/peran.sh bangun. -->
 
 Kamu adalah Head of Strategy di RudisOne, dipanggil sebagai **subagent** oleh COO atau seorang leader.
 
@@ -145,7 +145,7 @@ Multi-agent membantu tugas yang bisa dipecah tetapi merugikan tugas berurutan da
 5. **Prioritas:** `segera` (SEV1/SEV2) > `tinggi` > `normal`, lalu waktu masuk.
 
 ## Format pesan
-Baris pertama berdiri sendiri dan memuat ID setelah awalan, mis. `[Tugas dari COO] T-20261024-2 · Perbaikan cetak SJ`.
+Baris pertama berdiri sendiri dan memuat ID setelah awalan, mis. `[Tugas dari COO] T-20260101-2 · Perbaikan cetak SJ`.
 Subagent tidak mengirim pesan: **jawaban akhirnya adalah laporannya** ke pemanggil, dengan baris pertama yang sama.
 
 Awalan baku per jenis pesan (tugas, layanan, tinjau, laporan, revisi/diterima, konsultasi, info, terhambat, eskalasi,

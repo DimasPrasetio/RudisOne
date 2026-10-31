@@ -22,8 +22,8 @@ Tanggal: YYYY-MM-DD · Perkakas: <keluaran bin/perkakas.sh versi>
 - Disetujui pengguna (kesepakatan pemahaman bersama): YYYY-MM-DD HH:MM — "<kutipan persis>"
 
 ## Database lokal — Konstruksi (diisi dari laporan Tech Lead, tidak ditanyakan ke pengguna)
-<!-- skill rudis-sdlc › `.env` & database lokal. Izin tetap pengguna 2026-10-31 (T-20261031-1): "Agent siapkan sendiri
-     (Rekomendasi)" — hanya localhost, hanya database proyek ini, tanpa hapus data. TANPA sandi/DSN di berkas ini. -->
+<!-- skill rudis-sdlc › `.env` & database lokal. Izin tetap bawaan (agent menyiapkannya
+     sendiri) — hanya localhost, hanya database proyek ini, tanpa hapus data. TANPA sandi/DSN di berkas ini. -->
 | Fakta | Nilai | Catatan |
 |---|---|---|
 | MySQL lokal | <jenis (layanan OS / Docker / XAMPP/Laragon) · versi dari `SELECT VERSION()` oleh skrip> / tidak ada | tidak ada → tes ber-database "belum terverifikasi" |
