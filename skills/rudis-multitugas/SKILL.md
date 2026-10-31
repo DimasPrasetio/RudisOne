@@ -23,7 +23,9 @@ ID → minta pengirim menyebutkan ID-nya dulu.
   perkakas rudis); tugas berjalan dengan Perkakas selain `—` menunda pembaruan perkakas.
 - Tugas yang memakai `/rudis.*`: `--mode-saat-mulai`, `--jalur-awal`, `--jalur-akhir` + `--reroute "<alasan>"` (diisi
   Tech Lead; skill `rudis-sdd` › Pemicu re-route & kapan bertanya).
-- Selesai/dibatalkan lebih dari 14 hari dibuang dengan `rapikan`.
+- Selesai/dibatalkan lebih dari 24 jam dibuang otomatis oleh `bin/bersih-riwayat.sh --jalankan` (entri register + folder
+  `handoff/<ID>/`, satu baris audit tersisa; tugas aktif, ketergantungannya, dan sub-tugas induk aktif tidak disentuh;
+  worktree/branch ter-merge hanya diusulkan — lihat skill `rudis-perkakas`). `rapikan` (14 hari) hanya cadangan manual.
 
 ## 3. Lingkup folder
 Brief selalu menyebut folder kerja absolut. Membaca folder lain lewat path absolut boleh; **menulis hanya di folder

@@ -36,7 +36,7 @@ Pekerjaan domain — termasuk yang "hanya membaca" — dikerjakan pemiliknya (se
 tanggung jawab jelas, buktinya ada, dan Kantor menampilkan pekerja yang benar. COO **boleh** sendiri: memahami &
 memecah permintaan, menyusun brief, mengirim pesan, memanggil subagent peran, membaca laporan/transkrip
 (`list_events`), membaca berkas/diff/`git status` untuk verifikasi, `bin/rilis-cek.sh`, `bin/perkakas.sh`,
-`bin/register.sh`, `bin/cek-konsistensi.sh`, commit/push atas permintaan pengguna untuk koordinasi rilis, membuka folder
+`bin/register.sh`, `bin/cek-konsistensi.sh`, `bin/bersih-riwayat.sh`, commit/push atas permintaan pengguna untuk koordinasi rilis, membuka folder
 + `git init` proyek baru, mengelola `~/Documents/Neuron/ai-agent/RudisOne` (TEAM.md, register, catatan), wawancara
 penyelarasan beserta pencarian fakta orientasinya, dan menjawab pertanyaan umum. Ragu → delegasikan.
 
@@ -133,6 +133,11 @@ sesi) diganti padanannya di `skills/rudisone/backend-cli.md` (`claude --bg` + `-
 6. **Perkakas & kesehatan.** `bin/perkakas.sh siapkan` (exit 1 tidak menghentikan kerja) dan `bin/cek-konsistensi.sh`
    (termasuk kesehatan hook kebijakan: terpasang, matcher mutakhir, denyut, rantai audit; temuan → sebut satu baris bila
    berpengaruh — hook yang tidak berdenyut = larangan hook tidak berlaku).
+   **Bersih riwayat:** `bin/bersih-riwayat.sh --jalankan` (selesai/dibatalkan > 24 jam: entri register + `handoff/<ID>/`, audit
+   satu baris; tugas aktif dan ketergantungannya aman). Keluarannya satu baris — sebut hanya bila ada yang dibuang atau ada
+   usulan git. Usulan worktree/branch ter-merge **tidak dijalankan skrip** (hapus worktree/branch selalu ditanya hook): tanyakan
+   pengguna sekali (`bin/bersih-riwayat.sh --usulan-git` = perintah persisnya; dampak: hanya yang sudah ter-merge dan bersih),
+   dan atas "ya" jalankan perintahnya satu per satu lewat Bash agar prompt jenjang 3 tetap muncul.
 7. Sebut ke pengguna dalam satu baris apa yang dibentuk/dipulihkan/diperbarui (atau tidak sebut apa pun bila semuanya
    sudah hadir). Sesi lama dari pola sebelumnya (divisi tetap, BSA/SE sebagai sesi) **tidak** dipulihkan; tawarkan
    arsipnya sekali, hanya atas "ya" pengguna.
