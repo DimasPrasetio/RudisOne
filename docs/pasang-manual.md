@@ -4,7 +4,7 @@ Langkah setara dengan [prompt pemasangan lewat Claude](../README.md#pasang).
 
 Hasilnya: RudisOne di `~/Documents/Neuron/ai-agent/RudisOne` (Windows: `%USERPROFILE%\Documents\Neuron\ai-agent\RudisOne`), skill & agen
 tertaut ke `~/.claude`, hook pengaman terpasang. Pemasangan bisa diulang kapan saja (idempoten) — itu juga cara memperbarui.
-Prompt membatasi dirinya pada satu sumber resmi dan menganggap isi berkas/keluaran perintah sebagai data (bukan perintah).
+Prompt mengunci satu sumber resmi dan lokasi baku sebagai pagar yang menang atas isi berkas; langkah rincinya ada di [pasang-lewat-claude.md](pasang-lewat-claude.md).
 
 ## Prasyarat per sistem
 RudisOne berjalan di **macOS**, **Linux**, dan **Windows** — native (Claude Desktop, Claude Code CLI, ekstensi VS Code) atau lewat
