@@ -156,16 +156,17 @@ ber-database) pada `<slug>_db`/`<slug>_test`. MySQL lain (tes platform §4, data
    - hanya database dan akun **proyek itu** (`<slug>_*`); database/akun lain tidak dibaca dan tidak diubah;
    - **tanpa menghapus data**: skrip persiapan tidak menjalankan `DROP`/`TRUNCATE`/`DELETE`; data `<slug>_db` hanya diubah
      migrasi maju & seed proyek; reset/migrasi turun/pengosongan hanya pada `<slug>_test` oleh tes;
-   - **database/akun `<slug>_*` sudah ada** (proyek lama, checkout lain, nama kebetulan sama) → mode agent **berhenti**
-     tanpa mengganti sandi akun dan tanpa memakai database itu, lalu melaporkannya; COO menanyakan pengguna;
+   - **`<slug>_*` sudah ada** (proyek lama, checkout lain) → mode agent **berhenti** tanpa mengganti sandi akun dan
+     tanpa memakai database itu; COO menanyakan pengguna;
    - **sandi** (sandi akun DB acak dan sandi admin MySQL) tidak pernah lewat chat, brief, laporan, log, atau berkas
      RudisOne. Agent tidak membaca `.env` — skrip menulis & menguji login; aplikasi/tes memuat `.env` sendiri, jadi brief
      cukup menyebut nama database. Laporan: "DB siap, login akun proyek berhasil" + nama database.
-3. **Agent berhenti, satu langkah pengguna** (bukan menebak sandi, bukan mencoba host lain), ditulis di laporan, diteruskan
-   COO persis (PowerShell 5.1: tanpa `&&`); Tech Lead mengulang mode agent setelah pengguna menjawab "sudah":
-   - admin MySQL bersandi → pengguna menjalankan `node scripts/db-local.mjs` di folder proyek (interaktif; sandi diketik
-     di terminalnya, masukan tersembunyi; `--print-sql` = pratinjau tanpa koneksi);
-   - MySQL tidak menjawab (mati/tidak terpasang) → pengguna menyalakan MySQL-nya (agent tidak menyalakan layanan).
+3. **Agent berhenti, satu langkah pengguna** (tanpa menebak sandi/host lain) di laporan, diteruskan COO persis
+   (PowerShell 5.1: tanpa `&&`); setelah pengguna menjawab "sudah":
+   - admin MySQL bersandi → pengguna menjalankan `node scripts/db-local.mjs` di **path absolut worktree** Tech Lead
+     (interaktif; sandi diketik di terminalnya, tersembunyi; `--print-sql` = pratinjau). Lalu Tech Lead **tidak**
+     mengulang mode agent (`<slug>_*` kini ada): ia memverifikasi lewat kode proyek (migrasi/tes memuat `.env`);
+   - MySQL tidak menjawab → pengguna menyalakan MySQL-nya (agent tidak menyalakan layanan); Tech Lead mengulang mode agent.
 4. Tanpa MySQL lokal → tes tanpa database jalan terus; kriteria ber-database "belum terverifikasi", bukan `[Terhambat]`.
    Hasil dicatat di *Database lokal* `templat/intake-proyek.md` (tanpa sandi/DSN).
 5. **Serah ke checkout pengguna**: `.env` di-gitignore sehingga tidak ikut merge — Tech Lead menyalin berkas `.env`
