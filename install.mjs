@@ -1,10 +1,15 @@
-// Persiapan RudisOne di device ini (macOS, Linux, Windows). Aman dijalankan berulang: hanya membuat folder per device
-// dan berkas per device yang belum ada (TEAM.md, catatan/<id-peran>.md dari templat — tidak pernah menimpa),
-// memeriksa prasyarat, menautkan skill & subagent ke ~/.claude, dan memberi tahu langkah manual. Tidak mengubah aturan
-// izin Claude Code. Pengganti install.sh — install.sh / install.cmd hanya memanggil berkas ini.
-// Pemakaian: node install.mjs [--tanpa-perkakas]
+// Persiapan RudisOne di device ini (macOS, Linux, Windows). Aman dijalankan berulang (idempoten): membuat folder per
+// device dan berkas per device yang belum ada (TEAM.md, catatan/<id-peran>.md dari templat — tidak pernah menimpa),
+// memeriksa prasyarat, menautkan skill & subagent ke ~/.claude, dan MEMASANG/MEMPERBARUI OTOMATIS di settings pengguna
+// (T-20261031-2.3, pengguna: "di buat agar otomatis memasang saja, tidak perlu tanya"): hook kebijakan akses + penjaga
+// .env (PreToolUse/PostToolUse/PostToolUseFailure), aturan permissions.deny Read .env*, dan hook pemuat ulang inti
+// (SessionStart). Entri & aturan milik sistem lain tidak disentuh; settings hanya ditulis bila berubah, cadangan dulu.
+// Pengganti install.sh — install.sh / install.cmd hanya memanggil berkas ini.
+// Pemakaian: node install.mjs [--tanpa-perkakas] [--tanpa-hook]
 //   --tanpa-perkakas : lewati bin/perkakas.sh siapkan (mis. saat menguji installer dari worktree atau HOME sementara)
-// Env uji: RUDISONE_INSTALL_PAKSA=1 membuat tautan walau repo bukan di lokasi rumahnya (HOME sementara).
+//   --tanpa-hook     : jangan memasang hook/aturan izin (hanya periksa)
+// Env uji: RUDISONE_INSTALL_PAKSA=1 membuat tautan & memasang hook walau repo bukan di lokasi rumahnya (HOME sementara);
+// RUDISONE_SETTINGS_USER = settings yang dipasangi (bawaan ~/.claude/settings.json).
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
@@ -19,6 +24,7 @@ const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const BIN = path.join(ROOT, "bin");
 const HOME = os.homedir();
 const TANPA_PERKAKAS = process.argv.includes("--tanpa-perkakas");
+const TANPA_HOOK = process.argv.includes("--tanpa-hook");
 const AGENTS = ["system-administrator", "head-of-it-operations", "program-manager", "technical-writer", "software-engineer",
   "business-systems-analyst", "head-of-strategy", "research-analyst", "financial-controller", "hr-business-partner"];
 
@@ -114,12 +120,24 @@ if (fs.existsSync(path.join(BIN, "kantor.sh"))) pass("perkakas bin/kantor.sh"); 
 const nodeMajor = Number(process.versions.node.split(".")[0]);
 if (nodeMajor >= 18) pass(`Node.js v${process.versions.node} — dipakai Kantor RudisOne`);
 else fail("Node.js 18+ tidak ditemukan — dibutuhkan bin/kantor.sh");
-// Kebijakan akses & batas kewenangan (skill rudis-operasi): hook dipasang PEMILIK sendiri.
-if (node("kebijakan.mjs", ["cek"]).status === 0) pass("kebijakan akses RudisOne terpasang (hook ~/.claude/settings.json)");
-else fail(`kebijakan akses RudisOne belum terpasang — pemilik menjalankan: node ${path.join(BIN, "kebijakan.mjs")} pasang`);
-// Pemuat ulang inti setelah kompaksi untuk sesi RudisOne di folder proyek (protokol.md): hook dipasang PEMILIK sendiri.
+// Kebijakan akses + penjaga .env + pemuat ulang inti: dipasang/diperbarui otomatis (idempoten). Hanya dari lokasi rumah:
+// hook yang menunjuk worktree/salinan lain akan patah (atau diam-diam usang) saat folder itu dihapus/tertinggal.
+const pasangHook = (skrip, nama) => {
+  const r = node(skrip, ["pasang", "--ya"]);
+  if (r.status !== 0) { fail(`${nama} gagal dipasang: ${String(r.stdout || r.stderr).trim().split(/\r?\n/).at(-1)}`); return; }
+  const sudah = /Sudah terpasang/.test(r.stdout);
+  pass(`${nama} ${sudah ? "sudah mutakhir" : "dipasang/diperbarui (cadangan settings dibuat)"}`);
+};
+if (TANPA_HOOK) info("pemasangan hook & aturan izin dilewati (--tanpa-hook)");
+else if (!taut) info("hook & aturan izin tidak dipasang dari lokasi ini (bukan lokasi rumah)");
+else {
+  pasangHook("kebijakan.mjs", "kebijakan akses + penjaga .env (hook & permissions.deny)");
+  pasangHook("inti.mjs", "hook pemuat ulang inti (SessionStart)");
+}
+if (node("kebijakan.mjs", ["cek"]).status === 0) pass("kebijakan akses RudisOne terpasang & mutakhir (hook + aturan .env)");
+else fail(`kebijakan akses RudisOne belum terpasang/mutakhir — jalankan ulang: ${path.join(ROOT, "install.sh")} (lihat: node ${path.join(BIN, "kebijakan.mjs")} cek)`);
 if (node("inti.mjs", ["cek"]).status === 0) pass("hook pemuat ulang inti RudisOne terpasang (SessionStart)");
-else fail(`hook pemuat ulang inti belum terpasang — pemilik menjalankan: node ${path.join(BIN, "inti.mjs")} pasang`);
+else fail(`hook pemuat ulang inti belum terpasang — jalankan ulang: ${path.join(ROOT, "install.sh")}`);
 // Perkakas resmi SDLC (skill rudis-sdlc): skill rudis-monorepo + pustaka rudis-modules (+ RUDIS SDD) — pasang/perbarui.
 if (TANPA_PERKAKAS) info("perkakas resmi SDLC dilewati (--tanpa-perkakas)");
 else if (bisaJalan("git")) {

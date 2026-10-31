@@ -565,6 +565,12 @@ function klasifikasiSegmen(s, K, ctx) {
     const sub = K.perkakas_perintah?.[pk]?.[pkArgs[0]];
     if (sub) return { aman: pkAman, aksi: [{ kemampuan: sub, jenjang: 1, aksi: `perkakas ${pk} ${pkArgs.slice(0, 2).join(" ")}`, ...ciri }] };
   }
+  // installer RudisOne memasang hook & aturan izin di settings pengguna (T-20261031-2.3) → mengubah berkas terlindung
+  const ins = /^node(js)?(\.exe)?$/i.test(nama) ? args.find((x) => !x.startsWith("-")) : prog;
+  if (/^install\.(sh|mjs|cmd)$/.test(path.basename(ins ?? "")) && ctx.cwd) {
+    const d = path.dirname(path.resolve(ctx.cwd, rumah(ins)));
+    if (normal(d) === normal(ROOT) || normal(asli(d) ?? d) === normal(asli(ROOT) ?? ROOT)) return { aman: false, ubahSendiri: true };
+  }
   // pengelola kebijakan/konfigurasi/inti: subperintah baca tidak dianggap mengubah berkas terlindung (tidak pernah allow)
   const skrip = (nama === "node" ? path.basename(args[0] ?? "") : nama).match(/^(kebijakan|konfig|inti)\.(sh|mjs)$/)?.[1];
   if (skrip) {
@@ -1157,7 +1163,7 @@ function analisisBash(input, K) {
   if (sesiMentah(teksKode(cmd)) > u.segmen.reduce((n, s, i) => n + (hasil[i].claude ? sesiMentah(teksKode(s.teks)) : 0), 0))
     aksi.push({ kemampuan: "sesi", jenjang: 3, aksi: "perintah claude untuk sesi latar dalam bentuk yang tidak dikenali" });
   const aman = !u.kompleks && !u.ekspansi && hasil.length > 0 && hasil.every((h) => h.aman);
-  const terlindung = ubahSendiri ? "pengelola kebijakan/hook (pasang, lepas, …)" : sebut;
+  const terlindung = ubahSendiri ? "pengelola kebijakan/hook (pasang, lepas, installer, …)" : sebut;
   return { aksi, aman, terlindung, ringkasan: cmd, env };
 }
 

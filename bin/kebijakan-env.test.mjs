@@ -168,3 +168,22 @@ test("pemasangan: matcher mencakup Read/Grep/Glob; aturan deny .env idempoten & 
   assert.deepEqual(kekuranganIzin(s1), []);
   assert.ok(!ATURAN_IZIN_ENV.some((a) => /example|contoh/.test(a)));
 });
+
+test("pasang lewat CLI: idempoten, cadangan hanya saat berubah; installer RudisOne yang dijalankan agent → ask", () => {
+  const S = process.env.RUDISONE_SETTINGS_USER;
+  fs.mkdirSync(path.dirname(S), { recursive: true });
+  fs.writeFileSync(S, JSON.stringify({ permissions: { deny: ["Bash(git clean -f*)"] } }));
+  const cli = () => spawnSync(process.execPath, [path.join(SINI, "kebijakan.mjs"), "pasang", "--ya"], { encoding: "utf8", env: process.env });
+  const cadangan = () => fs.readdirSync(path.dirname(S)).filter((f) => f.includes("cadangan-rudisone")).length;
+  assert.equal(cli().status, 0);
+  const isi1 = fs.readFileSync(S, "utf8"), c1 = cadangan();
+  const r2 = cli();
+  assert.equal(r2.status, 0);
+  assert.match(r2.stdout, /Sudah terpasang/);
+  assert.equal(fs.readFileSync(S, "utf8"), isi1);
+  assert.equal(cadangan(), c1, "tanpa cadangan baru bila tidak berubah");
+  fs.writeFileSync(path.join(ROOT, "install.sh"), "#!/bin/sh\n");
+  for (const c of ["./install.sh", "node install.mjs --tanpa-perkakas", `${ROOT}/install.sh`]) assert.equal(kep(bash(c, ROOT)), "ask", c);
+  assert.equal(kep(bash("./install.sh", P)), "—", "install.sh proyek lain bukan installer RudisOne");
+  fs.rmSync(S);
+});
