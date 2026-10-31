@@ -75,34 +75,34 @@ Ringkasan: 261 unit — tetap 144 · diringkas 90 · diganti 27 · dihapus 0.
 | P-048 | protokol.md › *Manajemen multi-tugas*: prioritas: segera > tinggi (tenggat dekat) … | skills/rudis-multitugas/SKILL.md | `segera` (insiden SEV1/SEV2, permintaan pengguna yang mendesak) > `tinggi` (tenggat dekat) | tetap |
 | P-049 | protokol.md › *Manajemen multi-tugas*: … > normal; antrean urut prioritas lalu waktu masuk | skills/rudis-multitugas/SKILL.md | Antrean diurutkan menurut prioritas, lalu waktu masuk. | tetap |
 | P-050 | protokol.md › *Format pesan*: baris pertama pesan berdiri sendiri + ID tugas setelah awalan | protokol.md | Baris pertama berdiri sendiri dan memuat ID setelah awalan | diringkas |
-| P-051 | protokol.md › *Format pesan*: awalan [Tugas dari COO]: COO → leader/staf | protokol.md | COO → leader/staf · leader → anggota | diringkas |
-| P-052 | protokol.md › *Format pesan*: awalan [Tugas dari `<Leader>]:` leader → anggota | protokol.md | `[Tugas dari <Leader>] <judul>` | diringkas |
-| P-053 | protokol.md › *Format pesan*: awalan [Permintaan layanan dari `<Leader>]` + tembusan ke COO | protokol.md | `[Permintaan layanan dari <Leader>] <ID> · <judul>` (+ `[Info dari <Leader>]` ke COO) | diringkas |
-| P-054 | protokol.md › *Format pesan*: awalan [Tinjau] → [Hasil tinjauan] LULUS / PERLU REVISI | protokol.md | `[Tinjau] <ID> · <judul>` → `[Hasil tinjauan] <ID> · LULUS | diringkas |
-| P-055 | protokol.md › *Format pesan*: awalan [Laporan ke <pemberi tugas>] | protokol.md | `[Laporan ke <pemberi tugas>]` | tetap |
-| P-056 | protokol.md › *Format pesan*: awalan [Laporan divisi …] leader → COO | protokol.md | `[Laporan divisi <divisi>] <ID> · <judul>` | diringkas |
-| P-057 | protokol.md › *Format pesan*: awalan [Revisi] `<judul>` — <poin persis> | protokol.md | `[Revisi] <judul> — <poin persis>` | tetap |
-| P-058 | protokol.md › *Format pesan*: awalan [Diterima] `<judul>` — bersihkan konteksmu | protokol.md | `[Diterima] <judul> — bersihkan konteksmu` | tetap |
-| P-059 | protokol.md › *Format pesan*: awalan [Konsultasi dari …] / [Jawaban …] | protokol.md | `[Konsultasi dari <Jabatan>]` → `[Jawaban <Jabatan>]` (ke atribut `from`) | diringkas |
-| P-060 | protokol.md › *Format pesan*: awalan [Info dari `<Jabatan>]` … — file: `<path>` | protokol.md | `[Info dari <Jabatan>] <ringkasan> — file: <path>` | tetap |
-| P-061 | protokol.md › *Format pesan*: awalan [Terhambat] `<judul>` — <sebab, yang dibutuhkan> | protokol.md | `[Terhambat] <judul> — <sebab, yang dibutuhkan>` | tetap |
-| P-062 | protokol.md › *Format pesan*: awalan [Eskalasi SEV1] HITO → COO langsung | protokol.md | `[Eskalasi SEV1] <ringkasan>` \| Head of IT Operations → COO | tetap |
-| P-063 | protokol.md › *Format pesan*: awalan [Antre] <ID baru> — sedang <ID aktif> | protokol.md | `[Antre] <ID baru> — sedang <ID aktif>` | tetap |
-| P-064 | protokol.md › *Format pesan*: awalan [Diparkir] `<ID>` — status: `handoff/<ID>/status.md` | protokol.md | `[Diparkir] <ID> — status: handoff/<ID>/status.md` | tetap |
+| P-051 | protokol.md › *Format pesan*: awalan [Tugas dari COO]: COO → leader/staf | skills/rudis-multitugas/SKILL.md | COO → leader/staf · leader → anggota | diringkas |
+| P-052 | protokol.md › *Format pesan*: awalan [Tugas dari `<Leader>]:` leader → anggota | skills/rudis-multitugas/SKILL.md | `[Tugas dari <Leader>] <judul>` | diringkas |
+| P-053 | protokol.md › *Format pesan*: awalan [Permintaan layanan dari `<Leader>]` + tembusan ke COO | skills/rudis-multitugas/SKILL.md | `[Permintaan layanan dari <Leader>] <ID> · <judul>` (+ `[Info dari <Leader>]` ke COO) | diringkas |
+| P-054 | protokol.md › *Format pesan*: awalan [Tinjau] → [Hasil tinjauan] LULUS / PERLU REVISI | skills/rudis-multitugas/SKILL.md | `[Tinjau] <ID> · <judul>` → `[Hasil tinjauan] <ID> · LULUS | diringkas |
+| P-055 | protokol.md › *Format pesan*: awalan [Laporan ke <pemberi tugas>] | skills/rudis-multitugas/SKILL.md | `[Laporan ke <pemberi tugas>]` | tetap |
+| P-056 | protokol.md › *Format pesan*: awalan [Laporan divisi …] leader → COO | skills/rudis-multitugas/SKILL.md | `[Laporan divisi <divisi>] <ID> · <judul>` | diringkas |
+| P-057 | protokol.md › *Format pesan*: awalan [Revisi] `<judul>` — <poin persis> | skills/rudis-multitugas/SKILL.md | `[Revisi] <judul> — <poin persis>` | tetap |
+| P-058 | protokol.md › *Format pesan*: awalan [Diterima] `<judul>` — bersihkan konteksmu | skills/rudis-multitugas/SKILL.md | `[Diterima] <judul> — bersihkan konteksmu` | tetap |
+| P-059 | protokol.md › *Format pesan*: awalan [Konsultasi dari …] / [Jawaban …] | skills/rudis-multitugas/SKILL.md | `[Konsultasi dari <Jabatan>]` → `[Jawaban <Jabatan>]` (ke atribut `from`) | diringkas |
+| P-060 | protokol.md › *Format pesan*: awalan [Info dari `<Jabatan>]` … — file: `<path>` | skills/rudis-multitugas/SKILL.md | `[Info dari <Jabatan>] <ringkasan> — file: <path>` | tetap |
+| P-061 | protokol.md › *Format pesan*: awalan [Terhambat] `<judul>` — <sebab, yang dibutuhkan> | skills/rudis-multitugas/SKILL.md | `[Terhambat] <judul> — <sebab, yang dibutuhkan>` | tetap |
+| P-062 | protokol.md › *Format pesan*: awalan [Eskalasi SEV1] HITO → COO langsung | skills/rudis-multitugas/SKILL.md | `[Eskalasi SEV1] <ringkasan>` \| Head of IT Operations → COO | tetap |
+| P-063 | protokol.md › *Format pesan*: awalan [Antre] <ID baru> — sedang <ID aktif> | skills/rudis-multitugas/SKILL.md | `[Antre] <ID baru> — sedang <ID aktif>` | tetap |
+| P-064 | protokol.md › *Format pesan*: awalan [Diparkir] `<ID>` — status: `handoff/<ID>/status.md` | skills/rudis-multitugas/SKILL.md | `[Diparkir] <ID> — status: handoff/<ID>/status.md` | tetap |
 | P-065 | protokol.md › *Isi brief & laporan*: brief & laporan memuat tiga bagian + pemahaman bersama | protokol.md | Brief (`templat/brief-tugas.md`) dan laporan (`templat/laporan-tugas.md`) memuat, di samping pemahaman bersama | diringkas |
 | P-066 | protokol.md › *Isi brief & laporan*: bagian Instruksi; kutipan aksi berisiko diteruskan apa adanya | protokol.md | **Instruksi** — tujuan, kriteria selesai, batasan & otorisasi (permintaan pengguna untuk aksi berisiko dikutip persis | tetap |
 | P-067 | protokol.md › *Isi brief & laporan*: bagian Latar belakang | protokol.md | **Latar belakang** — keputusan yang sudah diambil, konteks, alasannya. | tetap |
 | P-068 | protokol.md › *Isi brief & laporan*: bagian Hasil antara | protokol.md | **Hasil antara** — path `handoff/`, branch/sha, keluaran yang sudah ada. | tetap |
 | P-069 | protokol.md › *Isi brief & laporan*: kriteria selesai disalin; temuan bertentangan → jangan menebak | protokol.md | jangan menebak dan jangan memperluas lingkup diam-diam | diringkas |
-| P-070 | protokol.md › *Pembuka peran*: pembuka peran wajib di brief ke sesi folder proyek | protokol.md | Sesi di folder proyek tidak memuat peran dari folder. | diringkas |
-| P-071 | protokol.md › *Pembuka peran*: teks pembuka: Kamu adalah `<Jabatan>` … `agents/<id-peran>.md` | protokol.md | `Kamu adalah <Jabatan>[ #n] di RudisOne. Baca dan patuhi ~/Documents/Neuron/ai-agent/RudisOne/agents/<id-peran>.md` | tetap |
-| P-072 | protokol.md › *Pembuka peran*: teks pembuka: lalu protokol.md dan `catatan/<id-peran>.md` | protokol.md | sebagai peranmu, lalu ~/Documents/Neuron/ai-agent/RudisOne/protokol.md dan | tetap |
+| P-070 | protokol.md › *Pembuka peran*: pembuka peran wajib di brief ke sesi folder proyek | agents/coo.md | Sesi di folder proyek tidak memuat peran dari folder. | diringkas |
+| P-071 | protokol.md › *Pembuka peran*: teks pembuka: Kamu adalah `<Jabatan>` … `agents/<id-peran>.md` | agents/coo.md | `Kamu adalah <Jabatan>[ #n] di RudisOne. Baca dan patuhi ~/Documents/Neuron/ai-agent/RudisOne/agents/<id-peran>.md` | tetap |
+| P-072 | protokol.md › *Pembuka peran*: teks pembuka: lalu protokol.md dan `catatan/<id-peran>.md` | agents/coo.md | sebagai peranmu, lalu ~/Documents/Neuron/ai-agent/RudisOne/protokol.md dan | tetap |
 | P-073 | protokol.md › *Pembuka peran*: sesi ruang/ memuat peran otomatis; ragu → baca ulang berkas peran | protokol.md | Sesi di `ruang/<id-peran>` memuat peran otomatis | diringkas |
 | P-074 | protokol.md › *Ruang kerja Engineering*: checkout utama milik pengguna; hanya TL mengubah saat serah | protokol.md | Checkout utama proyek milik pengguna dan bisa berisi pekerjaan yang belum di-commit | diringkas |
 | P-075 | protokol.md › *Ruang kerja Engineering*: satu tim per proyek; nomor tim 1–3 di TEAM.md | agents/coo.md | Nomor tim kosong terkecil 1–3 | diringkas |
 | P-076 | protokol.md › *Ruang kerja Engineering*: tinjauan silang wajib; kode TL ditinjau SE#1 | protokol.md | kode Tech Lead ditinjau peninjau berkonteks bersih | diganti |
 | P-077 | protokol.md › *Ruang kerja Engineering*: worktree TL, branch per tugas; SE di worktree sendiri; tanpa push | protokol.md | Commit lokal di branch sendiri boleh; **push tidak pernah**. | diringkas |
-| P-078 | protokol.md › *Ruang kerja Engineering*: dilarang stash/reset --hard/checkout --/hapus worktree orang lain | protokol.md | Tidak ada yang menjalankan `stash`, `reset --hard`, `checkout --` | tetap |
+| P-078 | protokol.md › *Ruang kerja Engineering*: dilarang stash/reset --hard/checkout --/hapus worktree orang lain | protokol.md | Git yang menimpa/menghapus kerja | diganti |
 | P-079 | protokol.md › *Anggota tim*: anggota terima tugas hanya dari leader-nya (+ pengecualian staf) | protokol.md | Anggota menerima tugas hanya dari leader-nya | diringkas |
 | P-080 | protokol.md › *Anggota tim*: satu tugas aktif; lapor dengan SendMessage ke pemberi tugas | protokol.md | Sesi melapor dengan `SendMessage` eksplisit ke pemberi tugas | diringkas |
 | P-081 | protokol.md › *Anggota tim*: setelah [Diterima]: clear_session self; catatan sebelum melapor | protokol.md | Setelah `[Diterima]`: `clear_session` `"self"` bila tersedia. | diringkas |
@@ -124,9 +124,9 @@ Ringkasan: 261 unit — tetap 144 · diringkas 90 · diganti 27 · dihapus 0.
 | P-097 | protokol.md › *Aset, akses & batas kewenangan*: alat & akun = aset perusahaan, hanya sesi RudisOne; hook kebijakan | skills/rudis-operasi/SKILL.md | Alat dan akun yang dipakai RudisOne adalah **aset perusahaan** | diringkas |
 | P-098 | protokol.md › *Aset, akses & batas kewenangan*: akses per jabatan; jabatan lain selalu ditanya walau membaca | skills/rudis-operasi/SKILL.md | jabatan lain selalu ditanya, walau sekadar membaca. | tetap |
 | P-099 | protokol.md › *Aset, akses & batas kewenangan*: judul daftar batas kewenangan | protokol.md | Akses & batas kewenangan (rinci: skill `rudis-operasi`) | diringkas |
-| P-100 | protokol.md › *Aset, akses & batas kewenangan*: jenjang 1 — baca: berjalan tanpa tanya | protokol.md | daftar record, status CI, cek & log server, baca repo \| berjalan tanpa tanya | tetap |
-| P-101 | protokol.md › *Aset, akses & batas kewenangan*: jenjang 2 — rutin: setuju sekali di chat COO, tanpa prompt bila syarat | protokol.md | pemilik menyetujui sekali di chat COO, kutipannya di brief | diringkas |
-| P-102 | protokol.md › *Aset, akses & batas kewenangan*: jenjang 3 — berisiko: prompt izin di sesi agent, tautan dari COO | protokol.md | perintah server di luar daftar baca \| prompt izin di sesi agent | diringkas |
+| P-100 | protokol.md › *Aset, akses & batas kewenangan*: jenjang 1 — baca: berjalan tanpa tanya | skills/rudis-operasi/SKILL.md | daftar record, status CI, cek & log server, baca repo \| berjalan tanpa tanya | tetap |
+| P-101 | protokol.md › *Aset, akses & batas kewenangan*: jenjang 2 — rutin: setuju sekali di chat COO, tanpa prompt bila syarat | skills/rudis-operasi/SKILL.md | pemilik menyetujui sekali di chat COO, kutipannya di brief | diringkas |
+| P-102 | protokol.md › *Aset, akses & batas kewenangan*: jenjang 3 — berisiko: prompt izin di sesi agent, tautan dari COO | skills/rudis-operasi/SKILL.md | perintah server di luar daftar baca \| prompt izin di sesi agent | diringkas |
 | P-103 | protokol.md › *Aset, akses & batas kewenangan*: syarat mesin jenjang 2 tidak gantikan kutipan; gagal → jenjang 3 | skills/rudis-operasi/SKILL.md | Syarat mesin tidak menggantikan aturan brief: kutipan permintaan pemilik tetap wajib. | tetap |
 | P-104 | protokol.md › *Aset, akses & batas kewenangan*: jejak audit aksi jenjang 2–3 & rilis-cek di handoff/audit/ | skills/rudis-operasi/SKILL.md | Setiap aksi jenjang 2–3 yang dijalankan, setiap `rilis-cek` | tetap |
 | P-105 | protokol.md › *Aset, akses & batas kewenangan*: jangan mengakali kebijakan (skrip, variabel, $( … )) | skills/rudis-operasi/SKILL.md | menyamarkannya adalah pelanggaran, bukan jalan pintas. | tetap |
@@ -153,10 +153,10 @@ Ringkasan: 261 unit — tetap 144 · diringkas 90 · diganti 27 · dihapus 0.
 | P-126 | protokol.md › *Skill luar*: skill luar: docs (bawaan, alternatif docx) | skills/rudis-perkakas/SKILL.md | bawaan aplikasi Claude — tidak bisa dipasang; alternatif `docx` | tetap |
 | P-127 | protokol.md › *Skill luar*: skill Anthropic jangan pernah disalin ke repo | skills/rudis-perkakas/SKILL.md | **jangan pernah disalin** ke repo/folder sendiri | tetap |
 | P-128 | protokol.md › *Skill luar*: skill luar baru didaftarkan COO di perkakas.json atas persetujuan | skills/rudis-perkakas/SKILL.md | Skill luar baru: COO mendaftarkannya di `perkakas.json` | tetap |
-| P-129 | protokol.md › *Batasan platform*: pesan antar-sesi diterima pada putaran berikutnya | protokol.md | Pesan antar-sesi diterima pada putaran berikutnya penerima | tetap |
-| P-130 | protokol.md › *Batasan platform*: hanya COO membuat sesi, hanya atas ucapan pengguna langsung | protokol.md | Hanya COO yang membuat sesi, dan hanya pada giliran yang dipicu ketikan pengguna di sesi COO. | diringkas |
-| P-131 | protokol.md › *Batasan platform*: laporan otomatis akhir-giliran hanya ke pembuat sesi | protokol.md | laporan otomatis akhir-giliran hanya ke pembuat sesi | tetap |
-| P-132 | protokol.md › *Batasan platform*: clear_session hanya untuk diri sendiri/sesi buatannya | protokol.md | `clear_session` hanya untuk diri sendiri atau sesi buatan sendiri. | diringkas |
+| P-129 | protokol.md › *Batasan platform*: pesan antar-sesi diterima pada putaran berikutnya | skills/rudis-perkakas/SKILL.md | Pesan antar-sesi diterima pada putaran berikutnya penerima | tetap |
+| P-130 | protokol.md › *Batasan platform*: hanya COO membuat sesi, hanya atas ucapan pengguna langsung | skills/rudis-perkakas/SKILL.md | Hanya COO yang membuat sesi, dan hanya pada giliran yang dipicu ketikan pengguna di sesi COO. | diringkas |
+| P-131 | protokol.md › *Batasan platform*: laporan otomatis akhir-giliran hanya ke pembuat sesi | skills/rudis-perkakas/SKILL.md | laporan otomatis akhir-giliran hanya ke pembuat sesi | tetap |
+| P-132 | protokol.md › *Batasan platform*: clear_session hanya untuk diri sendiri/sesi buatannya | skills/rudis-perkakas/SKILL.md | `clear_session` hanya untuk diri sendiri atau sesi buatan sendiri. | diringkas |
 | P-133 | protokol.md › *Batasan platform*: subagent kerja di folder pemanggil/worktree; tak tampil di sidebar | protokol.md | Subagent bekerja di folder pemanggilnya | diringkas |
 | P-134 | protokol.md › *Batasan platform*: sesi tim dibentuk/dipulihkan COO pada /rudisone (Organisasi otomatis) | agents/coo.md | Sesi hanya bisa dibuat pada giliran yang dipicu ketikan pengguna — panggilan `/rudisone` adalah giliran itu. | diganti |
 | P-135 | protokol.md › *Batasan platform*: pengaman auto mode — jangan diakali | protokol.md | Pengaman auto mode menolak perubahan aturan izin oleh Claude | tetap |

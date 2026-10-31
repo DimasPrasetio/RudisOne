@@ -299,3 +299,33 @@ test("TEAM.md: sesi IT Operations belum dibentuk tidak diperingatkan; terarsip d
     RUDISONE_SKILLS_USER: kosong, RUDISONE_AGENTS_USER: kosong, RUDISONE_KANTOR_DESKTOP: desktop } });
   assert.deepEqual(JSON.parse(p2.stdout || "[]").filter((t) => t.kode === "team"), []);
 });
+
+test("pemetaan v6 (T-20261031-2.3): unit lama tetap/pindah otomatis; yang berubah wajib baris; mekanisme = judul tes", () => {
+  const r = repoMini();
+  const g = (...a) => execFileSync("git", a, { cwd: r, stdio: "ignore" });
+  g("init", "-q"); g("add", "-A");
+  g("-c", "user.email=u@contoh.test", "-c", "user.name=u", "-c", "commit.gpgsign=false", "commit", "-q", "-m", "lama");
+  const ref = execFileSync("git", ["rev-parse", "--short", "HEAD"], { cwd: r, encoding: "utf8" }).trim();
+  const tulis = (rel, isi) => { fs.mkdirSync(path.dirname(path.join(r, rel)), { recursive: true }); fs.writeFileSync(path.join(r, rel), isi); };
+  const bangun = () => execFileSync(process.execPath, [path.join(SINI, "peran.mjs"), "bangun"], { env: { ...process.env, RUDISONE_ROOT: r }, stdio: "ignore" });
+  const kepala = `# Pemetaan\n\nRef: \`${ref}\`\n\n| Kode | Aturan lama | Lokasi baru | Jangkar | Status |\n|---|---|---|---|---|\n`;
+  // pindah otomatis: "Aturan A: sesi inti." keluar dari protokol tetapi ada persis di skill
+  tulis("protokol.md", "# Protokol inti\n\n## Model sesi\nLihat skill `rudis-contoh` › Langkah dan `raci.md`.\n");
+  tulis("skills/rudis-contoh/SKILL.md", "---\nname: rudis-contoh\ndescription: contoh\n---\n# Contoh\n## Langkah\n1. a\n\nAturan A: sesi inti.\n");
+  tulis("docs/pemetaan-aturan-v5.md", "| Kode | Aturan lama | Lokasi baru | Jangkar | Status |\n|---|---|---|---|---|\n| P-001 | x | skills/rudis-contoh/SKILL.md | Aturan A: sesi inti. | tetap |\n| P-002 | y | dihapus | kalimat persona | dihapus |\n");
+  tulis("docs/pemetaan-aturan-v6.md", kepala);
+  bangun(); let h = periksa(r);
+  assert.deepEqual(kodeTemuan(h), [], JSON.stringify(h.temuan));
+  assert.ok(h.temuan.some((t) => /pindah 1 · di tabel 0 · hilang 0/.test(t.pesan)), JSON.stringify(h.temuan));
+  // aturan diubah tanpa baris → hilang (galat); dengan baris mekanisme yang judul tesnya ada → bersih
+  tulis("skills/rudis-contoh/SKILL.md", "---\nname: rudis-contoh\ndescription: contoh\n---\n# Contoh\n## Langkah\n1. a\n");
+  bangun(); h = periksa(r);
+  assert.deepEqual(kodeTemuan(h), ["pemetaan", "pemetaan-v6"]);
+  tulis("docs/pemetaan-aturan-v5.md", "| Kode | Aturan lama | Lokasi baru | Jangkar | Status |\n|---|---|---|---|---|\n| P-001 | x | dihapus | jadi mekanisme | dihapus |\n| P-002 | y | dihapus | kalimat persona | dihapus |\n");
+  tulis("bin/contoh.test.mjs", "test(\"aturan A ditegakkan\", () => {});\n");
+  tulis("docs/pemetaan-aturan-v6.md", `${kepala}| P-001 | protokol › Model sesi: aturan A | bin/contoh.test.mjs | aturan A ditegakkan | mekanisme |\n`);
+  bangun(); h = periksa(r);
+  assert.deepEqual(kodeTemuan(h), [], JSON.stringify(h.temuan));
+  tulis("docs/pemetaan-aturan-v6.md", `${kepala}| P-001 | x | bin/contoh.test.mjs | tes yang tidak ada | mekanisme |\n`);
+  bangun(); assert.deepEqual(kodeTemuan(periksa(r)), ["pemetaan-v6"]);
+});

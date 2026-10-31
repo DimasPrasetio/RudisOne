@@ -145,25 +145,32 @@ alamat yang benar (daftar sesi otomatis hanya 20 terbaru).
 worktree "ditolak `claude --bg`" (repo git di bawah induk tepercaya, atau belum dipercaya — `backend-cli.md` ›
 Kepercayaan folder). Tanyakan **sekali**, digabung dengan pertanyaan penyelarasan/gerbang pertama tugas itu:
 (a) pengguna menjalankan baris yang dicetak `sesi.sh cek` untuk shell-nya (PowerShell/cmd/Git Bash) di tiap folder → sesi
-Tech Lead biasa; atau (b) **jalur subagent** sekarang, dengan konsekuensi yang disebut persis: Tech Lead tidak bisa memanggil
-BSA/SE/peninjau (subagent tidak punya alat `Agent`) sehingga semua kerja berurutan dalam satu konteks; tinjauan silang
-dan riset desain dipanggil COO; tidak tampil di sidebar dan tidak bisa disela pengguna di tengah jalan (Kantor
-menampilkannya di kursi Tech Lead tim sebagai "subagent dari COO"); tugas besar dipecah per panggilan. Pengguna memilih
-(b), atau backend `desktop` tetapi `start_session` gagal → jalur ini.
+Tech Lead biasa; atau (b) **jalur subagent** sekarang, dengan konsekuensi yang disebut persis: tidak tampil di sidebar dan
+tidak bisa disela pengguna langsung (disela lewat COO — `SendMessage` ke subagent atau hentikan); Kantor menampilkannya di
+kursi Tech Lead tim sebagai "subagent dari COO"; tugas besar dipecah per panggilan. Kualitas kerja tetap: Tech Lead-subagent
+memanggil BSA, SE, dan peninjau sendiri (subagent bersarang; teruji di device 2026-10-31, Claude Code ≥ 2.1.219).
+Pengguna memilih (b), atau backend `desktop` tetapi `start_session` gagal → jalur ini.
 **Aturan mode:**
 1. Worktree integrasi dibuat COO: `git -C <repo> worktree add -b rudis/<ID> <repo>/.claude/worktrees/r<n>-lead-<proyek>`
    (repo baru tanpa commit: commit awal dulu). Catat di `TEAM.md` baris Tech Lead dengan `subagent` di kolom id.
-2. `Agent` `subagent_type: "rudis-tech-lead"` (tanpa `isolation` — worktree-nya sudah ada), brief biasa + `Pengerjaan:
-   mandiri` + `Mode: subagent` + folder kerja = path worktree absolut + **satu bagian per panggilan**: paling banyak satu
-   fase SDLC (Analisis, Rancangan, atau satu langkah Konstruksi), berakhir dengan commit di `rudis/<ID>` dan
-   `handoff/<ID>/status.md`. Tugas yang lebih besar → panggilan berikutnya, lanjutkan subagent yang sama lewat
-   `SendMessage` (`to` = id agent) selama konteksnya < ±150 rb token; lebih dari itu → subagent baru dari `status.md`.
-3. Riset desain (Research Analyst) dan analisis BSA yang dibutuhkan dipanggil COO **sebelum** panggilan Tech Lead; hasilnya
-   di `handoff/<ID>/`, dirujuk di brief.
-4. **Tinjauan silang = langkah tetap COO** sebelum melapor ke pengguna: subagent `rudis-software-engineer` read-only
-   berkonteks bersih atas `git -C <repo> diff <base>...refs/heads/rudis/<ID>` + kriteria selesai (hanya temuan yang
-   memengaruhi kebenaran); BSA untuk kecocokan spesifikasi bila ada. `PERLU REVISI` → `[Revisi]` ke subagent Tech Lead.
+2. `Agent` `subagent_type: "rudis-tech-lead"` (tanpa `isolation` — worktree-nya sudah ada), brief biasa + `Mode: subagent`
+   + folder kerja = path worktree absolut + **satu bagian per panggilan** (paling banyak satu fase SDLC atau satu langkah
+   Konstruksi). Lanjutan → `SendMessage` ke subagent yang sama selama konteksnya < ±150 rb token (backend `cli` < 2.1.304:
+   subagent yang dilanjutkan bisa lupa kerja terakhirnya → subagent baru dari `status.md`); lebih dari itu → subagent baru.
+3. **Gerbang mesin** (`bin/gerbang-tl.sh`, skill `rudis-perkakas`): hook `SubagentStop` di definisi `rudis-tech-lead`
+   menahan laporan akhir yang belum lulus (idempoten; gagal terbuka). COO **selalu** menjalankan `bin/gerbang-tl.sh <ID>
+   --transkrip <transkrip subagent>` sebelum melapor ke pengguna: exit 0 → lanjut verifikasi biasa; 2 → `[Revisi]` berisi
+   butir yang kurang. Gerbang membuktikan tinjauan silang LULUS untuk sha terakhir datang dari peninjau berkonteks bersih.
+4. Peninjau dipanggil COO sendiri (subagent `rudis-software-engineer` read-only atas `git -C <repo> diff
+   <base>...refs/heads/rudis/<ID>` + kriteria selesai) hanya bila gerbang tidak bisa membuktikan asal tinjauan.
 5. Pertanyaan untuk pengguna dan keputusan muncul di jawaban subagent (bagian keputusan) — COO yang menanyakan.
+
+## Pembuka peran (brief ke sesi di folder proyek)
+Sesi di folder proyek tidak memuat peran dari folder. Setiap brief ke sesi itu dibuka dengan:
+> Kamu adalah <Jabatan>[ #n] di RudisOne. Baca dan patuhi ~/Documents/Neuron/ai-agent/RudisOne/agents/<id-peran>.md
+> sebagai peranmu, lalu ~/Documents/Neuron/ai-agent/RudisOne/protokol.md dan ~/Documents/Neuron/ai-agent/RudisOne/catatan/<id-peran>.md.
+
+Sesi di `ruang/<id-peran>` memuat peran otomatis; subagent `rudis-<id-peran>` sudah membawa peran + inti. Ragu akan peranmu → baca ulang berkas peran.
 
 ## Kantor & tautan pemantauan (setiap jawaban)
 - Pastikan Kantor menyala: `curl -s -m 2 http://127.0.0.1:7421/health`; tidak menjawab →
@@ -191,7 +198,7 @@ menampilkannya di kursi Tech Lead tim sebagai "subagent dari COO"); tugas besar 
   sandi tidak lewat chat/brief/berkas). Laporan exit 3 (root MySQL bersandi / MySQL tidak menjawab) → teruskan satu
   langkah pengguna persis (`node scripts/db-local.mjs` di path worktree yang disebut); exit 4 (`<slug>_*` sudah ada) →
   tanyakan pengguna dulu (pakai/ganti nama; "pakai" lewat `db-local.mjs` interaktif mengganti sandi akun itu sehingga
-  `.env` checkout lain yang memakainya perlu disalin ulang), jangan diputuskan sendiri. Login lokal (email `admin@gmail.com`, sandi
+  `.env` checkout lain yang memakainya perlu disalin ulang), jangan diputuskan sendiri. Login lokal (email `admin@example.com`, sandi
   `admin123`) hanya lokal; penerapan/deploy tidak pernah memakai nilai itu (`deploy.sh` preflight menolaknya) — production
   memakai sandi rahasia di server.
 - Jenjang 2 tetap butuh permintaan pengguna yang dikutip; jenjang 3 memunculkan prompt di sesi agent — beri pengguna

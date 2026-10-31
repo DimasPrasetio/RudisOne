@@ -24,7 +24,7 @@ const RUMAH = RUMAH_TAMPIL;   // satu sumber: lib/lokasi.mjs
 const SKILLS_USER = process.env.RUDISONE_SKILLS_USER || path.join(HOME, ".claude", "skills");
 const AGENTS_USER = process.env.RUDISONE_AGENTS_USER || path.join(HOME, ".claude", "agents");
 const DESKTOP = folderDesktop();
-export const BATAS_INTI = 200;
+export const BATAS_INTI = 185;   // T-20261031-2.3: inti dirampingkan ke ±182 baris; tambah aturan → pindahkan ke skill/mekanisme dulu
 /** Batas isi skill yang dipertahankan setelah kompaksi (≈5.000 token; perkiraan 1 token ≈ 4 byte). */
 const BATAS_SKILL_BYTE = 20_000;
 /** Berkas per device / di luar repo: tidak wajib ada di repo. */
@@ -158,7 +158,71 @@ export function cekRepo(root = ROOT, opsi = {}) {
 
   // R7 — pemetaan aturan lama → lokasi baru (100%)
   cekPemetaan(root, ref);
+  // R7b — pemetaan v6 (T-20261031-2.3): setiap unit aturan ref lama ada di HEAD (otomatis) atau di tabel
+  cekPemetaanV6(root);
   return temuan;
+}
+
+/** Berkas instruksi di HEAD tempat unit aturan boleh berada (sumber, bukan salinan terbangkit agen/ & CLAUDE.md). */
+function berkasInstruksi(root) {
+  const out = [];
+  const jalan = (d) => { let isi = []; try { isi = fs.readdirSync(path.join(root, d), { withFileTypes: true }); } catch { return; }
+    for (const e of isi) { const r = `${d}/${e.name}`; if (e.isDirectory()) jalan(r); else if (e.name.endsWith(".md")) out.push(r); } };
+  for (const d of ["agents", "skills", "templat"]) jalan(d);
+  for (const fl of ["protokol.md", "raci.md", "infra.md", "penyedia.md", "README.md"]) if (fs.existsSync(path.join(root, fl))) out.push(fl);
+  return out;
+}
+
+/** Tabel pemetaan v6 (`docs/pemetaan-aturan-v6.md`, kepala `Ref: <sha>`). Unit aturan ref lama (bin/inventaris-aturan.mjs,
+ *  sumber v6) yang teksnya — spasi dinormalkan — masih ada persis di berkas yang sama = `tetap` otomatis, di berkas
+ *  instruksi lain = `pindah` otomatis; sisanya WAJIB punya baris tabel: jangkar di lokasi baru, `mekanisme` = judul tes
+ *  persis di berkas tes, atau `dihapus` + alasan. Mengembalikan ringkasan (juga dicatat sebagai info). */
+export function cekPemetaanV6(root = ROOT) {
+  const f = path.join(root, "docs", "pemetaan-aturan-v6.md");
+  if (!fs.existsSync(f)) {
+    // repo RudisOne sungguhan (punya pemeriksa ini) wajib punya tabelnya — menghapusnya tidak boleh meloloskan cek diam-diam
+    if (fs.existsSync(path.join(root, "bin", "inventaris-aturan.mjs"))) catat("galat", "pemetaan-v6", "docs/pemetaan-aturan-v6.md tidak ada");
+    return null;
+  }
+  const teks = fs.readFileSync(f, "utf8");
+  const ref = teks.match(/^Ref:\s*`?([0-9a-f]{7,40})`?/m)?.[1];
+  if (!ref) { catat("galat", "pemetaan-v6", "docs/pemetaan-aturan-v6.md tanpa baris `Ref: <sha>`"); return null; }
+  const rata = (x) => String(x).replace(/\s+/g, " ").trim();
+  const isi = new Map();
+  const baca = (p) => { if (!isi.has(p)) { try { isi.set(p, rata(fs.readFileSync(path.join(root, p), "utf8"))); } catch { isi.set(p, null); } } return isi.get(p); };
+  const baris = new Map();
+  for (const l of teks.split("\n").filter((x) => /^\|\s*(?:[PC]|A-[a-z-]+|K-[\w-]+|N)-\d+\s*\|/.test(x))) {
+    const [k, , lokasi, jangkar, status] = l.split(/(?<!\\)\|/).slice(1, -1).map((x) => x.trim());
+    baris.set(k, { lokasi, jangkar, status });
+    const j = rata(String(jangkar ?? "").replace(/^`|`$/g, "").replace(/\\\|/g, "|"));
+    if (/^dihapus/i.test(status ?? "")) { if (!j) catat("galat", "pemetaan-v6", `${k}: dihapus tanpa alasan`); continue; }
+    const target = (lokasi ?? "").match(/[\w./-]+\.(md|mjs|json)/)?.[0];
+    if (!target || baca(target) === null) { catat("galat", "pemetaan-v6", `${k}: lokasi "${lokasi}" tidak ada`); continue; }
+    if (/^mekanisme/i.test(status ?? "")) {
+      const mentah = fs.readFileSync(path.join(root, target), "utf8");
+      if (!j || !(mentah.includes(`test("${j}"`) || mentah.includes(`test('${j}'`) || mentah.includes(`test(\`${j}\``)))
+        catat("galat", "pemetaan-v6", `${k}: tes "${j.slice(0, 60)}" tidak ada di ${target}`);
+      continue;
+    }
+    if (!j || !baca(target).includes(j)) catat("galat", "pemetaan-v6", `${k}: jangkar tidak ditemukan di ${target}: "${j.slice(0, 80)}"`);
+  }
+  let unit;
+  try { unit = JSON.parse(execFileSync(process.execPath, [path.join(path.dirname(INI), "inventaris-aturan.mjs"), "--ref", ref, "--sumber", "v6", "--json"], { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], maxBuffer: 64 << 20 })); }
+  catch { catat("peringatan", "pemetaan-v6", `inventaris aturan dari ${ref} tidak bisa dibuat (git?) — cakupan 100% tidak diperiksa`); return null; }
+  const sumber = berkasInstruksi(root);
+  const r = { ref, unit: unit.length, tetap: 0, pindah: 0, tabel: 0, hilang: [] };
+  for (const u of unit) {
+    if (baris.has(u.kode)) { r.tabel++; continue; }
+    const t = rata(u.teks);
+    if (baca(u.berkas)?.includes(t)) { r.tetap++; continue; }
+    if (sumber.some((p) => p !== u.berkas && baca(p)?.includes(t))) { r.pindah++; continue; }
+    r.hilang.push(u.kode);
+  }
+  const lebih = [...baris.keys()].filter((k) => !/^N-/.test(k) && !unit.some((u) => u.kode === k));
+  if (lebih.length) catat("peringatan", "pemetaan-v6", `${lebih.length} kode pemetaan tidak ada di inventaris ${ref}: ${lebih.slice(0, 8).join(", ")}`);
+  if (r.hilang.length) catat("galat", "pemetaan-v6", `${r.hilang.length} unit aturan ${ref} hilang (tidak ada di HEAD & tanpa baris tabel): ${r.hilang.slice(0, 12).join(", ")}${r.hilang.length > 12 ? " …" : ""}`);
+  catat("info", "pemetaan-v6", `${ref}: ${r.unit} unit · tetap ${r.tetap} · pindah ${r.pindah} · di tabel ${r.tabel} · hilang ${r.hilang.length}`);
+  return r;
 }
 
 /** Tabel pemetaan: | Kode | Aturan lama | Lokasi baru | Jangkar | — jangkar harus ada (persis, spasi dinormalkan) di lokasi baru. */

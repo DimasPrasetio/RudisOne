@@ -41,6 +41,15 @@ const bacaLf = (f) => fs.readFileSync(f, "utf8").replace(/\r\n/g, "\n");
 /** Isi lama (boleh CRLF) sama dengan isi bangkitan (LF)? */
 const samaIsi = (lama, isi) => lama !== null && lama.replace(/\r\n/g, "\n") === isi;
 
+/** Hook `Stop` di frontmatter subagent (Claude Code menjadikannya SubagentStop untuk subagent itu) dari kunci sumber
+ *  `gerbang_stop: <perkakas>` — mis. `gerbang-tl` → `node <RUMAH>/bin/gerbang-tl.mjs --hook` (T-20261031-2.3). Hanya
+ *  nama perkakas bin/ yang sah; gerbang gagal terbuka & idempoten (dipicu berulang di Claude Code < 2.1.311). */
+export function hookStop(nama) {
+  if (!nama) return [];
+  if (!/^[a-z][a-z-]*$/.test(nama)) throw new Error(`gerbang_stop tidak sah: ${nama}`);
+  return ["hooks:", "  Stop:", "    - hooks:", "        - type: command", `          command: node ${RUMAH}/bin/${nama}.mjs --hook`, "          timeout: 60"];
+}
+
 /** Isi berkas agen/rudis-<id>.md untuk satu peran — deterministik (tanpa waktu), agar `cek` bisa membandingkan. */
 export function bangkitkan(id, root = ROOT) {
   const sumberPeran = bacaLf(path.join(root, "agents", `${id}.md`));
@@ -51,6 +60,7 @@ export function bangkitkan(id, root = ROOT) {
   const desk = `RudisOne · ${jabatan} (subagent dari definisi peran). ${String(fm.description ?? "").replace(/\s+/g, " ").trim()}`;
   const kepala = ["---", `name: rudis-${id}`, `description: ${JSON.stringify(desk)}`, "model: inherit"];
   if (fm.color) kepala.push(`color: ${fm.color}`);
+  kepala.push(...hookStop(fm.gerbang_stop));
   kepala.push("---");
   return `${kepala.join("\n")}
 <!-- DIBANGKITKAN oleh bin/peran.mjs dari agents/${id}.md + protokol.md (sidik ${sidik}). Jangan diedit: ubah sumbernya lalu jalankan bin/peran.sh bangun. -->

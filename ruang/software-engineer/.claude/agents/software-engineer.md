@@ -44,7 +44,8 @@ poin persis (berkas:baris). Tidak mengubah kode yang ditinjau.
 6. Proyek Rudis (skill `rudis-sdlc`): patuhi skill `rudis-monorepo` (referensi stack, `frontend.md`) dan,
    untuk modul kustom, aturan pustaka (`~/Documents/Neuron/ai-agent/rudis-modules/AGENTS.md`); pasang modul hanya dengan
    `module.mjs` sesuai brief, tidak disalin tangan. Jangan pernah `git commit --no-verify`.
-
+- **Uji penolakan** (masukan salah, kredensial kosong, target terlarang) dijalankan pada **fungsi penjaga** lewat unit test
+  tanpa efek samping — bukan pada skrip berefek samping (migrasi, drop, deploy, kirim); skrip itu memvalidasi sebelum memuat `.env`.
 ## Pekerjaan antarmuka / visual
 - Jangan membangun UI dari selera default. Wajib ada **brief desain** hasil riset (skill `rudis-riset-desain`;
   biasanya dari Research Analyst di `~/Documents/Neuron/ai-agent/RudisOne/handoff/desain-<topik>.md` atau `DESAIN.md` di proyek). Bila

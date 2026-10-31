@@ -35,6 +35,13 @@ sesi saat dibutuhkan) yang memakainya dengan aturan ini; sesi pribadi pengguna t
 **pertama** — `cd` ke `ruang/<id>` lain tidak mengubah jabatan. Setiap kemampuan (DNS, hosting, server, data production, rilis, repositori, sesi latar backend cli) punya daftar jabatan yang boleh
 memakainya; jabatan lain selalu ditanya, walau sekadar membaca.
 
+## 4a. Ringkasan jenjang (tabel dari protokol inti)
+| Jenjang | Isi | Yang terjadi |
+|---|---|---|
+| 1 — baca | daftar record, status CI, cek & log server, baca repo | berjalan tanpa tanya |
+| 2 — rutin | deploy app terdaftar setelah `rilis-cek` SIAP ≤ 24 jam · tambah record subdomain · repo privat baru (COO) | pemilik menyetujui sekali di chat COO, kutipannya di brief |
+| 3 — berisiko | hapus/overwrite DNS, apex/MX, restart, `sudo`, ubah config, tulis data production, push, PR, merge, repo publik, perintah server di luar daftar baca | prompt izin di sesi agent |
+
 ## 4. Jenjang 2 dan 3
 - Jenjang 2 berjalan tanpa prompt **bila syarat mesin terpenuhi** (deploy app terdaftar dengan `rilis-cek` SIAP ≤ 24
   jam **dan** pemeriksaan ulang langsung ke GitHub saat deploy, tambah record subdomain, repo privat oleh COO), dan
@@ -89,8 +96,8 @@ ditanya), `awk`, `sed`, `tee`, interpreter, dan variabel `$X` tidak pernah ikut 
 ## 7. Mengubah kebijakan
 Menambah jabatan pada kemampuan, menambah jenjang 2, atau mendaftarkan app/penyedia = mendelegasikan kewenangan: hanya
 atas keputusan pemilik di sesi COO; Head of IT Operations menyiapkan usulannya, kutipan keputusan dicatat di commit.
-Hook dipasang/dilepas pemilik sendiri: `bin/kebijakan.sh uji '<json>'` lalu `bin/kebijakan.sh pasang | lepas`
-(status: `bin/kebijakan.sh cek`). Hook gagal terbuka (galat → alur izin biasa) dan tidak bisa menimpa aturan
+Hook & aturan deny `.env` dipasang/diperbarui otomatis oleh `install.sh` yang dijalankan pemilik (T-20261031-2.3; idempoten);
+uji satu panggilan `bin/kebijakan.sh uji '<json>'`, status `bin/kebijakan.sh cek`, lepas `bin/kebijakan.sh lepas`. Hook gagal terbuka (galat → alur izin biasa) dan tidak bisa menimpa aturan
 *deny*/*ask* yang dipasang pemilik. Hook sistem lain yang juga bernama `bin/kebijakan.mjs` (mis. TimAgent) tidak
 disentuh: hook RudisOne dikenali dari path absolutnya.
 
@@ -115,6 +122,6 @@ path (variabel, glob, base64, skrip buatan sendiri) tetap bisa menulis berkas ap
 (galat/timeout/Node berpindah versi → alur izin biasa). Pembuka peran dari COO menetapkan jabatan sesi baru — hook
 memercayai pesan pertama itu. Penegakan keras ada di settings pengguna: `permissions.deny`/`ask` (tetap berlaku walau
 hook keliru `allow`, dan memeriksa target pengalihan `>`) ditambah sandbox Bash; usulan & perintah pemasangannya
-dipasang pemilik sendiri (T-20261030-5 › `izin-usulan.md`). Setelah memperbarui hook, pemilik menjalankan
-`bin/kebijakan.sh pasang` lagi (matcher kini juga `Write|Edit|MultiEdit|NotebookEdit`; `cek` memberi tahu bila
-versi lama masih terpasang).
+dipasang pemilik sendiri (T-20261030-5 › `izin-usulan.md`). Setelah memperbarui RudisOne, pemilik menjalankan
+`install.sh` lagi (matcher kini `Bash|PowerShell|Read|Grep|Glob|Agent|Task|Write|Edit|MultiEdit|NotebookEdit|mcp__*`; `cek`
+memberi tahu bila versi lama atau aturan deny `.env` belum terpasang).

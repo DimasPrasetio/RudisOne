@@ -61,3 +61,17 @@ setelah `[Diterima]`; subagent selalu mulai bersih.
 ## 8. Prioritas
 `segera` (insiden SEV1/SEV2, permintaan pengguna yang mendesak) > `tinggi` (tenggat dekat) > `normal`. Antrean
 diurutkan menurut prioritas, lalu waktu masuk.
+
+## 9. Format pesan (tabel lengkap; ringkasan di protokol inti)
+| Jenis | Awalan | Dari → ke |
+|---|---|---|
+| Tugas | `[Tugas dari COO]` / `[Tugas dari <Leader>] <judul>` | COO → leader/staf · leader → anggota |
+| Permintaan layanan | `[Permintaan layanan dari <Leader>] <ID> · <judul>` (+ `[Info dari <Leader>]` ke COO) | leader → layanan |
+| Tinjau | `[Tinjau] <ID> · <judul>` → `[Hasil tinjauan] <ID> · LULUS \| PERLU REVISI` | tinjauan silang |
+| Laporan | `[Laporan ke <pemberi tugas>]` · `[Laporan divisi <divisi>] <ID> · <judul>` | anggota → pemberi tugas · leader → COO |
+| Revisi / Diterima | `[Revisi] <judul> — <poin persis>` · `[Diterima] <judul> — bersihkan konteksmu` | pemberi tugas → pelaksana |
+| Konsultasi | `[Konsultasi dari <Jabatan>]` → `[Jawaban <Jabatan>]` (ke atribut `from`) | siapa pun |
+| Info / tembusan | `[Info dari <Jabatan>] <ringkasan> — file: <path>` | siapa pun |
+| Terhambat | `[Terhambat] <judul> — <sebab, yang dibutuhkan>` | pelaksana → pemberi tugas |
+| Eskalasi | `[Eskalasi SEV1] <ringkasan>` | Head of IT Operations → COO |
+| Antre / Diparkir | `[Antre] <ID baru> — sedang <ID aktif>` · `[Diparkir] <ID> — status: handoff/<ID>/status.md` | penerima → pemberi tugas |

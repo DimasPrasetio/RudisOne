@@ -1,7 +1,7 @@
 {
   "versi": 1,
   "keterangan": "Kebijakan akses & batas kewenangan RudisOne — aturan GENERIK yang dibaca hook bin/kebijakan.mjs. Fakta per device (host ssh, aplikasi deploy, MCP DNS) TIDAK ada di sini: dibaca dari konfigurasi/server.json (bin/konfig.sh), diisi atas persetujuan pengguna. Ringkasan untuk manusia: bin/kebijakan.sh tampil. Prinsip & cara mengubah: protokol.md › Aset, akses & batas kewenangan. Mengubah file ini = mengubah delegasi kewenangan: hanya atas keputusan pemilik (pengguna), kutipannya dicatat di commit.",
-  "disetujui": "pengguna: jenjang 2 = deploy app terdaftar, tambah subdomain DNS, buat repo GitHub privat; berlaku hanya di sesi RudisOne; akses per jabatan. Backend sesi cli (T-20261030-11) — pengguna: \"B: backend sesi CLI (Recommended)\": membentuk/menghentikan sesi latar hanya COO, claude rm/attach/bypassPermissions selalu ditanya. Skill luar terdaftar (perkakas.json › skill_luar): semua jabatan boleh perkakas.sh pastikan/skill tanpa bertanya — pengguna 2026-10-27: \"Ya, saya setujui: tambahkan aturan di kebijakan-akses.json agar semua jabatan boleh menjalankan perkakas.sh pastikan/skill tanpa bertanya.\"",
+  "disetujui": "pengguna: jenjang 2 = deploy app terdaftar, tambah subdomain DNS, buat repo GitHub privat; berlaku hanya di sesi RudisOne; akses per jabatan. Backend sesi cli (T-20261030-11) — pengguna: \"B: backend sesi CLI (Recommended)\": membentuk/menghentikan sesi latar hanya COO, claude rm/attach/bypassPermissions selalu ditanya. Penjaga .env & cek kunci (T-20261031-2.3) — pengguna 2026-10-31: \"utamakan otomatis, karena RudisOne ini adalah tools client berjalan di device client jadi harusnya utamakan otomatis saja.\": baca isi .env ditolak otomatis, bin/env-kunci.sh & bin/gerbang-tl.sh berjalan tanpa bertanya. Skill luar terdaftar (perkakas.json › skill_luar): semua jabatan boleh perkakas.sh pastikan/skill tanpa bertanya — pengguna 2026-10-27: \"Ya, saya setujui: tambahkan aturan di kebijakan-akses.json agar semua jabatan boleh menjalankan perkakas.sh pastikan/skill tanpa bertanya.\"",
 
   "jabatan": {
     "coo": { "nama": "COO" },
@@ -27,6 +27,7 @@
     "repo": { "nama": "Repositori kode", "akses": ["coo", "tech-lead", "software-engineer", "business-systems-analyst", "program-manager", "technical-writer", "head-of-it-operations", "system-administrator"] },
     "sesi": { "nama": "Sesi agent latar (backend cli: claude --bg, stop/kill, respawn, logs)", "akses": ["coo"] },
     "sesi-baca": { "nama": "Baca daftar & status sesi (bin/sesi.sh backend/daftar/cek, claude agents --json)", "akses": ["coo", "head-of-strategy", "financial-controller", "research-analyst", "hr-business-partner", "tech-lead", "business-systems-analyst", "software-engineer", "program-manager", "technical-writer", "head-of-it-operations", "system-administrator"] },
+    "env-kunci": { "nama": "Cek kunci .env terisi/kosong tanpa nilai (bin/env-kunci.sh)", "akses": ["coo", "head-of-strategy", "financial-controller", "research-analyst", "hr-business-partner", "tech-lead", "business-systems-analyst", "software-engineer", "program-manager", "technical-writer", "head-of-it-operations", "system-administrator"] },
     "skill-luar": { "nama": "Skill luar terdaftar (cek & pasang dari sumber resmi)", "akses": ["coo", "head-of-strategy", "financial-controller", "research-analyst", "hr-business-partner", "tech-lead", "business-systems-analyst", "software-engineer", "program-manager", "technical-writer", "head-of-it-operations", "system-administrator"] }
   },
 
@@ -71,7 +72,8 @@
       "repo_buat_privat": "^repo\\s+create\\s+\\S+(?=.*\\s--private\\b)(?!.*--public)(?!.*--push)(?!.*--internal)(?!.*--private=)(?!.*--visibility)",
       "akun": "belum ada"
     },
-    "git": { "jenis": "cli", "perintah": "git", "kemampuan": "repo", "tulis_remote": "^push\\b" }
+    "git": { "jenis": "cli", "perintah": "git", "kemampuan": "repo", "tulis_remote": "^push\\b",
+      "lokal_perusak": "^(stash(\\s+(push|pop|apply|drop|clear|save)\\b|\\s*$|\\s+-)|reset\\s+(.*\\s)?--hard\\b|checkout\\s+(.*\\s)?(--|-f|--force)(\\s|$)|checkout\\s+(\\S+\\s+)?\\.(\\s|$)|switch\\s+(.*\\s)?(-f|--force|--discard-changes)(\\s|$)|clean\\s+(.*\\s)?(-[a-zA-Z]*f[a-zA-Z]*|--force)\\b|restore\\s(?!.*--staged)|restore\\s.*(--worktree|-W\\b)|worktree\\s+remove\\b|branch\\s+(.*\\s)?(-D\\b|-[a-zA-Z]*D|--delete\\s+(.*\\s)?--force|--force\\s+(.*\\s)?--delete|-df\\b|-fd\\b))" }
   },
 
   "keterangan_konfigurasi": "Host ssh (jenis ssh, kemampuan server), daftar aplikasi deploy jenjang 2, dan MCP DNS yang aktif berasal dari konfigurasi/server.json: server.<alias>.ssh_host · aplikasi.<slug>.{server,folder,repo} · dns.mcp_server (harus punya adapter di adapter_mcp).",
@@ -88,7 +90,9 @@
   "perkakas_baca": {
     "server-cek": "server",
     "pasca-deploy": "server",
-    "rilis-cek": "rilis"
+    "rilis-cek": "rilis",
+    "env-kunci": "env-kunci",
+    "gerbang-tl": "repo"
   },
   "perkakas_perintah": {
     "perkakas": { "pastikan": "skill-luar", "skill": "skill-luar" },
@@ -110,6 +114,12 @@
     "^cd\\s+\\S+$"
   ],
   "ssh_rahasia": "\\.env\\b|id_[rde]\\w*sa|\\.pem\\b|\\.key\\b|secret|passw|token|credential|environ\\b",
+
+  "env_rahasia": {
+    "keterangan": "Penjaga .env (T-20261031-2.3) — pengguna 2026-10-31: \"utamakan otomatis\" / \"di buat agar otomatis memasang saja, tidak perlu tanya\": membaca isi berkas env (nama cocok 'nama', bukan 'kecuali') di sesi RudisOne → deny tanpa prompt + audit; status kunci lewat bin/env-kunci.sh.",
+    "nama": "^(\\.env(\\.[\\w.-]+)?|[\\w-][\\w.-]*\\.env|\\.envrc)$",
+    "kecuali": "\\.(example|contoh|sample|template|dist|defaults?)$"
+  },
 
   "lokal_netral": ["cd", "echo", "tail", "head", "grep", "wc", "sort", "uniq", "cut", "jq", "cat", "ls", "tr", "sleep", "true", "date", "column"]
 }

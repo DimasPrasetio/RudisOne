@@ -29,7 +29,7 @@ Tanggal: YYYY-MM-DD · Perkakas: <keluaran bin/perkakas.sh versi>
 | MySQL lokal | <jenis (layanan OS / Docker / XAMPP/Laragon) · versi dari `SELECT VERSION()` oleh skrip> / tidak ada | tidak ada → tes ber-database "belum terverifikasi" |
 | Database & akun proyek | `<slug>_db`, `<slug>_test`, `<slug>_dev@127.0.0.1` — siap YYYY-MM-DD, login akun proyek berhasil | Tech Lead: `node scripts/db-local.mjs --admin-password-empty` (izin tetap) |
 | Perlu langkah pengguna? | tidak / exit 3 (root bersandi, MySQL tidak menjawab) → pengguna menjalankan `node scripts/db-local.mjs` (interaktif) / exit 4 (`<slug>_*` sudah ada) → keputusan pengguna dulu; "sudah" YYYY-MM-DD | satu langkah, diteruskan COO persis |
-| `.env` lokal | lengkap tanpa placeholder (`node scripts/env-local.mjs`); login awal lokal: email `admin@gmail.com`, sandi `admin123`, nama `admin` | hanya lokal — `deploy.sh` preflight menolaknya |
+| `.env` lokal | lengkap tanpa placeholder (`node scripts/env-local.mjs`); login awal lokal: email `admin@example.com`, sandi `admin123`, nama `admin` | hanya lokal — `deploy.sh` preflight menolaknya (juga `admin@gmail.com` proyek lama) |
 
 ## Sebelum penerapan pertama — fakta deploy (saat pengguna meminta deploy)
 <!-- Sampai bagian ini terisi, scaffold memakai penanda __…__ (mis. __HOST_PORT__, __GHCR_OWNER__; skill rudis-monorepo › Step 0b); aplikasi tetap
