@@ -17,6 +17,7 @@ const POLA_KUNCI = /^[A-Za-z_][A-Za-z0-9_.-]*$/;
 const BARIS_KUNCI = /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_.-]*)\s*=(.*)$/;
 const PLACEHOLDER = [/^__[A-Z0-9_]+__$/, /^change[-_]?me$/i, /^<[^>]*>$/, /^x{3,}$/i, /^(todo|isi|isi-di-sini|your[-_].*)$/i];
 const HASIL = { 0: "lengkap", 3: "kurang", 4: "placeholder" };
+const NAMA_ENV = /^(\.env(\.[\w.-]+)?|[\w-][\w.-]*\.env(\.[\w-]+)?|\.envrc)$/i;
 
 export const PEMAKAIAN = `Pemakaian: bin/env-kunci.sh [--contoh <berkas>] [--wajib K1,K2] [--salah-satu K1,K2]… [--json] [<berkas>]
   <berkas>            berkas env yang diperiksa (bawaan: .env di folder kerja)
@@ -154,6 +155,9 @@ export function main(argv, { cwd = process.cwd(), tulis = (s) => process.stdout.
     const o = uraiArgumen(argv);
     if (o.bantuan) { tulis(PEMAKAIAN + "\n"); return 0; }
     const berkas = path.resolve(cwd, o.berkas ?? ".env");
+    // hanya berkas env (bukan kunci privat/berkas lain): baris berbentuk base64 bisa terbaca sebagai "nama kunci"
+    if (!NAMA_ENV.test(path.basename(berkas))) throw new Galat(`bukan berkas env: ${path.basename(berkas)} (nama .env, .env.<x>, <x>.env, .envrc)`);
+    if (o.contoh !== null && !NAMA_ENV.test(path.basename(o.contoh))) throw new Galat(`--contoh bukan berkas env: ${path.basename(o.contoh)}`);
     let contoh = null;
     if (o.contoh !== null) {
       contoh = path.resolve(cwd, o.contoh);

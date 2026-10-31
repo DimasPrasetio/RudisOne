@@ -252,3 +252,14 @@ test("properti: lewat pembungkus .sh (stdout + stderr) — tidak pernah memuat n
 });
 
 test.after(() => fs.rmSync(tmp, { recursive: true, force: true }));
+
+test("hanya berkas bernama env (T-20261031-2.3 tinjauan): berkas lain → exit 1 tanpa isi", () => {
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), "env-kunci-nama-"));
+  fs.writeFileSync(path.join(d, "id_rsa"), "QUJDREVGR0g=\n");
+  const keluar = []; const galat = [];
+  assert.equal(main(["id_rsa"], { cwd: d, tulis: (x) => keluar.push(x), tulisGalat: (x) => galat.push(x) }), 1);
+  assert.match(galat.join(""), /bukan berkas env/);
+  assert.ok(!keluar.join("").includes("QUJD"));
+  for (const n of [".env", ".env.local", "prod.env", ".env.example", ".envrc"]) fs.writeFileSync(path.join(d, n), "A=1\n");
+  for (const n of [".env", ".env.local", "prod.env", ".env.example", ".envrc"]) assert.notEqual(main([n], { cwd: d, tulis: () => {}, tulisGalat: () => {} }), 1, n);
+});

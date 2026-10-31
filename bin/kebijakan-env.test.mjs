@@ -246,3 +246,55 @@ test("pemasangan memulihkan instalasi parsial (hanya SessionStart + PostToolUseF
   assert.deepEqual(settingsTerpasang(s1), s1, "idempoten");
   assert.deepEqual(kekuranganIzin(s1), []);
 });
+
+test("tinjauan silang T-2.3: substitusi perintah, heredoc interpreter, pemuat otomatis, pembungkus → deny", () => {
+  harap(['echo "$(cat .env)"', 'echo "x: $(grep DB .env)"', "echo $(cat .env)", 'echo "`cat .env`"', "printf '%s\\n' \"$(<.env)\"",
+    "echo $(<.env)", 'cd apps/api && echo "$(cat ../../.env)"', 'ls "$(cat .env)"', "diff <(cat .env) .env.example",
+    "bash -c 'echo $(cat .env)'", "python3 - <<'PY'\nprint(open(\".env\", \"r\").read())\nPY", "node <<'JS'\nconsole.log(require('fs').readFileSync('./.env','utf8'))\nJS",
+    "xargs echo < .env", "xargs -a .env echo", "tee < .env", "dd if=.env", "awk 'BEGIN{while((getline l < \".env\")>0) print l}'",
+    "rsync .env /tmp/o", "grep -rnZ DB .", "docker compose config", "dotenvx get"], "deny");
+});
+
+test("tinjauan silang T-2.3: grep -r bawaan hanya menghormati .gitignore di dalam pohon pencarian", () => {
+  // P: .gitignore di akar memuat .env; apps/api/.env tidak di-ignore oleh .gitignore apa pun di bawah apps/api
+  fs.writeFileSync(path.join(P, "apps", "api", ".env"), `X=${NILAI}\n`);
+  harap(["grep -rn DB .", "rg DB apps/api"], "—");
+  harap(["grep -rn DB apps/api", "grep -rn DB apps", "cd apps/api && grep -rn DB .", "grep -r DB *"], "deny");
+  fs.writeFileSync(path.join(P, "apps", "api", ".gitignore"), ".env\n");
+  harap(["grep -rn DB apps/api", "cd apps/api && grep -rn DB ."], "—");
+  // hanya di .git/info/exclude: git check-ignore = ya, tetapi ugrep tetap membaca → deny
+  const X = path.join(ROOT, "ruang", "exclude");
+  fs.mkdirSync(X, { recursive: true });
+  execFileSync("git", ["-C", X, "init", "-q"]);
+  fs.appendFileSync(path.join(X, ".git", "info", "exclude"), ".env\n");
+  fs.writeFileSync(path.join(X, ".env"), `X=${NILAI}\n`);
+  harap(["grep -rn DB ."], "deny", X);
+  fs.rmSync(path.join(P, "apps", "api", ".env")); fs.rmSync(path.join(P, "apps", "api", ".gitignore"));
+});
+
+test("tinjauan silang T-2.3 & replay 30 hari: positif palsu → tanpa keputusan", () => {
+  harap(["cp .env.example .env", "cp -n .env.example .env", "cp apps/api/.env.contoh apps/api/.env", "cp .env.example .env && cat README.md",
+    "ls -la | grep .env", "grep .env .gitignore", "grep -n '.env' README.md", "node -p \"process.env.NODE_ENV\"",
+    "node -e \"console.log(process.env.PATH)\"", "test -f .env && cat \"$HOME/notes.txt\"", "go run . --env-file .env", "npm run dev -- --env-file=.env",
+    "node -e 'const s=require(process.env.HOME+\"/.claude/settings.json\");console.log(Object.keys(s))'",
+    "node -e 'const u=require(\"util\");console.log(JSON.stringify(u.parseEnv(\"A=\\nB=x\")))'",
+    "node -e 'const f=\"x.md\";let s=require(\"fs\").readFileSync(f,\"utf8\");s=s.replace(\"isi `.env` tidak dibaca\",\"x\")'",
+    "awk '/^## /{print $2}' README.md", "grep -n -i \"\\.env\\|hook\" $F", "for c in 'cat .env' 'gh pr list && cat .env'; do echo \"$c\"; done",
+    "cat > catatan.md <<'EOF'\n- jangan cat .env\n- git stash dilarang\nEOF", "node bin/kebijakan.mjs uji \"$(printf '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"cat .env\"}}')\""], "—");
+  // glob/brace yang aneh tidak pernah melempar (gagal terbuka diam-diam akan menghapus keputusan lain)
+  for (const c of ["echo [$", "ls t[j-200", "cat a]b", "echo {a,b", "grep x [^]"]) assert.doesNotThrow(() => putuskan(bash(c), K), c);
+});
+
+test("tinjauan silang T-2.3: A6 bentuk tambahan → ask", () => {
+  harap(["git checkout -f main", "git switch -f main", "git switch --discard-changes main", "git restore --staged --worktree a.txt",
+    "git clean --force -d", "git checkout HEAD .", "git branch --delete --force x"], "ask");
+  harap(["git restore --staged a.txt", "git switch -c x", "git checkout -b y main"], "—");
+});
+
+test("tinjauan silang T-2.3: alat Grep content atas folder berisi env yang tidak di-ignore → deny", () => {
+  const grep = (ti, cwd = P) => kep({ session_id: `g${++n}`, cwd, tool_name: "Grep", tool_input: ti, hook_event_name: "PreToolUse" });
+  assert.equal(grep({ pattern: "DB", output_mode: "content" }, NONGIT), "deny");
+  assert.equal(grep({ pattern: "DB", output_mode: "content" }), "—", "repo git yang meng-ignore .env");
+  assert.equal(grep({ pattern: "DB", glob: "{.env,.env.local}", output_mode: "content" }), "deny");
+  assert.equal(grep({ pattern: "DB", glob: "*.{js,ts}", output_mode: "content" }), "—");
+});

@@ -179,7 +179,11 @@ function berkasInstruksi(root) {
  *  persis di berkas tes, atau `dihapus` + alasan. Mengembalikan ringkasan (juga dicatat sebagai info). */
 export function cekPemetaanV6(root = ROOT) {
   const f = path.join(root, "docs", "pemetaan-aturan-v6.md");
-  if (!fs.existsSync(f)) return null;
+  if (!fs.existsSync(f)) {
+    // repo RudisOne sungguhan (punya pemeriksa ini) wajib punya tabelnya — menghapusnya tidak boleh meloloskan cek diam-diam
+    if (fs.existsSync(path.join(root, "bin", "inventaris-aturan.mjs"))) catat("galat", "pemetaan-v6", "docs/pemetaan-aturan-v6.md tidak ada");
+    return null;
+  }
   const teks = fs.readFileSync(f, "utf8");
   const ref = teks.match(/^Ref:\s*`?([0-9a-f]{7,40})`?/m)?.[1];
   if (!ref) { catat("galat", "pemetaan-v6", "docs/pemetaan-aturan-v6.md tanpa baris `Ref: <sha>`"); return null; }
