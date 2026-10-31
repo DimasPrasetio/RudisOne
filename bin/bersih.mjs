@@ -73,9 +73,9 @@ export function periksaTerlacak(root = ROOT) {
   return hasil;
 }
 
-/** Isi yang akan di-commit: berkas yang ditambah/diubah/diganti nama di indeks, isi dari indeks (`git show :<path>`). */
+/** Isi yang akan di-commit: berkas yang ditambah/diubah/diganti nama/berubah tipe di indeks, isi dari indeks (`git show :<path>`). */
 export function periksaStaged(root = ROOT) {
-  const out = git(root, ["diff", "--cached", "--name-only", "-z", "--diff-filter=ACMR"]);
+  const out = git(root, ["diff", "--cached", "--name-only", "-z", "--diff-filter=ACMRT"]);
   if (out === null) return null;
   const hasil = [];
   for (const rel of out.split("\0").filter(Boolean)) hasil.push(...periksaBerkas(rel, git(root, ["show", `:${rel}`])));

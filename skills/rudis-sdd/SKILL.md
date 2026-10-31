@@ -5,9 +5,9 @@ description: Prosedur RudisOne untuk RUDIS SDD (CLI rudis, command /rudis.*, fol
 
 # RUDIS SDD di RudisOne
 
-Dasar: kajian kelayakan (S1–S8, K1–K12), riset brownfield, dan keputusan pemilik tentang RUDIS SDD — dokumen per device
-di `handoff/`, bukan bagian repo; bila ada dan bertentangan dengan skill ini, keputusan pemilik di sana menang; bila tidak
-ada, minta ringkasan ke Tech Lead.
+Dasar: kajian kelayakan (S1–S8, K1–K12), riset brownfield, dan riset lanjutan — yang terakhir menang bila ketiganya
+bertentangan — serta keputusan pemilik tentang RUDIS SDD (Keputusan 1–5); dokumen per device di `handoff/`, bukan bagian
+repo; bila tidak ada, minta ringkasan ke Tech Lead.
 Peran, gerbang, urutan fase: skill `rudis-sdlc`. Soal teknis repo standar: skill `rudis-monorepo` menang.
 
 ## 1. Mode proyek (kartu proyek)

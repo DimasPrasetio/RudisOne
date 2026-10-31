@@ -582,7 +582,7 @@ test("marketplace cek: validasi entri (pin 40 hex, auto_update false, disetujui)
   assert.equal(r.status, 1);
   assert.match(r.stdout, /pin wajib sha commit penuh \(40 hex\)/);
   assert.match(r.stdout, /auto_update wajib false/);
-  assert.match(r.stdout, /disetujui wajib memuat kutipan keputusan pemilik/);
+  assert.match(r.stdout, /disetujui wajib memuat ringkasan keputusan pemilik/);
   for (const s of ["contoh/plugins", "contoh/b", "contoh/c"]) assert.equal(jalan(mRusak, ["marketplace", "cek", s]).status, 1, s);
 
   // Fungsi murni.

@@ -363,3 +363,23 @@ test("kebersihan (R9): ID tugas / laporan uji device di berkas terlacak → gala
   assert.ok(h.temuan.some((t) => /raci\.md:\d+ \[id-tugas\]/.test(t.pesan)), JSON.stringify(h.temuan));
   assert.ok(h.temuan.some((t) => /uji\/macos\.md \[berkas-terlarang\]/.test(t.pesan)), JSON.stringify(h.temuan));
 });
+
+test("R8 & --serah: perintah keluar-indeks tingkat berkas — berkas sah di folder yang sama (uji/suite/) tidak ikut dibuang", () => {
+  const r = repoMini((t) => { t("uji/suite/README.md", "# Suite\n"); t("uji/macos.md", "# Hasil\n"); t(".gitignore", "handoff/*\n"); });
+  const g = (...a) => execFileSync("git", a, { cwd: r, stdio: "ignore" });
+  g("init", "-q"); g("add", "-A");
+  g("-c", "user.email=u@contoh.test", "-c", "user.name=u", "-c", "commit.gpgsign=false", "commit", "-q", "-m", "awal");
+  fs.writeFileSync(path.join(r, ".gitignore"), "handoff/*\n/uji/*.md\n");
+  const pesan = periksa(r).temuan.find((t) => t.kode === "git-abaikan")?.pesan ?? "";
+  assert.match(pesan, /git rm -q --cached -- uji\/macos\.md && git commit/);
+  assert.doesNotMatch(pesan, /rm -r|uji\/suite/);
+  g("add", ".gitignore");
+  g("-c", "user.email=u@contoh.test", "-c", "user.name=u", "-c", "commit.gpgsign=false", "commit", "-q", "-m", "abaikan");
+  const utama = execFileSync("git", ["branch", "--show-current"], { cwd: r, encoding: "utf8" }).trim();
+  g("checkout", "-q", "-b", "lama", "HEAD~1");
+  const p = spawnSync(process.execPath, [SKRIP, "--serah", `refs/heads/${utama}`], { env: { ...process.env, RUDISONE_ROOT: r }, encoding: "utf8" });
+  assert.equal(p.status, 2, p.stdout);
+  const s = p.stdout.split("\n").find((l) => /\[galat\] serah/.test(l)) ?? "";
+  assert.match(s, /git rm -q --cached -- uji\/macos\.md && git commit, baru merge/);
+  assert.doesNotMatch(s, /rm -r|uji\/suite/);
+});

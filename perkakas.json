@@ -63,7 +63,7 @@
       "Plugin/skill/marketplace pihak ketiga hanya dari allowlist di bawah; selain itu ditolak (rudis init selalu --no-marketplace lewat bin/rudis-sdd.sh).",
       "Setiap entri di-pin ke sha commit penuh (40 hex) dan auto_update false; pembaruan = ganti pin atas keputusan pemilik.",
       "Sebelum pasang, tinjau hooks/, .mcp.json, dan bin/ di sumber pada sha pin; utamakan skill tanpa skrip.",
-      "Entri baru hanya atas keputusan pemilik (pengguna); kutip keputusannya di 'disetujui'. Cek: bin/perkakas.sh marketplace cek [<sumber>]."
+      "Entri baru hanya atas keputusan pemilik (pengguna); 'disetujui' memuat ringkasan keputusan pemilik tanpa tanggal/ID tugas; kutipan lengkapnya di pesan commit. Cek: bin/perkakas.sh marketplace cek [<sumber>]."
     ],
     "allowlist": []
   },

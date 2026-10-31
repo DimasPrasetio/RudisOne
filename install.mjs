@@ -59,8 +59,10 @@ try {
 } catch (e) { fail(`berkas per device (TEAM.md, catatan/) tidak bisa disiapkan: ${e.message}`); }
 // Berkas per device yang masih dilacak git (mis. catatan/) — merge bisa menghapusnya dari disk.
 const git = spawnSync("git", ["-C", ROOT, "ls-files", "-ci", "--exclude-standard"], { encoding: "utf8" });
-const dilacak = git.status === 0 ? [...new Set(git.stdout.split(/\r?\n/).filter(Boolean).map((f) => f.split("/")[0]))].sort().join(" ") : "";
-if (dilacak) fail(`berkas per device masih dilacak git: ${dilacak} — sebelum merge: git rm -r --cached ${dilacak} && git commit (agents/tech-lead.md › Serah ke branch utama)`);
+const berkasDilacak = git.status === 0 ? git.stdout.split(/\r?\n/).filter(Boolean) : [];
+const dilacak = [...new Set(berkasDilacak.map((f) => f.split("/")[0]))].sort().join(" ");
+// tingkat berkas, bukan folder: folder yang sama bisa berisi berkas terlacak yang sah (mis. uji/suite/ di samping uji/*.md)
+if (dilacak) fail(`berkas per device masih dilacak git: ${dilacak} — sebelum merge: git rm -q --cached -- ${berkasDilacak.join(" ")} && git commit (agents/tech-lead.md › Serah ke branch utama)`);
 else pass("berkas per device tidak dilacak git");
 // Hook pre-commit repo (.githooks/pre-commit → bin/bersih.mjs): menolak sisa pemakaian di berkas produk. Hanya dipasang bila
 // core.hooksPath belum diisi (nilai milik pengguna dibiarkan) — konfigurasi git repo-lokal, settings Claude tidak disentuh.

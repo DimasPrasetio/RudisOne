@@ -5,7 +5,7 @@
 //   --proyek <folder> [--serah <branch>] [--json]  kartu proyek vs deteksi mesin (templat/kartu-proyek.md); dengan
 //           --serah: spec yang mungkin basi karena kode yang dirujuknya berubah di branch itu.
 // Tabel pemetaan migrasi (R7) adalah alat pengembang per device, bukan bagian repo: dibaca dari RUDISONE_PEMETAAN atau
-// <root>/handoff/pemetaan/ (dari worktree: RUDISONE_PEMETAAN=~/Documents/Neuron/ai-agent/RudisOne/handoff/pemetaan); tidak ada → dilewati (info).
+// <root>/handoff/pemetaan/ (worktree repo rumah: handoff/pemetaan/ checkout utama); tidak ada → dilewati (info).
 // Exit: 0 bersih · 1 hanya peringatan · 2 ada galat (--serah tanpa --proyek: 0 · 2).
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -14,7 +14,7 @@ import path from "node:path";
 import { execFileSync, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { bangun as bangunPeran, daftarPeran } from "./peran.mjs";
-import { RUMAH_TAMPIL } from "./lib/lokasi.mjs";
+import { RUMAH_TAMPIL, rumahRepo, samaPath } from "./lib/lokasi.mjs";
 import { periksaTautan } from "./lib/tautan.mjs";
 import { deteksiProyek } from "./perkakas.mjs";
 import { agentsCli, backendSesi, folderDesktop, normalAgents, sumberBaca } from "./sesi.mjs";
@@ -36,6 +36,10 @@ const PER_DEVICE = /^(handoff\/|catatan\/|TEAM\.md$|konfigurasi\/(server\.json|i
 const NAMA_SESI_SINGKAT = ["rudis-head-of-it-ops", "rudis-sysadmin", "rudis-fin-controller", "rudis-hr-bp",
   // keluaran `bin/perkakas.sh proyek` (jenis proyek), bukan skill
   "rudis-pustaka", "rudis-deploy"];
+
+/** Perintah mengeluarkan berkas dari indeks TINGKAT BERKAS (bukan folder): folder yang sama bisa berisi berkas terlacak
+ *  yang sah (mis. uji/suite/ di samping uji/*.md yang di-.gitignore) — `git rm -r --cached <folder>` ikut membuangnya. */
+export const perintahKeluarIndeks = (daftar) => `git rm -q --cached -- ${daftar.map((f) => (/^[\w./@+-]+$/.test(f) ? f : `'${f.replace(/'/g, `'\\''`)}'`)).join(" ")}`;
 
 const temuan = [];
 const catat = (tingkat, kode, pesan) => temuan.push({ tingkat, kode, pesan });
@@ -159,7 +163,7 @@ export function cekRepo(root = ROOT, opsi = {}) {
     if (out) {
       const daftar = out.split("\n");
       const folder = [...new Set(daftar.map((f) => f.split("/")[0]))];
-      catat("peringatan", "git-abaikan", `${daftar.length} berkas di-.gitignore tetapi masih dilacak git (${folder.join(", ")}) — keluarkan dari indeks dulu: git rm -r --cached ${folder.join(" ")} && git commit (agents/tech-lead.md › Serah ke branch utama)`);
+      catat("peringatan", "git-abaikan", `${daftar.length} berkas di-.gitignore tetapi masih dilacak git (${folder.join(", ")}) — keluarkan dari indeks dulu (tingkat berkas): ${perintahKeluarIndeks(daftar)} && git commit (agents/tech-lead.md › Serah ke branch utama)`);
     }
   } catch { /* bukan repo git */ }
 
@@ -184,7 +188,16 @@ function berkasInstruksi(root) {
 }
 
 /** Folder tabel pemetaan migrasi — alat pengembang per device, bukan bagian repo (repo adalah sumber instalasi klien). */
-export const folderPemetaan = (root = ROOT) => process.env.RUDISONE_PEMETAAN || path.join(root, "handoff", "pemetaan");
+/** Urutan: RUDISONE_PEMETAAN · <root>/handoff/pemetaan · bila root worktree repo di lokasi rumah (sesi Tech Lead), tabel
+ *  di checkout utama <rumah>/handoff/pemetaan — agar aturan yang diubah di worktree tetap diperiksa tanpa env. */
+export function folderPemetaan(root = ROOT) {
+  if (process.env.RUDISONE_PEMETAAN) return process.env.RUDISONE_PEMETAAN;
+  const sendiri = path.join(root, "handoff", "pemetaan");
+  if (fs.existsSync(sendiri) || samaPath(root, rumahRepo())) return sendiri;
+  const umum = spawnSync("git", ["rev-parse", "--path-format=absolute", "--git-common-dir"], { cwd: root, encoding: "utf8" }).stdout?.trim();
+  const diRumah = path.join(rumahRepo(), "handoff", "pemetaan");
+  return umum && samaPath(umum, path.join(rumahRepo(), ".git")) && fs.existsSync(diRumah) ? diRumah : sendiri;
+}
 const tampilPemetaan = (root, nama) => { const f = path.join(folderPemetaan(root), nama); const r = path.relative(root, f); return r && !r.startsWith("..") && !path.isAbsolute(r) ? r.split(path.sep).join("/") : f; };
 
 /** Tabel pemetaan v6 (`pemetaan-aturan-v6.md` di folderPemetaan, kepala `Ref: <sha>`). Unit aturan ref lama (bin/inventaris-aturan.mjs,
@@ -548,7 +561,7 @@ export function cekSerah(root, ref) {
     if (out) {
       const folder = [...new Set(out.split("\n").map((f) => f.split("/")[0]))];
       const ubah = execFileSync("git", ["status", "--porcelain", "--", ...folder], { cwd: root, encoding: "utf8" }).trim();
-      catat("galat", "serah", `${out.split("\n").length} berkas dilacak di sini tetapi di-.gitignore oleh ${ref} (${folder.join(", ")}${ubah ? `; ${ubah.split("\n").length} berubah lokal` : ""}) — merge langsung akan batal atau menghapusnya dari disk. Dulu: git rm -r -q --cached ${folder.join(" ")} && git commit, baru merge`);
+      catat("galat", "serah", `${out.split("\n").length} berkas dilacak di sini tetapi di-.gitignore oleh ${ref} (${folder.join(", ")}${ubah ? `; ${ubah.split("\n").length} berubah lokal` : ""}) — merge langsung akan batal atau menghapusnya dari disk. Dulu (tingkat berkas): ${perintahKeluarIndeks(out.split("\n"))} && git commit, baru merge`);
     } else catat("info", "serah", `tidak ada berkas dilacak yang di-.gitignore oleh ${ref} — aman di-merge dari sisi ini`);
   } finally { fs.rmSync(tmp, { force: true }); }
   return temuan;

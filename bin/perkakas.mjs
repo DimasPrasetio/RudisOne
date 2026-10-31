@@ -451,7 +451,7 @@ export function periksaAllowlist(kebijakan) {
     if (typeof e?.sumber !== "string" || !e.sumber.trim()) galat.push("sumber kosong");
     if (typeof e?.pin !== "string" || !/^[0-9a-f]{40}$/i.test(e.pin)) galat.push("pin wajib sha commit penuh (40 hex)");
     if (e?.auto_update !== false) galat.push("auto_update wajib false");
-    if (typeof e?.disetujui !== "string" || !e.disetujui.trim()) galat.push("disetujui wajib memuat kutipan keputusan pemilik");
+    if (typeof e?.disetujui !== "string" || !e.disetujui.trim()) galat.push("disetujui wajib memuat ringkasan keputusan pemilik (kutipan lengkap di pesan commit)");
     return { entri: e, galat };
   });
 }
