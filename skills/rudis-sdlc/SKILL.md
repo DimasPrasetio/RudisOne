@@ -145,11 +145,11 @@ ber-database) pada `<slug>_db`/`<slug>_test`. MySQL lain (tes platform §4, data
 1. **`.env` non-DB:** `node scripts/env-local.mjs` (skill `rudis-monorepo`; scaffold menjalankannya sekali, Tech Lead
    menjalankannya lagi setelah setiap `module.mjs add`): JWT acak, login lokal di kunci `*BOOTSTRAP*`, kunci lain dari
    `.env.example`; nilai yang ada tidak diubah; placeholder tak dikenal → exit 1 + namanya. **Login awal lokal bawaan**
-   (keputusan pengguna 2026-10-31): email `admin@gmail.com`, sandi `admin123`, nama `admin` (`USERS_BOOTSTRAP_NAME`; modul
-   users tanpa kolom username) — nilai lokal **publik, bukan rahasia**. Tidak pernah di
-   `.env.production*`/server: `deploy.sh` › `[0/5] preflight` menolaknya (exit 1) sebelum apa pun berubah.
-2. **Database** — hanya bila kunci DB `.env` kosong: `grep -cE '^(DB_DSN|DATABASE_URL)=[^[:space:]"#]' .env` → `0`
-   (hanya `grep -c`, tak pernah menampilkan nilai); terisi → lewati. Tech Lead menjalankan dari root worktree:
+   (pengguna 2026-10-31): email `admin@example.com`, sandi `admin123`, nama `admin` (`USERS_BOOTSTRAP_NAME`; users tanpa
+   username) — lokal, **publik**. Tidak pernah di `.env.production*`/server: `deploy.sh` › `[0/5] preflight` menolaknya
+   (juga `admin@gmail.com` proyek lama; exit 1) sebelum apa pun berubah.
+2. **Database** — hanya bila kunci DB kosong: `~/Documents/Neuron/ai-agent/RudisOne/bin/env-kunci.sh --salah-satu
+   DB_DSN,DATABASE_URL` exit 3 (tanpa membaca `.env`); exit 0 → lewati. Tech Lead menjalankan dari root worktree:
    `node scripts/db-local.mjs --admin-password-empty` — memeriksa `SELECT VERSION()`, membuat `<slug>_db`, `<slug>_test`,
    akun `<slug>_dev@'127.0.0.1'` (`caching_sha2_password`, berhak hanya atas keduanya) bersandi acak, menulis kunci DB ke
    `.env`, lalu mencoba login. Exit 0 = siap · 4 = `<slug>_*` sudah ada, tidak ada yang diubah · 3 = root bersandi atau

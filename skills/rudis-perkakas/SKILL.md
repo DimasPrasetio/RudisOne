@@ -1,6 +1,6 @@
 ---
 name: rudis-perkakas
-description: Daftar perkakas bersama RudisOne (bin/*.sh — server-cek, rilis-cek, pasca-deploy, konfig, kantor, kebijakan, perkakas, register, cek-konsistensi, peran, inti, metrik), skill tim rudis-*, dan aturan skill luar (perkakas.sh pastikan/skill, docx-neuron, document-skills, frontend-design, docs). Muat saat perlu tahu perintah mana yang dipakai dan exit code-nya, sebelum memuat skill luar yang belum ada di daftar skill sesimu, atau saat mendaftarkan skill/perkakas baru.
+description: Daftar perkakas bersama RudisOne (bin/*.sh — server-cek, rilis-cek, env-kunci, gerbang-tl, pasca-deploy, konfig, kantor, kebijakan, perkakas, register, cek-konsistensi, peran, inti, metrik), skill tim rudis-*, dan aturan skill luar (perkakas.sh pastikan/skill, docx-neuron, document-skills, frontend-design, docs). Muat saat perlu tahu perintah mana yang dipakai dan exit code-nya, sebelum memuat skill luar yang belum ada di daftar skill sesimu, atau saat mendaftarkan skill/perkakas baru.
 ---
 
 # Perkakas bersama, skill tim, dan skill luar
@@ -10,6 +10,8 @@ description: Daftar perkakas bersama RudisOne (bin/*.sh — server-cek, rilis-ce
 |---|---|---|
 | `bin/server-cek.sh [alias]` | Snapshot server (dari `konfigurasi/server.json`): host, nginx/mysql, tiap app di registry playbook (image, health, `/readyz`, sisa hari SSL) | 0 sehat · 1 peringatan · 2 tak terhubung · 3 konfigurasi belum ada |
 | `bin/rilis-cek.sh <owner/repo> <sha>` | Workflow CI per commit + tag image GHCR yang terbit | 0 siap deploy · 1 gagal · 2 berjalan · 3 argumen |
+| `bin/env-kunci.sh [--wajib K1,K2] [--salah-satu K1,K2] [--contoh <berkas>] [--json] [<berkas .env>]` | Status kunci `.env` (terisi/kosong/placeholder/hilang/tambahan) **tanpa nilai** — satu-satunya cara agent memeriksa `.env`; membaca isinya (Read, `cat`, `grep`, `source`, `node -e` …) ditolak hook penjaga `.env`. Semua jabatan, tanpa prompt | 0 lengkap · 3 kurang/berkas tidak ada · 4 placeholder · 1 galat |
+| `bin/gerbang-tl.sh <ID> [--repo <path>] [--base <ref>] [--transkrip <jsonl>] [--json]` | Gerbang Tech Lead-subagent sebelum melapor: `handoff/<ID>/status.md` (Repo:, Base:, selesai/sisa/langkah berikutnya), commit di `rudis/<ID>`, worktree bersih, `rudis/<ID>-se*` tergabung, `handoff/<ID>/tinjauan.md` LULUS untuk sha HEAD (+ `kecocokan-spesifikasi: LULUS` bila ada spesifikasi). Juga hook `SubagentStop` `rudis-tech-lead` (`--hook`) — `agents/coo.md` | 0 siap lapor · 2 kurang · 1 galat |
 | `bin/pasca-deploy.sh <app> <sha> [alias]` | Setelah deploy: image = sha, healthy, `/readyz` 200, CORS via domain publik, app lain tetap healthy | 0 lolos · 1 gagal · 3 argumen |
 | `bin/konfig.sh [cek\|get <jalur>\|host [alias]\|playbook [alias]\|contoh]` | Konfigurasi per device (server, aplikasi, DNS) — baca saja; `cek` gagal → COO menanyakan pengguna (`penyedia.md` › Konfigurasi server) | 0 · 3 belum ada / kurang |
 | `bin/kantor.sh [buka\|--tanpa-browser\|mulai-ulang\|berhenti\|demo]` | Kantor RudisOne (tampilan pemantauan lokal) | 0 · 1 gagal menyala |
