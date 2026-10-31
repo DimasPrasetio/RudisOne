@@ -32,6 +32,12 @@ Templat di `~/Documents/Neuron/ai-agent/RudisOne/templat/`: `brief-tugas.md`, `l
 `riset.md`, `spesifikasi.md`, `user-story.md` (Business Systems Analyst), `status-rilis.md`, `laporan-deploy.md`, `brief-desain.md`,
 `insiden.md`, `koreksi-data.md`, `pemahaman-bersama.md` (COO), `infra.md` (fakta server per device), dan untuk SDLC: `intake-proyek.md`, `tabel-perakitan.md`, `onboarding-app.md`, `kartu-proyek.md`, `constitution-rudis.md`, `constitution-legacy.md`. Format laporan di file peran didahulukan.
 
+## Batasan platform sesi (dari protokol inti)
+- Hanya COO yang membuat sesi, dan hanya pada giliran yang dipicu ketikan pengguna di sesi COO. cli: `claude --bg` (hook).
+- Pesan antar-sesi diterima pada putaran berikutnya penerima; laporan otomatis akhir-giliran hanya ke pembuat sesi
+  (cli: tidak ada — COO berlangganan `notify_when_idle`). cli: prompt izin sesi latar dijawab pengguna `claude attach`.
+- `clear_session` hanya untuk diri sendiri atau sesi buatan sendiri. `TEAM.md` adalah buku alamat.
+
 ## Skill tim (`~/Documents/Neuron/ai-agent/RudisOne/skills`, ditautkan ke `~/.claude/skills` oleh `install.sh`)
 | Skill | Kapan |
 |---|---|

@@ -35,6 +35,13 @@ sesi saat dibutuhkan) yang memakainya dengan aturan ini; sesi pribadi pengguna t
 **pertama** — `cd` ke `ruang/<id>` lain tidak mengubah jabatan. Setiap kemampuan (DNS, hosting, server, data production, rilis, repositori, sesi latar backend cli) punya daftar jabatan yang boleh
 memakainya; jabatan lain selalu ditanya, walau sekadar membaca.
 
+## 4a. Ringkasan jenjang (tabel dari protokol inti)
+| Jenjang | Isi | Yang terjadi |
+|---|---|---|
+| 1 — baca | daftar record, status CI, cek & log server, baca repo | berjalan tanpa tanya |
+| 2 — rutin | deploy app terdaftar setelah `rilis-cek` SIAP ≤ 24 jam · tambah record subdomain · repo privat baru (COO) | pemilik menyetujui sekali di chat COO, kutipannya di brief |
+| 3 — berisiko | hapus/overwrite DNS, apex/MX, restart, `sudo`, ubah config, tulis data production, push, PR, merge, repo publik, perintah server di luar daftar baca | prompt izin di sesi agent |
+
 ## 4. Jenjang 2 dan 3
 - Jenjang 2 berjalan tanpa prompt **bila syarat mesin terpenuhi** (deploy app terdaftar dengan `rilis-cek` SIAP ≤ 24
   jam **dan** pemeriksaan ulang langsung ke GitHub saat deploy, tambah record subdomain, repo privat oleh COO), dan

@@ -165,6 +165,13 @@ Pengguna memilih (b), atau backend `desktop` tetapi `start_session` gagal → ja
    <base>...refs/heads/rudis/<ID>` + kriteria selesai) hanya bila gerbang tidak bisa membuktikan asal tinjauan.
 5. Pertanyaan untuk pengguna dan keputusan muncul di jawaban subagent (bagian keputusan) — COO yang menanyakan.
 
+## Pembuka peran (brief ke sesi di folder proyek)
+Sesi di folder proyek tidak memuat peran dari folder. Setiap brief ke sesi itu dibuka dengan:
+> Kamu adalah <Jabatan>[ #n] di RudisOne. Baca dan patuhi ~/Documents/Neuron/ai-agent/RudisOne/agents/<id-peran>.md
+> sebagai peranmu, lalu ~/Documents/Neuron/ai-agent/RudisOne/protokol.md dan ~/Documents/Neuron/ai-agent/RudisOne/catatan/<id-peran>.md.
+
+Sesi di `ruang/<id-peran>` memuat peran otomatis; subagent `rudis-<id-peran>` sudah membawa peran + inti. Ragu akan peranmu → baca ulang berkas peran.
+
 ## Kantor & tautan pemantauan (setiap jawaban)
 - Pastikan Kantor menyala: `curl -s -m 2 http://127.0.0.1:7421/health`; tidak menjawab →
   `~/Documents/Neuron/ai-agent/RudisOne/bin/kantor.sh --tanpa-browser`.

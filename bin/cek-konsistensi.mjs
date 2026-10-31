@@ -24,7 +24,7 @@ const RUMAH = RUMAH_TAMPIL;   // satu sumber: lib/lokasi.mjs
 const SKILLS_USER = process.env.RUDISONE_SKILLS_USER || path.join(HOME, ".claude", "skills");
 const AGENTS_USER = process.env.RUDISONE_AGENTS_USER || path.join(HOME, ".claude", "agents");
 const DESKTOP = folderDesktop();
-export const BATAS_INTI = 200;
+export const BATAS_INTI = 185;   // T-20261031-2.3: inti dirampingkan ke ±182 baris; tambah aturan → pindahkan ke skill/mekanisme dulu
 /** Batas isi skill yang dipertahankan setelah kompaksi (≈5.000 token; perkiraan 1 token ≈ 4 byte). */
 const BATAS_SKILL_BYTE = 20_000;
 /** Berkas per device / di luar repo: tidak wajib ada di repo. */

@@ -8,6 +8,11 @@ Linux sungguhan** (T-20261030-11: simulasi + `claude` tiruan). Windows 11 native
 `claude agents --json --all`, `claude logs` (keluarannya dump layar ber-kode ANSI) dan `claude rm <id>` (memakai **id**, bukan nama);
 `SendMessage`/`attach` belum diuji di sana. Bila perilaku CLI berbeda dari tabel ini, laporkan ke pengguna, jangan diakali.
 
+## Ringkasan (dari protokol inti)
+- **Backend sesi** (`bin/sesi.sh backend`): `desktop` (alat sesi Claude Desktop), `cli` (`claude --bg`, `claude agents --json`,
+  `SendMessage` lokal, `claude stop`) atau `auto` (bawaan macOS/Windows: alat sesi Desktop ada → desktop; CLI/VS Code → cli);
+  padanan aksi: skill `rudisone` › `backend-cli.md`. Satu backend per COO, tidak dicampur. Pola lama: rollback utuh (README › Rollback).
+
 ## Prasyarat (sekali per device, oleh pengguna)
 - Claude Code CLI **≥ 2.1.300** (`claude --version`; perbarui `claude update`). COO sendiri berjalan di terminal (`claude`).
 - `bin/sesi.sh cek` → setiap folder yang ditolak `claude --bg` dibuka sekali oleh **pengguna** dengan baris yang dicetak
