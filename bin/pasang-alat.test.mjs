@@ -137,8 +137,9 @@ test("pastikanAlat: biner ada di ~/.local/bin tetapi belum di PATH → dikenali 
   const { m, lapor } = catat();
   const env = envKosong({ RUDISONE_PEMASANG_UV: uv.exe, RUDISONE_PEMASANG_CLAUDE: uv.exe, RUDISONE_CLAUDE_BIN: "" });
   const asli = process.env.PATH; process.env.PATH = env.PATH;
-  let h; try { h = pastikanAlat({ home, os: process.platform, env, lapor }); } finally { process.env.PATH = asli; }
+  let h, pathSesudah; try { h = pastikanAlat({ home, os: process.platform, env, lapor }); pathSesudah = process.env.PATH; } finally { process.env.PATH = asli; }
   assert.deepEqual(h, { dipasang: [], gagal: [] });
+  assert.ok(pathSesudah.split(path.delimiter).includes(path.join(home, ".local", "bin")), "PATH proses diperpanjang agar langkah berikutnya (uvx) menemukannya");
   assert.ok(!ada(uv.jejak));
   assert.ok(m.info.some((t) => /belum ada di PATH shell ini/.test(t)));
 });

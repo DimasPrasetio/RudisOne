@@ -112,7 +112,7 @@ export function pastikanAlat(o) {
     // konfirmasi sesudah pemasangan (juga untuk yang sudah ada: tiap biner dilaporkan versinya)
     for (const b of bins) {
       const a = cariAlat(b, { os, home, override: b === "claude" ? env.RUDISONE_CLAUDE_BIN : undefined });
-      if (!a) { lapor.gagal(`${b} --version gagal sesudah pemasangan — ${manual}`); hasil.gagal.push(b); continue; }
+      if (!a) { lapor.gagal(ada === null ? `${b} --version gagal sesudah pemasangan — ${manual}` : `${b} tidak ditemukan padahal ${bins[0]} ada (instalasi tidak lengkap) — ${manual}`); hasil.gagal.push(b); continue; }
       if (a.lokasi !== "path") { bukaUlang.push(a.lokasi); }
       if (b !== bins[0] || !ada) lapor.ok(`${b} --version → ${a.versi}${a.lokasi === "path" ? "" : ` (${a.lokasi}; belum di PATH)`}`);
       if (b === "claude" && versiMinClaude && banding(a.versi, versiMinClaude) < 0) {
@@ -126,6 +126,8 @@ export function pastikanAlat(o) {
 
   if (bukaUlang.length) {
     const dir = path.dirname(bukaUlang[0]);
+    // langkah install berikutnya (mis. perkakas SDLC yang memanggil `uvx`) harus ikut menemukannya di proses ini
+    if (!(process.env.PATH ?? "").split(path.delimiter).includes(dir)) process.env.PATH = `${dir}${path.delimiter}${process.env.PATH ?? ""}`;
     lapor.info(`${dir} belum ada di PATH shell ini — buka ulang terminal; bila tetap tidak ditemukan, tambahkan ke PATH${windows(os) ? "" : ` (mis. export PATH="${dir}:$PATH" di profil shell)`}`);
   }
   return hasil;
