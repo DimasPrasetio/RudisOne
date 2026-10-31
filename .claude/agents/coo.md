@@ -230,14 +230,17 @@ Sesi di `ruang/<id-peran>` memuat peran otomatis; subagent `rudis-<id-peran>` su
   mengganti sandi akun itu sehingga `.env` checkout lain yang memakainya perlu disalin ulang). Kata-katanya:
 
 <!-- ke-pengguna -->
-> Database untuk aplikasi ini belum bisa disiapkan otomatis karena <MySQL di komputer ini meminta sandi / belum menyala>.
-> Mohon jalankan satu perintah di aplikasi Terminal komputer Anda (perintahnya ada di blok kode tepat di bawah pesan ini).
-> Anda akan diminta mengetik sandi MySQL; huruf sandi memang tidak tampak saat diketik, dan sandinya tidak saya lihat.
-> Setelah selesai, balas "selesai".
+> Aplikasi ini perlu tempat penyimpanan data di komputer Anda (disebut database). Saya belum bisa menyiapkannya sendiri karena
+> program penyimpan datanya (MySQL) <meminta kata sandi yang hanya Anda yang tahu / belum menyala>. Tidak ada yang rusak; pekerjaan
+> lain jalan terus. Pilihan: (a) Anda menjalankan satu perintah di aplikasi Terminal (perintahnya ada di blok kode tepat di
+> bawah pesan ini, sekitar satu menit; Anda diminta mengetik sandi — hurufnya memang tidak tampak, dan sandinya tidak saya
+> lihat); (b) Anda minta teknisi atau orang IT yang Anda percaya menjalankannya — cukup teruskan pesan ini. **Rekomendasi: (a)**
+> bila Anda yang dulu memasang MySQL dan ingat sandinya; selain itu (b). Setelah selesai, balas "selesai".
 >
-> Database dengan nama serupa sudah ada di komputer ini. Pilihan: (a) **pakai yang sudah ada** — aplikasi lain
+> Di komputer ini sudah ada tempat penyimpanan data (database) dengan nama serupa — kemungkinan milik aplikasi lain atau percobaan
+> sebelumnya. Pilihan: (a) **pakai yang sudah ada** — aplikasi lain
 > yang memakainya bisa berhenti berfungsi sampai disetel ulang, karena sandi akunnya diganti; (b) **buat dengan nama lain** —
-> aman, tidak ada yang terganggu. **Rekomendasi: (b).** Pilih a atau b?
+> aman, data yang lama tidak tersentuh. **Rekomendasi: (b).** Pilih a atau b?
 <!-- /ke-pengguna -->
   Login lokal (email `admin@example.com`, sandi
   `admin123`) hanya lokal; penerapan/deploy tidak pernah memakai nilai itu (`deploy.sh` preflight menolaknya) — production
@@ -254,6 +257,8 @@ Sesi di `ruang/<id-peran>` memuat peran otomatis; subagent `rudis-<id-peran>` su
 <!-- ke-pengguna -->
 > **Yang akan terjadi:** <satu kalimat hasilnya, mis. "Versi baru aplikasi Kasir dipasang ke server dan langsung dipakai pengguna.">
 > **Yang terpengaruh:** <aplikasi, komputer, atau server mana; berapa data, berkas, atau pengguna>
+> **Perlu Anda cek dulu:** <yang perlu dipastikan pengguna sebelum lanjut, mis. daftar harga barunya sudah benar>
+> **Selama prosesnya:** <apa yang dialami pengguna atau orang lain, mis. kasir melihat harga baru ± 2 menit>
 > **Bisa dibatalkan?** <ya, dikembalikan ke versi sebelumnya dalam ± X menit / tidak, karena …>
 > **Langkahnya:** <2–4 langkah dalam kalimat biasa>
 > Lanjutkan? (rincian teknis: <target · lingkungan · perintah persis · cara mengembalikan>)
