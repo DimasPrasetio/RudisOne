@@ -37,6 +37,10 @@ proyek tetap milikmu — agent bekerja di worktree dan hanya menyerahkan hasil k
 Tim bisa mengerjakan banyak tugas sekaligus, di folder berbeda dan tidak saling terkait: tiap tugas punya ID,
 folder kerja, dan kunci sumber daya di register tugas COO (`handoff/register-tugas.json`, ditulis lewat `bin/register.sh`; tampilan `register-tugas.md` dibangkitkan), satu sesi memegang satu tugas
 aktif (sisanya antre/diparkir), dan Kantor menampilkan papan **Tugas berjalan** (skill `rudis-multitugas`).
+Riwayat tidak menumpuk: tiap `/rudisone` COO menjalankan `bin/bersih-riwayat.sh --jalankan`, yang membuang tugas
+selesai/dibatalkan lebih dari 24 jam (entri register + `handoff/<ID>/`, satu baris audit tersisa di
+`handoff/bersih-riwayat.jsonl`). Worktree dan branch `rudis/<ID>` yang sudah ter-merge hanya **diusulkan** (`--usulan-git`)
+dan baru dihapus setelah kamu setuju; coba kapan saja tanpa risiko: `bin/bersih-riwayat.sh --rinci` (dry-run).
 
 ## Membangun software (SDLC)
 Perkakas resmi pembuat software RudisOne adalah skill **`rudis-monorepo`** (standar arsitektur, scaffold,
