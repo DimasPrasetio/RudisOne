@@ -286,10 +286,15 @@ function sidikFolder(dir) {
 const adaIsi = (dir) => { try { return fs.readdirSync(dir).length > 0; } catch { return false; } };
 // Alat tidak terpasang (bukan galat paket): spawn ENOENT, shell 127, cmd.exe 9009.
 const tidakAda = (r) => /\bENOENT\b/.test(r.err) || r.kode === 127 || r.kode === 9009;
+// unzip kode 1 juga dipakai saat sebagian entri dilewati (mis. sandi enkripsi) → hanya peringatan backslash yang diterima.
+const hanyaPeringatanBackslash = (r) => {
+  const baris = `${r.err}\n${r.out}`.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+  return baris.length > 0 && baris.every((s) => /backslashes as path separators/i.test(s));
+};
 
 /** Buka paket zip ke `tujuan` (folder kosong). Urutan: unzip → python3 (bukan Windows: alias WindowsApps bisa menggantung)
  *  → tar (bsdtar membuka zip: macOS, Windows 10+) → PowerShell Expand-Archive (Windows).
- *  unzip kode 1 = peringatan (mis. entri ber-backslash), berkas tetap terbuka → diterima bila folder terisi.
+ *  unzip kode 1 = peringatan; hanya peringatan entri ber-backslash (berkas tetap terbuka) yang diterima, bila folder terisi.
  *  Hasil: { alat, peringatan } · semua cara gagal → Error "paket tidak bisa dibuka: …" (galat alat pertama yang benar-benar jalan). */
 export function bukaPaket(paket, tujuan, { jalankan: run = jalankan, platform = process.platform } = {}) {
   const cara = [["unzip", "unzip", ["-q", "-o", paket, "-d", tujuan]]];
@@ -305,7 +310,7 @@ export function bukaPaket(paket, tujuan, { jalankan: run = jalankan, platform = 
     fs.mkdirSync(tujuan, { recursive: true });
     const r = run(cmd, args);
     if (r.ok) return { alat, peringatan: "" };
-    if (alat === "unzip" && r.kode === 1 && adaIsi(tujuan)) return { alat, peringatan: baris1(r.err || r.out) };
+    if (alat === "unzip" && r.kode === 1 && hanyaPeringatanBackslash(r) && adaIsi(tujuan)) return { alat, peringatan: baris1(r.err || r.out) };
     const pesan = baris1(r.err || r.out).trim().replace(/\s+/g, " ") || `kode ${r.kode}`;
     if (!tidakAda(r)) galat.push(pesan.startsWith(`${alat}:`) ? pesan : `${alat}: ${pesan}`);
   }

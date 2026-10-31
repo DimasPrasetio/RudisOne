@@ -99,9 +99,18 @@ test("unzip kode 1 dengan berkas terbuka = peringatan, tidak lanjut ke alat lain
 });
 
 test("unzip kode 1 tanpa berkas terbuka = gagal, lanjut ke alat berikutnya", () => {
-  const { run, panggil } = pelari({ unzip: { kode: 1, err: "warning: kosong" }, tar: { kode: 0, tulis: true } });
+  const { run, panggil } = pelari({ unzip: { kode: 1, err: "warning:  p.skill appears to use backslashes as path separators" }, tar: { kode: 0, tulis: true } });
   assert.equal(bukaPaket("p.skill", tujuan(), { jalankan: run, platform: "darwin" }).alat, "tar");
   assert.deepEqual(panggil, ["unzip", "python3", "tar"]);
+});
+
+test("unzip kode 1 karena entri dilewati (bukan backslash) = gagal walau sebagian terbuka", () => {
+  const { run, panggil } = pelari({
+    unzip: { kode: 1, err: "warning:  p.skill appears to use backslashes as path separators\n   skipping: rudis-monorepo/b.md  unable to get password", tulis: true },
+    tar: { kode: 0, tulis: true },
+  });
+  assert.equal(bukaPaket("p.skill", tujuan(), { jalankan: run, platform: "win32" }).alat, "tar");
+  assert.deepEqual(panggil, ["unzip", "tar"]);
 });
 
 test("Windows: python3 tidak pernah dipanggil", () => {
