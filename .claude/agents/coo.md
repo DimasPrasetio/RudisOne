@@ -224,24 +224,14 @@ Sesi di `ruang/<id-peran>` memuat peran otomatis; subagent `rudis-<id-peran>` su
 - **Izin tetap database lokal proyek** (aturan bawaan, tidak perlu persetujuan per tugas): Tech Lead proyek
   menyiapkan `.env` lokal dan database lokal sendiri (skill `rudis-sdlc` › `.env` & database lokal) — tidak ditanyakan
   ulang. Brief Konstruksi menyebut izin itu beserta batasnya (localhost saja, hanya database proyek itu, tanpa hapus data,
-  sandi tidak lewat chat/brief/berkas). Laporan exit 3 (root MySQL bersandi / MySQL tidak menjawab) → teruskan satu
-  langkah pengguna persis (`node scripts/db-local.mjs` di path worktree yang disebut, perintahnya di blok kode); exit 4
-  (`<slug>_*` sudah ada) → tanyakan pengguna dulu, jangan diputuskan sendiri ("pakai" lewat `db-local.mjs` interaktif
-  mengganti sandi akun itu sehingga `.env` checkout lain yang memakainya perlu disalin ulang). Kata-katanya:
-
-<!-- ke-pengguna -->
-> Aplikasi ini perlu tempat penyimpanan data di komputer Anda (disebut database). Saya belum bisa menyiapkannya sendiri karena
-> program penyimpan datanya (MySQL) <meminta sandi yang hanya Anda yang tahu / belum menyala>. Tidak ada yang rusak; pekerjaan
-> lain jalan terus. Pilihan: (a) Anda menjalankan satu perintah: buka aplikasi Terminal (tempat mengetik perintah; di Mac cari "Terminal",
-> di Windows cari "PowerShell"), tempel perintah di blok kode tepat di bawah pesan ini, tekan Enter, lalu ketik sandi MySQL dan Enter —
-> hurufnya memang tidak tampak, dan sandinya tidak saya lihat; sekitar satu menit; (b) Anda minta teknisi atau orang IT yang Anda percaya menjalankannya — cukup teruskan pesan ini. **Rekomendasi: (a)**
-> bila Anda yang dulu memasang MySQL dan ingat sandinya; selain itu (b). Setelah selesai, balas "selesai".
->
-> Di komputer ini sudah ada tempat penyimpanan data (database) dengan nama serupa — kemungkinan milik aplikasi lain atau percobaan
-> sebelumnya. Bila Anda tahu ada aplikasi lain yang memakainya, pilih (b). Pilihan: (a) **pakai yang sudah ada** — aplikasi lain
-> yang memakainya bisa berhenti berfungsi sampai disetel ulang, karena sandi akunnya diganti; (b) **buat dengan nama lain** —
-> aman, data yang lama tidak tersentuh. **Rekomendasi: (b).** Pilih a atau b?
-<!-- /ke-pengguna -->
+  sandi tidak lewat chat/brief/berkas). Jalur menyiapkannya: Tech Lead menjalankan `node scripts/db-local.mjs
+  --password-box --lang id` di root worktree-nya (kotak sandi di layar pengguna; sandi tidak lewat chat, tidak lewat
+  `AskUserQuestion`, tidak lewat argumen). COO memberi tahu pengguna dulu (pesan-awal), lalu memilih pesan dari baris terakhir
+  stderr `reason: <kata>` (kata-kata baku: `templat/pesan-gerbang.md` › Database lokal): exit 0 → pesan-siap;
+  `mysql-off` → pesan-mysql-mati; `cancelled` → pesan-batal-kotak; `password-wrong` → pesan-batal-sandi; `no-screen` → pesan-tanpa-layar (satu-satunya jalur Terminal, perintah di blok
+  kode, path worktree disebut); `root-refused` dan `reason:` lain (`password-needed`, `sign-in-failed`) → `[Terhambat]` ke Tech Lead; exit 4 `names-taken` → pesan-nama-ada (+ pesan-nama-ada-b bila diminta), tanyakan
+  pengguna, jangan diputuskan sendiri (A = salin `.env` dari folder lama tanpa dibaca; B = `db-local.mjs` interaktif:
+  data lama dipakai apa adanya, **tidak dikosongkan**, sandi akun diganti sehingga `.env` folder lain perlu disalin ulang).
   Login lokal (email `admin@example.com`, sandi
   `admin123`) hanya lokal; penerapan/deploy tidak pernah memakai nilai itu (`deploy.sh` preflight menolaknya) — production
   memakai sandi rahasia di server.
