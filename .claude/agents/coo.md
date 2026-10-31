@@ -228,8 +228,8 @@ Sesi di `ruang/<id-peran>` memuat peran otomatis; subagent `rudis-<id-peran>` su
   --password-box --lang id` di root worktree-nya (kotak sandi di layar pengguna; sandi tidak lewat chat, tidak lewat
   `AskUserQuestion`, tidak lewat argumen). COO memberi tahu pengguna dulu (pesan-awal), lalu memilih pesan dari baris terakhir
   stderr `reason: <kata>` (kata-kata baku: `templat/pesan-gerbang.md` › Database lokal): exit 0 → pesan-siap;
-  `mysql-off` → pesan-mysql-mati; `cancelled`/`password-wrong` → pesan-batal; `no-screen` → pesan-tanpa-layar (satu-satunya jalur Terminal, perintah di blok
-  kode, path worktree disebut); `root-refused` → `[Terhambat]` ke Tech Lead; exit 4 `names-taken` → pesan-nama-ada, tanyakan
+  `mysql-off` → pesan-mysql-mati; `cancelled` → pesan-batal-kotak; `password-wrong` → pesan-batal-sandi; `no-screen` → pesan-tanpa-layar (satu-satunya jalur Terminal, perintah di blok
+  kode, path worktree disebut); `root-refused` dan `reason:` lain (`password-needed`, `sign-in-failed`) → `[Terhambat]` ke Tech Lead; exit 4 `names-taken` → pesan-nama-ada (+ pesan-nama-ada-b bila diminta), tanyakan
   pengguna, jangan diputuskan sendiri (A = salin `.env` dari folder lama tanpa dibaca; B = `db-local.mjs` interaktif:
   data lama dipakai apa adanya, **tidak dikosongkan**, sandi akun diganti sehingga `.env` folder lain perlu disalin ulang).
   Login lokal (email `admin@example.com`, sandi
