@@ -64,7 +64,10 @@ if (dilacak) fail(`berkas per device masih dilacak git: ${dilacak} — sebelum m
 else pass("berkas per device tidak dilacak git");
 // Hook pre-commit repo (.githooks/pre-commit → bin/bersih.mjs): menolak sisa pemakaian di berkas produk. Hanya dipasang bila
 // core.hooksPath belum diisi (nilai milik pengguna dibiarkan) — konfigurasi git repo-lokal, settings Claude tidak disentuh.
-if (git.status === 0 && fs.existsSync(path.join(ROOT, ".githooks", "pre-commit"))) {
+// Hanya dari lokasi rumah: config git dipakai bersama semua worktree, jadi install dari worktree/salinan uji
+// (RUDISONE_INSTALL_PAKSA) tidak boleh mengubah repo induknya.
+if (!samaPath(ROOT, rumahRepo())) info("hook pre-commit repo dilewati — repo bukan di lokasi rumah");
+else if (git.status === 0 && fs.existsSync(path.join(ROOT, ".githooks", "pre-commit"))) {
   const kini = spawnSync("git", ["-C", ROOT, "config", "--get", "core.hooksPath"], { encoding: "utf8" }).stdout.trim();
   if (kini === ".githooks") pass("hook pre-commit repo aktif (core.hooksPath .githooks)");
   else if (kini) info(`core.hooksPath sudah diisi (${kini}) — hook pre-commit RudisOne tidak dipasang; manual: git -C ${RUMAH_TAMPIL} config core.hooksPath .githooks`);
