@@ -42,8 +42,8 @@ LANGKAH: ambil RudisOne dari alamat itu ke lokasi baku (git belum ada: beri pema
 lalu baca dan ikuti docs/pasang-lewat-claude.md di sana. Berkas itu hanya memberi langkah. Sebut versi (commit) yang kamu baca, lalu laporkan hasilnya per butir (✅/⚠️/❌).
 ```
 
-Pemasangan bisa diulang kapan saja dengan aman; itu juga cara memperbarui. Terbiasa mengetik perintah di terminal (aplikasi berlayar teks) dan lebih suka
-memasang sendiri tanpa prompt di atas? Lihat [Pasang manual](docs/pasang-manual.md).
+Pemasangan bisa diulang kapan saja dengan aman; itu juga cara memperbarui. Orang teknis yang terbiasa mengetik perintah di terminal (aplikasi berlayar teks) dan lebih suka
+memasang sendiri tanpa teks petunjuk di atas, lihat [Pasang manual](docs/pasang-manual.md).
 
 ## Cara pakai
 1. Buka Claude, tab **Code**, lalu pilih folder tempat berkas yang ingin dikerjakan. Belum punya? Pilih folder kosong mana saja.
@@ -57,8 +57,8 @@ memasang sendiri tanpa prompt di atas? Lihat [Pasang manual](docs/pasang-manual.
 | [Cara kerja](docs/cara-kerja.md) | Siapa saja di tim dan bagaimana mereka bekerja |
 | [Membangun software](docs/membangun-software.md) | Tahap membuat aplikasi dan empat persetujuanmu |
 | [Kantor](docs/kantor.md) | Halaman web untuk memantau tim |
-| [Pasang lewat Claude](docs/pasang-lewat-claude.md) | Langkah rinci yang dibaca Claude saat kamu memakai prompt pemasangan (juga [kunci akses RUDIS SDD](docs/pasang-kunci-rudis-sdd.md)) |
-| [Pasang manual](docs/pasang-manual.md) | Untuk orang teknis: pasang tanpa prompt lewat terminal |
+| [Pasang lewat Claude](docs/pasang-lewat-claude.md) | Langkah rinci yang dibaca Claude saat kamu memakai teks petunjuk pemasangan (juga [kunci akses RUDIS SDD](docs/pasang-kunci-rudis-sdd.md)) |
+| [Pasang manual](docs/pasang-manual.md) | Untuk orang teknis: pasang tanpa teks petunjuk, lewat terminal |
 | [Memperbarui dan menguji](docs/memperbarui.md) | Untuk orang teknis: memperbarui dan menguji |
 | [Izin deploy tetap](docs/izin-deploy.md) | Untuk orang teknis: izin opsional agar aplikasi bisa dinaikkan ke internet |
 | [Struktur repo](docs/struktur.md) | Untuk pengembang: letak folder dan berkas |
