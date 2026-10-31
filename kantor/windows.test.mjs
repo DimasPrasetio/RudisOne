@@ -9,7 +9,7 @@ import os from "node:os";
 import path from "node:path";
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "kantor-win-"));
-const proj = path.join(tmp, "projects", "d--PENGEMBANGAN-RUDIS");
+const proj = path.join(tmp, "projects", "d--PROYEK-KLIEN");
 fs.mkdirSync(proj, { recursive: true });
 fs.mkdirSync(path.join(tmp, "desktop"), { recursive: true });
 process.env.RUDISONE_ROOT = path.join(tmp, "RudisOne");
@@ -22,8 +22,8 @@ process.env.RUDISONE_KANTOR_TEAM_MD = path.join(tmp, "TEAM.md");
 process.env.RUDISONE_KANTOR_REGISTER = path.join(tmp, "register-tugas.md");
 process.env.RUDISONE_KANTOR_REGISTER_JSON = path.join(tmp, "register-tugas.json");
 
-const PROYEK = String.raw`D:\PENGEMBANGAN-RUDIS\inventory`;
-const WT_INV = String.raw`D:\PENGEMBANGAN-RUDIS\inventory\.claude\worktrees\r1-lead-inventory`;
+const PROYEK = String.raw`D:\PROYEK-KLIEN\inventory`;
+const WT_INV = String.raw`D:\PROYEK-KLIEN\inventory\.claude\worktrees\r1-lead-inventory`;
 const WT_R1 = String.raw`C:\Users\u\Documents\Neuron\ai-agent\RudisOne\.claude\worktrees\r2-lead-rudisone-9fd64d`;
 const WT_R4 = String.raw`C:\Users\u\Documents\Neuron\ai-agent\rudis-modules\.claude\worktrees\r4-lead-rudis-modules-28beb9`;
 
@@ -51,26 +51,26 @@ const pakai = (msAgo, id, name, input, cwd) => ({ type: "assistant", timestamp: 
 // COO di VS Code (entrypoint claude-vscode): cwd `d:\…` huruf kecil, hanya ai-title, tanpa agent-setting/custom-title
 const COO = "a550846e-d552-49d6-9ae8-556c31cfb501";
 tulis(path.join(proj, `${COO}.jsonl`), [
-  { type: "user", timestamp: iso(600e3), cwd: String.raw`d:\PENGEMBANGAN-RUDIS`, entrypoint: "claude-vscode",
+  { type: "user", timestamp: iso(600e3), cwd: String.raw`d:\PROYEK-KLIEN`, entrypoint: "claude-vscode",
     message: { content: "<command-message>rudisone</command-message>\n<command-name>/rudisone</command-name>\n<command-args>buat aplikasi</command-args>" } },
   { type: "ai-title", aiTitle: "PowerShell && separator error", sessionId: COO },
-  pakai(5e3, "c1", "Agent", { description: "Tech Lead: analisis & rancangan inventory", subagent_type: "rudis-tech-lead" }, String.raw`d:\PENGEMBANGAN-RUDIS`),
+  pakai(5e3, "c1", "Agent", { description: "Tech Lead: analisis & rancangan inventory", subagent_type: "rudis-tech-lead" }, String.raw`d:\PROYEK-KLIEN`),
 ]);
 // Tech Lead sebagai subagent COO: mulai di folder COO, brief menyebut ID tugas; masih bekerja
 const sub = path.join(proj, COO, "subagents");
 fs.mkdirSync(sub, { recursive: true });
 fs.writeFileSync(path.join(sub, "agent-aef33e60ae9a9bf61.meta.json"), JSON.stringify({ agentType: "rudis-tech-lead", description: "Tech Lead: analisis & rancangan inventory" }));
 tulis(path.join(sub, "agent-aef33e60ae9a9bf61.jsonl"), [
-  { type: "user", timestamp: iso(60e3), isSidechain: true, cwd: String.raw`d:\PENGEMBANGAN-RUDIS`, message: { content: "[Tugas dari COO] T-20261030-1 · Aplikasi gudang \"inventory\" — Analisis" } },
-  { ...pakai(3e3, "s1", "Bash", { command: "go build ./...", description: "Build backend" }, String.raw`d:\PENGEMBANGAN-RUDIS`), isSidechain: true },
+  { type: "user", timestamp: iso(60e3), isSidechain: true, cwd: String.raw`d:\PROYEK-KLIEN`, message: { content: "[Tugas dari COO] T-20261030-1 · Aplikasi gudang \"inventory\" — Analisis" } },
+  { ...pakai(3e3, "s1", "Bash", { command: "go build ./...", description: "Build backend" }, String.raw`d:\PROYEK-KLIEN`), isSidechain: true },
 ]);
 // Dua Tech Lead subagent lain dari COO, mulai di folder COO: sub-tugas T-…-2.1 (induk di folder RudisOne → Tim 2) dan
 // T-…-2.2 (folder rudis-monorepo → Tim 3) — temuan tinjauan silang: sub-ID jatuh ke induk; folder = RudisOne → Tim 1
 for (const [id, tugas] of [["b0000000000000021", "T-20261030-2.1"], ["b0000000000000022", "T-20261030-2.2"]]) {
   fs.writeFileSync(path.join(sub, `agent-${id}.meta.json`), JSON.stringify({ agentType: "rudis-tech-lead", description: `TL ${tugas}` }));
   tulis(path.join(sub, `agent-${id}.jsonl`), [
-    { type: "user", timestamp: iso(50e3), isSidechain: true, cwd: String.raw`d:\PENGEMBANGAN-RUDIS`, message: { content: `[Tugas dari COO] ${tugas} · platform` } },
-    { ...pakai(2e3, `x${id}`, "Read", { file_path: "a.md" }, String.raw`d:\PENGEMBANGAN-RUDIS`), isSidechain: true },
+    { type: "user", timestamp: iso(50e3), isSidechain: true, cwd: String.raw`d:\PROYEK-KLIEN`, message: { content: `[Tugas dari COO] ${tugas} · platform` } },
+    { ...pakai(2e3, `x${id}`, "Read", { file_path: "a.md" }, String.raw`d:\PROYEK-KLIEN`), isSidechain: true },
   ]);
 }
 // Peninjau (subagent rudis-software-engineer) di worktree proyek, selesai lama → tidak duduk, linimasa tetap
@@ -96,8 +96,8 @@ tulis(path.join(proj, "tl-modules.jsonl"), [
 ]);
 // Uji headless: tanpa judul dan bukan /rudisone → tidak tampil
 tulis(path.join(proj, "headless.jsonl"), [
-  { type: "user", timestamp: iso(5e3), cwd: String.raw`d:\PENGEMBANGAN-RUDIS`, message: { content: "Jalankan perintah ini" } },
-  pakai(4e3, "h1", "Bash", { command: "ls" }, String.raw`d:\PENGEMBANGAN-RUDIS`),
+  { type: "user", timestamp: iso(5e3), cwd: String.raw`d:\PROYEK-KLIEN`, message: { content: "Jalankan perintah ini" } },
+  pakai(4e3, "h1", "Bash", { command: "ls" }, String.raw`d:\PROYEK-KLIEN`),
 ]);
 
 const { scan, buildState, bacaRegister, teksSehat, VERSI } = await import("./server.mjs");
@@ -118,7 +118,7 @@ test("Tech Lead sebagai subagent COO duduk di kursi Tech Lead tim proyeknya (dar
   assert.equal(tl.present, true);
   assert.equal(tl.subagent?.dari, "COO");
   assert.equal(tl.status, "bekerja");
-  assert.ok(!st.tim.some((t) => /PENGEMBANGAN/.test(t.proyek)), "folder induk COO bukan proyek");
+  assert.ok(!st.tim.some((t) => /PROYEK-KLIEN/.test(t.proyek)), "folder induk COO bukan proyek");
 });
 
 test("Tech Lead subagent: sub-ID memakai folder tugasnya sendiri (bukan induk); folder = repo RudisOne → tim RudisOne", () => {
@@ -145,10 +145,10 @@ test("uji headless tanpa judul tetap tidak tampil", () => {
 });
 
 test("register ber-CRLF (MD) terbaca; register JSON ber-CRLF dengan folder D:\\ terbaca", () => {
-  const md = ["| ID | Tugas | Folder | Status |", "|---|---|---|---|", "| T-20261030-1 | Gudang | `D:\\PENGEMBANGAN-RUDIS\\inventory` | berjalan |", ""].join("\r\n");
+  const md = ["| ID | Tugas | Folder | Status |", "|---|---|---|---|", "| T-20261030-1 | Gudang | `D:\\PROYEK-KLIEN\\inventory` | berjalan |", ""].join("\r\n");
   const r = bacaRegister(md);
   assert.equal(r.length, 1);
-  assert.equal(r[0].folder, String.raw`D:\PENGEMBANGAN-RUDIS\inventory`);
+  assert.equal(r[0].folder, String.raw`D:\PROYEK-KLIEN\inventory`);
   assert.equal(r[0].status, "berjalan", "tanpa \\r tersisa");
   assert.equal(st.tugas.find((t) => t.id === "T-20261030-1")?.folder, PROYEK);
 });

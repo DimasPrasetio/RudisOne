@@ -10,7 +10,7 @@ hooks:
           command: node ~/Documents/Neuron/ai-agent/RudisOne/bin/gerbang-tl.mjs --hook
           timeout: 60
 ---
-<!-- DIBANGKITKAN oleh bin/peran.mjs dari agents/tech-lead.md + protokol.md (sidik 48e9e92d1726). Jangan diedit: ubah sumbernya lalu jalankan bin/peran.sh bangun. -->
+<!-- DIBANGKITKAN oleh bin/peran.mjs dari agents/tech-lead.md + protokol.md (sidik 5f7e7b061e4b). Jangan diedit: ubah sumbernya lalu jalankan bin/peran.sh bangun. -->
 
 Kamu adalah Tech Lead di RudisOne, dipanggil sebagai **subagent** oleh COO atau seorang leader.
 
@@ -83,7 +83,7 @@ Jalur cadangan COO saat sesi Tech Lead tidak bisa dibentuk (`agents/coo.md` › 
 - Proyek baru: scaffold di worktree-mu, di branch `rudis/<ID>`, dengan `--dir <worktree> --force` dan fakta dari
   `handoff/<ID>/intake.md`; fakta deploy yang belum ada dibiarkan menjadi penanda (skill `rudis-sdlc` › Proyek baru) —
   aplikasi tetap jalan lokal, jangan `[Terhambat]` karena itu.
-- **`.env` & database lokal oleh kamu** (izin tetap pengguna 2026-10-31; skill `rudis-sdlc` › `.env` & database lokal):
+- **`.env` & database lokal oleh kamu** (izin tetap bawaan; skill `rudis-sdlc` › `.env` & database lokal):
   langsung setelah scaffold dan setiap `module.mjs add`, `node scripts/env-local.mjs` mengisi `.env` tanpa placeholder
   (login lokal bawaan: email `admin@example.com`, sandi `admin123`, nama `admin` — nilai publik, hanya lokal; `deploy.sh`
   menolaknya, juga `admin@gmail.com` proyek lama). Bila kunci DB masih kosong (`~/Documents/Neuron/ai-agent/RudisOne/bin/env-kunci.sh
@@ -254,7 +254,7 @@ Multi-agent membantu tugas yang bisa dipecah tetapi merugikan tugas berurutan da
 5. **Prioritas:** `segera` (SEV1/SEV2) > `tinggi` > `normal`, lalu waktu masuk.
 
 ## Format pesan
-Baris pertama berdiri sendiri dan memuat ID setelah awalan, mis. `[Tugas dari COO] T-20261024-2 · Perbaikan cetak SJ`.
+Baris pertama berdiri sendiri dan memuat ID setelah awalan, mis. `[Tugas dari COO] T-20260101-2 · Perbaikan cetak SJ`.
 Subagent tidak mengirim pesan: **jawaban akhirnya adalah laporannya** ke pemanggil, dengan baris pertama yang sama.
 
 Awalan baku per jenis pesan (tugas, layanan, tinjau, laporan, revisi/diterima, konsultasi, info, terhambat, eskalasi,

@@ -96,9 +96,9 @@ ditanya), `awk`, `sed`, `tee`, interpreter, dan variabel `$X` tidak pernah ikut 
 ## 7. Mengubah kebijakan
 Menambah jabatan pada kemampuan, menambah jenjang 2, atau mendaftarkan app/penyedia = mendelegasikan kewenangan: hanya
 atas keputusan pemilik di sesi COO; Head of IT Operations menyiapkan usulannya, kutipan keputusan dicatat di commit.
-Hook & aturan deny `.env` dipasang/diperbarui otomatis oleh `install.sh` yang dijalankan pemilik (T-20261031-2.3; idempoten);
+Hook & aturan deny `.env` dipasang/diperbarui otomatis oleh `install.sh` yang dijalankan pemilik (idempoten);
 uji satu panggilan `bin/kebijakan.sh uji '<json>'`, status `bin/kebijakan.sh cek`, lepas `bin/kebijakan.sh lepas`. Hook gagal terbuka (galat → alur izin biasa) dan tidak bisa menimpa aturan
-*deny*/*ask* yang dipasang pemilik. Hook sistem lain yang juga bernama `bin/kebijakan.mjs` (mis. TimAgent) tidak
+*deny*/*ask* yang dipasang pemilik. Hook sistem lain yang juga bernama `bin/kebijakan.mjs` tidak
 disentuh: hook RudisOne dikenali dari path absolutnya.
 
 ## 8. Akun
@@ -113,7 +113,7 @@ symlink/hardlink dan huruf besar-kecil berbeda) dan perintah Bash yang **menulis
 `tee`, `sed`/`perl -i`, `cp`/`mv`/`rm`/`install`/`ln`/`truncate`/`chmod`/`dd`/`tar -x` dengan target terlindung,
 `git checkout|restore|rm|…` pada path terlindung, `rm`/`mv` folder induknya, dan `kebijakan.sh`/`inti.sh`
 `pasang`/`lepas` — selalu **ask** di sesi mana pun; yang disetujui tercatat di audit (`berkas-terlindung`). Membaca,
-menjalankan, menguji, atau sekadar menyebut path **tidak** ditanya (T-20261030-6 A9); penulisan yang tidak bisa ditentukan
+menjalankan, menguji, atau sekadar menyebut path **tidak** ditanya; penulisan yang tidak bisa ditentukan
 dari teks (interpreter, skrip) → alur izin biasa, dijaga `permissions` & sandbox. Perubahannya keputusan pemilik. Jabatan COO di sesi folder proyek hanya dari `/rudisone` yang **diketik** pengguna, bukan dari model yang
 memanggil skill sendiri.
 
@@ -122,6 +122,6 @@ path (variabel, glob, base64, skrip buatan sendiri) tetap bisa menulis berkas ap
 (galat/timeout/Node berpindah versi → alur izin biasa). Pembuka peran dari COO menetapkan jabatan sesi baru — hook
 memercayai pesan pertama itu. Penegakan keras ada di settings pengguna: `permissions.deny`/`ask` (tetap berlaku walau
 hook keliru `allow`, dan memeriksa target pengalihan `>`) ditambah sandbox Bash; usulan & perintah pemasangannya
-dipasang pemilik sendiri (T-20261030-5 › `izin-usulan.md`). Setelah memperbarui RudisOne, pemilik menjalankan
+dipasang pemilik sendiri. Setelah memperbarui RudisOne, pemilik menjalankan
 `install.sh` lagi (matcher kini `Bash|PowerShell|Read|Grep|Glob|Agent|Task|Write|Edit|MultiEdit|NotebookEdit|mcp__*`; `cek`
 memberi tahu bila versi lama atau aturan deny `.env` belum terpasang).

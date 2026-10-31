@@ -101,9 +101,9 @@ transkrip("s-lain", [{ type: "custom-title", customTitle: "Catatan pribadi" },
   { type: "user", timestamp: iso(9e3), cwd: "/Users/x/Neuron", message: { content: "halo" } }]);
 // Sistem agent lain di device yang sama (nama peran sama, folder & pembuka berbeda) → tidak tampil, tidak memakan nomor tim
 transkrip("s-asing", [{ type: "agent-setting", agentSetting: "technical-writer" }, { type: "custom-title", customTitle: "Technical Writer" },
-  diFolder("/Users/x/TimAgent/ruang/technical-writer"), pakaiAlat(3e3, "a1", "Edit", { file_path: "/x/doc.md" })]);
+  diFolder("/Users/x/SistemLain/ruang/technical-writer"), pakaiAlat(3e3, "a1", "Edit", { file_path: "/x/doc.md" })]);
 transkrip("s-asing2", [{ type: "custom-title", customTitle: "Tech Lead · lain" },
-  pembuka(9e3, "Kamu adalah Tech Lead di Tim Agent untuk proyek lain.", "/x/lain/.claude/worktrees/t1-lead-lain"),
+  pembuka(9e3, "Kamu adalah Tech Lead di Tim Lain untuk proyek lain.", "/x/lain/.claude/worktrees/t1-lead-lain"),
   pakaiAlat(3e3, "a2", "Edit", { file_path: "/x/lain/a.ts" })]);
 // asisten (subagent) milik Tech Lead Tim 1: satu aktif, satu sudah lama selesai
 function asisten(induk, id, meta, baris) {

@@ -56,7 +56,7 @@ test("dilewati: sesi pribadi, startup/clear, sesi di dalam folder RudisOne, tran
 test("pasang/lepas menjaga hook lain dan bersifat idempoten", async () => {
   const S = process.env.RUDISONE_SETTINGS_USER;
   fs.mkdirSync(path.dirname(S), { recursive: true });
-  const lain = { matcher: "compact", hooks: [{ type: "command", command: "\"/x/TimAgent/bin/inti.mjs\" hook" }] };
+  const lain = { matcher: "compact", hooks: [{ type: "command", command: "\"/x/SistemLain/bin/inti.mjs\" hook" }] };
   fs.writeFileSync(S, JSON.stringify({ hooks: { SessionStart: [lain] }, lainnya: 1 }));
   assert.equal(statusPasang(), false);
   const { execFileSync } = await import("node:child_process");

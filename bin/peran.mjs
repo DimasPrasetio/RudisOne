@@ -36,13 +36,13 @@ export function daftarPeran(root = ROOT) {
 }
 
 /** Baca berkas teks dalam bentuk LF. Salinan Windows bisa ber-CRLF (zip, editor, autocrlf tanpa .gitattributes);
- *  sidik dan pembandingan memakai bentuk LF agar hasilnya sama di semua OS (T-20261030-2.1). */
+ *  sidik dan pembandingan memakai bentuk LF agar hasilnya sama di semua OS. */
 const bacaLf = (f) => fs.readFileSync(f, "utf8").replace(/\r\n/g, "\n");
 /** Isi lama (boleh CRLF) sama dengan isi bangkitan (LF)? */
 const samaIsi = (lama, isi) => lama !== null && lama.replace(/\r\n/g, "\n") === isi;
 
 /** Hook `Stop` di frontmatter subagent (Claude Code menjadikannya SubagentStop untuk subagent itu) dari kunci sumber
- *  `gerbang_stop: <perkakas>` — mis. `gerbang-tl` → `node <RUMAH>/bin/gerbang-tl.mjs --hook` (T-20261031-2.3). Hanya
+ *  `gerbang_stop: <perkakas>` — mis. `gerbang-tl` → `node <RUMAH>/bin/gerbang-tl.mjs --hook`. Hanya
  *  nama perkakas bin/ yang sah; gerbang gagal terbuka & idempoten (dipicu berulang di Claude Code < 2.1.311). */
 export function hookStop(nama) {
   if (!nama) return [];

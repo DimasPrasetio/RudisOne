@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Gerbang mesin sebelum Tech Lead-subagent melapor (T-20261031-2.3). READ-ONLY: hanya membaca handoff/<ID>/ dan
+// Gerbang mesin sebelum Tech Lead-subagent melapor. READ-ONLY: hanya membaca handoff/<ID>/ dan
 // menjalankan git baca (rev-parse, rev-list, branch, worktree list, status --porcelain, diff --name-only) dengan
 // GIT_OPTIONAL_LOCKS=0 agar `status` pun tidak menulis indeks. Tidak menulis berkas apa pun.
 // Butir: status.md tertulis · branch rudis/<ID> ada dengan ≥ 1 commit di atas base · worktree-nya bersih · cabang

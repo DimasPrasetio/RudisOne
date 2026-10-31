@@ -5,8 +5,9 @@ description: Prosedur RudisOne untuk RUDIS SDD (CLI rudis, command /rudis.*, fol
 
 # RUDIS SDD di RudisOne
 
-Dasar: T-20261029-1 (kelayakan, S1–S8, K1–K12), T-20261030-3 (brownfield, §4.2, §7), T-20261030-4 §6.4 (menang bila
-bertentangan) dan `handoff/T-20261030-6/pemahaman.md` (Keputusan 1–5) — per device; bila tidak ada, minta ringkasan ke Tech Lead.
+Dasar: kajian kelayakan, riset brownfield, dan riset lanjutan — yang terakhir menang bila ketiganya
+bertentangan — serta keputusan pemilik tentang RUDIS SDD (Keputusan 1–5); dokumen per device di `handoff/`, bukan bagian
+repo; bila tidak ada, minta ringkasan ke Tech Lead.
 Peran, gerbang, urutan fase: skill `rudis-sdlc`. Soal teknis repo standar: skill `rudis-monorepo` menang.
 
 ## 1. Mode proyek (kartu proyek)
@@ -61,11 +62,11 @@ bug selalu **mulai** dengan tracer (baris 5); perbaikannya pindah ke baris 3/4 b
 ## 4. Aturan keras (selalu)
 1. CLI `rudis` **hanya** lewat `bin/rudis-sdd.sh <perintah>` (= `bin/perkakas.sh sdd …`): `uvx --from <repo lokal> rudis`,
    `--no-marketplace` pada `init`, menolak marketplace (`skill`, `governance`, `profile`, `utilities`, `init --profile`) di luar
-   allowlist, menolak `run`, `tui`, `--gitlab-token`. Jangan memanggil `rudis`/`uvx` langsung atau `~/.local/bin/rudis` (K7).
+   allowlist, menolak `run`, `tui`, `--gitlab-token`. Jangan memanggil `rudis`/`uvx` langsung atau `~/.local/bin/rudis`.
 2. **Tanpa marketplace** (`perkakas.json` kebijakan_marketplace; cek `bin/perkakas.sh marketplace cek [<sumber>]`).
    Menambah allowlist = keputusan pengguna lewat COO. Rute desain `/rudis.prototype` (memasang skill luar) tidak dipakai.
-3. **Command per langkah.** Tidak pernah `/rudis.ultimate` (S1), `/rudis.deploy`, `/rudis.operate` (milik IT Operations),
-   `rudis run <cmd>` (U2).
+3. **Command per langkah.** Tidak pernah `/rudis.ultimate`, `/rudis.deploy`, `/rudis.operate` (milik IT Operations),
+   `rudis run <cmd>` (berjalan tanpa izin tulis dan tetap melapor sukses).
 4. **Git = aturan RudisOne.** Command RUDIS tidak membuat branch/commit; peran meng-commit sesudah command, di branch tugas
    `rudis/<ID>[-p<n>]`. Checkpoint/rollback yang ditawarkan command (commit/stash, `git checkout <sha> -- <path>`,
    `git reset --hard`) **selalu** diganti: `bin/rudis-git.sh checkpoint <ID> [pesan]`,
@@ -75,15 +76,15 @@ bug selalu **mulai** dengan tracer (baris 5); perbaikannya pindah ke baris 3/4 b
    kredensial (izin `Read(**/.env)` memang di-deny) — instruksikan "jangan membaca .env; pakai koneksi dari brief"; tanpa koneksi
    → telusuri kode saja dan tandai kebutuhan data. Data prod lewat Head of IT Operations (query read-only tercatat, keluaran
    agregat/masking; skill `rudis-operasi` › Data production).
-6. **Hanya COO yang bertanya ke pengguna** (S6, K5) — §9.
-7. Jangan jalankan `.rudis/scripts/bash/update-agent-context.sh` (K10).
+6. **Hanya COO yang bertanya ke pengguna** — §9.
+7. Jangan jalankan `.rudis/scripts/bash/update-agent-context.sh`.
 8. Kolom Perkakas & laporan memuat `sdd@<sha>` dari `bin/perkakas.sh versi`.
 
 ## 5. Langkah per fase (urutan skill `rudis-sdlc` › Jalur Aplikasi tetap)
 | Fase | Siapa | Yang dikerjakan |
 |---|---|---|
 | Analisis | **BSA** (read-only), diperiksa TL | Jalur per perubahan (§2) + kriteria jenis tertulis. Baris 2/8: draf spec **dengan tangan** (`spec-template.md` RUDIS + pertanyaan gaya clarify) di `handoff/<ID>/specs/<slug>/spec.md`; baris 5/6/7: Current/Expected/Unchanged (`templat/spesifikasi.md`, atau usulan perubahan spec lama). Baris 5: TL menjalankan `/rudis.tracer` di worktree-nya, BSA menganalisis laporannya. Mode A: tabel perakitan. Persetujuan Rancangan memuat tabel/jalur + ringkasan draf + asumsi berisiko. |
-| Konstruksi 1 (sekali per proyek) | **Tech Lead** | `bin/rudis-sdd.sh init --here --force --ai claude --script sh` di worktree → `.gitignore` (K3): tambah bila belum ada — proyek hasil scaffold kernel v7.1+ sudah memuat `.rudis/audit.log`, `.rudis/audit/`, `.rudis/.current-feature`, `docs/trace-reports/`, `docs/test-reports/`; `!.env.*.example` tetap perlu dicek → `/rudis.constitution` dari templat mode (§1). **Mode B** sebelum constitution: `/rudis.brd` ter-scope ke modul yang akan disentuh (bukan seluruh repo); constitution as-is berstatus Draft sampai pengguna/lead klien mengesahkan; catat `baseline` gerbang mutu (§6) di kartu. |
+| Konstruksi 1 (sekali per proyek) | **Tech Lead** | `bin/rudis-sdd.sh init --here --force --ai claude --script sh` di worktree → `.gitignore`: tambah bila belum ada — proyek hasil scaffold kernel v7.1+ sudah memuat `.rudis/audit.log`, `.rudis/audit/`, `.rudis/.current-feature`, `docs/trace-reports/`, `docs/test-reports/`; `!.env.*.example` tetap perlu dicek → `/rudis.constitution` dari templat mode (§1). **Mode B** sebelum constitution: `/rudis.brd` ter-scope ke modul yang akan disentuh (bukan seluruh repo); constitution as-is berstatus Draft sampai pengguna/lead klien mengesahkan; catat `baseline` gerbang mutu (§6) di kartu. |
 | Konstruksi 1 (per tugas) | **Tech Lead** | `bin/rudis-git.sh checkpoint <ID>` sebelum command yang mengubah kode. Baris 2/8: `/rudis.specify --number N` (draf BSA + jawaban COO; N unik dari register) → `/rudis.checklist`. Baris 3/4/6/7: command jalurnya, gerbang interaktif dijawab dari brief. Commit sesudahnya. |
 | Konstruksi 2 (rencana) | **Tech Lead** (C: BSA) | `/rudis.plan` argumen baku *"jangan bertanya; keputusan pemilik produk tandai NEEDS CLARIFICATION dengan default"* → `/rudis.tasks` → **BSA** `/rudis.analyze` (read-only). |
 | Konstruksi | **SE** per `T###` di brief | Sekali per worktree `printf '%s\n' <NNN-slug> > .rudis/.current-feature`. `/rudis.implement` hanya `T###` di brief; `STOP and ask` → `[Terhambat]`. Commit sesudah command. |
@@ -154,7 +155,7 @@ Command RUDIS ditulis untuk agent yang bicara langsung dengan pengguna (`clarify
 
 ## 10. Perkakas, versi, PAT
 - `bin/perkakas.sh siapkan|cek` (clone ke `~/Documents/Neuron/ai-agent/rudis`; `pull --ff-only` ditunda selama ada tugas
-  Engineering berjalan). Versi: `bin/perkakas.sh versi` → `… sdd@<sha>`; rilis template `init`/`update` (selalu terbaru, K8)
+  Engineering berjalan). Versi: `bin/perkakas.sh versi` → `… sdd@<sha>`; rilis template `init`/`update` (selalu terbaru)
   dicatat terpisah.
 - PAT **tidak pernah** diminta di chat, dicetak, ditulis agent ke berkas, atau dimasukkan ke argumen. Perkakas membacanya
   dari penyimpan `rudisone-rudis-sdd` per OS: macOS Keychain; Linux/WSL2 berkas 0600 `~/.config/rudisone/rahasia/` (diisi
@@ -168,14 +169,14 @@ Command RUDIS ditulis untuk agent yang bicara langsung dengan pengguna (`clarify
   `jalur_awal` vs `jalur_akhir` (perkiraan riset: ±1 dari 5 salah jalur awal).
 - **brd di monolit berlapis teknis** (`controllers/ models/ views/`): asumsi "modul = folder domain" bisa salah — periksa peta.
 - **Celah alat:** Semgrep diff-aware tidak lintas berkas; .NET dan SpotBugs tanpa baseline sejati.
-- **GL_TOKEN:** token sesi device ditolak 401; tanpa PAT di penyimpannya (Keychain/berkas rahasia) `init` gagal. Paket template lokal = keputusan pengguna (U1).
-- **Penomoran paralel (K12):** selalu `--number N` dari register.
-- **K2 letak `specs/`:** masuk standar rudis-monorepo (T-20261030-6 bagian B, kernel/v7.1) — belum di main sampai pengguna
+- **GL_TOKEN:** token sesi device ditolak 401; tanpa PAT di penyimpannya (Keychain/berkas rahasia) `init` gagal. Paket template lokal hanya atas keputusan pengguna.
+- **Penomoran paralel:** selalu `--number N` dari register.
+- **Letak `specs/`:** masuk standar rudis-monorepo (kernel/v7.1) — belum di main sampai pengguna
   menyerahkannya; sementara itu ikuti tabel §8 (namanya sama).
-- **Biaya dokumen (K11):** ±2.000 baris per modul kecil; `clarify`/`checklist` boleh dilewati untuk baris kecil.
+- **Biaya dokumen:** ±2.000 baris per modul kecil; `clarify`/`checklist` boleh dilewati untuk baris kecil.
 - Allowlist marketplace: `rudis init` tidak menegakkan pin — periksa `.claude/settings.json` sesudahnya.
 
 ## 12. Rujukan
 skill `rudis-sdlc` (fase, gerbang, "Tanya pengguna") · `protokol.md` (git/worktree) · `templat/tabel-perakitan.md` ·
 `templat/spesifikasi.md` · `templat/constitution-rudis.md` · `templat/constitution-legacy.md` · `perkakas.json` ·
-command RUDIS di proyek: `.claude/commands/rudis.<cmd>.md` · riset T-20261030-3 §4.2, §7 · T-20261030-4 §3.2, §6.4.
+command RUDIS di proyek: `.claude/commands/rudis.<cmd>.md`.

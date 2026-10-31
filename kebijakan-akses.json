@@ -1,7 +1,7 @@
 {
   "versi": 1,
   "keterangan": "Kebijakan akses & batas kewenangan RudisOne — aturan GENERIK yang dibaca hook bin/kebijakan.mjs. Fakta per device (host ssh, aplikasi deploy, MCP DNS) TIDAK ada di sini: dibaca dari konfigurasi/server.json (bin/konfig.sh), diisi atas persetujuan pengguna. Ringkasan untuk manusia: bin/kebijakan.sh tampil. Prinsip & cara mengubah: protokol.md › Aset, akses & batas kewenangan. Mengubah file ini = mengubah delegasi kewenangan: hanya atas keputusan pemilik (pengguna), kutipannya dicatat di commit.",
-  "disetujui": "pengguna: jenjang 2 = deploy app terdaftar, tambah subdomain DNS, buat repo GitHub privat; berlaku hanya di sesi RudisOne; akses per jabatan. Backend sesi cli (T-20261030-11) — pengguna: \"B: backend sesi CLI (Recommended)\": membentuk/menghentikan sesi latar hanya COO, claude rm/attach/bypassPermissions selalu ditanya. Penjaga .env & cek kunci (T-20261031-2.3) — pengguna 2026-10-31: \"utamakan otomatis, karena RudisOne ini adalah tools client berjalan di device client jadi harusnya utamakan otomatis saja.\": baca isi .env ditolak otomatis, bin/env-kunci.sh & bin/gerbang-tl.sh berjalan tanpa bertanya. Skill luar terdaftar (perkakas.json › skill_luar): semua jabatan boleh perkakas.sh pastikan/skill tanpa bertanya — pengguna 2026-10-27: \"Ya, saya setujui: tambahkan aturan di kebijakan-akses.json agar semua jabatan boleh menjalankan perkakas.sh pastikan/skill tanpa bertanya.\"",
+  "disetujui": "Kebijakan bawaan yang disetujui pemilik: jenjang 2 = deploy app terdaftar, tambah subdomain DNS, buat repo GitHub privat; berlaku hanya di sesi RudisOne; akses per jabatan. Backend sesi cli: membentuk/menghentikan sesi latar hanya COO, claude rm/attach/bypassPermissions selalu ditanya. Penjaga .env & cek kunci (otomatis): baca isi .env ditolak otomatis, bin/env-kunci.sh & bin/gerbang-tl.sh berjalan tanpa bertanya. Skill luar terdaftar (perkakas.json › skill_luar): semua jabatan boleh perkakas.sh pastikan/skill tanpa bertanya. Perubahan kebijakan hanya atas keputusan pemilik; kutipan keputusannya dicatat di pesan commit, bukan di berkas ini.",
 
   "jabatan": {
     "coo": { "nama": "COO" },
@@ -116,7 +116,7 @@
   "ssh_rahasia": "\\.env\\b|id_[rde]\\w*sa|\\.pem\\b|\\.key\\b|secret|passw|token|credential|environ\\b",
 
   "env_rahasia": {
-    "keterangan": "Penjaga .env (T-20261031-2.3) — pengguna 2026-10-31: \"utamakan otomatis\" / \"di buat agar otomatis memasang saja, tidak perlu tanya\": membaca isi berkas env (nama cocok 'nama', bukan 'kecuali') di sesi RudisOne → deny tanpa prompt + audit; status kunci lewat bin/env-kunci.sh.",
+    "keterangan": "Penjaga .env (otomatis, tanpa bertanya): membaca isi berkas env (nama cocok 'nama', bukan 'kecuali') di sesi RudisOne → deny tanpa prompt + audit; status kunci lewat bin/env-kunci.sh.",
     "nama": "^(\\.env(\\.[\\w.-]+)?|[\\w-][\\w.-]*\\.env|\\.envrc)$",
     "kecuali": "\\.(example|contoh|sample|template|dist|defaults?)$"
   },

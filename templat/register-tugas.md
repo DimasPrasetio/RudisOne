@@ -17,7 +17,7 @@
      dimulai/dilanjutkan, — bila tugas tidak memakai perkakas rudis (tugas berjalan selain "—" menunda pembaruan
      perkakas). Tugas selesai/dibatalkan pindah ke tabel "Selesai" dengan sendirinya (selesai_pada diisi).
      Jalur (tugas yang memakai /rudis.*, skill rudis-sdd): --mode-saat-mulai A|B, --jalur-awal, --jalur-akhir, --reroute
-     "<alasan>" (wajib bila jalur akhir ≠ awal) — tampil di bagian "Jalur" bila terisi; dasar metrik X1/X2.
+     "<alasan>" (wajib bila jalur akhir ≠ awal) — tampil di bagian "Jalur" bila terisi; dasar metrik akurasi jalur.
 
      Contoh format tabel yang dibangkitkan (judul kolom tetap — Kantor dan alat lain membacanya): -->
 

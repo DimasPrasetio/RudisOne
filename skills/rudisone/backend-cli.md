@@ -4,14 +4,14 @@ Dipakai COO bila backend efektifnya `cli`: `bin/sesi.sh backend` mencetak `cli` 
 ditulis `install.mjs`), atau mencetak `auto` dan alat sesi Claude Desktop tidak ada di daftar alatmu (CLI/ekstensi VS Code di
 macOS/Windows). Aturan organisasi tidak berubah — yang berubah hanya **alat** untuk membentuk, menyapa, dan menghentikan sesi.
 Satu COO memakai satu backend selama sesinya: jangan mencampur sesi Desktop dan sesi CLI dalam satu tugas. **Belum diuji di mesin
-Linux sungguhan** (T-20261030-11: simulasi + `claude` tiruan). Windows 11 native (Claude Code 2.1.302) teruji untuk `claude --bg`,
+Linux sungguhan** (baru simulasi + `claude` tiruan). Windows 11 native (Claude Code 2.1.302) teruji untuk `claude --bg`,
 `claude agents --json --all`, `claude logs` (keluarannya dump layar ber-kode ANSI) dan `claude rm <id>` (memakai **id**, bukan nama);
 `SendMessage`/`attach` belum diuji di sana. Bila perilaku CLI berbeda dari tabel ini, laporkan ke pengguna, jangan diakali.
 
 ## Ringkasan (dari protokol inti)
 - **Backend sesi** (`bin/sesi.sh backend`): `desktop` (alat sesi Claude Desktop), `cli` (`claude --bg`, `claude agents --json`,
   `SendMessage` lokal, `claude stop`) atau `auto` (bawaan macOS/Windows: alat sesi Desktop ada → desktop; CLI/VS Code → cli);
-  padanan aksi: skill `rudisone` › `backend-cli.md`. Satu backend per COO, tidak dicampur. Pola lama: rollback utuh (README › Rollback).
+  padanan aksi: skill `rudisone` › `backend-cli.md`. Satu backend per COO, tidak dicampur.
 
 ## Prasyarat (sekali per device, oleh pengguna)
 - Claude Code CLI **≥ 2.1.300** (`claude --version`; perbarui `claude update`). COO sendiri berjalan di terminal (`claude`).
@@ -22,26 +22,23 @@ Linux sungguhan** (T-20261030-11: simulasi + `claude` tiruan). Windows 11 native
 - Folder ditolak dan pengguna tidak mau/bisa → **jalur subagent** (`agents/coo.md` › Tech Lead sebagai subagent),
   ditawarkan COO sejak awal bersama konsekuensinya.
 
-## Kepercayaan folder (uji terkontrol T-20261030-2.1 · Windows 11, Claude Code 2.1.302)
-Log uji: `handoff/T-20261030-2.1/uji-trust.md` (per device). Yang **terbukti**:
-| Kasus | `claude --bg` | Entri baru di `~/.claude.json`? |
+## Kepercayaan folder (Windows 11, Claude Code 2.1.302)
+Perilaku `claude --bg` yang **terbukti**:
+| Folder | `claude --bg` | Entri baru di `~/.claude.json`? |
 |---|---|---|
-| U1 — subfolder biasa di dalam repo git yang dipercaya persis | diterima | tidak |
-| U2 — repo git sendiri di dalam folder yang dipercaya (mis. `D:\PENGEMBANGAN-RUDIS` dipercaya, `…\inventory` repo) | **ditolak** "Workspace not trusted" | — |
-| U3 — worktree dari repo pada U2 (`…\inventory\.claude\worktrees\r1-lead-inventory`) | **ditolak** | — |
-Artinya: kepercayaan **tidak menembus batas repo git**. Komentar lama "kepercayaan induk tidak dihitung" terlalu luas — di
-dalam repo yang sama induk berlaku. `bin/sesi.sh cek` membedakan: *dipercaya* (entri persis), *diwarisi* (di dalam repo
-yang dipercaya; folder non-git di bawah induk non-git ditandai `[..]` karena belum diuji), *batas repo* (induk dipercaya
-tetapi folder ini/leluhurnya repo sendiri), dan *belum*. Kunci `~/.claude.json` ditulis `D:/x` atau `d:/x`: dibandingkan
-tanpa beda huruf besar/kecil dan pemisah.
-Uji dengan pengguna (U4–U6): pengguna menjalankan `claude` di repo uji bersarang dan melaporkan prompt percaya **muncul**
-dan dijawab "Yes, proceed"; tetapi tidak ada entri yang tercatat di `~/.claude.json` (berkas tidak berubah, riwayat CLI
-tidak mencatat folder itu) dan `claude --bg` di repo itu maupun worktree-nya **tetap ditolak** — gejala yang sama dengan
-`inventory`. Sebabnya belum bisa dipastikan (tidak tersimpan vs. dijalankan di tempat/konfigurasi lain). Sebaliknya,
-pada device yang sama kepercayaan worktree `r4-lead-rudis-modules` (repo induk dipercaya persis) **tercatat** setelah
-pengguna menjalankan `claude` di sana. Maka prosedurnya: (1) pengguna menjalankan baris per shell untuk repo **dan** tiap
-worktree yang dicantumkan; (2) COO menjalankan ulang `bin/sesi.sh cek`; (3) folder yang masih tercantum → jangan diulang,
-langsung jalur subagent.
+| Subfolder biasa di dalam repo git yang dipercaya persis | diterima | tidak |
+| Repo git sendiri di dalam folder yang dipercaya (mis. `D:\proyek` dipercaya, `D:\proyek\app` repo) | **ditolak** "Workspace not trusted" | — |
+| Worktree dari repo pada baris di atas (`…\app\.claude\worktrees\r1-lead-app`) | **ditolak** | — |
+Di luar tabel itu teramati: setelah pengguna menjalankan `claude` di worktree repo yang dipercaya persis, entri worktree itu
+**tercatat** di `~/.claude.json` (penerimaan `claude --bg` sesudahnya belum diuji).
+Artinya: kepercayaan **tidak menembus batas repo git**; di dalam repo yang sama, induk berlaku. `bin/sesi.sh cek` membedakan:
+*dipercaya* (entri persis), *diwarisi* (di dalam repo yang dipercaya; folder non-git di bawah induk non-git ditandai `[..]`
+karena belum diuji), *batas repo* (induk dipercaya tetapi folder ini/leluhurnya repo sendiri), dan *belum*. Kunci
+`~/.claude.json` ditulis `D:/x` atau `d:/x`: dibandingkan tanpa beda huruf besar/kecil dan pemisah.
+Menerima prompt percaya di repo git bersarang ("Yes, proceed") **belum tentu** tercatat di `~/.claude.json` — `claude --bg` di
+repo itu dan worktree-nya bisa tetap ditolak (sebabnya belum dipastikan). Maka prosedurnya: (1) pengguna menjalankan baris per
+shell untuk repo **dan** tiap worktree yang dicantumkan; (2) COO menjalankan ulang `bin/sesi.sh cek`; (3) folder yang masih
+tercantum → jangan diulang, langsung jalur subagent.
 
 ## Padanan
 | Desktop | cli | Catatan |

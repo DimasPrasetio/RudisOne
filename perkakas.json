@@ -9,7 +9,9 @@
       "paket": "dist/rudis-monorepo.skill",
       "pasang": "install.sh",
       "terpasang": "~/.claude/skills/rudis-monorepo",
-      "hooks": ".githooks"
+      "hooks": ".githooks",
+      "clone": "penuh",
+      "clone_alasan": "tag kernel rudis-monorepo/kernel/v* dibaca kernel-sync pustaka dan kernel-tag skill"
     },
     {
       "id": "rudis-modules",
@@ -17,7 +19,9 @@
       "label": "lib",
       "repo": "https://github.com/DimasPrasetio/rudis-modules.git",
       "lokal": "~/Documents/Neuron/ai-agent/rudis-modules",
-      "hooks": ".githooks"
+      "hooks": ".githooks",
+      "clone": "penuh",
+      "clone_alasan": "proyek mengunci commit pustaka di modules.lock.json; upgrade/diff modul membaca commit lama atau tag rilis <id>/v*"
     },
     {
       "id": "rudis-sdd",
@@ -47,10 +51,10 @@
         }
       },
       "dilarang": {
-        "run": "U2 — rudis run berjalan tanpa izin tulis dan tetap melapor sukses; pakai command /rudis.<langkah> per langkah (S1). Termasuk run ultimate (S1), run deploy/operate (milik IT Operations, analisis §2.2)",
+        "run": "rudis run berjalan tanpa izin tulis dan tetap melapor sukses; pakai command /rudis.<langkah> per langkah. Termasuk run ultimate, run deploy/operate (milik IT Operations)",
         "tui": "antarmuka interaktif; init lewat TUI bisa melewati --no-marketplace"
       },
-      "dasar": "handoff/T-20261029-1/analisis-kelayakan.md (S1–S8, K4, K7, K8)"
+      "dasar": "kajian kelayakan RUDIS SDD — dokumen per device di handoff/, bukan bagian repo"
     }
   ],
   "kebijakan_marketplace": {
@@ -59,7 +63,7 @@
       "Plugin/skill/marketplace pihak ketiga hanya dari allowlist di bawah; selain itu ditolak (rudis init selalu --no-marketplace lewat bin/rudis-sdd.sh).",
       "Setiap entri di-pin ke sha commit penuh (40 hex) dan auto_update false; pembaruan = ganti pin atas keputusan pemilik.",
       "Sebelum pasang, tinjau hooks/, .mcp.json, dan bin/ di sumber pada sha pin; utamakan skill tanpa skrip.",
-      "Entri baru hanya atas keputusan pemilik (pengguna); kutip keputusannya di 'disetujui'. Cek: bin/perkakas.sh marketplace cek [<sumber>]."
+      "Entri baru hanya atas keputusan pemilik (pengguna); 'disetujui' memuat ringkasan keputusan pemilik tanpa tanggal/ID tugas; kutipan lengkapnya di pesan commit. Cek: bin/perkakas.sh marketplace cek [<sumber>]."
     ],
     "allowlist": []
   },

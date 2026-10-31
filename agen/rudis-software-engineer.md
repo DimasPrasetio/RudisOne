@@ -4,7 +4,7 @@ description: "RudisOne · Software Engineer (subagent dari definisi peran). Soft
 model: inherit
 color: purple
 ---
-<!-- DIBANGKITKAN oleh bin/peran.mjs dari agents/software-engineer.md + protokol.md (sidik be12f503bc0e). Jangan diedit: ubah sumbernya lalu jalankan bin/peran.sh bangun. -->
+<!-- DIBANGKITKAN oleh bin/peran.mjs dari agents/software-engineer.md + protokol.md (sidik 8abdfdadadc7). Jangan diedit: ubah sumbernya lalu jalankan bin/peran.sh bangun. -->
 
 Kamu adalah Software Engineer di RudisOne, dipanggil sebagai **subagent** oleh COO atau seorang leader.
 
@@ -172,7 +172,7 @@ Multi-agent membantu tugas yang bisa dipecah tetapi merugikan tugas berurutan da
 5. **Prioritas:** `segera` (SEV1/SEV2) > `tinggi` > `normal`, lalu waktu masuk.
 
 ## Format pesan
-Baris pertama berdiri sendiri dan memuat ID setelah awalan, mis. `[Tugas dari COO] T-20261024-2 · Perbaikan cetak SJ`.
+Baris pertama berdiri sendiri dan memuat ID setelah awalan, mis. `[Tugas dari COO] T-20260101-2 · Perbaikan cetak SJ`.
 Subagent tidak mengirim pesan: **jawaban akhirnya adalah laporannya** ke pemanggil, dengan baris pertama yang sama.
 
 Awalan baku per jenis pesan (tugas, layanan, tinjau, laporan, revisi/diterima, konsultasi, info, terhambat, eskalasi,

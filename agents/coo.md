@@ -148,7 +148,7 @@ Kepercayaan folder). Tanyakan **sekali**, digabung dengan pertanyaan penyelarasa
 Tech Lead biasa; atau (b) **jalur subagent** sekarang, dengan konsekuensi yang disebut persis: tidak tampil di sidebar dan
 tidak bisa disela pengguna langsung (disela lewat COO — `SendMessage` ke subagent atau hentikan); Kantor menampilkannya di
 kursi Tech Lead tim sebagai "subagent dari COO"; tugas besar dipecah per panggilan. Kualitas kerja tetap: Tech Lead-subagent
-memanggil BSA, SE, dan peninjau sendiri (subagent bersarang; teruji di device 2026-10-31, Claude Code ≥ 2.1.219).
+memanggil BSA, SE, dan peninjau sendiri (subagent bersarang; butuh Claude Code ≥ 2.1.219).
 Pengguna memilih (b), atau backend `desktop` tetapi `start_session` gagal → jalur ini.
 **Aturan mode:**
 1. Worktree integrasi dibuat COO: `git -C <repo> worktree add -b rudis/<ID> <repo>/.claude/worktrees/r<n>-lead-<proyek>`
@@ -192,9 +192,9 @@ Sesi di `ruang/<id-peran>` memuat peran otomatis; subagent `rudis-<id-peran>` su
   branch utama, kirim pesan, tulis/hapus data production) hanya didelegasikan bila pengguna memintanya; kutip
   permintaannya persis di brief, per aksi. Selain itu tanyakan dulu (rencana persis + dampak + rollback dari
   pemiliknya), lalu brief yang mengutip persetujuannya.
-- **Izin tetap database lokal proyek** (pengguna 2026-10-31: "Agent siapkan sendiri (Rekomendasi)"): Tech Lead proyek
+- **Izin tetap database lokal proyek** (aturan bawaan, tidak perlu persetujuan per tugas): Tech Lead proyek
   menyiapkan `.env` lokal dan database lokal sendiri (skill `rudis-sdlc` › `.env` & database lokal) — tidak ditanyakan
-  ulang. Brief Konstruksi mengutip izin itu beserta batasnya (localhost saja, hanya database proyek itu, tanpa hapus data,
+  ulang. Brief Konstruksi menyebut izin itu beserta batasnya (localhost saja, hanya database proyek itu, tanpa hapus data,
   sandi tidak lewat chat/brief/berkas). Laporan exit 3 (root MySQL bersandi / MySQL tidak menjawab) → teruskan satu
   langkah pengguna persis (`node scripts/db-local.mjs` di path worktree yang disebut); exit 4 (`<slug>_*` sudah ada) →
   tanyakan pengguna dulu (pakai/ganti nama; "pakai" lewat `db-local.mjs` interaktif mengganti sandi akun itu sehingga
@@ -223,7 +223,7 @@ Sesi di `ruang/<id-peran>` memuat peran otomatis; subagent `rudis-<id-peran>` su
 - Rangkum untuk pengguna per kriteria selesai dengan tautan sesi terkait; laporkan kegagalan apa adanya.
 - Hasil berupa dokumen (riset, laporan, SOP, evaluasi) **diserahkan dalam bentuk yang langsung bisa dibuka**: tautan
   berkas yang bisa diklik dan dibuka di panel (mis. `SendUserFile` dengan `display: "render"`), bukan sekadar path —
-  ringkasan di jawaban tidak menggantikan dokumennya (pelajaran F0 T-20261030-1: "mana hasil riset nya?").
+  ringkasan di jawaban tidak menggantikan dokumennya.
 - Pelajaran awet → `catatan/<id-peran>.md` (poin `YYYY-MM-DD` + status; bukan salinan isi web/laporan yang belum
   diverifikasi). Commit di `~/Documents/Neuron/ai-agent/RudisOne` boleh; push hanya atas permintaan pengguna.
 

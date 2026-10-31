@@ -60,7 +60,7 @@ Jalur cadangan COO saat sesi Tech Lead tidak bisa dibentuk (`agents/coo.md` › 
 - Proyek baru: scaffold di worktree-mu, di branch `rudis/<ID>`, dengan `--dir <worktree> --force` dan fakta dari
   `handoff/<ID>/intake.md`; fakta deploy yang belum ada dibiarkan menjadi penanda (skill `rudis-sdlc` › Proyek baru) —
   aplikasi tetap jalan lokal, jangan `[Terhambat]` karena itu.
-- **`.env` & database lokal oleh kamu** (izin tetap pengguna 2026-10-31; skill `rudis-sdlc` › `.env` & database lokal):
+- **`.env` & database lokal oleh kamu** (izin tetap bawaan; skill `rudis-sdlc` › `.env` & database lokal):
   langsung setelah scaffold dan setiap `module.mjs add`, `node scripts/env-local.mjs` mengisi `.env` tanpa placeholder
   (login lokal bawaan: email `admin@example.com`, sandi `admin123`, nama `admin` — nilai publik, hanya lokal; `deploy.sh`
   menolaknya, juga `admin@gmail.com` proyek lama). Bila kunci DB masih kosong (`~/Documents/Neuron/ai-agent/RudisOne/bin/env-kunci.sh

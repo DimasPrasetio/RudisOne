@@ -228,7 +228,7 @@ test("tanpa konfigurasi server: host ssh & MCP DNS tidak dikenali → alur biasa
 
 test("pasang & lepas: hook sistem lain bernama bin/kebijakan.mjs tidak dianggap milik kita dan tidak tersentuh", () => {
   const S = process.env.RUDISONE_SETTINGS_USER;
-  const asing = { matcher: "^(Bash|mcp__.*)$", hooks: [{ type: "command", command: '"/usr/bin/node" "/x/TimAgent/bin/kebijakan.mjs" hook' }] };
+  const asing = { matcher: "^(Bash|mcp__.*)$", hooks: [{ type: "command", command: '"/usr/bin/node" "/x/SistemLain/bin/kebijakan.mjs" hook' }] };
   fs.mkdirSync(path.dirname(S), { recursive: true });
   fs.writeFileSync(S, JSON.stringify({ hooks: { PreToolUse: [asing], PostToolUse: [asing] } }));
   assert.equal(statusPasang(), false);
@@ -794,7 +794,7 @@ test("U3 H1/H2: perkakas jenjang 1 hanya yang asli di ROOT/bin (realpath kernel)
 
 test("U3 H1: ~+, ~-, ~user = ekspansi (tidak dianggap path harfiah)", async () => {
   const { urai } = await import("./kebijakan.mjs");
-  for (const c of ["cd ~+/../..", "echo x > ~-/a", "cat ~karyawan/x"]) assert.equal(urai(c).ekspansi, true, c);
+  for (const c of ["cd ~+/../..", "echo x > ~-/a", "cat ~budi/x"]) assert.equal(urai(c).ekspansi, true, c);
   for (const c of ["cd ~/x", "cat ~", "echo a~b"]) assert.equal(urai(c).ekspansi, false, c);
 });
 

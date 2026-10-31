@@ -1,8 +1,8 @@
 // Inventaris aturan lama — memecah berkas instruksi pada sebuah git ref menjadi unit aturan berkode stabil (urut
-// dokumen) untuk tabel pemetaan docs/pemetaan-aturan-v*.md.
-//   v5 (bawaan untuk ref 3b1c888): protokol.md, sdlc.md, agents/coo.md → P-/S-/C-nnn (docs/pemetaan-aturan-v5.md)
-//   v6 (ref lain, T-20261031-2.3): protokol.md → P-nnn, agents/coo.md → C-nnn, agents/<id>.md → A-<id>-nnn,
-//       skills/<skill>/SKILL.md → K-<skill>-nnn — semua berkas yang ada di ref itu (docs/pemetaan-aturan-v6.md)
+// dokumen) untuk tabel pemetaan pemetaan-aturan-v*.md (alat pengembang per device: handoff/pemetaan/, bukan bagian repo).
+//   v5 (bawaan untuk ref 3b1c888): protokol.md, sdlc.md, agents/coo.md → P-/S-/C-nnn (pemetaan-aturan-v5.md)
+//   v6 (ref lain): protokol.md → P-nnn, agents/coo.md → C-nnn, agents/<id>.md → A-<id>-nnn,
+//       skills/<skill>/SKILL.md → K-<skill>-nnn — semua berkas yang ada di ref itu (pemetaan-aturan-v6.md)
 // Unit = butir daftar (beserta baris lanjutannya), baris data tabel, atau paragraf. Judul & pagar kode bukan unit.
 //   node bin/inventaris-aturan.mjs [--ref 3b1c888] [--sumber v5|v6] [--json]
 import path from "node:path";
@@ -10,7 +10,7 @@ import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const INI = fileURLToPath(import.meta.url);
-export const REF_LAMA = "3b1c888";   // main sebelum migrasi T-20261030-2
+export const REF_LAMA = "3b1c888";   // main sebelum migrasi v5
 export const SUMBER = [["P", "protokol.md"], ["S", "sdlc.md"], ["C", "agents/coo.md"]];
 
 /** Unit aturan dari teks Markdown. */

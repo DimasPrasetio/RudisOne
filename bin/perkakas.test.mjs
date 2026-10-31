@@ -6,7 +6,7 @@ import fs from "node:fs";
 import http from "node:http";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { deteksiProyek, jenisProyek, normalSumber, periksaAllowlist, rencanaSdd, sumberDiizinkan, tugasEngineeringBerjalan } from "./perkakas.mjs";
 import { jalankanSh, palsu, zipFolder } from "./lib/uji-util.mjs";
 
@@ -505,12 +505,12 @@ test("bin/rudis-sdd.sh: init selalu --no-marketplace; GL_TOKEN dari Keychain han
 
 test("bin/rudis-sdd.sh menolak marketplace di luar allowlist, perintah terlarang, dan PAT di argumen", () => {
   const ditolak = [
-    [["run", "ultimate", "x"], /S1/],
+    [["run", "ultimate", "x"], /run ultimate/],
     [["run", "deploy"], /IT Operations/],
-    [["run", "plan", "x"], /U2/],
+    [["run", "plan", "x"], /tanpa izin tulis/],
     [["--verbose", "run", "ultimate"], /opsi sebelum subperintah/],
     [["-v", "init", "--here"], /opsi sebelum subperintah/],
-    [["run", "ultimate", "--help", "--force"], /S1|U2/],
+    [["run", "ultimate", "--help", "--force"], /tanpa izin tulis/],
     [["tui"], /interaktif/],
     [[], /tanpa subperintah/],
     [["skill", "install", "x"], /rudis-marketplace-tooling\.git, yang tidak ada di allowlist/],
@@ -582,7 +582,7 @@ test("marketplace cek: validasi entri (pin 40 hex, auto_update false, disetujui)
   assert.equal(r.status, 1);
   assert.match(r.stdout, /pin wajib sha commit penuh \(40 hex\)/);
   assert.match(r.stdout, /auto_update wajib false/);
-  assert.match(r.stdout, /disetujui wajib memuat kutipan keputusan pemilik/);
+  assert.match(r.stdout, /disetujui wajib memuat ringkasan keputusan pemilik/);
   for (const s of ["contoh/plugins", "contoh/b", "contoh/c"]) assert.equal(jalan(mRusak, ["marketplace", "cek", s]).status, 1, s);
 
   // Fungsi murni.
@@ -775,4 +775,33 @@ test("tanpa RUDISONE_OS: penyimpan & perintah PAT mengikuti OS sebenarnya (darwi
     assert.equal(fs.statSync(BERKAS_PAT).mode & 0o777, 0o600);
   }
   fs.rmSync(RAHASIA, { recursive: true, force: true });
+});
+
+test("clone dangkal bawaan; \"clone\": \"penuh\" menyimpan riwayat; pull --ff-only tetap memperbarui clone dangkal", () => {
+  const manifest = path.join(tmp, "perkakas-dangkal.json");
+  const url = pathToFileURL(path.join(tmp, "lib.git")).href;   // file:// — clone lokal biasa mengabaikan --depth
+  const lokal = (n) => path.join(HOME, "Documents", "Neuron", "ai-agent", n);
+  tulis(manifest, JSON.stringify({ perkakas: [
+    { id: "lib-dangkal", jenis: "pustaka", label: "ld", repo: url, lokal: "~/Documents/Neuron/ai-agent/lib-dangkal" },
+    { id: "lib-penuh", jenis: "pustaka", label: "lp", repo: url, lokal: "~/Documents/Neuron/ai-agent/lib-penuh", clone: "penuh" },
+  ] }));
+  const env = { ...ENV, RUDISONE_PERKAKAS_MANIFEST: manifest, RUDISONE_PERKAKAS_STATE: path.join(tmp, "state-dangkal.json"), RUDISONE_REGISTER: path.join(tmp, "register-kosong.md") };
+  const jalan = (...a) => spawnSync("node", [SKRIP, ...a], { env, encoding: "utf8" });
+  let r = jalan("siapkan");
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.equal(sh("git", ["-C", lokal("lib-dangkal"), "rev-parse", "--is-shallow-repository"]), "true");
+  assert.equal(sh("git", ["-C", lokal("lib-dangkal"), "rev-list", "--count", "HEAD"]), "1");
+  assert.equal(sh("git", ["-C", lokal("lib-penuh"), "rev-parse", "--is-shallow-repository"]), "false");
+  assert.ok(Number(sh("git", ["-C", lokal("lib-penuh"), "rev-list", "--count", "HEAD"])) > 1);
+  commitLib("sesudah-dangkal");
+  r = jalan("siapkan", "--segera");
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.match(r.stdout, /lib-dangkal: diperbarui 1 commit \(pull --ff-only\)/);
+  assert.ok(fs.existsSync(path.join(lokal("lib-dangkal"), "modules", "sesudah-dangkal.md")));
+  // entri penuh yang terlanjur di-clone dangkal → diperingatkan, tidak diubah diam-diam
+  fs.rmSync(lokal("lib-penuh"), { recursive: true, force: true });
+  sh("git", ["clone", "-q", "--depth", "1", url, lokal("lib-penuh")]);
+  r = jalan("cek", "--segera");
+  assert.match(r.stdout, /lib-penuh: clone dangkal, padahal riwayatnya dipakai .*fetch --unshallow --tags/);
+  assert.equal(sh("git", ["-C", lokal("lib-penuh"), "rev-parse", "--is-shallow-repository"]), "true");
 });

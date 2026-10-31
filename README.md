@@ -64,8 +64,8 @@ agen/rudis-<id-peran>.md   subagent peran — DIBANGKITKAN dari agents/ + protok
 .claude/                   folder ini = ruang COO ("agent": "coo")
 ruang/<id-peran>/.claude/  ruang sesi ("agent": "<id-peran>", peran = symlink ke agents/) — sesi IT Operations & sesi lain saat dibutuhkan
 raci.md                    matriks RASCI + wewenang per peran
-docs/pemetaan-aturan-v5.md pemetaan 100% aturan protokol v4 → lokasi baru (dicek bin/cek-konsistensi.sh)
-uji/suite/                 suite regresi organisasi (10 tugas × k ulang, sebelum vs sesudah)
+uji/suite/                 suite regresi organisasi (10 tugas × k ulang, sebelum vs sesudah); uji/simulasi-linux/ simulasi jalur Linux
+.githooks/                 hook pre-commit repo (penjaga kebersihan; diaktifkan install.sh)
 perkakas.json              perkakas resmi SDLC + skill luar (docx-neuron, document-skills, frontend-design, docs) dan sumber resminya
 infra.md                   prosedur server, app, domain, alur deploy — generik, tanpa fakta server
 konfigurasi/               per device: server.json (server, aplikasi, DNS; git-ignored) + server.contoh.json
@@ -98,7 +98,7 @@ WSL2 (jalur Linux). Windows native: lihat bagian **Windows native** di bawah tab
   - **Prasyarat:** [Git for Windows](https://git-scm.com/download/win) (menyertakan Git Bash — dipakai Claude Code sebagai Bash tool
     dan untuk pembungkus `bin/*.sh`), Node.js ≥ 18 (≥ 22 untuk menjalankan suite uji), GitHub CLI `gh` (login), dan Claude Desktop
     dan/atau Claude Code CLI dan/atau ekstensi VS Code. OpenSSH klien (bawaan Windows) untuk perkakas server. `uv/uvx` bila memakai RUDIS SDD.
-  - **Lokasi:** `git clone https://github.com/DimasPrasetio/RudisOne.git %USERPROFILE%\Documents\Neuron\ai-agent\RudisOne`
+  - **Lokasi:** `git clone --depth 1 https://github.com/DimasPrasetio/RudisOne.git %USERPROFILE%\Documents\Neuron\ai-agent\RudisOne`
     (PowerShell: `$HOME\Documents\Neuron\ai-agent\RudisOne`). Folder Documents yang dialihkan ke OneDrive dikenali bila `Documents`
     di profil adalah junction/tautan; selain itu pindahkan/clone ke path di atas.
   - **Pasang:** `node install.mjs` (atau `install.cmd`; di Git Bash `./install.sh`). Tanpa bash/WSL. Hook: `node bin\kebijakan.mjs pasang`
@@ -113,8 +113,7 @@ WSL2 (jalur Linux). Windows native: lihat bagian **Windows native** di bawah tab
     Bash (Git Bash) untuk perkakas RudisOne. Path gaya Git Bash (`/c/Users/…`) dan path Windows (`C:\…`, tak peka huruf besar-kecil)
     dikenali. Detail: `bin/kebijakan.mjs`, uji `bin/kebijakan-windows.test.mjs`.
   - **Backend sesi:** `auto` (lihat Backend sesi di bawah). **Windows terverifikasi** (Windows 11, Claude Code 2.1.302): suite uji,
-    `install.mjs`, hook, DPAPI, `claude --bg`/`agents`/`logs`/`rm`; **belum terverifikasi:** `/rudisone` end-to-end di Claude Desktop dan
-    ekstensi VS Code — daftar uji: [`uji/windows.md`](uji/windows.md).
+    `install.mjs`, hook, DPAPI, `claude --bg`/`agents`/`logs`/`rm`; **belum terverifikasi:** `/rudisone` end-to-end di ekstensi VS Code.
 - **WSL2:** clone ke filesystem WSL (`~/Documents/…` = `/home/<user>/Documents/…`), **bukan** `/mnt/c/…`: di sana symlink
   dan mode berkas (`chmod 600`, bit executable) tidak andal dan git jauh lebih lambat. Buka sesi Claude Code dari terminal
   WSL (atau VS Code › WSL), bukan dari Windows.
@@ -134,17 +133,17 @@ WSL2 (jalur Linux). Windows native: lihat bagian **Windows native** di bawah tab
   Pengaman sesi latar dipasang per sesi (`--settings konfigurasi/sesi-cli.settings.json`: tanpa isolasi worktree otomatis,
   deny `git push`/`gh pr create`/`claude rm`, bypass mati) — settings pengguna tidak diubah. **Belum diuji di mesin Linux
   sungguhan** (simulasi + `claude` tiruan).
-- **macOS terverifikasi ulang setelah dukungan Windows** (Claude Desktop, Claude Code CLI, ekstensi VS Code; `b3a10e3`) — jangan
-  diuji ulang untuk versi ini; temuan T1–T4 sudah diperbaiki; pemicu uji ulang: `uji/macos.md`.
-- **Windows native terverifikasi** untuk Claude Code CLI dan Claude Desktop (bukti, lingkungan, dan yang belum teruji): `uji/windows-hasil.md`.
-- Daftar uji Linux & Windows/WSL2 untuk rekan (langkah + hasil yang diharapkan, keluarannya dikirim ke COO): `uji/linux-wsl.md`.
+- **Status verifikasi:** macOS (Claude Desktop, Claude Code CLI, ekstensi VS Code) dan Windows native (Claude Code CLI, Claude
+  Desktop) terverifikasi; Linux/WSL2 baru lewat simulasi (`uji/simulasi-linux/jalankan.sh`). Laporan uji per device tidak
+  disimpan di repo — tempatnya `handoff/` di device penguji.
 
-1. `git clone https://github.com/DimasPrasetio/RudisOne.git ~/Documents/Neuron/ai-agent/RudisOne` (repo publik; harus di path ini —
-   peran dan aturan merujuk `~/Documents/Neuron/ai-agent/RudisOne`).
+1. `git clone --depth 1 https://github.com/DimasPrasetio/RudisOne.git ~/Documents/Neuron/ai-agent/RudisOne` (repo publik; harus di
+   path ini — peran dan aturan merujuk `~/Documents/Neuron/ai-agent/RudisOne`). Clone dangkal cukup: riwayat git tidak dipakai
+   saat berjalan, dan `git pull --ff-only` tetap bisa memperbaruinya.
 2. `~/Documents/Neuron/ai-agent/RudisOne/install.sh` (Windows: `node install.mjs`) — membuat `handoff/`, memeriksa peran, menautkan skill & subagent ke `~/.claude`, konfigurasi server
    (bila sudah diisi: koneksi ssh & MCP DNS), dan memasang perkakas resmi SDLC (clone `rudis-monorepo` dan
    `rudis-modules` ke `~/Documents/Neuron/ai-agent`, skill ke `~/.claude/skills`) bila belum ada.
-3. Langkah 2 juga **memasang/memperbarui otomatis** (T-20261031-2.3; idempoten — jalankan ulang setelah setiap pembaruan
+3. Langkah 2 juga **memasang/memperbarui otomatis** (idempoten — jalankan ulang setelah setiap pembaruan
    RudisOne; settings hanya ditulis bila berubah, cadangan dibuat dulu; hook & aturan sistem lain tidak disentuh):
    - hook kebijakan akses + penjaga `.env` (PreToolUse/PostToolUse/PostToolUseFailure; hanya bertindak di sesi RudisOne,
      kecuali berkas terlindung) — uji satu panggilan: `bin/kebijakan.sh uji '<json>'`, status: `bin/kebijakan.sh cek`;
@@ -207,36 +206,14 @@ device; device lain cukup `git pull` lalu `install.sh`. Peran & subagent ditautk
 sesi berikutnya. Sesi inti yang sedang berjalan: minta COO mengirim instruksi "baca ulang peranmu". `catatan/` dan
 `TEAM.md` per device dan tidak ikut git.
 
-## Serah migrasi v5 ke main (sekali, atas permintaan pemilik)
-Branch `rudis/T-20261030-2` mengeluarkan `catatan/` dari git. Di checkout utama `catatan/*.md` masih dilacak dan bisa
-punya perubahan lokal, jadi **jangan merge langsung** — merge akan batal atau menghapus berkas ingatan dari disk.
-Urutan aman (`agents/tech-lead.md` › Serah ke branch utama):
-```bash
-cd ~/Documents/Neuron/ai-agent/RudisOne
-# cek dulu — skripnya baru ada di branch, jadi jalankan dari worktree branch itu terhadap checkout utama:
-RUDISONE_ROOT="$PWD" node <worktree rudis/T-20261030-2>/bin/cek-konsistensi.mjs --serah refs/heads/rudis/T-20261030-2
-git rm -r -q --cached catatan && git commit -m "chore: catatan/ per device, keluar dari git (T-20261030-2)"
-git merge --no-ff refs/heads/rudis/T-20261030-2
-./install.sh
-```
-`bin/cek-konsistensi.sh` dan `install.sh` memperingatkan bila `catatan/` masih dilacak.
-
-## Rollback ke pola lama (organisasi penuh sebagai sesi, protokol v4)
-Migrasi v5 (T-20261030-2) masuk sebagai satu merge commit, jadi bisa dibalik utuh:
-1. Revert memulihkan `catatan/*.md` sebagai berkas terlacak dan akan bentrok dengan berkas tak terlacak di disk
-   ("untracked working tree files would be overwritten"). Pindahkan dulu, revert, lalu kembalikan isi device:
-   `mv catatan /tmp/catatan-cadangan && git revert -m 1 <sha-merge-T-20261030-2> && cp /tmp/catatan-cadangan/*.md catatan/`
-   (isi device menang; `git status` lalu menunjukkan perubahannya sebagai perubahan lokal biasa).
-2. `install.sh` lalu lepas hook pemuat ulang inti bila tidak dipakai lagi: `bin/inti.sh lepas`. Tautan subagent
-   `~/.claude/agents/rudis-*.md` milik repo ini boleh dihapus (`find ~/.claude/agents -name 'rudis-*.md' -type l -delete`).
-3. Panggilan `/rudisone` berikutnya membentuk lagi organisasi penuh (pola v4); sesi lama yang masih tercatat di
-   `TEAM.md` dipulihkan otomatis.
-4. Register tugas: Kantor & COO v4 membaca `handoff/register-tugas.md`, yang tetap dibangkitkan dari JSON — tidak ada
-   data yang hilang.
-
 ## Aturan
 - Jangan pernah menyimpan rahasia (password, token, private key, isi `.env`) di repo ini — juga tidak di
   `konfigurasi/server.json`.
 - Jangan menanam fakta server (host, IP, path server, domain, nama app) di peran, protokol, atau templat; semuanya
   dibaca dari `konfigurasi/server.json`.
 - Jangan menaruh aturan tim di repo proyek; proyek hanya berisi aturan proyeknya.
+- Repo ini adalah sumber instalasi di device klien, jadi harus bersih dari sisa pemakaian: laporan uji per device,
+  ID tugas, kutipan keputusan bertanggal, riwayat bertanggal di dokumen, kode temuan lama, dan narasi uji tidak ditulis di
+  berkas produk — tempatnya `handoff/` (per device). Penjaga:
+  `bin/cek-konsistensi.sh --repo` (kode `bersih`) dan hook pre-commit `.githooks/pre-commit` (diaktifkan `install.sh`
+  lewat `core.hooksPath`). Tes, fixture, dan alat pengembang (`*.test.mjs`, `uji/suite/`, `uji/simulasi-linux/`, CI) dikecualikan.

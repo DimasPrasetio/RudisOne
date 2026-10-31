@@ -26,7 +26,8 @@ RudisOne, dan salinan kedua akan berbeda diam-diam.
 - COO menjalankan `bin/perkakas.sh siapkan` di awal setiap `/rudisone` (fetch paling sering 30 menit sekali),
   dan `bin/perkakas.sh siapkan --segera` tepat sebelum mengirim brief yang memakai perkakas (proyek baru, pasang/
   upgrade modul, Jalur Platform). `install.sh` juga menjalankannya.
-- Yang dilakukan: belum ada → `git clone` (+ `core.hooksPath` hook repo); tertinggal dan bersih → `git pull
+- Yang dilakukan: belum ada → `git clone` (dangkal; entri `"clone": "penuh"` — riwayat/tagnya dipakai — penuh)
+  (+ `core.hooksPath` hook repo); tertinggal dan bersih → `git pull
   --ff-only`; skill terpasang beda dari paket `dist/` di repo → `install.sh` milik repo skill.
 - Yang **tidak pernah** dilakukan: menyentuh repo yang punya perubahan belum di-commit atau yang bercabang dari
   origin, `stash`/`reset`, commit, push. Repo seperti itu dipakai apa adanya dan disebut di keluaran.
@@ -35,7 +36,7 @@ RudisOne, dan salinan kedua akan berbeda diam-diam.
   pengguna.
 - Exit 1 tidak menghentikan kerja (versi yang ada dipakai). COO menyebutnya ke pengguna dalam satu baris hanya
   bila berpengaruh (mis. pembaruan tertunda, repo sumber sedang diubah, clone gagal).
-- **Izin tetap** (dari permintaan pengguna 2026-10-24): clone, `pull --ff-only`, pasang ulang skill, dan
+- **Izin tetap** (aturan bawaan): clone, `pull --ff-only`, pasang ulang skill, dan
   `core.hooksPath` pada clone baru. Mengubah repo sumber tetap lewat Jalur Platform.
 
 ### Versi tercatat
@@ -138,14 +139,13 @@ COO menanyakannya di gerbang yang sesuai dan meneruskan jawabannya apa adanya.
 
 ### `.env` & database lokal (Konstruksi, langsung setelah scaffold) — disiapkan agent
 Proyek **langsung bisa dijalankan**: `.env` lokal tanpa placeholder (`__ISI_…__`, `change-me`) dan database lokal siap,
-tanpa pengguna menyunting `.env`. **Izin tetap pengguna** (2026-10-31,
-T-20261031-1): "Agent siapkan sendiri (Rekomendasi)". Izin ini menggantikan "izin per kali" **hanya** untuk database lokal
+tanpa pengguna menyunting `.env`. **Izin tetap** (aturan bawaan): agent menyiapkannya sendiri. Izin ini menggantikan "izin per kali" **hanya** untuk database lokal
 proyek yang sedang dibangun: menyiapkannya, lalu memakainya lewat kode proyek (migrasi, seed, menjalankan aplikasi, tes
 ber-database) pada `<slug>_db`/`<slug>_test`. MySQL lain (tes platform §4, database lain, menyalakan layanan) tetap per kali.
 1. **`.env` non-DB:** `node scripts/env-local.mjs` (skill `rudis-monorepo`; scaffold menjalankannya sekali, Tech Lead
    menjalankannya lagi setelah setiap `module.mjs add`): JWT acak, login lokal di kunci `*BOOTSTRAP*`, kunci lain dari
-   `.env.example`; nilai yang ada tidak diubah; placeholder tak dikenal → exit 1 + namanya. **Login awal lokal bawaan**
-   (pengguna 2026-10-31): email `admin@example.com`, sandi `admin123`, nama `admin` (`USERS_BOOTSTRAP_NAME`; users tanpa
+   `.env.example`; nilai yang ada tidak diubah; placeholder tak dikenal → exit 1 + namanya. **Login awal lokal bawaan**:
+   email `admin@example.com`, sandi `admin123`, nama `admin` (`USERS_BOOTSTRAP_NAME`; users tanpa
    username) — lokal, **publik**. Tidak pernah di `.env.production*`/server: `deploy.sh` › `[0/5] preflight` menolaknya
    (juga `admin@gmail.com` proyek lama; exit 1) sebelum apa pun berubah.
 2. **Database** — hanya bila kunci DB kosong: `~/Documents/Neuron/ai-agent/RudisOne/bin/env-kunci.sh --salah-satu
@@ -207,4 +207,4 @@ pustaka); skill `rudis-riset-desain` RudisOne dipakai untuk proyek lain dan untu
 - Pemeriksa batas modul otomatis untuk proyek hasil scaffold (`arch:check`) — usulan perbaikan skill; disarankan
   sebagai tugas Jalur Platform pertama sebelum proyek baru pertama.
 - Izin tetap menyalakan MySQL lokal khusus tes platform — saat ini izin per kali.
-  Persiapan database lokal **proyek** sudah izin tetap sejak 2026-10-31 (*`.env` & database lokal*).
+  Persiapan database lokal **proyek** sudah izin tetap (*`.env` & database lokal*).

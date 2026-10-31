@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Pengaman git untuk command RUDIS (T-20261030-6 · A6). Command /rudis.redesign|revamp|upgrade|implement menawarkan
+// Pengaman git untuk command RUDIS. Command /rudis.redesign|revamp|upgrade|implement menawarkan
 // checkpoint "commit atau stash" dan rollback `git reset --hard` / `git checkout <sha> -- <path>` — dilarang protokol
 // (stash dipakai bersama semua worktree; reset/checkout -- membuang kerja). Penggantinya: checkpoint = commit di branch
 // tugas, rollback = commit baru yang memulihkan path dari checkpoint. Tidak ada yang hilang dari riwayat.
@@ -81,7 +81,7 @@ export function rollback(cwd, id, sha, paths) {
     if (/^:|[*?[]/.test(p)) throw new Tolak(`pathspec khusus/glob tidak didukung: ${p}`);
   }
   // Berkas yang di-.gitignore tidak masuk checkpoint, tetapi `git restore --worktree` tetap menimpanya bila ada di
-  // checkpoint → isinya hilang dari mana pun (U3 M5). Tolak; pengguna/TL memindahkan atau meng-commit-nya dulu.
+  // checkpoint → isinya hilang dari mana pun. Tolak; pengguna/TL memindahkan atau meng-commit-nya dulu.
   const abai = execFileSync("git", ["ls-files", "--others", "--ignored", "--exclude-standard", "-z", "--", ...paths], { cwd: akar, encoding: "utf8" })
     .split("\0").filter(Boolean);
   if (abai.length) {

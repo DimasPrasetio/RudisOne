@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Cek kunci .env TANPA nilai (T-20261031-2.3). Agent dilarang membaca isi .env; kebutuhan sahnya — "kunci X terisi
+// Cek kunci .env TANPA nilai. Agent dilarang membaca isi .env; kebutuhan sahnya — "kunci X terisi
 // atau kosong?" — dijawab di sini: berkas dibaca di proses ini dan yang dilaporkan HANYA nama kunci + status. Nilai,
 // panjang nilai, potongan nilai, atau baris mentah tidak pernah dicetak — juga tidak di pesan galat (galat baca hanya
 // menyebut path + kode errno).

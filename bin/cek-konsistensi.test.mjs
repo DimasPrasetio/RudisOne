@@ -24,13 +24,14 @@ function repoMini(ubah = () => {}) {
   tulis("agents/coo.md", "---\nname: coo\ndescription: COO\n---\nPeran: **COO** RudisOne. Lihat `protokol.md` › Model sesi.\n");
   tulis("agents/research-analyst.md", "---\nname: research-analyst\ndescription: RA\n---\nPeran: **Research Analyst** di RudisOne.\n");
   tulis("skills/rudis-contoh/SKILL.md", "---\nname: rudis-contoh\ndescription: contoh\n---\n# Contoh\n## Langkah\n1. a\n");
-  tulis("docs/pemetaan-aturan-v5.md", "| Kode | Aturan lama | Lokasi baru | Jangkar | Status |\n|---|---|---|---|---|\n| P-001 | x | protokol.md | Aturan A: sesi inti. | tetap |\n| P-002 | y | dihapus | kalimat persona | dihapus |\n");
+  tulis("handoff/pemetaan/pemetaan-aturan-v5.md", "| Kode | Aturan lama | Lokasi baru | Jangkar | Status |\n|---|---|---|---|---|\n| P-001 | x | protokol.md | Aturan A: sesi inti. | tetap |\n| P-002 | y | dihapus | kalimat persona | dihapus |\n");
   ubah(tulis, r);
   execFileSync(process.execPath, [path.join(SINI, "peran.mjs"), "bangun"], { env: { ...process.env, RUDISONE_ROOT: r }, stdio: "ignore" });
   return r;
 }
 function periksa(r, ...arg) {
-  const p = spawnSync(process.execPath, [SKRIP, "--repo", "--json", ...arg], { env: { ...process.env, RUDISONE_ROOT: r }, encoding: "utf8" });
+  // RUDISONE_PEMETAAN dikosongkan: repo mini memakai tabelnya sendiri (handoff/pemetaan/), bukan tabel device pengembang
+  const p = spawnSync(process.execPath, [SKRIP, "--repo", "--json", ...arg], { env: { ...process.env, RUDISONE_ROOT: r, RUDISONE_PEMETAAN: "" }, encoding: "utf8" });
   return { kode: p.status, temuan: JSON.parse(p.stdout || "[]") };
 }
 const kodeTemuan = (h) => h.temuan.filter((t) => t.tingkat === "galat").map((t) => t.kode).sort();
@@ -72,14 +73,14 @@ test("skill: name ≠ folder → galat", () => {
 });
 
 test("pemetaan: jangkar tidak ada, lokasi tidak ada, dihapus tanpa alasan → galat", () => {
-  const h = periksa(repoMini((t) => t("docs/pemetaan-aturan-v5.md", "| Kode | Aturan lama | Lokasi baru | Jangkar | Status |\n|---|---|---|---|---|\n| P-001 | x | protokol.md | Teks yang tidak ada | tetap |\n| P-002 | y | skills/hantu.md | z | tetap |\n| P-003 | z | dihapus |  | dihapus |\n")));
+  const h = periksa(repoMini((t) => t("handoff/pemetaan/pemetaan-aturan-v5.md", "| Kode | Aturan lama | Lokasi baru | Jangkar | Status |\n|---|---|---|---|---|\n| P-001 | x | protokol.md | Teks yang tidak ada | tetap |\n| P-002 | y | skills/hantu.md | z | tetap |\n| P-003 | z | dihapus |  | dihapus |\n")));
   assert.deepEqual(kodeTemuan(h), ["pemetaan", "pemetaan", "pemetaan"]);
 });
 
 test("pemetaan: jangkar dengan \\| dan baris baru di sumber tetap cocok", () => {
   const h = periksa(repoMini((t) => {
     t("protokol.md", "# Protokol inti\n\n## Model sesi\n| a | b |\n|---|---|\n| LULUS \\| PERLU | baris\nlanjut |\n");
-    t("docs/pemetaan-aturan-v5.md", "| Kode | Aturan lama | Lokasi baru | Jangkar | Status |\n|---|---|---|---|---|\n| P-001 | x | protokol.md | LULUS \\\\| PERLU \\| baris lanjut | tetap |\n");
+    t("handoff/pemetaan/pemetaan-aturan-v5.md", "| Kode | Aturan lama | Lokasi baru | Jangkar | Status |\n|---|---|---|---|---|\n| P-001 | x | protokol.md | LULUS \\\\| PERLU \\| baris lanjut | tetap |\n");
   }));
   assert.deepEqual(kodeTemuan(h), []);
 });
@@ -303,6 +304,7 @@ test("TEAM.md: sesi IT Operations belum dibentuk tidak diperingatkan; terarsip d
 test("pemetaan v6 (T-20261031-2.3): unit lama tetap/pindah otomatis; yang berubah wajib baris; mekanisme = judul tes", () => {
   const r = repoMini();
   const g = (...a) => execFileSync("git", a, { cwd: r, stdio: "ignore" });
+  fs.writeFileSync(path.join(r, ".gitignore"), "handoff/*\n");   // tabel pemetaan per device, tidak ikut git
   g("init", "-q"); g("add", "-A");
   g("-c", "user.email=u@contoh.test", "-c", "user.name=u", "-c", "commit.gpgsign=false", "commit", "-q", "-m", "lama");
   const ref = execFileSync("git", ["rev-parse", "--short", "HEAD"], { cwd: r, encoding: "utf8" }).trim();
@@ -312,8 +314,8 @@ test("pemetaan v6 (T-20261031-2.3): unit lama tetap/pindah otomatis; yang beruba
   // pindah otomatis: "Aturan A: sesi inti." keluar dari protokol tetapi ada persis di skill
   tulis("protokol.md", "# Protokol inti\n\n## Model sesi\nLihat skill `rudis-contoh` › Langkah dan `raci.md`.\n");
   tulis("skills/rudis-contoh/SKILL.md", "---\nname: rudis-contoh\ndescription: contoh\n---\n# Contoh\n## Langkah\n1. a\n\nAturan A: sesi inti.\n");
-  tulis("docs/pemetaan-aturan-v5.md", "| Kode | Aturan lama | Lokasi baru | Jangkar | Status |\n|---|---|---|---|---|\n| P-001 | x | skills/rudis-contoh/SKILL.md | Aturan A: sesi inti. | tetap |\n| P-002 | y | dihapus | kalimat persona | dihapus |\n");
-  tulis("docs/pemetaan-aturan-v6.md", kepala);
+  tulis("handoff/pemetaan/pemetaan-aturan-v5.md", "| Kode | Aturan lama | Lokasi baru | Jangkar | Status |\n|---|---|---|---|---|\n| P-001 | x | skills/rudis-contoh/SKILL.md | Aturan A: sesi inti. | tetap |\n| P-002 | y | dihapus | kalimat persona | dihapus |\n");
+  tulis("handoff/pemetaan/pemetaan-aturan-v6.md", kepala);
   bangun(); let h = periksa(r);
   assert.deepEqual(kodeTemuan(h), [], JSON.stringify(h.temuan));
   assert.ok(h.temuan.some((t) => /pindah 1 · di tabel 0 · hilang 0/.test(t.pesan)), JSON.stringify(h.temuan));
@@ -321,11 +323,63 @@ test("pemetaan v6 (T-20261031-2.3): unit lama tetap/pindah otomatis; yang beruba
   tulis("skills/rudis-contoh/SKILL.md", "---\nname: rudis-contoh\ndescription: contoh\n---\n# Contoh\n## Langkah\n1. a\n");
   bangun(); h = periksa(r);
   assert.deepEqual(kodeTemuan(h), ["pemetaan", "pemetaan-v6"]);
-  tulis("docs/pemetaan-aturan-v5.md", "| Kode | Aturan lama | Lokasi baru | Jangkar | Status |\n|---|---|---|---|---|\n| P-001 | x | dihapus | jadi mekanisme | dihapus |\n| P-002 | y | dihapus | kalimat persona | dihapus |\n");
+  tulis("handoff/pemetaan/pemetaan-aturan-v5.md", "| Kode | Aturan lama | Lokasi baru | Jangkar | Status |\n|---|---|---|---|---|\n| P-001 | x | dihapus | jadi mekanisme | dihapus |\n| P-002 | y | dihapus | kalimat persona | dihapus |\n");
   tulis("bin/contoh.test.mjs", "test(\"aturan A ditegakkan\", () => {});\n");
-  tulis("docs/pemetaan-aturan-v6.md", `${kepala}| P-001 | protokol › Model sesi: aturan A | bin/contoh.test.mjs | aturan A ditegakkan | mekanisme |\n`);
+  tulis("handoff/pemetaan/pemetaan-aturan-v6.md", `${kepala}| P-001 | protokol › Model sesi: aturan A | bin/contoh.test.mjs | aturan A ditegakkan | mekanisme |\n`);
   bangun(); h = periksa(r);
   assert.deepEqual(kodeTemuan(h), [], JSON.stringify(h.temuan));
-  tulis("docs/pemetaan-aturan-v6.md", `${kepala}| P-001 | x | bin/contoh.test.mjs | tes yang tidak ada | mekanisme |\n`);
+  tulis("handoff/pemetaan/pemetaan-aturan-v6.md", `${kepala}| P-001 | x | bin/contoh.test.mjs | tes yang tidak ada | mekanisme |\n`);
   bangun(); assert.deepEqual(kodeTemuan(periksa(r)), ["pemetaan-v6"]);
+});
+
+test("clone bersih tanpa tabel pemetaan (alat pengembang per device) → info, bukan galat; RUDISONE_PEMETAAN menunjuk tabel di luar repo", () => {
+  const r = repoMini((t, akar) => fs.rmSync(path.join(akar, "handoff"), { recursive: true, force: true }));
+  fs.mkdirSync(path.join(r, "bin"), { recursive: true });
+  fs.writeFileSync(path.join(r, "bin", "inventaris-aturan.mjs"), "");   // seperti repo RudisOne sungguhan
+  let h = periksa(r);
+  assert.deepEqual(kodeTemuan(h), [], JSON.stringify(h.temuan));
+  assert.equal(h.kode, 0);
+  assert.deepEqual(h.temuan.filter((t) => /pemetaan/.test(t.kode)).map((t) => t.tingkat), ["info", "info"]);
+  // tabel di luar repo (mis. handoff/pemetaan di checkout utama, diperiksa dari worktree) tetap diperiksa
+  const luar = fs.mkdtempSync(path.join(os.tmpdir(), "pemetaan-"));
+  fs.writeFileSync(path.join(luar, "pemetaan-aturan-v5.md"), "| Kode | Aturan lama | Lokasi baru | Jangkar | Status |\n|---|---|---|---|---|\n| P-001 | x | protokol.md | Teks yang tidak ada | tetap |\n");
+  const p = spawnSync(process.execPath, [SKRIP, "--repo", "--json"], { env: { ...process.env, RUDISONE_ROOT: r, RUDISONE_PEMETAAN: luar }, encoding: "utf8" });
+  h = { kode: p.status, temuan: JSON.parse(p.stdout || "[]") };
+  assert.deepEqual(kodeTemuan(h), ["pemetaan"]);
+});
+
+test("kebersihan (R9): ID tugas / laporan uji device di berkas terlacak → galat bersih; tes ber-ID lolos", () => {
+  const id = ["T", "20261031", "4"].join("-");
+  const r = repoMini((t) => { t("bin/contoh.test.mjs", `test("regresi ${id}", () => {});\n`); t(".gitignore", "handoff/*\n"); });
+  const g = (...a) => execFileSync("git", a, { cwd: r, stdio: "ignore" });
+  g("init", "-q"); g("add", "-A");
+  assert.deepEqual(kodeTemuan(periksa(r)), []);
+  fs.appendFileSync(path.join(r, "raci.md"), `Pelajaran ${id}.\n`);
+  fs.mkdirSync(path.join(r, "uji"), { recursive: true });
+  fs.writeFileSync(path.join(r, "uji", "macos.md"), "# Hasil uji\n");
+  g("add", "-A");
+  const h = periksa(r);
+  assert.deepEqual(kodeTemuan(h), ["bersih", "bersih"]);
+  assert.ok(h.temuan.some((t) => /raci\.md:\d+ \[id-tugas\]/.test(t.pesan)), JSON.stringify(h.temuan));
+  assert.ok(h.temuan.some((t) => /uji\/macos\.md \[berkas-terlarang\]/.test(t.pesan)), JSON.stringify(h.temuan));
+});
+
+test("R8 & --serah: perintah keluar-indeks tingkat berkas — berkas sah di folder yang sama (uji/suite/) tidak ikut dibuang", () => {
+  const r = repoMini((t) => { t("uji/suite/README.md", "# Suite\n"); t("uji/macos.md", "# Hasil\n"); t(".gitignore", "handoff/*\n"); });
+  const g = (...a) => execFileSync("git", a, { cwd: r, stdio: "ignore" });
+  g("init", "-q"); g("add", "-A");
+  g("-c", "user.email=u@contoh.test", "-c", "user.name=u", "-c", "commit.gpgsign=false", "commit", "-q", "-m", "awal");
+  fs.writeFileSync(path.join(r, ".gitignore"), "handoff/*\n/uji/*.md\n");
+  const pesan = periksa(r).temuan.find((t) => t.kode === "git-abaikan")?.pesan ?? "";
+  assert.match(pesan, /git rm -q --cached -- uji\/macos\.md && git commit/);
+  assert.doesNotMatch(pesan, /rm -r|uji\/suite/);
+  g("add", ".gitignore");
+  g("-c", "user.email=u@contoh.test", "-c", "user.name=u", "-c", "commit.gpgsign=false", "commit", "-q", "-m", "abaikan");
+  const utama = execFileSync("git", ["branch", "--show-current"], { cwd: r, encoding: "utf8" }).trim();
+  g("checkout", "-q", "-b", "lama", "HEAD~1");
+  const p = spawnSync(process.execPath, [SKRIP, "--serah", `refs/heads/${utama}`], { env: { ...process.env, RUDISONE_ROOT: r }, encoding: "utf8" });
+  assert.equal(p.status, 2, p.stdout);
+  const s = p.stdout.split("\n").find((l) => /\[galat\] serah/.test(l)) ?? "";
+  assert.match(s, /git rm -q --cached -- uji\/macos\.md && git commit, baru merge/);
+  assert.doesNotMatch(s, /rm -r|uji\/suite/);
 });

@@ -8,3 +8,6 @@ handoff/*
 !/konfigurasi/server.contoh.json
 !/konfigurasi/sesi-cli.settings.json
 .DS_Store
+# sisa pemakaian (repo = sumber instalasi klien): laporan uji per device & tabel migrasi → handoff/ (dijaga bin/bersih.mjs)
+/uji/*.md
+/docs/pemetaan-aturan-*.md

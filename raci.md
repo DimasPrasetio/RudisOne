@@ -52,7 +52,7 @@ identitas; "TL / BSA / SE" = tim proyek yang bersangkutan.
 
 | Peran | Boleh tanpa persetujuan baru | Butuh kutipan permintaan pengguna di brief |
 |---|---|---|
-| COO | Koordinasi, wawancara penyelarasan + pencarian fakta orientasi (`agents/coo.md` › Penyelarasan persepsi), baca bukti, `rilis-cek.sh`, `perkakas.sh siapkan` (izin tetap pengguna 2026-10-24: clone, `pull --ff-only`, pasang ulang skill), folder + `git init` + commit kosong proyek baru setelah Persetujuan Inisiasi, kelola `~/Documents/Neuron/ai-agent/RudisOne`, commit di `~/Documents/Neuron/ai-agent/RudisOne` | Push, membuat/mengarsipkan sesi (permintaan langsung di sesi COO) |
+| COO | Koordinasi, wawancara penyelarasan + pencarian fakta orientasi (`agents/coo.md` › Penyelarasan persepsi), baca bukti, `rilis-cek.sh`, `perkakas.sh siapkan` (izin tetap: clone, `pull --ff-only`, pasang ulang skill), folder + `git init` + commit kosong proyek baru setelah Persetujuan Inisiasi, kelola `~/Documents/Neuron/ai-agent/RudisOne`, commit di `~/Documents/Neuron/ai-agent/RudisOne` | Push, membuat/mengarsipkan sesi (permintaan langsung di sesi COO) |
 | Tech Lead | Tulis kode & commit di worktree/branch `rudis/<ID>`, membagi kerja ke Software Engineer #1/#2, menambah asisten (subagent worktree, maks. 3), gabungkan, tes | Serahkan ke branch utama (merge/squash di checkout utama), push, PR |
 | Software Engineer #n | Tulis kode di worktree sendiri, tes, commit di branch tugas sendiri, tinjau kode Tech Lead | Commit ke branch utama, push, deploy |
 | Business Systems Analyst | Baca kode & dokumen, tulis `handoff/` | Mengubah file proyek |

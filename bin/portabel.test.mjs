@@ -247,6 +247,9 @@ test("T4: berhenti/mulai-ulang Kantor uji tidak mematikan Kantor di port lain da
 });
 
 test("install.mjs di HOME sementara: peran, subagent & skill tertaut; konsisten dengan jalur salinan (Windows tanpa symlink)", () => {
+  // config git repo ini dipakai bersama semua worktree: install dari luar lokasi rumah tidak boleh mengubahnya
+  const hooksPath = () => spawnSync("git", ["-C", REPO, "config", "--get", "core.hooksPath"], { encoding: "utf8" }).stdout;
+  const hooksAwal = hooksPath();
   for (const salin of ["0", "1"]) {
     const home = path.join(tmp, `home-install-${salin}`); fs.mkdirSync(home, { recursive: true });
     const env = { HOME: home, USERPROFILE: home, RUDISONE_INSTALL_PAKSA: "1", RUDISONE_TAUTAN_SALIN: salin,
@@ -259,6 +262,8 @@ test("install.mjs di HOME sementara: peran, subagent & skill tertaut; konsisten 
     assert.doesNotMatch(r.stdout, /\[!!\]\s+(peran|subagent|skill)/, r.stdout);
     assert.ok(fs.existsSync(path.join(home, ".claude", "skills", "rudisone", "SKILL.md")));
     assert.ok(fs.existsSync(path.join(home, ".claude", "agents", "rudis-tech-lead.md")));
+    assert.match(r.stdout, /hook pre-commit repo dilewati — repo bukan di lokasi rumah/);
+    assert.equal(hooksPath(), hooksAwal, "core.hooksPath repo tidak boleh diubah install dari luar lokasi rumah");
     if (salin === "1") assert.match(r.stdout, /tertaut \(salinan/);
     // pemasangan ulang idempoten
     const r2 = node(path.join(REPO, "install.mjs"), ["--tanpa-perkakas"], env);

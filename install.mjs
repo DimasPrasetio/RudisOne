@@ -1,7 +1,7 @@
 // Persiapan RudisOne di device ini (macOS, Linux, Windows). Aman dijalankan berulang (idempoten): membuat folder per
 // device dan berkas per device yang belum ada (TEAM.md, catatan/<id-peran>.md dari templat — tidak pernah menimpa),
 // memeriksa prasyarat, menautkan skill & subagent ke ~/.claude, dan MEMASANG/MEMPERBARUI OTOMATIS di settings pengguna
-// (T-20261031-2.3, pengguna: "di buat agar otomatis memasang saja, tidak perlu tanya"): hook kebijakan akses + penjaga
+// tanpa bertanya: hook kebijakan akses + penjaga
 // .env (PreToolUse/PostToolUse/PostToolUseFailure), aturan permissions.deny Read .env*, dan hook pemuat ulang inti
 // (SessionStart). Entri & aturan milik sistem lain tidak disentuh; settings hanya ditulis bila berubah, cadangan dulu.
 // Pengganti install.sh — install.sh / install.cmd hanya memanggil berkas ini.
@@ -57,11 +57,27 @@ try {
   const pd = siapkanPerDevice(ROOT, { sumber: ROOT });
   pass(`berkas per device dari templat: ${pd.dibuat.length} dibuat, ${pd.ada.length} sudah ada (TEAM.md, catatan/<id-peran>.md)`);
 } catch (e) { fail(`berkas per device (TEAM.md, catatan/) tidak bisa disiapkan: ${e.message}`); }
-// Berkas per device yang masih dilacak git (mis. catatan/ sebelum serah migrasi v5) — merge bisa menghapusnya dari disk.
-const git = spawnSync("git", ["-C", ROOT, "ls-files", "-ci", "--exclude-standard"], { encoding: "utf8" });
-const dilacak = git.status === 0 ? [...new Set(git.stdout.split(/\r?\n/).filter(Boolean).map((f) => f.split("/")[0]))].sort().join(" ") : "";
-if (dilacak) fail(`berkas per device masih dilacak git: ${dilacak} — sebelum merge: git rm -r --cached ${dilacak} && git commit (README › Serah migrasi v5 ke main)`);
+// Berkas per device yang masih dilacak git (mis. catatan/) — merge bisa menghapusnya dari disk.
+const git = spawnSync("git", ["-C", ROOT, "ls-files", "-z", "-ci", "--exclude-standard"], { encoding: "utf8" });   // -z: nama non-ASCII apa adanya
+/** Kutip untuk shell POSIX bila perlu (path berspasi/karakter khusus) — perintah yang dicetak bisa disalin apa adanya. */
+const kutipSh = (f) => (/^[\w./@+-]+$/.test(f) ? f : `'${f.replace(/'/g, "'\\''")}'`);
+const berkasDilacak = git.status === 0 ? git.stdout.split("\0").filter(Boolean) : [];
+const dilacak = [...new Set(berkasDilacak.map((f) => f.split("/")[0]))].sort().join(" ");
+// tingkat berkas, bukan folder: folder yang sama bisa berisi berkas terlacak yang sah (mis. uji/suite/ di samping uji/*.md)
+if (dilacak) fail(`berkas per device masih dilacak git: ${dilacak} — sebelum merge: git rm -q --cached -- ${berkasDilacak.map(kutipSh).join(" ")} && git commit (agents/tech-lead.md › Serah ke branch utama)`);
 else pass("berkas per device tidak dilacak git");
+// Hook pre-commit repo (.githooks/pre-commit → bin/bersih.mjs): menolak sisa pemakaian di berkas produk. Hanya dipasang bila
+// core.hooksPath belum diisi (nilai milik pengguna dibiarkan) — konfigurasi git repo-lokal, settings Claude tidak disentuh.
+// Hanya dari lokasi rumah: config git dipakai bersama semua worktree, jadi install dari worktree/salinan uji
+// (RUDISONE_INSTALL_PAKSA) tidak boleh mengubah repo induknya.
+if (!samaPath(ROOT, rumahRepo())) info("hook pre-commit repo dilewati — repo bukan di lokasi rumah");
+else if (git.status === 0 && fs.existsSync(path.join(ROOT, ".githooks", "pre-commit"))) {
+  const kini = spawnSync("git", ["-C", ROOT, "config", "--get", "core.hooksPath"], { encoding: "utf8" }).stdout.trim();
+  if (kini === ".githooks") pass("hook pre-commit repo aktif (core.hooksPath .githooks)");
+  else if (kini) info(`core.hooksPath sudah diisi (${kini}) — hook pre-commit RudisOne tidak dipasang; manual: git -C ${RUMAH_TAMPIL} config core.hooksPath .githooks`);
+  else if (spawnSync("git", ["-C", ROOT, "config", "--local", "core.hooksPath", ".githooks"]).status === 0) pass("hook pre-commit repo dipasang (core.hooksPath .githooks)");
+  else fail("hook pre-commit repo tidak bisa dipasang (git config core.hooksPath .githooks)");
+}
 
 // Berkas peran di ruang sesi: salinan terbangkit dari agents/ oleh bin/peran.mjs (dulu symlink).
 const cekPeran = (f, id) => {
