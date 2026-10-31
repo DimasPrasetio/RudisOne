@@ -48,7 +48,7 @@ const rumah = (p) => path.normalize(p.replace(/^~(?=\/|$)/, os.homedir()));   //
 function jalankan(cmd, args, cwd, envTambah = {}, timeout = 120_000) {
   const r = jalankanProses(cmd, args, { cwd, encoding: "utf8", timeout,
     env: { ...process.env, GIT_TERMINAL_PROMPT: "0", ...envTambah } });
-  return { ok: r.status === 0, out: (r.stdout || "").trim(), err: (r.stderr || r.error?.message || "").trim() };
+  return { ok: r.status === 0, kode: r.status, out: (r.stdout || "").trim(), err: (r.stderr || r.error?.message || "").trim() };
 }
 const git = (dir, ...args) => jalankan("git", ["-C", dir, ...args]);
 const baris1 = (t) => t.split("\n").filter(Boolean).pop() ?? "";
@@ -268,6 +268,8 @@ export function teksProyek(h) {
   return [h.jenis, `mode-mesin: ${h.mode}`, `backend: ${h.backend}`, ...h.bukti.map((b) => `bukti: ${b}`), kartu].join("\n");
 }
 
+/** Sidik isi folder: "<path relatif> <sha1>" per berkas, terurut. Backslash di nama dibaca sebagai pemisah folder: paket zip
+ *  ber-backslash yang dibuka apa adanya (nama berkas memuat "\") tetap sebanding dengan salinan terpasang. */
 function sidikFolder(dir) {
   const hasil = [];
   (function jalan(d, rel) {
@@ -275,27 +277,52 @@ function sidikFolder(dir) {
       if (e.name === ".DS_Store") continue;
       const p = path.join(d, e.name), r = rel ? `${rel}/${e.name}` : e.name;
       if (e.isDirectory()) jalan(p, r);
-      else hasil.push(`${r} ${crypto.createHash("sha1").update(fs.readFileSync(p)).digest("hex")}`);
+      else hasil.push(`${r.replaceAll("\\", "/")} ${crypto.createHash("sha1").update(fs.readFileSync(p)).digest("hex")}`);
     }
   })(dir, "");
-  return hasil.sort().join("\n");
+  return hasil.sort();
+}
+
+const adaIsi = (dir) => { try { return fs.readdirSync(dir).length > 0; } catch { return false; } };
+// Alat tidak terpasang (bukan galat paket): spawn ENOENT, shell 127, cmd.exe 9009.
+const tidakAda = (r) => /\bENOENT\b/.test(r.err) || r.kode === 127 || r.kode === 9009;
+
+/** Buka paket zip ke `tujuan` (folder kosong). Urutan: unzip → python3 (bukan Windows: alias WindowsApps bisa menggantung)
+ *  → tar (bsdtar membuka zip: macOS, Windows 10+) → PowerShell Expand-Archive (Windows).
+ *  unzip kode 1 = peringatan (mis. entri ber-backslash), berkas tetap terbuka → diterima bila folder terisi.
+ *  Hasil: { alat, peringatan } · semua cara gagal → Error "paket tidak bisa dibuka: …" (galat alat pertama yang benar-benar jalan). */
+export function bukaPaket(paket, tujuan, { jalankan: run = jalankan, platform = process.platform } = {}) {
+  const cara = [["unzip", "unzip", ["-q", "-o", paket, "-d", tujuan]]];
+  if (platform !== "win32") cara.push(["python3", "python3", ["-c", "import sys,zipfile; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])", paket, tujuan]]);
+  cara.push(["tar", tarZip(), ["-xf", paket, "-C", tujuan]]);
+  if (platform === "win32") {
+    cara.push(["Expand-Archive", "powershell.exe", ["-NoProfile", "-NonInteractive", "-Command",
+      `Expand-Archive -LiteralPath '${paket.replaceAll("'", "''")}' -DestinationPath '${tujuan.replaceAll("'", "''")}' -Force`]]);
+  }
+  const galat = [];
+  for (const [alat, cmd, args] of cara) {
+    fs.rmSync(tujuan, { recursive: true, force: true });
+    fs.mkdirSync(tujuan, { recursive: true });
+    const r = run(cmd, args);
+    if (r.ok) return { alat, peringatan: "" };
+    if (alat === "unzip" && r.kode === 1 && adaIsi(tujuan)) return { alat, peringatan: baris1(r.err || r.out) };
+    const pesan = baris1(r.err || r.out).trim().replace(/\s+/g, " ") || `kode ${r.kode}`;
+    if (!tidakAda(r)) galat.push(pesan.startsWith(`${alat}:`) ? pesan : `${alat}: ${pesan}`);
+  }
+  fs.rmSync(tujuan, { recursive: true, force: true });
+  throw new Error(`paket tidak bisa dibuka: ${galat[0] ?? "tidak ada unzip/tar/Expand-Archive"}`);
 }
 
 /** Apakah isi skill terpasang sama persis dengan isi paket .skill (zip) di repo sumber. */
-function terpasangSamaDenganPaket(paket, terpasang) {
+export function terpasangSamaDenganPaket(paket, terpasang, opsi) {
   if (!fs.existsSync(terpasang)) return false;
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "perkakas-"));
   try {
-    // unzip (macOS/Linux) → python3 → tar (bsdtar membuka zip: macOS, Windows 10+) → PowerShell Expand-Archive (Windows)
-    let r = jalankan("unzip", ["-q", paket, "-d", tmp]);
-    if (!r.ok) r = jalankan("python3", ["-c", "import sys,zipfile; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])", paket, tmp]);
-    if (!r.ok) r = jalankan(tarZip(), ["-xf", paket, "-C", tmp]);
-    if (!r.ok && process.platform === "win32") {
-      r = jalankan("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", `Expand-Archive -LiteralPath '${paket.replaceAll("'", "''")}' -DestinationPath '${tmp.replaceAll("'", "''")}' -Force`]);
-    }
-    if (!r.ok) throw new Error(`paket tidak bisa dibuka: ${baris1(r.err)}`);
-    const isi = path.join(tmp, path.basename(terpasang));
-    return fs.existsSync(isi) && sidikFolder(isi) === sidikFolder(terpasang);
+    const isi = path.join(tmp, "isi");
+    bukaPaket(paket, isi, opsi);
+    const awal = `${path.basename(terpasang)}/`;
+    const dariPaket = sidikFolder(isi).filter((s) => s.startsWith(awal)).map((s) => s.slice(awal.length));
+    return dariPaket.length > 0 && dariPaket.join("\n") === sidikFolder(terpasang).join("\n");
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
@@ -384,9 +411,13 @@ function siapkan(t, { ubah, segera, paksa, sibuk, state }) {
     else if (sibuk.length && !paksa) awas(`${nama}: skill terpasang beda dari paket, pemasangan ditunda — tugas Engineering berjalan: ${sibuk.join(", ")}`);
     else if (!ubah) awas(`${nama}: skill terpasang ${fs.existsSync(terpasang) ? "beda dari" : "belum ada; ada"} paket sumber`);
     else {
+      // Ukurannya isi terpasang, bukan kode keluar skrip: unzip di skrip pasang keluar 1 untuk peringatan (mis. paket ber-backslash).
       const r = jalankan(cariBash() ?? "bash", [posix(path.join(akar, t.pasang))], akar);
-      if (r.ok && terpasangSamaDenganPaket(paket, terpasang)) ok(`${nama}: skill dipasang ulang dari paket sumber`);
-      else awas(`${nama}: pemasangan gagal — ${baris1(r.err || r.out)}`);
+      let samaKini;
+      try { samaKini = terpasangSamaDenganPaket(paket, terpasang); } catch (e) { awas(`${nama}: ${e.message}`); return catat; }
+      if (samaKini && r.ok) ok(`${nama}: skill dipasang ulang dari paket sumber`);
+      else if (samaKini) awas(`${nama}: skill dipasang ulang (terpasang = paket sumber), tetapi ${t.pasang} keluar dengan kode ${r.kode ?? "?"} — ${baris1(r.err || r.out) || "tanpa pesan"}`);
+      else awas(`${nama}: pemasangan gagal — ${r.ok ? "skill terpasang masih beda dari paket sumber" : baris1(r.err || r.out) || `${t.pasang} keluar dengan kode ${r.kode ?? "?"}`}`);
     }
   }
   return catat;
