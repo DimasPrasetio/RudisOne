@@ -913,7 +913,8 @@ const ENV_PEMUAT_KODE = /dotenv|load_dotenv|godotenv|env-file|loadEnvFile/i;
  *  ('.env', "./apps/.env.local", `${d}/.env`) atau pemuat env. Teks biasa yang sekadar menyebut ".env" (dokumen,
  *  pesan) bukan pembacaan. */
 function kodeBacaEnv(kode, K) {
-  if (ENV_PEMUAT_KODE.test(kode) && ENV_AKSES.test(kode)) return ".env";
+  // pemuat + nilai dipakai: akses lingkungan, API pengembali nilai (dotenv_values, .parsed, parse), atau dicetak
+  if (ENV_PEMUAT_KODE.test(kode) && (ENV_AKSES.test(kode) || ENV_CETAK.test(kode))) return ".env";
   for (const m of String(kode).matchAll(/(['"`])((?:\\.|(?!\1)[^\\])*)\1/g)) {
     const isi = m[2].replace(/\$\{[^}]*\}/g, "x");
     if (!/\s/.test(isi) && namaEnv(isi.split(/[\\/]/).pop(), K)) return m[2];
@@ -1072,6 +1073,8 @@ export function substitusi(cmd) {
 const ENV_STDIN_ABAI = new Set(["echo", "printf", "ls", "stat", "test", "[", "[[", "true", "false", "touch", "chmod", "chown", "rm",
   "mkdir", "cd", "wc", "file", "du", "realpath", "readlink", "basename", "dirname"]);
 const ENV_KATA_KUNCI = /^(for|select|local|declare|typeset|readonly|alias|unset|function|fi|done|esac|\})$/;
+/** API dotenv pengembali nilai / pencetakan di kode yang memuat pemuat env (console.log(require('dotenv').config())). */
+const ENV_CETAK = /dotenv_values|\.parsed\b|\.parse\(|\b(console\.(log|dir|error|info|table)|print|pprint|puts|p|JSON\.stringify|util\.inspect|echo|var_dump|print_r)\s*\(/;
 /** Akses lingkungan proses di kode (dipakai bersama pemuat env = membuang nilai .env ke transkrip). */
 const ENV_AKSES = /process\.env|os\.environ|os\.getenv|getenv\(|ENV\[|\$_ENV|System\.getenv|Deno\.env/;
 
@@ -1224,12 +1227,27 @@ export function envSegmen(s, K, ctx, semua = s.teks, dalam = 0) {
     const ekspansi = k.ekspansi || (/`|\$\(/.test(k.nilai) && /`|\$\(/.test(kodeSeg));
     // sebutan env di segmen ini, atau sebagai nilai variabel/daftar di bagian lain perintah (F=.env; cat $F)
     const varLoop = [...semua.matchAll(/\bread\s+(?:-\w+\s+)*([A-Za-z_]\w*)|\bfor\s+([A-Za-z_]\w*)\s+in\b/g)].map((m) => m[1] ?? m[2]);
-    if (ekspansi && ENV_PENGELUAR.test(prog) && varLoop.some((v) => new RegExp(`\\$\\{?${v}\\b`).test(k.nilai)) && /\.env|env\b/.test(semua))
+    if (ekspansi && ENV_PENGELUAR.test(prog) && varLoop.some((v) => new RegExp(`\\$\\{?${v}\\b`).test(k.nilai)) && daftarEnv(semua, K))
       return hasil(".env", "variabel loop atas daftar berkas env");
-    if (ekspansi && ENV_PENGELUAR.test(prog) && (ENV_SEBUT.test(kodeSeg) || /[A-Za-z_]\w*=\S*\.env(?![\w])|\bin\s[^;]*(?<![\w$])\.env(?![\w])/.test(kodeSemua)))
+    if (ekspansi && ENV_PENGELUAR.test(prog) && (ENV_SEBUT.test(kodeSeg) || [...kodeSemua.matchAll(/[A-Za-z_]\w*=([^\s;&|)]+)/g)].some((m) => namaEnv(m[1].split(/[\\/]/).pop(), K))))
       return hasil(".env", "ekspansi yang bisa menunjuk berkas env");
   }
   return null;
+}
+/** Teks perintah menyebut/menyaring berkas env non-contoh (anggota daftar for, pola glob/find -name, pola grep)? */
+const CALON_ENV = [".env", ".env.local", ".env.production", ".env.development", ".env.test", "prod.env", ".envrc"];
+function daftarEnv(teks, K) {
+  const kata = urai(teks).segmen.flatMap((s) => s.kata.map((x) => x.nilai)).concat(substitusi(teks).flatMap((t) => urai(t).segmen.flatMap((s) => s.kata.map((x) => x.nilai))));
+  for (let i = 0; i < kata.length; i++) {
+    const w = kata[i], b = w.split(/[\\/]/).pop();
+    if (namaEnv(b, K)) return true;
+    if (/[*?[]/.test(b) && CALON_ENV.some((n) => globKeRegex(b).test(n))) return true;
+    // pola grep/egrep/rg sesudah program (ls -a | grep env)
+    if (/^(grep|egrep|rg)$/.test(path.basename(kata[i - 1] ?? "")) && !w.startsWith("-")) {
+      try { if (CALON_ENV.some((n) => new RegExp(w).test(n)) && !/example|contoh|sample/.test(w)) return true; } catch { /* pola bukan regex */ }
+    }
+  }
+  return false;
 }
 /** Hasil ekspansi glob `pola` (relatif ke `c`) seperti shell: berkas tersembunyi hanya bila pola diawali titik. */
 function globDaftar(pola, c) {

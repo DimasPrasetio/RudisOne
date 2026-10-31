@@ -317,3 +317,11 @@ test("tinjauan silang T-2.3 putaran 2: perintah di dalam if/for/while/until/case
     "if [ -f .env ]; then echo ada; fi", "for f in *.md; do cat $f; done", "while read l; do echo \"$l\"; done < README.md",
     "dotenvx run -- npm test", "if npm test; then echo ok; fi"], "—");
 });
+
+test("tinjauan silang T-2.3 putaran 3: API dotenv yang mencetak nilai → deny; loop atas berkas contoh → tanpa keputusan", () => {
+  harap(["node -e \"console.log(require('dotenv').config())\"", "node -e \"console.log(require('dotenv').config().parsed)\"",
+    "python3 -c \"from dotenv import dotenv_values; print(dotenv_values())\"", "python3 -c \"import dotenv; print(dotenv.dotenv_values())\"",
+    "python3 <<'PY'\nimport dotenv; print(dotenv.dotenv_values())\nPY", "ls -a | grep env | while read f; do cat \"$f\"; done"], "deny");
+  harap(["for f in .env.example apps/api/.env.example; do cat $f; done", "find . -name '.env.example' | while read f; do cat \"$f\"; done",
+    "for f in $(find . -name '.env.example'); do cat \"$f\"; done", "node -e \"require('dotenv').config(); require('./x')\""], "—");
+});
