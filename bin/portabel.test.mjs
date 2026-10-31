@@ -254,7 +254,7 @@ test("install.mjs di HOME sementara: peran, subagent & skill tertaut; konsisten 
     const home = path.join(tmp, `home-install-${salin}`); fs.mkdirSync(home, { recursive: true });
     const env = { HOME: home, USERPROFILE: home, RUDISONE_INSTALL_PAKSA: "1", RUDISONE_TAUTAN_SALIN: salin,
       RUDISONE_SESI: path.join(tmp, `sesi-${salin}.json`), RUDISONE_RAHASIA_DIR: path.join(tmp, "rahasia-i") };
-    const r = node(path.join(REPO, "install.mjs"), ["--tanpa-perkakas"], env);
+    const r = node(path.join(REPO, "install.mjs"), ["--tanpa-perkakas", "--tanpa-unduh"], env);
     assert.equal(r.status, 0, r.stderr);
     assert.match(r.stdout, /\[ok\]\s+peran coo ada di ruang sesi/);
     assert.match(r.stdout, /\[ok\]\s+subagent rudis-tech-lead tertaut/);
@@ -266,7 +266,7 @@ test("install.mjs di HOME sementara: peran, subagent & skill tertaut; konsisten 
     assert.equal(hooksPath(), hooksAwal, "core.hooksPath repo tidak boleh diubah install dari luar lokasi rumah");
     if (salin === "1") assert.match(r.stdout, /tertaut \(salinan/);
     // pemasangan ulang idempoten
-    const r2 = node(path.join(REPO, "install.mjs"), ["--tanpa-perkakas"], env);
+    const r2 = node(path.join(REPO, "install.mjs"), ["--tanpa-perkakas", "--tanpa-unduh"], env);
     assert.match(r2.stdout, /sudah mutakhir/);
     // pemeriksa konsistensi paham semua jenis tautan: tidak ada peringatan skill/subagent terpasang
     const c = node(path.join(SINI, "cek-konsistensi.mjs"), [], env);
