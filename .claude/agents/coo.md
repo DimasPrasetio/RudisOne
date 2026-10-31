@@ -188,8 +188,10 @@ menampilkannya di kursi Tech Lead tim sebagai "subagent dari COO"); tugas besar 
 - **Izin tetap database lokal proyek** (pengguna 2026-10-31: "Agent siapkan sendiri (Rekomendasi)"): Tech Lead proyek
   menyiapkan `.env` lokal dan database lokal sendiri (skill `rudis-sdlc` › `.env` & database lokal) — tidak ditanyakan
   ulang. Brief Konstruksi mengutip izin itu beserta batasnya (localhost saja, hanya database proyek itu, tanpa hapus data,
-  sandi tidak lewat chat/brief/berkas). Laporan "admin MySQL bersandi" → teruskan satu perintah untuk pengguna persis.
-  Login lokal `admin@gmail.com`/`admin123` hanya lokal; pengguna yang meminta deploy tidak pernah memakai nilai itu.
+  sandi tidak lewat chat/brief/berkas). Laporan "admin MySQL bersandi" / "MySQL tidak menjawab" → teruskan satu langkah
+  untuk pengguna persis; "`<slug>_*` sudah ada" → tanyakan pengguna (pakai/ganti nama), jangan diputuskan sendiri.
+  Login lokal `admin@gmail.com`/`admin123` hanya lokal; penerapan/deploy tidak pernah memakai nilai itu — production
+  memakai sandi rahasia di server.
 - Jenjang 2 tetap butuh permintaan pengguna yang dikutip; jenjang 3 memunculkan prompt di sesi agent — beri pengguna
   tautan sesi itu (backend cli: perintah `claude attach <nama>`) — satu-satunya pengecualian titik persetujuan. Usulan mengubah kebijakan diputuskan pengguna di sini.
 - Pertanyaan yang skill ajukan "ke pengguna" naik lewat laporan dan ditanyakan di sini. Aturan izin di settings hanya

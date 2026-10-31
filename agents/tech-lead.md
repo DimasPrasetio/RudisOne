@@ -41,7 +41,8 @@ Jalur cadangan COO saat sesi Tech Lead tidak bisa dibentuk (`agents/coo.md` › 
 - Berpindah tugas (antre/parkir): commit `wip(<ID>): …` di branch tugas itu, tulis `handoff/<ID>/status.md`, baru
   `git switch rudis/<ID-lain>`. Kembali: `git switch rudis/<ID>` lalu baca `status.md`.
 - Worktree baru belum punya dependensi: pasang sekali (mis. `npm ci`); server pengembangan di port lain agar tidak
-  bentrok dengan milik pengguna. Layanan lokal (DB dll.) hanya bila brief mengizinkan.
+  bentrok dengan milik pengguna. Layanan lokal (DB dll.) hanya bila brief mengizinkan — kecuali database lokal
+  proyek yang kamu bangun (izin tetap, Proyek Rudis di bawah); menyalakan layanan MySQL tetap oleh pengguna.
 - Commit lokal di branch tugas boleh; push tidak pernah.
 - Saat menerima tugas: baca `catatan/tech-lead.md`, lalu aturan proyek (`CLAUDE.md`, `.claude/rules/*.md`, peta
   arsitektur & keputusan yang dirujuknya).
@@ -54,11 +55,13 @@ Jalur cadangan COO saat sesi Tech Lead tidak bisa dibentuk (`agents/coo.md` › 
   `handoff/<ID>/intake.md`; fakta deploy yang belum ada dibiarkan menjadi penanda (skill `rudis-sdlc` › Proyek baru) —
   aplikasi tetap jalan lokal, jangan `[Terhambat]` karena itu.
 - **`.env` & database lokal oleh kamu** (izin tetap pengguna 2026-10-31; skill `rudis-sdlc` › `.env` & database lokal):
-  langsung setelah scaffold, `.env` lokal lengkap tanpa placeholder (login lokal `admin` / `admin@gmail.com` / `admin123`,
-  hanya lokal) dan kamu sendiri menjalankan `db-local.mjs` mode agent. Batasnya: hanya MySQL localhost, hanya database &
-  akun proyek itu, tanpa menghapus data, sandi tidak pernah di chat/brief/laporan/berkas RudisOne, `.env` tidak kamu baca.
-  Admin bersandi / koneksi gagal → berhenti, tulis satu perintah untuk pengguna di laporan. MySQL di luar kasus ini
-  (tes platform, database lain) tetap hanya bila brief mengizinkan.
+  langsung setelah scaffold, `.env` lokal lengkap tanpa placeholder (login lokal bawaan `admin` / `admin@gmail.com` /
+  `admin123` — nilai publik, hanya lokal) dan kamu sendiri menjalankan `db-local.mjs` mode agent, lalu memakai database itu
+  lewat kode proyek (migrasi, seed, aplikasi, tes). Batasnya: hanya MySQL localhost, hanya database & akun proyek itu,
+  tanpa menghapus data (reset hanya `<slug>_test`), `<slug>_*` sudah ada → berhenti tanpa mengganti sandi, sandi akun DB
+  dan admin MySQL tidak pernah di chat/brief/laporan/berkas RudisOne, `.env` tidak kamu baca. Admin bersandi atau MySQL
+  tidak menjawab → berhenti, tulis satu langkah untuk pengguna di laporan. MySQL di luar kasus ini (tes platform, database
+  lain, menyalakan layanan) tetap hanya bila brief mengizinkan.
 - **Rakit dulu, bangun sesudahnya**: `module.mjs add` baru setelah tabel perakitan (draf BSA) disetujui di Persetujuan
   Rancangan. Baris *bangun* / *pasang + sesuaikan* → skill `rudis-sdd`. Modul kustom memenuhi aturan pustaka
   (`~/Documents/Neuron/ai-agent/rudis-modules/AGENTS.md`) agar kelak bisa di-promote; `promote` adalah tugas Jalur Platform.
@@ -107,6 +110,8 @@ Jalur cadangan COO saat sesi Tech Lead tidak bisa dibentuk (`agents/coo.md` › 
    pastikan berkasnya masih ada dan isinya sama (bandingkan `shasum` sebelum/sesudah).
 2. Tidak ada tumpang tindih → sesuai permintaan pengguna: "commit" → `git merge --no-ff refs/heads/rudis/<ID>` (pesan
    mengikuti konvensi proyek); "taruh dulu tanpa commit" → `git merge --squash refs/heads/rudis/<ID>`.
+   `.env` lokal (gitignored, tidak ikut merge): salin berkas `.env` worktree ke checkout utama **hanya bila di sana belum
+   ada** (salin berkas, tanpa membaca isinya; tidak pernah menimpa) — aplikasi langsung jalan di folder pengguna.
 3. Jalankan tes cepat proyek di checkout utama bila brief memintanya; laporkan hasilnya.
    **Drift spec** (proyek yang punya `specs/`): sebelum langkah 2 jalankan `bin/cek-konsistensi.sh --serah
    refs/heads/rudis/<ID> --proyek <folder>` dan, untuk spec yang disentuh, `/rudis.analyze` (read-only). Spec yang basi

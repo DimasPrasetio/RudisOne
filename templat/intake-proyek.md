@@ -28,7 +28,7 @@ Tanggal: YYYY-MM-DD · Perkakas: <keluaran bin/perkakas.sh versi>
 |---|---|---|
 | MySQL lokal | <jenis (layanan OS / Docker / XAMPP/Laragon) · versi dari `SELECT VERSION()` oleh skrip> / tidak ada | tidak ada → tes ber-database "belum terverifikasi" |
 | Database & akun proyek | `<slug>_db`, `<slug>_test`, `<slug>_dev@127.0.0.1` — siap YYYY-MM-DD, login akun proyek berhasil | dibuat Tech Lead lewat `db-local.mjs` (izin tetap) |
-| Perlu langkah pengguna? | tidak / ya: admin MySQL bersandi → pengguna menjalankan `node scripts/db-local.mjs` (interaktif), "sudah" YYYY-MM-DD | satu perintah, diteruskan COO persis |
+| Perlu langkah pengguna? | tidak / admin MySQL bersandi → pengguna menjalankan `node scripts/db-local.mjs` (interaktif) / MySQL tidak menjawab → pengguna menyalakannya / `<slug>_*` sudah ada → keputusan pengguna; "sudah" YYYY-MM-DD | satu langkah, diteruskan COO persis |
 | `.env` lokal | lengkap tanpa placeholder; login awal lokal `admin` / `admin@gmail.com` / `admin123` | hanya lokal — tidak pernah production |
 
 ## Sebelum penerapan pertama — fakta deploy (saat pengguna meminta deploy)
