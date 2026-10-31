@@ -232,13 +232,13 @@ Sesi di `ruang/<id-peran>` memuat peran otomatis; subagent `rudis-<id-peran>` su
 <!-- ke-pengguna -->
 > Aplikasi ini perlu tempat penyimpanan data di komputer Anda (disebut database). Saya belum bisa menyiapkannya sendiri karena
 > program penyimpan datanya (MySQL) <meminta kata sandi yang hanya Anda yang tahu / belum menyala>. Tidak ada yang rusak; pekerjaan
-> lain jalan terus. Pilihan: (a) Anda menjalankan satu perintah di aplikasi Terminal (perintahnya ada di blok kode tepat di
-> bawah pesan ini, sekitar satu menit; Anda diminta mengetik sandi — hurufnya memang tidak tampak, dan sandinya tidak saya
-> lihat); (b) Anda minta teknisi atau orang IT yang Anda percaya menjalankannya — cukup teruskan pesan ini. **Rekomendasi: (a)**
+> lain jalan terus. Pilihan: (a) Anda menjalankan satu perintah: buka aplikasi Terminal (tempat mengetik perintah; di Mac cari "Terminal",
+> di Windows cari "PowerShell"), tempel perintah di blok kode tepat di bawah pesan ini, tekan Enter, lalu ketik sandi MySQL dan Enter —
+> hurufnya memang tidak tampak, dan sandinya tidak saya lihat; sekitar satu menit; (b) Anda minta teknisi atau orang IT yang Anda percaya menjalankannya — cukup teruskan pesan ini. **Rekomendasi: (a)**
 > bila Anda yang dulu memasang MySQL dan ingat sandinya; selain itu (b). Setelah selesai, balas "selesai".
 >
 > Di komputer ini sudah ada tempat penyimpanan data (database) dengan nama serupa — kemungkinan milik aplikasi lain atau percobaan
-> sebelumnya. Pilihan: (a) **pakai yang sudah ada** — aplikasi lain
+> sebelumnya. Bila Anda tahu ada aplikasi lain yang memakainya, pilih (b). Pilihan: (a) **pakai yang sudah ada** — aplikasi lain
 > yang memakainya bisa berhenti berfungsi sampai disetel ulang, karena sandi akunnya diganti; (b) **buat dengan nama lain** —
 > aman, data yang lama tidak tersentuh. **Rekomendasi: (b).** Pilih a atau b?
 <!-- /ke-pengguna -->
@@ -257,11 +257,11 @@ Sesi di `ruang/<id-peran>` memuat peran otomatis; subagent `rudis-<id-peran>` su
 <!-- ke-pengguna -->
 > **Yang akan terjadi:** <satu kalimat hasilnya, mis. "Versi baru aplikasi Kasir dipasang ke server dan langsung dipakai pengguna.">
 > **Yang terpengaruh:** <aplikasi, komputer, atau server mana; berapa data, berkas, atau pengguna>
-> **Perlu Anda cek dulu:** <yang perlu dipastikan pengguna sebelum lanjut, mis. daftar harga barunya sudah benar>
+> **Perlu Anda cek dulu:** <langkah cek yang konkret, mis. cocokkan 5 barang contoh dengan daftar harga baru>; sebaiknya dilakukan <waktu yang aman, mis. saat toko sepi>
 > **Selama prosesnya:** <apa yang dialami pengguna atau orang lain, mis. kasir melihat harga baru ± 2 menit>
 > **Bisa dibatalkan?** <ya, dikembalikan ke versi sebelumnya dalam ± X menit / tidak, karena …>
 > **Langkahnya:** <2–4 langkah dalam kalimat biasa>
-> Lanjutkan? (rincian teknis: <target · lingkungan · perintah persis · cara mengembalikan>)
+> Lanjutkan? (ya / tidak) Rincian teknisnya bisa saya tunjukkan bila Anda mau — target, lingkungan, perintah persis, cara mengembalikan.
 <!-- /ke-pengguna -->
 - **Anggaran keputusan per tugas** (sasaran, bukan aturan keras): bug ≤3, fitur ≤5 keputusan pengguna (pertanyaan grill
   + gerbang + prompt + perintah yang harus diketik pengguna). Gabungkan pertanyaan per gerbang; jalur hanya ditanya bila
