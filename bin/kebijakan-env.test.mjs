@@ -227,3 +227,22 @@ test("A1: brief ke subagent rudis-* tanpa ID tugas di baris pertama → deny; be
   const p = putuskan({ session_id: "a0", cwd: P, tool_name: "Agent", tool_input: { subagent_type: "rudis-business-systems-analyst", prompt: "analisis" }, hook_event_name: "PreToolUse" }, K);
   assert.match(p.alasan, /\[Tugas dari <Jabatan>\] T-YYYYMMDD-n/);
 });
+
+test("pemasangan memulihkan instalasi parsial (hanya SessionStart + PostToolUseFailure lama tersisa) — dikenali dari path absolut, tanpa duplikat", () => {
+  const milik = `"${process.execPath}" "${path.join(SINI, "kebijakan.mjs")}" hook`;
+  const parsial = {
+    permissions: { deny: ["Read(**/.env)"] },
+    hooks: {
+      SessionStart: [{ matcher: "compact|resume", hooks: [{ type: "command", command: `"${process.execPath}" "/x/RudisOne/bin/inti.mjs" hook` }] }],
+      PostToolUseFailure: [{ matcher: "^(Bash|Write|Edit|MultiEdit|NotebookEdit|mcp__.*)$", hooks: [{ type: "command", command: milik, timeout: 30 }] }],
+    },
+  };
+  const s1 = settingsTerpasang(parsial);
+  for (const ev of ["PreToolUse", "PostToolUse", "PostToolUseFailure"]) {
+    assert.equal(s1.hooks[ev].length, 1, ev);
+    assert.equal(s1.hooks[ev][0].matcher, MATCHER, ev);
+  }
+  assert.deepEqual(s1.hooks.SessionStart, parsial.hooks.SessionStart, "hook lain (inti) tidak disentuh kebijakan");
+  assert.deepEqual(settingsTerpasang(s1), s1, "idempoten");
+  assert.deepEqual(kekuranganIzin(s1), []);
+});
