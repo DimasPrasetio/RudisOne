@@ -231,7 +231,7 @@ Sesi di `ruang/<id-peran>` memuat peran otomatis; subagent `rudis-<id-peran>` su
 
 <!-- ke-pengguna -->
 > Aplikasi ini perlu tempat penyimpanan data di komputer Anda (disebut database). Saya belum bisa menyiapkannya sendiri karena
-> program penyimpan datanya (MySQL) <meminta kata sandi yang hanya Anda yang tahu / belum menyala>. Tidak ada yang rusak; pekerjaan
+> program penyimpan datanya (MySQL) <meminta sandi yang hanya Anda yang tahu / belum menyala>. Tidak ada yang rusak; pekerjaan
 > lain jalan terus. Pilihan: (a) Anda menjalankan satu perintah: buka aplikasi Terminal (tempat mengetik perintah; di Mac cari "Terminal",
 > di Windows cari "PowerShell"), tempel perintah di blok kode tepat di bawah pesan ini, tekan Enter, lalu ketik sandi MySQL dan Enter —
 > hurufnya memang tidak tampak, dan sandinya tidak saya lihat; sekitar satu menit; (b) Anda minta teknisi atau orang IT yang Anda percaya menjalankannya — cukup teruskan pesan ini. **Rekomendasi: (a)**
