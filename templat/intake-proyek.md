@@ -21,14 +21,15 @@ Tanggal: YYYY-MM-DD · Perkakas: <keluaran bin/perkakas.sh versi>
 ### Persetujuan Inisiasi
 - Disetujui pengguna (kesepakatan pemahaman bersama): YYYY-MM-DD HH:MM — "<kutipan persis>"
 
-## Database lokal — awal Konstruksi (ditanyakan bersama Persetujuan Rancangan)
-<!-- skill rudis-sdlc › Database lokal. Tanpa kata sandi/DSN di sini: pengguna menyunting .env sendiri. -->
-| Fakta | Jawaban | Catatan |
+## Database lokal — Konstruksi (diisi dari laporan Tech Lead, tidak ditanyakan ke pengguna)
+<!-- skill rudis-sdlc › `.env` & database lokal. Izin tetap pengguna 2026-10-31 (T-20261031-1): "Agent siapkan sendiri
+     (Rekomendasi)" — hanya localhost, hanya database proyek ini, tanpa hapus data. TANPA sandi/DSN di berkas ini. -->
+| Fakta | Nilai | Catatan |
 |---|---|---|
-| Jenis MySQL di device | layanan OS · Docker · XAMPP/Laragon · belum ada | belum ada → tes ber-database "belum terverifikasi" |
-| Versi server | <mis. 8.4.x> (dari `mysql --version` / `SELECT VERSION();` oleh pengguna) | 8.4+/9.x: akun `caching_sha2_password` |
-| Cara mengisi `.env` | pengguna menjalankan `node scripts/db-local.mjs` sendiri (pratinjau: `--print-sql`) / menyunting `.env` sendiri | nilai tidak lewat chat |
-| Dua database + akun berhak minimum dibuat | ya, YYYY-MM-DD — "<kutipan 'sudah' pengguna>" | = izin per kali tes ber-database |
+| MySQL lokal | <jenis (layanan OS / Docker / XAMPP/Laragon) · versi dari `SELECT VERSION()` oleh skrip> / tidak ada | tidak ada → tes ber-database "belum terverifikasi" |
+| Database & akun proyek | `<slug>_db`, `<slug>_test`, `<slug>_dev@127.0.0.1` — siap YYYY-MM-DD, login akun proyek berhasil | Tech Lead: `node scripts/db-local.mjs --admin-password-empty` (izin tetap) |
+| Perlu langkah pengguna? | tidak / exit 3 (root bersandi, MySQL tidak menjawab) → pengguna menjalankan `node scripts/db-local.mjs` (interaktif) / exit 4 (`<slug>_*` sudah ada) → keputusan pengguna dulu; "sudah" YYYY-MM-DD | satu langkah, diteruskan COO persis |
+| `.env` lokal | lengkap tanpa placeholder (`node scripts/env-local.mjs`); login awal lokal: email `admin@gmail.com`, sandi `admin123`, nama `admin` | hanya lokal — `deploy.sh` preflight menolaknya |
 
 ## Sebelum penerapan pertama — fakta deploy (saat pengguna meminta deploy)
 <!-- Sampai bagian ini terisi, scaffold memakai penanda __…__ (mis. __HOST_PORT__, __GHCR_OWNER__; skill rudis-monorepo › Step 0b); aplikasi tetap

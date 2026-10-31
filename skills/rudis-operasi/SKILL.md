@@ -62,7 +62,8 @@ ubah, COO mencocokkannya dengan audit.
 
 ## 5a. Data production
 - **Siapa:** hanya Head of IT Operations / System Administrator (kemampuan `data-produksi`). Tech Lead, BSA, dan tracer
-  RUDIS memakai DB **dev atau snapshot tersanitasi** yang koneksinya disebut brief; tidak pernah membaca `.env`/config
+  RUDIS memakai DB **dev atau snapshot tersanitasi** yang koneksinya disebut brief (database lokal proyek: nama database
+  di brief, koneksi dari `.env` lokal yang dimuat aplikasi/tes — skill `rudis-sdlc`); tidak pernah membaca `.env`/config
   untuk kredensial (`Read(**/.env)` di-deny pengguna). Kebutuhan data prod → `[Permintaan layanan]` ke HITO lewat COO.
 - **Bentuk yang diloloskan hook (jenjang 1):** `ssh <alias> "mysql [opsi koneksi/format] [db] -e '<satu SELECT|SHOW|
   DESCRIBE|EXPLAIN>'"`. Ditolak (→ prompt): `INTO` apa pun (OUTFILE/DUMPFILE/@var), `FOR UPDATE`/`LOCK IN SHARE MODE`,

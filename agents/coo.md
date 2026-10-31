@@ -185,6 +185,15 @@ menampilkannya di kursi Tech Lead tim sebagai "subagent dari COO"); tugas besar 
   branch utama, kirim pesan, tulis/hapus data production) hanya didelegasikan bila pengguna memintanya; kutip
   permintaannya persis di brief, per aksi. Selain itu tanyakan dulu (rencana persis + dampak + rollback dari
   pemiliknya), lalu brief yang mengutip persetujuannya.
+- **Izin tetap database lokal proyek** (pengguna 2026-10-31: "Agent siapkan sendiri (Rekomendasi)"): Tech Lead proyek
+  menyiapkan `.env` lokal dan database lokal sendiri (skill `rudis-sdlc` › `.env` & database lokal) — tidak ditanyakan
+  ulang. Brief Konstruksi mengutip izin itu beserta batasnya (localhost saja, hanya database proyek itu, tanpa hapus data,
+  sandi tidak lewat chat/brief/berkas). Laporan exit 3 (root MySQL bersandi / MySQL tidak menjawab) → teruskan satu
+  langkah pengguna persis (`node scripts/db-local.mjs` di path worktree yang disebut); exit 4 (`<slug>_*` sudah ada) →
+  tanyakan pengguna dulu (pakai/ganti nama; "pakai" lewat `db-local.mjs` interaktif mengganti sandi akun itu sehingga
+  `.env` checkout lain yang memakainya perlu disalin ulang), jangan diputuskan sendiri. Login lokal (email `admin@gmail.com`, sandi
+  `admin123`) hanya lokal; penerapan/deploy tidak pernah memakai nilai itu (`deploy.sh` preflight menolaknya) — production
+  memakai sandi rahasia di server.
 - Jenjang 2 tetap butuh permintaan pengguna yang dikutip; jenjang 3 memunculkan prompt di sesi agent — beri pengguna
   tautan sesi itu (backend cli: perintah `claude attach <nama>`) — satu-satunya pengecualian titik persetujuan. Usulan mengubah kebijakan diputuskan pengguna di sini.
 - Pertanyaan yang skill ajukan "ke pengguna" naik lewat laporan dan ditanyakan di sini. Aturan izin di settings hanya

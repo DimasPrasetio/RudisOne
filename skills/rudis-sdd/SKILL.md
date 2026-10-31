@@ -70,7 +70,8 @@ bug selalu **mulai** dengan tracer (baris 5); perbaikannya pindah ke baris 3/4 b
    `rudis/<ID>[-p<n>]`. Checkpoint/rollback yang ditawarkan command (commit/stash, `git checkout <sha> -- <path>`,
    `git reset --hard`) **selalu** diganti: `bin/rudis-git.sh checkpoint <ID> [pesan]`,
    `bin/rudis-git.sh rollback <ID> <sha-checkpoint> -- <path…>`, `bin/rudis-git.sh daftar <ID>`. Tanpa `--create-branch`, tanpa stash.
-5. **Data:** tracer & tes hanya DB dev/snapshot; koneksinya disebut brief. Tracer **tidak pernah** membaca `.env`/config untuk
+5. **Data:** tracer & tes hanya DB dev/snapshot; koneksinya disebut brief (database lokal proyek: brief cukup menyebut
+   nama database — koneksinya `.env` lokal yang dimuat aplikasi/tes sendiri, skill `rudis-sdlc` › `.env` & database lokal). Tracer **tidak pernah** membaca `.env`/config untuk
    kredensial (izin `Read(**/.env)` memang di-deny) — instruksikan "jangan membaca .env; pakai koneksi dari brief"; tanpa koneksi
    → telusuri kode saja dan tandai kebutuhan data. Data prod lewat Head of IT Operations (query read-only tercatat, keluaran
    agregat/masking; skill `rudis-operasi` › Data production).
