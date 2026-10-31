@@ -144,10 +144,14 @@ WSL2 (jalur Linux). Windows native: lihat bagian **Windows native** di bawah tab
 2. `~/Documents/Neuron/ai-agent/RudisOne/install.sh` (Windows: `node install.mjs`) — membuat `handoff/`, memeriksa peran, menautkan skill & subagent ke `~/.claude`, konfigurasi server
    (bila sudah diisi: koneksi ssh & MCP DNS), dan memasang perkakas resmi SDLC (clone `rudis-monorepo` dan
    `rudis-modules` ke `~/Documents/Neuron/ai-agent`, skill ke `~/.claude/skills`) bila belum ada.
-3. Pasang dua hook (dijalankan pemilik sendiri, sekali per device; cadangan settings dibuat dulu; hanya bertindak di
-   sesi RudisOne; hook sistem lain tidak disentuh):
-   - kebijakan akses: `~/Documents/Neuron/ai-agent/RudisOne/bin/kebijakan.sh pasang` (uji dulu: `bin/kebijakan.sh uji '<json>'`);
-   - pemuat ulang inti setelah kompaksi: `~/Documents/Neuron/ai-agent/RudisOne/bin/inti.sh pasang`.
+3. Langkah 2 juga **memasang/memperbarui otomatis** (T-20261031-2.3; idempoten — jalankan ulang setelah setiap pembaruan
+   RudisOne; settings hanya ditulis bila berubah, cadangan dibuat dulu; hook & aturan sistem lain tidak disentuh):
+   - hook kebijakan akses + penjaga `.env` (PreToolUse/PostToolUse/PostToolUseFailure; hanya bertindak di sesi RudisOne,
+     kecuali berkas terlindung) — uji satu panggilan: `bin/kebijakan.sh uji '<json>'`, status: `bin/kebijakan.sh cek`;
+   - aturan `permissions.deny` `Read(//**/.env…)` — membaca isi `.env` ditolak tanpa prompt di semua sesi (contoh
+     `.env.example` tidak); cek kunci tanpa nilai: `bin/env-kunci.sh`;
+   - pemuat ulang inti setelah kompaksi (SessionStart, `bin/inti.sh`).
+   `--tanpa-hook` melewati pemasangan ini.
 4. Server tidak ditanam di repo. Saat tugas server pertama, COO menanyakan alias ssh (entri `Host` di
    `~/.ssh/config` beserta kuncinya kamu siapkan sendiri), playbook server bila ada, MCP DNS, dan domain, lalu
    menyimpannya di `konfigurasi/server.json` atas persetujuanmu (`penyedia.md` › Konfigurasi server). Opsional:

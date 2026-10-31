@@ -17,7 +17,7 @@ A-&lt;id&gt; = `agents/<id>.md`, K-&lt;skill&gt; = `skills/<skill>/SKILL.md`) di
   baru berkas tes dan Jangkar judul tes persis (pemeriksa memastikan `test("<jangkar>"` ada); `dihapus` + alasan.
   Kode `N-nnn` = mekanisme/aturan baru tanpa padanan unit lama (jangkarnya tetap diperiksa).
 
-Hasil terakhir: `pemetaan-v6: d991509: 695 unit · tetap 660 · pindah 21 · di tabel 14 · hilang 0` (keluaran info pemeriksa).
+Hasil terakhir: `pemetaan-v6: d991509: 695 unit · tetap 658 · pindah 21 · di tabel 16 · hilang 0` (keluaran info pemeriksa).
 
 Status: `diringkas` (makna sama, lebih ringkas) · `diganti` (sengaja diubah oleh keputusan pengguna/riset T-20261031-2,
 jangkar menunjuk aturan pengganti) · `mekanisme` (larangan dipindah ke hook/skrip bertes) · `dihapus` (dengan alasan).
@@ -38,6 +38,8 @@ jangkar menunjuk aturan pengganti) · `mekanisme` (larangan dipindah ke hook/skr
 | A-tech-lead-019 | agents/tech-lead.md › *Proyek Rudis*: .env & database lokal; login admin@gmail.com; cek kunci DB dengan grep -c | agents/tech-lead.md | `~/Documents/Neuron/ai-agent/RudisOne/bin/env-kunci.sh --salah-satu DB_DSN,DATABASE_URL` → exit 3 | diganti |
 | K-rudis-sdlc-046 | skills/rudis-sdlc › *.env & database lokal*: .env non-DB; login lokal admin@gmail.com | skills/rudis-sdlc/SKILL.md | email `admin@example.com`, sandi `admin123`, nama `admin` | diganti |
 | K-rudis-sdlc-047 | skills/rudis-sdlc › *.env & database lokal*: database bila kunci DB kosong (grep -c) | skills/rudis-sdlc/SKILL.md | DB_DSN,DATABASE_URL` exit 3 (tanpa membaca `.env`); exit 0 → lewati. | diganti |
+| K-rudis-operasi-019 | skills/rudis-operasi › *Mengubah kebijakan*: hook dipasang/dilepas pemilik dengan kebijakan.sh | skills/rudis-operasi/SKILL.md | Hook & aturan deny `.env` dipasang/diperbarui otomatis oleh `install.sh` yang dijalankan pemilik | diganti |
+| K-rudis-operasi-022 | skills/rudis-operasi › *Berkas terlindung*: setelah memperbarui hook pemilik menjalankan pasang lagi | skills/rudis-operasi/SKILL.md | Setelah memperbarui RudisOne, pemilik menjalankan `install.sh` lagi | diganti |
 | N-001 | (baru) agent tidak membaca isi `.env*` — deny tanpa prompt + audit | bin/kebijakan-env.test.mjs | Bash: pengeluar isi → deny | mekanisme |
 | N-002 | (baru) kapabilitas aplikasi/tes/skrip yang memuat `.env` sendiri tetap | bin/kebijakan-env.test.mjs | Bash: tanpa isi / kapabilitas tetap → tanpa keputusan baru | mekanisme |
 | N-003 | (baru) penjaga `.env` & hook dipasang otomatis oleh installer, idempoten | bin/kebijakan-env.test.mjs | pemasangan: matcher mencakup Read/Grep/Glob; aturan deny .env idempoten & tidak menghapus aturan lain | mekanisme |

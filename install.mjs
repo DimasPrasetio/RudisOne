@@ -110,7 +110,7 @@ if (taut && fs.existsSync(dirSkill)) {
   }
 }
 
-for (const s of ["server-cek", "rilis-cek", "pasca-deploy", "perkakas", "kebijakan", "konfig", "register", "peran", "inti", "cek-konsistensi", "sesi"]) {
+for (const s of ["server-cek", "rilis-cek", "env-kunci", "gerbang-tl", "pasca-deploy", "perkakas", "kebijakan", "konfig", "register", "peran", "inti", "cek-konsistensi", "sesi"]) {
   const f = path.join(BIN, `${s}.sh`);
   let bisa = fs.existsSync(f);
   if (bisa && process.platform !== "win32") { try { fs.accessSync(f, fs.constants.X_OK); } catch { bisa = false; } }
