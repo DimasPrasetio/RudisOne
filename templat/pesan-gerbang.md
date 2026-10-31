@@ -36,44 +36,44 @@
      apa adanya (CREATE … IF NOT EXISTS, tanpa DROP/kosongkan), sandi akun <slug>_dev diganti (ALTER USER). -->
 
 <!-- ke-pengguna -->
-> **pesan-awal (sebelum dijalankan).** Saya sedang menyiapkan tempat penyimpanan data aplikasi di komputer Anda. Ini hanya sekali dan
-> sekitar satu menit. Kalau muncul kotak kecil di layar yang meminta sandi MySQL (program penyimpan data; sandinya dibuat saat program itu
-> dipasang, biasanya oleh teknisi), ketik sandinya di kotak itu lalu klik OK — sandi tidak masuk ke percakapan ini dan tidak disimpan.
-> Kalau tidak ada kotak, Anda tidak perlu berbuat apa-apa. Tidak tahu sandinya? Ketik "tidak tahu" dan saya bantu mencari jalan keluar.
+> **pesan-awal (sebelum dijalankan).** Saya sedang menyiapkan penyimpanan data aplikasi di komputer Anda. Ini hanya sekali, sekitar satu menit.
 >
-> **pesan-siap (berhasil).** Tempat penyimpanan data aplikasi sudah siap. Anda tidak perlu melakukan apa-apa lagi; saya lanjutkan
-> pekerjaan berikutnya.
+> - Mungkin muncul kotak kecil di layar yang meminta sandi MySQL (program penyimpan data). Kalau muncul, ketik sandinya lalu klik OK. Sandi tidak masuk ke percakapan ini dan tidak disimpan.
+> - Kalau tidak muncul kotak, tunggu saja; saya kabari begitu selesai.
+> - Tidak tahu sandinya? Itu wajar, banyak yang tidak tahu (biasanya dibuat teknisi saat komputer dipasang). Ketik "tidak tahu" dan saya bantu.
 >
-> **pesan-mysql-mati.** Tempat penyimpanan data belum bisa disiapkan karena MySQL (program penyimpan data) belum menyala di komputer
-> Anda. Komputer dan data Anda aman. Cari ikon Laragon atau XAMPP (salah satu saja) di layar; kalau tidak kelihatan, lihat di panah kecil
-> dekat jam di pojok kanan bawah. Buka, lalu klik tombol "Start" atau "Start All", dan ketik "sudah". Kalau tidak ada ikonnya, ketik
-> "tidak ketemu" dan saya tuntun langkah demi langkah — atau tanyakan ke orang yang memasang komputer ini.
+> **pesan-siap (berhasil).** Penyimpanan data aplikasi sudah siap, dan tidak ada data toko Anda yang berubah. Anda tidak perlu melakukan apa-apa lagi; saya lanjutkan pekerjaan berikutnya.
 >
-> **pesan-batal-kotak (kotak sandi ditutup).** Tempat penyimpanan data belum disiapkan karena kotak sandi tadi ditutup sebelum diisi.
-> Tidak ada yang berubah di komputer Anda. Ketik "ulangi" untuk memunculkan kotaknya lagi, atau "tidak tahu" kalau Anda tidak tahu
-> sandinya — saya bantu cari jalan keluar.
+> **pesan-mysql-mati.** Penyimpanan data belum bisa disiapkan karena MySQL (program penyimpan data) belum menyala di komputer Anda. Komputer dan data Anda aman. Yang perlu dilakukan:
 >
-> **pesan-batal-sandi (sandi tidak cocok).** Tempat penyimpanan data belum disiapkan karena sandi yang diketik tidak cocok tiga kali.
-> Tenang: tidak ada yang terkunci dan tidak ada yang berubah di komputer Anda. Ketik "ulangi" kalau Anda ingat sandi yang benar, atau
-> "tidak tahu" — lalu saya jelaskan cara mencari sandinya atau minta teknisi Anda membantu.
+> 1. Cari ikon bernama Laragon atau XAMPP (salah satu saja). Di Windows, lihat di layar atau di panah kecil dekat jam di pojok kanan bawah; di Mac, lihat di bagian atas layar.
+> 2. Buka, lalu klik tombol "Start All". Kalau tombolnya berubah jadi "Stop", berarti sudah menyala.
+> 3. Ketik "sudah" di sini.
 >
-> **pesan-tanpa-layar (kotak sandi tidak bisa muncul).** Kotak sandi tidak bisa muncul di komputer ini, jadi langkah ini perlu dilakukan
-> dengan cara lain. Tidak ada yang rusak dan tidak ada yang berubah. Pilihan: ketik "tolong pandu" — saya beri satu baris yang tinggal
-> disalin dan ditempel di aplikasi Terminal (jendela untuk mengetik perintah; di Mac namanya "Terminal", di Windows "PowerShell"),
-> lalu Anda mengetik sandi MySQL dan menekan Enter (huruf sandi memang tidak tampak saat diketik; itu normal, bukan macet) — atau
-> ketik "teknisi" kalau Anda lebih suka meminta teknisi menjalankannya, saya siapkan pesan untuk diteruskan ke mereka.
+> Tidak ketemu ikonnya? Ketik "tidak ketemu" dan saya tuntun langkah demi langkah, atau tanyakan ke orang yang memasang komputer ini.
 >
-> **pesan-nama-ada.** Di komputer ini sudah ada tempat penyimpanan data dengan nama yang sama untuk aplikasi <nama aplikasi> (mungkin
-> dari percobaan sebelumnya). Saya belum menyentuhnya. Saran saya: ketik **A**, yaitu memakai yang sudah ada tanpa mengubah apa pun
-> (saya salin catatan cara aplikasi tersambung ke sana dari folder lama; hanya bisa kalau folder lamanya masih ada). Pilihan **B** juga
-> ada, tetapi bisa membuat aplikasi lain yang memakai penyimpanan itu berhenti sementara — ketik "jelaskan B" bila ingin tahu. Tidak
-> yakin, atau folder lamanya sudah tidak ada? Ketik "tidak tahu" dan saya bantu memutuskan.
+> **pesan-batal-kotak (kotak sandi ditutup).** Kotak sandi tadi tertutup sebelum diisi (tidak apa-apa, bisa tidak sengaja), jadi penyimpanan data belum disiapkan. Tidak ada yang berubah di komputer Anda.
 >
-> **pesan-nama-ada-b (hanya bila diminta).** Pilihan B: aplikasi ini tetap memakai tempat penyimpanan data yang sudah ada, tetapi kunci
-> aksesnya (sandi akun aplikasi) diganti dengan yang baru. Data lama tidak dihapus dan tidak dikosongkan; isinya tetap ada, dan
-> bagian milik aplikasi ini ditambahkan di sebelahnya. Akibatnya, aplikasi atau folder lain yang memakai penyimpanan itu berhenti
-> jalan sampai catatan aksesnya disalin ulang. Untuk B Anda mengetik sandi MySQL di Terminal; saya tuntun. Ketik "B" untuk lanjut,
-> atau "A" untuk pilihan yang aman.
+> - Ketik "ulangi" untuk memunculkan kotaknya lagi.
+> - Ketik "tidak tahu" kalau Anda tidak tahu sandinya; saya bantu cari jalan keluar.
+>
+> **pesan-batal-sandi (sandi salah).** Sandi yang diketik salah tiga kali, jadi penyimpanan data belum disiapkan. Tidak ada yang rusak dan Anda boleh mencoba lagi.
+>
+> - Ketik "ulangi" kalau Anda ingat sandi yang benar.
+> - Ketik "tidak tahu", lalu saya carikan cara mengatur ulang sandinya atau saya siapkan pesan untuk diteruskan ke teknisi Anda.
+>
+> **pesan-tanpa-layar (kotak sandi tidak bisa muncul).** Komputer ini sedang tidak bisa menampilkan kotak sandi (bukan karena rusak, dan tidak ada yang berubah). Ada dua cara, pilih salah satu:
+>
+> - **Paling mudah:** ketik "teknisi". Saya siapkan pesan singkat untuk Anda teruskan ke teknisi Anda; mereka yang menjalankannya.
+> - **Anda sendiri:** ketik "tolong pandu". Saya tuntun satu langkah demi satu: Anda membuka aplikasi Terminal (jendela untuk mengetik perintah), menempel satu baris dari saya, lalu mengetik sandi MySQL dan menekan Enter. Huruf sandi memang tidak tampak saat diketik; itu normal, bukan macet.
+>
+> **pesan-nama-ada.** Aplikasi <nama aplikasi> sepertinya pernah disiapkan di komputer ini: penyimpanan datanya sudah ada.
+>
+> - **A (saran saya, paling aman):** saya pakai penyimpanan yang sudah ada. Tidak ada yang dihapus atau diubah. Saya hanya perlu menemukan berkas aplikasi lama yang dulu menyiapkannya; kalau tidak ketemu, saya kabari.
+> - **B:** pilihan lain yang lebih berisiko; ketik "jelaskan B" bila ingin tahu.
+> - Ragu? Ketik "tidak tahu" dan saya bantu memutuskan.
+>
+> **pesan-nama-ada-b (hanya bila diminta).** Kalau Anda pilih B, aplikasi lain di komputer ini yang memakai penyimpanan data yang sama akan berhenti jalan, sampai pengaturannya disalin ulang. Data lama tetap aman: tidak dihapus dan tidak dikosongkan. Kalau Anda tidak yakin ada aplikasi lain yang memakainya, pilih A. Untuk B, Anda perlu mengetik sandi MySQL di aplikasi Terminal, dan saya tuntun langkahnya. Ketik "A" (aman) atau "B".
 <!-- /ke-pengguna -->
 
 <!-- Rincian teknis untuk COO bila pengguna memintanya (tidak ikut di pesan utama):
