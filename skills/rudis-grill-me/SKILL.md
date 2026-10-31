@@ -61,6 +61,39 @@ pertanyaan ("Saat ini X — apakah …?"), sehingga pengguna menjawab dengan inf
 - Satu pertanyaan per giliran. Paling banyak tiga sekaligus hanya bila ketiganya **independen dan ringan**
   (mis. bahasa UI, format laporan, nama).
 
+## 4b. Bahasa awam — berlaku untuk semua pengguna
+Pengguna belum tentu teknis dan tidak wajib paham cara kerja RudisOne. Satu aturan, tanpa profil atau tingkat bahasa:
+- **Ceritakan dampak dan pilihan dalam bahasa hasil kerja** ("hasil kerja siap", "aplikasi bisa dipakai orang lain",
+  "bisa dikembalikan seperti semula"), bukan nama langkah atau perkakasnya.
+- **Istilah teknis hanya dalam kurung, bila perlu, dan tidak pernah menjadi inti pertanyaan.** Uji: bila kurungnya
+  dihapus, pertanyaan tetap utuh dan bisa dijawab.
+- **Pertanyaan yang jawabannya hanya diketahui mesin** (nama pendek aplikasi, tempat penyimpanan paket, nomor port)
+  tidak ditanyakan: COO menurunkannya dari jawaban lain atau memakai bawaan, dan hanya menyebutnya bila pengguna ingin tahu.
+- Tawarkan **rincian** hanya bila diminta ("Mau lihat rincian teknisnya?"); jangan menumpuknya di pesan utama.
+- Jangan memakai nama peran, skill, atau mekanisme internal (gerbang, kunci, register, hook) sebagai alasan; ceritakan akibatnya bagi pengguna.
+
+| Sebelum (teknis) | Sesudah (awam) |
+|---|---|
+| Serah ke branch utama? | Hasil kerja siap. Gabungkan ke versi utama di komputer ini? (rincian: *merge* ke `main`) |
+| Boleh commit dan push? | Simpan perubahan ini sebagai satu versi, lalu kirim ke GitHub supaya tersimpan online? |
+| Slug dan pemilik GHCR? | (tidak ditanyakan — COO menurunkannya dari nama aplikasi) |
+| Rollback bagaimana bila gagal? | Bila ada masalah, aplikasi bisa dikembalikan ke versi sebelumnya dalam beberapa menit. |
+| Backend: go, nestjs, atau express? | Ada ketentuan teknologi dari tim Anda? Bila tidak, saya pilih yang paling umum dipakai (Go). |
+
+Padanan istilah yang sering muncul (tulis di sebelah kiri hanya di dalam kurung):
+*branch/worktree* → salinan kerja terpisah · *merge* → gabungkan ke versi utama · *commit* → simpan sebagai satu versi ·
+*push* → kirim ke GitHub · *repo* → tempat penyimpanan kode · *rollback* → kembalikan ke versi sebelumnya ·
+*deploy* → pasang agar bisa dipakai orang · *SHA* → nomor versi · *slug*, *GHCR*, port → tidak ditanyakan.
+
+Pesan berikut ke pengguna ditulis sesuai aturan ini dan **diperiksa otomatis** (`bin/cek-konsistensi.sh`, kode
+`bahasa-awam`): teks di antara penanda `ke-pengguna` tidak boleh memuat istilah mentah di luar kurung atau tanda kutip balik.
+
+<!-- ke-pengguna -->
+> **Lingkup · cetak surat jalan.** Saat ini surat jalan terpotong setelah baris ke-20. Pilihan: (a) halaman
+> otomatis bersambung dengan nomor halaman, (b) huruf diperkecil agar muat satu halaman, (c) dibatasi 20 barang per
+> surat jalan. **Rekomendasi: (a)** — tetap terbaca dan tidak mengubah cara kerja gudang. Setuju?
+<!-- /ke-pengguna -->
+
 ## 5. Gali — inilah bagian "grill"
 - **Kata kabur dijadikan ukuran**: "cepat", "bagus", "sederhana", "aman", "lengkap" → minta angka, contoh, atau
   pembanding ("cepat = halaman terbuka < 1 detik di HP kasir?").

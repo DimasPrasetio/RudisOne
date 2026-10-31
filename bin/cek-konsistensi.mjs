@@ -174,7 +174,41 @@ export function cekRepo(root = ROOT, opsi = {}) {
 
   // R9 — kebersihan: berkas produk bebas laporan uji device, ID tugas, kutipan keputusan bertanggal, nama sistem lain
   for (const t of periksaTerlacak(root) ?? []) catat("galat", "bersih", `${t.rel}${t.baris ? `:${t.baris}` : ""} [${t.jenis}] ${t.cuplikan} — bin/bersih.mjs`);
+  // R10 — bahasa awam: teks untuk pengguna (di antara penanda ke-pengguna) tanpa istilah teknis mentah
+  for (const rel of berkasMd(root)) for (const m of cekBahasaAwam(baca(root, rel))) catat("peringatan", "bahasa-awam", `${rel}${m.baris ? `:${m.baris}` : ""} ${m.pesan}`);
   return temuan;
+}
+
+/** Istilah teknis yang tidak boleh menjadi isi pesan/pertanyaan ke pengguna (boleh di dalam kurung, kode, atau backtick). */
+export const ISTILAH_MENTAH = ["branch", "worktree", "slug", "ghcr", "merge", "commit", "push", "rollback", "repo", "repository",
+  "pull request", "sha", "deploy", "nginx", "dns", "certbot", "docker", "env", "scaffold", "backend"];
+const POLA_ISTILAH = new RegExp(`(?<![\\p{L}\\p{N}_])(${ISTILAH_MENTAH.map((s) => s.replace(" ", "\\s+")).join("|")})(?![\\p{L}\\p{N}_])`, "giu");
+const PENANDA_BUKA = /^\s*<!--\s*ke-pengguna\s*-->\s*$/, PENANDA_TUTUP = /^\s*<!--\s*\/ke-pengguna\s*-->\s*$/;
+
+/** Periksa satu berkas Markdown: teks di antara <!-- ke-pengguna --> … <!-- /ke-pengguna --> adalah pesan untuk pengguna
+ *  (heuristik, hanya peringatan). Yang dikecualikan: pagar kode, `backtick`, isi (kurung) — juga lintas baris —, dan awalan "> ".
+ *  Mengembalikan [{baris, pesan}]. */
+export function cekBahasaAwam(teks) {
+  const hasil = [], baris = String(teks).split("\n");
+  let buka = 0, kode = false, kurung = 0;
+  for (let i = 0; i < baris.length; i++) {
+    const b = baris[i];
+    if (PENANDA_BUKA.test(b)) { if (buka) hasil.push({ baris: i + 1, pesan: "penanda ke-pengguna dibuka lagi sebelum ditutup" }); buka = i + 1; kode = false; kurung = 0; continue; }
+    if (PENANDA_TUTUP.test(b)) { if (!buka) hasil.push({ baris: i + 1, pesan: "penanda /ke-pengguna tanpa pembuka" }); buka = 0; continue; }
+    if (!buka) continue;
+    if (/^\s*(?:>\s*)?```/.test(b)) { kode = !kode; continue; }
+    if (kode) continue;
+    let tampak = "";
+    for (const c of b.replace(/`[^`]*`/g, "").replace(/^\s*>\s?/, "")) {
+      if (c === "(") kurung++;
+      else if (c === ")") { if (kurung > 0) kurung--; }
+      else if (!kurung) tampak += c;
+    }
+    const ketemu = [...new Set([...tampak.matchAll(POLA_ISTILAH)].map((m) => m[1].toLowerCase().replace(/\s+/g, " ")))];
+    if (ketemu.length) hasil.push({ baris: i + 1, pesan: `istilah mentah di luar kurung: ${ketemu.join(", ")} — tulis dalam bahasa awam (agents/coo.md › Bahasa awam ke pengguna)` });
+  }
+  if (buka) hasil.push({ baris: buka, pesan: "penanda ke-pengguna tidak pernah ditutup" });
+  return hasil;
 }
 
 /** Berkas instruksi di HEAD tempat unit aturan boleh berada (sumber, bukan salinan terbangkit agen/ & CLAUDE.md). */

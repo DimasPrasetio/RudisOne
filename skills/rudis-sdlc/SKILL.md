@@ -22,27 +22,10 @@ bila keduanya tampak berbeda soal teknis, skill menang, soal peran & persetujuan
 Daftar mesinnya: `perkakas.json`. Keduanya **tidak** dibundel ke `~/Documents/Neuron/ai-agent/RudisOne` — pengguna juga memakainya di luar
 RudisOne, dan salinan kedua akan berbeda diam-diam.
 
-### Pemeriksaan & pembaruan otomatis (`bin/perkakas.sh`)
-- COO menjalankan `bin/perkakas.sh siapkan` di awal setiap `/rudisone` (fetch paling sering 30 menit sekali),
-  dan `bin/perkakas.sh siapkan --segera` tepat sebelum mengirim brief yang memakai perkakas (proyek baru, pasang/
-  upgrade modul, Jalur Platform). `install.sh` juga menjalankannya.
-- Yang dilakukan: belum ada → `git clone` (dangkal; entri `"clone": "penuh"` — riwayat/tagnya dipakai — penuh)
-  (+ `core.hooksPath` hook repo); tertinggal dan bersih → `git pull
-  --ff-only`; skill terpasang beda dari paket `dist/` di repo → `install.sh` milik repo skill.
-- Yang **tidak pernah** dilakukan: menyentuh repo yang punya perubahan belum di-commit atau yang bercabang dari
-  origin, `stash`/`reset`, commit, push. Repo seperti itu dipakai apa adanya dan disebut di keluaran.
-- Ditunda bila ada tugas Engineering berstatus berjalan/ditinjau/terhambat yang kolom Perkakas-nya bukan `—` —
-  agar agent yang sedang bekerja tidak membaca campuran versi lama dan baru. `--paksa` hanya atas permintaan
-  pengguna.
-- Exit 1 tidak menghentikan kerja (versi yang ada dipakai). COO menyebutnya ke pengguna dalam satu baris hanya
-  bila berpengaruh (mis. pembaruan tertunda, repo sumber sedang diubah, clone gagal).
-- **Izin tetap** (aturan bawaan): clone, `pull --ff-only`, pasang ulang skill, dan
-  `core.hooksPath` pada clone baru. Mengubah repo sumber tetap lewat Jalur Platform.
+### Pemeriksaan & pembaruan otomatis
+COO menjalankan `bin/perkakas.sh siapkan` di awal setiap `/rudisone` dan `siapkan --segera` sebelum brief yang memakai perkakas; aturan lengkap (yang dilakukan, yang tidak pernah, penundaan, izin tetap): skill `rudis-perkakas` › Pemeriksaan & pembaruan otomatis.
 
-### Versi tercatat
-Kolom **Perkakas** register tugas = keluaran `bin/perkakas.sh versi` (mis. `rudis@b444853 lib@43e552f`, ditambah `sdd@<sha>` bila RUDIS SDD terpasang) saat tugas
-Engineering dimulai atau dilanjutkan dari parkir; `—` untuk tugas yang tidak memakai perkakas. Akhiran `+lokal`
-berarti versi itu belum ada di origin.
+Kolom **Perkakas** register = keluaran `bin/perkakas.sh versi` (aturan: skill `rudis-perkakas` › Versi tercatat).
 
 ### Jenis proyek (`bin/perkakas.sh proyek <folder>`)
 | Hasil | Arti | Skill dipakai untuk |
@@ -88,9 +71,11 @@ Rinciannya, termasuk gerbang mutu baseline (tidak ada temuan **baru**) dan atura
 hanya untuk baris yang memakai command `/rudis.*`). Baris *pasang* biasa dan perubahan kecil tidak lewat SDD.
 
 ### Gerbang keputusan pengguna (ditanyakan COO)
+Poin di bawah = bahan kerja COO; ke pengguna **bahasa awam** (`agents/coo.md` › Bahasa awam ke pengguna), kata-kata baku: `templat/pesan-gerbang.md`.
 - **Persetujuan Inisiasi** — lewat **penyelarasan persepsi berkedalaman mendalam** (skill `rudis-grill-me`, `agents/coo.md` ›
-  Penyelarasan persepsi): hanya fakta membangun — masalah & pengguna aplikasi, kriteria selesai rilis pertama, backend
-  (go/nestjs/express), nama & folder, cakupan awal, perangkat & bahasa UI — satu cabang per giliran dengan rekomendasi.
+  Penyelarasan persepsi): hanya fakta membangun — masalah & pengguna aplikasi, kriteria selesai rilis pertama, ketentuan
+  teknologi server (go/nestjs/express; tanpa ketentuan → rekomendasi COO), nama & folder, cakupan awal, perangkat & bahasa UI —
+  satu cabang per giliran dengan rekomendasi.
   Persetujuan ringkasan pemahaman bersama = Persetujuan Inisiasi. **Fakta deploy tidak ditanyakan dan server tidak dicek
   di Inisiasi** (slug, domain, pemilik GHCR, port, konfigurasi server): proyek bisa hanya lokal dan device bisa belum
   punya `konfigurasi/server.json`. Persetujuan Rancangan sampai Penerapan di bawah: satu pesan per gerbang, rekomendasi COO di setiap keputusan.
@@ -102,7 +87,8 @@ hanya untuk baris yang memakai command `/rudis.*`). Baris *pasang* biasa dan per
 - **Persetujuan Penerapan** — pendaftaran app pertama (DB + user, `.env`, akses GHCR, nginx, DNS, certbot) dan setiap deploy:
   rencana persis + dampak + rollback dari IT Operations, per aksi. **Server baru disentuh di sini**, saat pengguna
   meminta deploy: COO membentuk/memulihkan sesi IT Operations (`agents/coo.md` › Organisasi inti), lalu fakta bagian
-  *Sebelum penerapan pertama* `templat/intake-proyek.md` dikumpulkan — slug, domain, pemilik GHCR/repo ditanyakan COO;
+  *Sebelum penerapan pertama* `templat/intake-proyek.md` dikumpulkan — hanya alamat web yang ditanyakan COO; slug (dari nama aplikasi) dan pemilik GHCR/repo
+  (bawaan `github.owner_bawaan`) diturunkan, bukan ditanyakan;
   port kosong berikutnya + konfirmasi `ss -tlnp` dan cek slug belum dipakai dari System Administrator (read-only);
   `konfigurasi/server.json` belum ada → baru saat itu COO menanyakannya (skill `rudis-operasi` › Konfigurasi server).
   Tech Lead mengganti penanda deploy di repo (branch tugas); bila hasilnya sudah di-push, perubahan itu butuh serah &
@@ -111,8 +97,8 @@ hanya untuk baris yang memakai command `/rudis.*`). Baris *pasang* biasa dan per
 ### "Tanya pengguna" di dalam skill
 Skill ditulis untuk satu agent yang berbicara langsung dengan pengguna. Di RudisOne, hanya COO yang bertanya.
 Langkah skill yang berbunyi *ask / confirm with the user / STOP and ask* → pelaksana berhenti di langkah itu dan
-menulis pertanyaannya di laporan bagian **Keputusan yang dibutuhkan** (atau `[Terhambat]` bila tidak bisa lanjut);
-COO menanyakannya di gerbang yang sesuai dan meneruskan jawabannya apa adanya.
+menulis pertanyaannya di laporan bagian **Keputusan yang dibutuhkan** (atau `[Terhambat]` bila tidak bisa lanjut)
+— kalimat dampak dulu, baris `Rincian:` terpisah; COO menerjemahkannya ke bahasa awam, menanyakannya di gerbang yang sesuai, dan meneruskan jawabannya apa adanya.
 
 ### Proyek baru — langkah pembuka
 1. COO: `bin/perkakas.sh siapkan --segera`; daftarkan ID (Fase `Inisiasi`, kolom Perkakas dari `versi`).

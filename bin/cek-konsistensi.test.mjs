@@ -383,3 +383,54 @@ test("R8 & --serah: perintah keluar-indeks tingkat berkas — berkas sah di fold
   assert.match(s, /git rm -q --cached -- uji\/macos\.md && git commit, baru merge/);
   assert.doesNotMatch(s, /rm -r|uji\/suite/);
 });
+
+// ── bahasa awam: teks untuk pengguna (penanda ke-pengguna) tanpa istilah teknis mentah ──
+const { cekBahasaAwam, ISTILAH_MENTAH } = await import("./cek-konsistensi.mjs");
+const bungkus = (isi) => `Teks teknis di luar: branch, worktree, push.\n<!-- ke-pengguna -->\n${isi}\n<!-- /ke-pengguna -->\nSesudah: merge lagi.\n`;
+
+test("bahasa awam: istilah mentah di dalam penanda ditandai, di luar penanda dibiarkan", () => {
+  const h = cekBahasaAwam(bungkus("> Serah ke branch utama? Boleh commit dan push?"));
+  assert.equal(h.length, 1);
+  assert.equal(h[0].baris, 3);
+  assert.match(h[0].pesan, /branch.*commit.*push/);
+});
+
+test("bahasa awam: istilah dalam kurung, backtick, atau blok kode dikecualikan (juga kurung lintas baris)", () => {
+  const ok = bungkus("> Gabungkan ke versi utama di komputer ini? (rincian: merge ke cabang utama)\n> Jalankan `git push` lalu (rincian teknis: slug,\n> GHCR, rollback) selesai.\n> ```\n> git commit -m x\n> ```");
+  assert.deepEqual(cekBahasaAwam(ok), []);
+});
+
+test("bahasa awam: kurung tidak menyembunyikan istilah di luarnya; kata berimbuhan/huruf besar ditangani", () => {
+  const h = cekBahasaAwam(bungkus("> Pilih Slug aplikasi (opsional) dan rollback-nya?\n> Kami memastikan komitmen tim, bukan commitment teknis."));
+  assert.equal(h.length, 1);
+  assert.match(h[0].pesan, /slug/);
+  assert.match(h[0].pesan, /rollback/);   // "rollback-nya": istilah di depan tanda hubung tetap tertangkap
+});
+
+test("bahasa awam: penanda tak seimbang diberi peringatan; berkas tanpa penanda tidak diperiksa", () => {
+  assert.equal(cekBahasaAwam("tanpa penanda: branch merge push\n").length, 0);
+  assert.match(cekBahasaAwam("<!-- ke-pengguna -->\nhalo\n")[0].pesan, /tidak pernah ditutup/);
+  assert.match(cekBahasaAwam("halo\n<!-- /ke-pengguna -->\n")[0].pesan, /tanpa pembuka/);
+});
+
+test("bahasa awam: daftar istilah memuat yang diminta kriteria", () => {
+  for (const s of ["branch", "worktree", "slug", "ghcr", "merge", "commit", "push", "rollback"]) assert.ok(ISTILAH_MENTAH.includes(s), s);
+});
+
+test("bahasa awam: cekRepo memberi PERINGATAN (bukan galat) pada berkas bermarkah yang melanggar", () => {
+  const h = periksa(repoMini((t) => t("templat/pesan.md", "# Pesan\n<!-- ke-pengguna -->\n> Serah ke branch utama?\n<!-- /ke-pengguna -->\n")));
+  const w = h.temuan.filter((x) => x.kode === "bahasa-awam");
+  assert.equal(w.length, 1);
+  assert.equal(w[0].tingkat, "peringatan");
+  assert.match(w[0].pesan, /^templat\/pesan\.md:3 /);
+  assert.deepEqual(kodeTemuan(h), []);
+  assert.equal(h.kode, 1);
+});
+
+test("bahasa awam: berkas produk RudisOne sendiri tidak memuat pelanggaran", () => {
+  const hasil = [];
+  for (const rel of ["agents/coo.md", "skills/rudis-grill-me/SKILL.md", "templat/pesan-gerbang.md"]) {
+    for (const m of cekBahasaAwam(fs.readFileSync(path.join(REPO, rel), "utf8"))) hasil.push(`${rel}:${m.baris} ${m.pesan}`);
+  }
+  assert.deepEqual(hasil, []);
+});
