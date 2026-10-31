@@ -875,6 +875,238 @@ export function targetTulis(s, cwd) {
   return out.filter((t) => t.path);
 }
 
+// ---------- penjaga .env (T-20261031-2.3) ----------
+// Agent RudisOne tidak membaca ISI berkas .env* (kecuali contoh): Read/Grep tool atau perintah Bash yang mengeluarkan isinya
+// → deny tanpa prompt + catatan audit. Kebutuhan sahnya dipenuhi bin/env-kunci.sh (status kunci tanpa nilai). Aplikasi,
+// tes, dan skrip proyek yang memuat .env sendiri (npm test, go test, node --env-file=.env server.js, db-local.mjs) tidak
+// disentuh: yang dinilai hanya program yang menyebut berkas env sebagai masukan, `source`, kode-sebaris, dan pencarian
+// rekursif. Lapis tertutupnya permissions.deny Read(//**/.env…) yang dipasang `pasang` (lihat ATURAN_IZIN_ENV).
+const ENV_BAWAAN = { nama: "^(\\.env(\\.[\\w.-]+)?|[\\w-][\\w.-]*\\.env|\\.envrc)$", kecuali: "\\.(example|contoh|sample|template|dist|defaults?)$" };
+/** Program yang menyebut berkas tanpa mengeluarkan isinya (atau hanya menulisnya). */
+const ENV_TANPA_ISI = new Set(["ls", "stat", "test", "[", "[[", "file", "wc", "chmod", "chown", "touch", "rm", "unlink", "trash", "du", "echo",
+  "printf", "tee", "realpath", "readlink", "basename", "dirname", "mkdir", "true", "false", "cd"]);
+const ENV_GIT_TANPA_ISI = /^(check-ignore|ls-files|status|rm|mv)$/;
+const ENV_SALIN = /^(cp|mv|install|gcp|ditto)$/;
+const ENV_PEMBUNGKUS = /^(sudo|command|exec|nice|nohup|time|g?timeout|stdbuf|caffeinate|env|xargs|doas|npx|bunx|pnpx)$/;
+const ENV_SHELL = /^(ba|z|da|k|fi)?sh$/;
+const ENV_DUMP = /^(env|printenv|set|export|declare|typeset|compgen)$/;
+const ENV_PEMUAT = /^(node|nodejs|deno|bun|dotenv|dotenvx|env-cmd|docker|docker-compose|podman|tsx|ts-node)$/;
+const ENV_KODE_SEBARIS = { node: /^(-e|-p|--eval|--print|-pe)$/, nodejs: /^(-e|-p|--eval|--print)$/, python: /^-c$/, python3: /^-c$/,
+  ruby: /^-e$/, perl: /^-[a-zA-Z]*[eE]$/, php: /^-r$/, bun: /^(-e|--eval|-p|--print)$/, osascript: /^-e$/, deno: /^(eval)$/ };
+const ENV_SEBUT = /\.env\b|\.envrc|dotenv|env-file|load_dotenv|godotenv|parseEnv|loadEnvFile/i;
+const ENV_PENGELUAR = /^(cat|head|tail|less|more|sed|gsed|awk|gawk|cut|grep|egrep|fgrep|rg|ag|ack|sort|uniq|strings|xxd|od|hexdump|base64|tac|nl|paste|diff|cmp|comm|jq|yq|column|tr|fold|rev|xargs|bat|view|vi|vim|nano|source|\.|eval|cp|ln|dd|openssl|gpg|curl|python3?|node|ruby|perl|php|bun|deno|zip|tar|split)$/;
+
+function polaEnv(K) {
+  const e = K.env_rahasia ?? {};
+  return { nama: new RegExp(e.nama ?? ENV_BAWAAN.nama, "i"), kecuali: new RegExp(e.kecuali ?? ENV_BAWAAN.kecuali, "i") };
+}
+/** Nama berkas (basename) env rahasia? */
+export function namaEnv(nama, K) { const p = polaEnv(K); const b = String(nama ?? ""); return p.nama.test(b) && !p.kecuali.test(b); }
+/** Berkas env yang benar-benar dibuka bila `x` dibaca dari salah satu `folder` (teks, `..` fisik, tujuan symlink).
+ *  Mengembalikan path-nya (untuk alasan/audit) atau null. Folder (venv `.env/`) bukan berkas env. */
+export function berkasEnv(x, folder, K) {
+  const p = rumah(String(x ?? ""));
+  if (!p || p === "-" || /^[a-z][a-z0-9+.-]*:\/\//i.test(p)) return null;
+  const calon = new Set([p]);
+  for (const c of folder?.length ? folder : [null]) {
+    if (!path.isAbsolute(p) && !c) continue;
+    const abs = path.resolve(c ?? "/", p);
+    for (const y of [abs, jalurFisik(c ?? "/", p), asli(abs)]) if (y) calon.add(y);
+  }
+  for (const y of calon) {
+    if (!namaEnv(path.basename(y), K)) continue;
+    try { if (fs.statSync(y).isDirectory()) continue; } catch { /* belum ada: tetap dinilai dari namanya */ }
+    return y;
+  }
+  return null;
+}
+/** Glob yang bisa mencocokkan berkas env di foldernya (`cat .e*`, `cat .env*`). */
+function globEnv(pola, folder, K) {
+  const p = rumah(pola);
+  const dir = path.dirname(p), dasar = path.basename(p);
+  const re = new RegExp(`^${dasar.replace(/[.+^${}()|\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\?/g, ".").replace(/\[!/g, "[^")}$`);
+  // nama yang mungkin walau berkasnya belum terlihat (glob berawalan titik): .env, .env.local, .envrc
+  if (dasar.startsWith(".") && [".env", ".env.local", ".env.production", ".envrc"].some((n) => re.test(n))) return `${dir}/${dasar}`;
+  if (/[*?[]/.test(dir)) return ENV_SEBUT.test(p) ? p : null;
+  for (const c of folder?.length ? folder : [null]) {
+    if (!path.isAbsolute(dir) && !c) continue;
+    let isi = [];
+    try { isi = fs.readdirSync(path.resolve(c ?? "/", dir)); } catch { continue; }
+    const kena = isi.find((n) => re.test(n) && (dasar.startsWith(".") || !n.startsWith(".")) && namaEnv(n, K));
+    if (kena) return path.join(dir, kena);
+  }
+  return null;
+}
+/** Berkas env di pohon `akar` (kedalaman ≤ 6, ≤ 5.000 entri, lewati node_modules/.git); `abaikanGit` = lewati yang
+ *  di-ignore git (grep bawaan Claude Code di macOS/Linux = ugrep --ignore-files). */
+function pohonEnv(akar, K, abaikanGit) {
+  let n = 0;
+  const temu = [];
+  const jalan = (d, k) => {
+    if (k > 6 || n > 5000 || temu.length) return;
+    let isi = [];
+    try { isi = fs.readdirSync(d, { withFileTypes: true }); } catch { return; }
+    for (const e of isi) {
+      if (++n > 5000) return;
+      if (e.isDirectory()) { if (!/^(node_modules|\.git)$/.test(e.name)) jalan(path.join(d, e.name), k + 1); }
+      else if (namaEnv(e.name, K)) temu.push(path.join(d, e.name));
+    }
+  };
+  try { if (fs.statSync(akar).isFile()) return namaEnv(path.basename(akar), K) ? akar : null; } catch { return null; }
+  jalan(akar, 0);
+  if (!abaikanGit) return temu[0] ?? null;
+  // berkas env yang TIDAK di-ignore git (atau di luar repo git) → terbaca grep bawaan
+  for (const f of temu) {
+    try { execFileSync("git", ["-C", path.dirname(f), "check-ignore", "-q", f], { stdio: "ignore", timeout: 3000 }); }
+    catch { return f; }
+  }
+  return null;
+}
+/** Kata sesudah pembungkus (sudo, env VAR=…, timeout 10, npx …): [indeks program, nama program]. */
+function bukaPembungkus(w) {
+  let i = 0;
+  while (i < w.length && /^[A-Za-z_][A-Za-z0-9_]*=/.test(w[i])) i++;
+  while (i < w.length && ENV_PEMBUNGKUS.test(path.basename(w[i]))) {
+    const nama = path.basename(w[i]);
+    if (nama === "env" && (i + 1 >= w.length || w.slice(i + 1).every((x) => x.startsWith("-") || /^[A-Za-z_]\w*=/.test(x)))) return [i, "env"];
+    i++;
+    while (i < w.length && (/^-/.test(w[i]) || /^\d+(\.\d+)?[smhd]?$/.test(w[i]) || /^[A-Za-z_][A-Za-z0-9_]*=/.test(w[i]))) {
+      if (/^-(u|g|n|k|s|I|L|P|d|E|C)$/.test(w[i]) && nama !== "env") i++;   // opsi bernilai (sudo -u x, xargs -I {}, nice -n 5)
+      i++;
+    }
+  }
+  return [i, path.basename(w[i] ?? "")];
+}
+/** Kata dalam satu teks perintah (untuk `bash -c "…"` / `eval "…"`). */
+const kataDari = (t) => urai(t).segmen;
+
+/** Satu segmen Bash membaca isi berkas env? → { berkas, sebab } | null. `semua` = teks mentah seluruh perintah. */
+export function envSegmen(s, K, ctx, semua = s.teks, dalam = 0) {
+  const folder = ctx.mungkin ?? (ctx.cwd ? [ctx.cwd] : null);
+  const w = s.kata.map((x) => x.nilai);
+  const [i, prog] = bukaPembungkus(w);
+  const args = w.slice(i + 1), kataArgs = s.kata.slice(i + 1);
+  const masukan = s.alih.filter((a) => /^\d*<$/.test(a.op)).map((a) => a.target);
+  const kena = (x) => berkasEnv(x, folder, K);
+  const hasil = (berkas, sebab) => ({ berkas, sebab });
+  // pengalihan masukan dari berkas env: `cut -d= -f2 < .env`, `while read …; done < .env`
+  for (const m of masukan) { const b = kena(m); if (b && !ENV_TANPA_ISI.has(prog)) return hasil(b, "pengalihan masukan dari berkas env"); }
+  if (!prog) return null;
+  // shell/eval dengan teks perintah: dinilai ulang isinya (maks. 3 lapis)
+  if ((ENV_SHELL.test(prog) || prog === "eval") && dalam < 3) {
+    const j = prog === "eval" ? 0 : args.findIndex((x) => /^-[a-z]*c$/.test(x));
+    const teks = prog === "eval" ? args.join(" ") : j >= 0 ? args[j + 1] : null;
+    if (teks) for (const t of kataDari(teks)) { const h = envSegmen(t, K, ctx, semua, dalam + 1); if (h) return h; }
+    if (j < 0 && prog !== "eval") { const b = args.find((x) => !x.startsWith("-") && kena(x)); if (b) return hasil(kena(b), "shell menjalankan berkas env"); }
+    return null;
+  }
+  // source / . → isi masuk shell lalu bisa dicetak
+  if (prog === "source" || prog === ".") { const b = args.map(kena).find(Boolean); return b ? hasil(b, "source berkas env") : null; }
+  // perkakas resmi tanpa nilai
+  if (/^env-kunci\.(sh|mjs)$/.test(prog) && perkakasAsli(w[i], ctx)) return null;
+  if (/^node(js)?$/.test(prog) && /(^|\/)env-kunci\.mjs$/.test(args.find((x) => !x.startsWith("-")) ?? "") && perkakasAsli(args.find((x) => !x.startsWith("-")), ctx)) return null;
+  // kode sebaris yang menyebut env/pemuat: node -e, python3 -c, perl -ne, …
+  const kode = ENV_KODE_SEBARIS[prog];
+  if (kode) {
+    const j = args.findIndex((x) => kode.test(x) || /^--(eval|print)=/.test(x));
+    if (j >= 0) {
+      const teks = /^--(eval|print)=/.test(args[j]) ? args[j] : args.slice(j).join(" ");
+      if (ENV_SEBUT.test(teks) || args.slice(0, j).some((x) => ENV_SEBUT.test(x))) return hasil(args.map(kena).find(Boolean) ?? ".env", "kode sebaris membaca env");
+      return null;
+    }
+  }
+  // pemuat env (node --env-file=.env server.js, dotenv -e .env -- npm test, docker compose --env-file .env up): menjalankan
+  // aplikasi/tes = kapabilitas tetap; hanya bila perintah dalamnya membuang lingkungan (env, printenv, -p process.env,
+  // docker compose config) → isi env ke transkrip.
+  let sisa = args;
+  if (ENV_PEMUAT.test(prog)) {
+    const pemuat = [], lain = [];
+    for (let j = 0; j < args.length; j++) {
+      const x = args[j];
+      const m = x.match(/^--env-file=(.+)$/);
+      if (m) { pemuat.push(m[1]); continue; }
+      if (x === "--env-file" || (/^(dotenv|dotenvx|env-cmd)$/.test(prog) && /^(-e|-f|--file|--path)$/.test(x))) { pemuat.push(args[++j] ?? ""); continue; }
+      lain.push(x);
+    }
+    const disebut = pemuat.map(kena).find(Boolean);
+    const dump = lain.some((x) => ENV_DUMP.test(path.basename(x))) || lain.includes("config") || (prog === "dotenv" && lain.includes("-p"));
+    if (disebut && dump) return hasil(disebut, "pemuat env membuang lingkungan");
+    sisa = lain;   // berkas env yang hanya dimuat (bukan dibaca sebagai masukan) bukan pembacaan isi
+  }
+  if (prog === "env" && !args.some((x) => !x.startsWith("-") && !/^[A-Za-z_]\w*=/.test(x))) return null;   // env telanjang: lingkungan agent sendiri
+  // pencarian rekursif: grep -r / rg / git grep --untracked / find -exec
+  const rekursif = (/^(grep|egrep|fgrep)$/.test(prog) && args.some((x) => /^--(recursive|dereference-recursive)$|^-[A-Za-z]*[rR]/.test(x)))
+    || /^(rg|ag|ack)$/.test(prog) || (prog === "git" && args[0] === "grep");
+  if (rekursif) {
+    const lewatiIgnore = (prog === "grep" && (/^(command|\/)/.test(w[0]) || w[0].includes("/") || w.slice(0, i).includes("command")))
+      || args.some((x) => /^(-u+|--no-ignore.*|--unrestricted|--untracked|--no-index|--hidden)$/.test(x)) || /^(ag|ack|egrep|fgrep)$/.test(prog)
+      || osLogis() === "win32";
+    const akar = args.filter((x) => !x.startsWith("-")).slice(prog === "git" ? 2 : 1);
+    // rg tanpa -u/--hidden melewati berkas tersembunyi & ter-ignore; git grep hanya berkas terlacak
+    const pohon = !(/^(rg|git)$/.test(prog) && !lewatiIgnore);
+    for (const a of akar.length ? akar : ["."]) {
+      const b = kena(a); if (b) return hasil(b, "pencarian membaca berkas env");
+      if (pohon) for (const c of folder ?? []) { const t = pohonEnv(path.resolve(c, rumah(a)), K, !lewatiIgnore); if (t) return hasil(t, "pencarian rekursif atas folder berisi berkas env"); }
+    }
+    return null;
+  }
+  // xargs <pengeluar> dengan daftar berkas yang menyebut env: ls -a | grep env | xargs cat
+  if (w.slice(0, i).some((x) => path.basename(x) === "xargs") && ENV_PENGELUAR.test(prog) && (ENV_SEBUT.test(semua) || /\benv\b/i.test(semua))) return hasil(".env", "xargs atas daftar berkas env");
+  if (prog === "find" && args.some((x) => /^-(exec|execdir|ok|okdir)$/.test(x)) && ENV_SEBUT.test(s.teks)) return hasil(".env", "find -exec atas berkas env");
+  if (prog === "git") {
+    let j = 0;
+    while (j < args.length && args[j].startsWith("-")) j += ["-C", "-c", "--git-dir", "--work-tree"].includes(args[j]) ? 2 : 1;
+    if (ENV_GIT_TANPA_ISI.test(args[j] ?? "")) return null;
+    // git show rev:.env, git diff --no-index .env.example .env, git log -p .env
+    const b = args.slice(j + 1).map((x) => kena(x.includes(":") ? x.slice(x.lastIndexOf(":") + 1) : x)).find(Boolean);
+    return b ? hasil(b, "git mengeluarkan isi berkas env") : null;
+  }
+  if (ENV_TANPA_ISI.has(prog)) return null;
+  // grep yang hanya menghitung/menguji (tanpa baris): -c -q -l -L -s …
+  if (/^(grep|egrep|fgrep)$/.test(prog)) {
+    let senyap = true;
+    for (let j = 0; j < args.length; j++) {
+      const x = args[j];
+      if (x === "--") break;
+      if (/^--(count|quiet|silent|files-with-matches|files-without-match|ignore-case|word-regexp|line-regexp|invert-match|extended-regexp|fixed-strings|no-messages)$/.test(x)) continue;
+      if (x === "-e" || x === "--regexp") { j++; continue; }
+      if (/^-[cqlLsEFiwxvhHe]+$/.test(x)) { if (x.endsWith("e") && x.length > 1) j++; continue; }
+      if (x.startsWith("-")) { senyap = false; break; }
+    }
+    if (senyap && args.some((x) => /^-[A-Za-z]*[cqlL]|^--(count|quiet|silent|files-with)/.test(x))) return null;
+  }
+  // salin ke berkas yang juga bernama env (Serah .env worktree → checkout utama) = bukan membaca
+  const op = sisa.filter((x) => !x.startsWith("-"));
+  if (ENV_SALIN.test(prog) && op.length >= 2 && namaEnv(path.basename(op.at(-1)), K) && op.slice(0, -1).every((x) => kena(x))) return null;
+  // operand / nilai opsi (`--file=.env`, `-f.env`, `@.env`, `-f .env`) yang menunjuk berkas env
+  for (const x of sisa) {
+    const nilai = x.startsWith("--") ? (x.includes("=") ? [x.slice(x.indexOf("=") + 1)] : [])
+      : x.startsWith("-") ? [x.slice(2), x.slice(1)] : [x, x.replace(/^@/, "")];
+    const b = nilai.filter(Boolean).map(kena).find(Boolean);
+    if (b) return hasil(b, `${prog} membaca berkas env`);
+  }
+  // glob/ekspansi yang bisa menunjuk berkas env: cat .e*, F=.env; cat $F, cat $(echo .env)
+  for (const k of kataArgs) {
+    if (k.glob) { const g = globEnv(k.nilai, folder, K); if (g) return hasil(g, "glob mencocokkan berkas env"); }
+    if ((k.ekspansi || /[`$]/.test(k.nilai)) && ENV_PENGELUAR.test(prog) && ENV_SEBUT.test(semua)) return hasil(".env", "ekspansi yang bisa menunjuk berkas env");
+  }
+  return null;
+}
+/** Pembacaan isi env dalam satu panggilan alat → { berkas, sebab } | null. */
+export function bacaEnv(input, K, u = null) {
+  const t = input.tool_input ?? {};
+  if (input.tool_name === "Read") { const b = t.file_path ? berkasEnv(t.file_path, [rumah(input.cwd || HOME)], K) : null; return b ? { berkas: b, sebab: "Read berkas env" } : null; }
+  if (input.tool_name === "Grep") {
+    if (t.output_mode !== "content") return null;   // bawaan files_with_matches / count: tanpa isi
+    const b = t.path ? berkasEnv(t.path, [rumah(input.cwd || HOME)], K) : null;
+    if (b) return { berkas: b, sebab: "Grep isi berkas env" };
+    if (t.glob && [".env", ".env.local", "prod.env", ".envrc"].some((n) => new RegExp(`^${String(t.glob).replace(/^\*\*\//, "").replace(/[.+^${}()|\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\?/g, ".")}$`).test(n)))
+      return { berkas: t.glob, sebab: "Grep isi berkas env (glob)" };
+    return null;
+  }
+  return null;
+}
+
 /** Analisis lengkap satu perintah Bash. */
 function analisisBash(input, K) {
   const cmd = String(input.tool_input?.command ?? "");
@@ -886,7 +1118,7 @@ function analisisBash(input, K) {
   // `cd x &`), jadi folder sebelumnya tidak pernah dibuang; null = tak diketahui.
   ctx.mungkin = ctx.cwd ? [ctx.cwd] : null;
   const hasil = [];
-  let sebut = null, ubahSendiri = false;
+  let sebut = null, ubahSendiri = false, env = null;
   // urai memecah badan heredoc menjadi segmen; baris badan heredoc ke program selain shell bukan perintah claude
   const badan = badanHeredoc(cmd);
   for (const s of u.segmen) {
@@ -894,6 +1126,7 @@ function analisisBash(input, K) {
     if (h.claude) { const t = s.teks.trim(), n = badan.indexOf(t); if (t && n >= 0) { badan.splice(n, 1); h = { aman: false }; } }
     hasil.push(h);
     if (h.ubahSendiri) ubahSendiri = true;
+    if (!env) env = envSegmen(s, K, ctx, cmd);
     // T-20261030-6 A9: hanya TARGET PENULISAN nyata yang diperiksa (pengalihan keluar, tee, sed/perl -i, cp/mv/rm/…,
     // git checkout/restore/… dengan path). Membaca, menjalankan, menguji, atau sekadar menyebut path → bukan urusan ini.
     for (const t of targetTulis(s, ctx.cwd)) {
@@ -923,16 +1156,22 @@ function analisisBash(input, K) {
     aksi.push({ kemampuan: "sesi", jenjang: 3, aksi: "perintah claude untuk sesi latar dalam bentuk yang tidak dikenali" });
   const aman = !u.kompleks && !u.ekspansi && hasil.length > 0 && hasil.every((h) => h.aman);
   const terlindung = ubahSendiri ? "pengelola kebijakan/hook (pasang, lepas, …)" : sebut;
-  return { aksi, aman, terlindung, ringkasan: cmd };
+  return { aksi, aman, terlindung, ringkasan: cmd, env };
 }
 
 const ALAT_TULIS = new Set(["Write", "Edit", "MultiEdit", "NotebookEdit"]);
+/** Alat baca yang dilihat hook hanya untuk penjaga .env (T-20261031-2.3). */
+const ALAT_BACA = new Set(["Read", "Grep", "Glob"]);
 
 /** Semua aksi infrastruktur dalam satu panggilan alat + apakah SEMUA bagiannya dikenali aman + berkas terlindung. */
 export function klasifikasi(input, K) {
   if (input.tool_name === "Bash") {
     const a = analisisBash(input, K);
-    return { aksi: a.aksi, dipahami: a.aman, terlindung: a.terlindung, ringkasan: a.ringkasan };
+    return { aksi: a.aksi, dipahami: a.aman, terlindung: a.terlindung, ringkasan: a.ringkasan, env: a.env };
+  }
+  if (ALAT_BACA.has(input.tool_name)) {
+    const t = input.tool_input ?? {};
+    return { aksi: [], dipahami: false, terlindung: null, env: bacaEnv(input, K), ringkasan: `${input.tool_name} ${t.file_path ?? t.path ?? ""} ${t.glob ?? t.pattern ?? ""}`.trim() };
   }
   if (ALAT_TULIS.has(input.tool_name)) {
     const f = input.tool_input?.file_path ?? input.tool_input?.notebook_path;
@@ -983,8 +1222,18 @@ function dnsTambahSah(params, K) {
 
 // ---------- audit ----------
 const RAHASIA = [/((?:pass(?:word)?|passwd|token|secret|api[_-]?key|authorization)\s*[=:]\s*)("[^"]*"|'[^']*'|\S+)/gi,
-  /(bearer\s+)\S+/gi, /(\s-p)(\S+)/g, /(gh[pousr]_)[A-Za-z0-9]{20,}/g];
+  /(bearer\s+)\S+/gi, /(\s-p)(\S+)/g, /(gh[pousr]_)[A-Za-z0-9]{20,}/g, /(\b[A-Z][A-Z0-9_]{2,}=)("[^"]*"|'[^']*'|[^\s'"]+)/g];
 export function samarkan(s) { let t = String(s); for (const r of RAHASIA) t = t.replace(r, "$1***"); return t.length > 400 ? `${t.slice(0, 400)}…` : t; }
+
+/** Penolakan baca .env tercatat di audit (jenjang 3, tanpa nilai; ringkasan disamarkan). */
+export function catatTolakEnv(input, p) {
+  const rec = { waktu: new Date().toISOString(), sesi: input.session_id ?? null, jabatan: p.sesi?.jabatan ?? null,
+    ...(p.sesi?.subagent ? { subagent: input.agent_type, induk: p.sesi.induk } : {}), tugas: tugasTerakhir(transkripInduk(input.transcript_path)),
+    cwd: input.cwd ?? null, alat: input.tool_name, ringkasan: samarkan(p.ringkasan ?? ""),
+    jenis: "baca-rahasia-ditolak", jenjang: 3, kemampuan: null, aksi: `baca ${p.env.berkas}`.slice(0, 200), sebab: p.env.sebab };
+  try { tambahAudit(rec); } catch { /* audit opsional — penolakan tetap berlaku */ }
+  return rec;
+}
 
 function berkasAudit(tgl = new Date()) { return path.join(DIR_AUDIT, `${tgl.toISOString().slice(0, 7)}.jsonl`); }
 
@@ -1083,6 +1332,16 @@ function rilisSiap(repo, sha, K) {
  *  `allow` hanya bila SETIAP bagian panggilan dikenali aman (F1); berkas terlindung selalu `ask` di sesi mana pun (F2). */
 export function putuskan(input, K) {
   const k = klasifikasi(input, K);
+  // penjaga .env: membaca isi berkas env di sesi RudisOne → deny tanpa prompt (dicatat di audit oleh pemanggil hook)
+  if (k.env) {
+    const sesiEnv = kenaliSesi(input, K);
+    if (sesiEnv.rudisOne) {
+      const nama = path.basename(String(k.env.berkas));
+      return { keputusan: "deny", sesi: sesiEnv, aksi: [], env: k.env, ringkasan: k.ringkasan,
+        alasan: `RudisOne · membaca isi ${nama} ditolak (${k.env.sebab}) — nilai rahasia tidak boleh masuk transkrip. Cek kunci tanpa nilai: ${ROOT}/bin/env-kunci.sh [--wajib K1,K2 | --salah-satu K1,K2] <berkas>. Aplikasi/tes/skrip proyek yang memuat .env sendiri tetap boleh dijalankan; isi yang memang perlu dilihat → minta pengguna membukanya sendiri.` };
+    }
+  }
+  if (ALAT_BACA.has(input.tool_name)) return { keputusan: null, alasan: "bukan pembacaan berkas env", sesi: null };
   if (k.terlindung) {
     const sesi0 = kenaliSesi(input, K);
     return { keputusan: "ask", alasan: `RudisOne · berkas terlindung: ${k.terlindung} — mengubah kebijakan/izin/audit adalah keputusan pemilik`, sesi: sesi0, aksi: k.aksi };
@@ -1129,6 +1388,7 @@ export function hitungBaris(out, a = {}) {
 }
 
 export function catatSesudah(input, K) {
+  if (ALAT_BACA.has(input.tool_name)) return null;
   const { aksi, ringkasan, terlindung } = klasifikasi(input, K);
   const sesi = kenaliSesi(input, K);
   if (!sesi.rudisOne && !terlindung) return null;
@@ -1151,7 +1411,7 @@ export function catatSesudah(input, K) {
 
 // ---------- pemasangan (dijalankan pengguna) ----------
 /** Alat yang dilihat hook. Write/Edit/MultiEdit/NotebookEdit sejak T-20261030-5 (berkas terlindung). */
-export const MATCHER = "^(Bash|PowerShell|Write|Edit|MultiEdit|NotebookEdit|mcp__.*)$";
+export const MATCHER = "^(Bash|PowerShell|Read|Grep|Glob|Write|Edit|MultiEdit|NotebookEdit|mcp__.*)$";
 /** PostToolUseFailure: perintah yang gagal (exit ≠ 0) tetap bisa sudah mengembalikan data prod ke transkrip (U3 M3). */
 const PERISTIWA = ["PreToolUse", "PostToolUse", "PostToolUseFailure"];
 function entriHook() {
@@ -1166,7 +1426,7 @@ export function statusPasang() {
 /** Alat yang WAJIB dilihat hook di OS ini (contoh nama untuk diuji terhadap matcher terpasang). PowerShell hanya ada
  *  di Windows — di macOS/Linux matcher lama tanpa PowerShell tetap mutakhir, tidak perlu dipasang ulang (T1). */
 export function alatWajib(sistem = osLogis()) {
-  return ["Bash", ...(sistem === "win32" ? ["PowerShell"] : []), "Write", "Edit", "MultiEdit", "NotebookEdit", "mcp__contoh__alat"];
+  return ["Bash", ...(sistem === "win32" ? ["PowerShell"] : []), "Read", "Grep", "Write", "Edit", "MultiEdit", "NotebookEdit", "mcp__contoh__alat"];
 }
 /** Matcher Claude Code: kosong/"*" = semua alat; selain itu diuji sebagai regex utuh. Rusak → tidak mencakup apa pun. */
 function cocokMatcher(matcher, alat) {
@@ -1209,16 +1469,36 @@ function tulisSettings(s) {
   fs.mkdirSync(path.dirname(SETTINGS), { recursive: true });
   fs.writeFileSync(SETTINGS, `${JSON.stringify(s, null, 2)}\n`);
 }
-async function pasang(opsi) {
-  const s = bacaSettings();
-  if (statusPasang() && matcherMutakhir()) { console.log(`Sudah terpasang di ${SETTINGS}.`); return 0; }
-  console.log(`Akan menambahkan hook kebijakan RudisOne ke ${SETTINGS} (PreToolUse + PostToolUse, alat: Bash, Write/Edit & MCP):`);
-  console.log(`  ${entriHook().hooks[0].command}`);
-  console.log("Hook hanya bertindak di sesi RudisOne; sesi pribadi dilewati. Aturan izin yang sudah ada tidak diubah; cadangan settings dibuat dulu.");
-  if (!(await konfirmasi("Pasang sekarang?", opsi))) { console.log("Dibatalkan."); return 1; }
+/** Lapis tertutup penjaga .env (T-20261031-2.3): permissions.deny Read berlaku di sesi mana pun, juga saat hook gagal
+ *  terbuka, untuk alat Read dan perintah berkas yang dikenali Claude Code di Bash (cat/head/tail/sed/…). Path `//**` =
+ *  di mana pun (bukan hanya di bawah folder kerja). Contoh (.env.example) tidak tercakup; sisanya dijaga hook. */
+export const ATURAN_IZIN_ENV = [".env", ".env.local", ".env.production", ".env.development", ".env.test", ".env.staging",
+  ".env.*.local", ".envrc"].map((n) => `Read(//**/${n})`);
+/** Aturan izin RudisOne yang belum ada di settings pengguna. */
+export function kekuranganIzin(s = bacaSettings()) {
+  const deny = new Set(s.permissions?.deny ?? []);
+  return ATURAN_IZIN_ENV.filter((a) => !deny.has(a));
+}
+/** Settings sesudah pemasangan (murni; idempoten): hook kebijakan di setiap peristiwa (entri milik sistem lain tidak
+ *  disentuh, entri kita diganti versi kini) + aturan deny Read .env ditambahkan tanpa menghapus aturan yang ada. */
+export function settingsTerpasang(s0) {
+  const s = JSON.parse(JSON.stringify(s0 ?? {}));
   s.hooks ??= {};
   for (const ev of PERISTIWA) { s.hooks[ev] = (s.hooks[ev] ?? []).filter((e) => !milikKita(e)); s.hooks[ev].push(entriHook()); }
-  tulisSettings(s);
+  s.permissions ??= {};
+  s.permissions.deny = [...(s.permissions.deny ?? []), ...kekuranganIzin(s)];
+  return s;
+}
+async function pasang(opsi) {
+  const s = bacaSettings();
+  const baru = settingsTerpasang(s);
+  if (JSON.stringify(baru) === JSON.stringify(s)) { console.log(`Sudah terpasang di ${SETTINGS}.`); return 0; }
+  const izin = kekuranganIzin(s);
+  console.log(`Akan memasang kebijakan RudisOne di ${SETTINGS} (hook PreToolUse + PostToolUse: Bash, Read/Grep/Glob, Write/Edit & MCP${izin.length ? `; aturan deny: ${izin.join(" ")}` : ""}):`);
+  console.log(`  ${entriHook().hooks[0].command}`);
+  console.log("Hook hanya bertindak di sesi RudisOne (kecuali berkas terlindung); aturan izin yang sudah ada tidak diubah/dihapus; cadangan settings dibuat dulu.");
+  if (!(await konfirmasi("Pasang sekarang?", opsi))) { console.log("Dibatalkan."); return 1; }
+  tulisSettings(baru);
   console.log("Terpasang. Claude Code biasanya langsung memakainya, termasuk di sesi yang sedang terbuka; bila belum, mulai ulang sesinya.");
   return 0;
 }
@@ -1269,6 +1549,7 @@ export async function main(argv) {
       if (PERISTIWA.includes(input.hook_event_name) && input.session_id && input.tool_name) denyut();
       if (input.hook_event_name === "PreToolUse") {
         const p = putuskan(input, K);
+        if (p.keputusan === "deny" && p.env) catatTolakEnv(input, p);
         if (p.keputusan) process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: p.keputusan, permissionDecisionReason: p.alasan } }));
       } else if (input.hook_event_name === "PostToolUse" || input.hook_event_name === "PostToolUseFailure") catatSesudah(input, K);
     } catch { /* gagal terbuka: alur izin biasa berlaku */ }
@@ -1278,9 +1559,11 @@ export async function main(argv) {
   if (perintah === "lepas") return lepas(opsi);
   if (perintah === "cek") {
     let ok = statusPasang();
-    console.log(ok ? `Kebijakan RudisOne terpasang di ${SETTINGS}.` : `Belum terpasang — pemilik menjalankan: ${ROOT}/bin/kebijakan.sh pasang`);
+    console.log(ok ? `Kebijakan RudisOne terpasang di ${SETTINGS}.` : `Belum terpasang — jalankan installer: ${ROOT}/install.sh (atau ${ROOT}/bin/kebijakan.sh pasang)`);
     const kurang = ok ? kekuranganHook() : [];
-    if (kurang.length) { ok = false; console.log(`Hook terpasang versi lama (kurang: ${kurang.join(", ")}) — pemilik menjalankan: ${ROOT}/bin/kebijakan.sh pasang`); }
+    if (kurang.length) { ok = false; console.log(`Hook terpasang versi lama (kurang: ${kurang.join(", ")}) — jalankan installer: ${ROOT}/install.sh`); }
+    const izin = ok ? kekuranganIzin() : [];
+    if (izin.length) { ok = false; console.log(`Aturan deny .env belum lengkap (kurang: ${izin.join(" ")}) — jalankan installer: ${ROOT}/install.sh`); }
     if (ok && hookDimatikan()) { ok = false; console.log(`Semua hook dimatikan (disableAllHooks: true di ${SETTINGS}) — kebijakan tidak berjalan.`); }
     if (ok && !programHookAda()) { ok = false; console.log(`Program yang dipanggil hook tidak ditemukan (Node berpindah versi?) — pemilik menjalankan ulang: ${ROOT}/bin/kebijakan.sh lepas && ${ROOT}/bin/kebijakan.sh pasang`); }
     try {
