@@ -209,7 +209,7 @@ if (node("konfig.mjs", ["cek"]).status === 0) {
 let izinDeploy = false;
 try { izinDeploy = fs.readFileSync(path.join(ROOT, "ruang", "system-administrator", ".claude", "settings.local.json"), "utf8").includes("deploy.sh"); } catch { /* belum ada */ }
 if (izinDeploy) pass("izin deploy tetap System Administrator");
-else info("izin deploy tetap belum ada (opsional) — lihat README › Izin deploy tetap");
+else info("izin deploy tetap belum ada (opsional) — lihat docs/izin-deploy.md");
 
 // Agent bernama sama di ~/.claude/agents akan bentrok dengan peran RudisOne.
 for (const a of AGENTS) if (fs.existsSync(path.join(claude, "agents", `${a}.md`))) fail(`~/.claude/agents/${a}.md ada — bentrok dengan peran RudisOne, pindahkan ke cadangan`);

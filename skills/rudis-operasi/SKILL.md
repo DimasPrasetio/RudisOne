@@ -15,7 +15,7 @@ Ringkasan jenjang 1–3 dan larangan keras ada di `protokol.md` › Akses & bata
 - Hasil Engineering tinggal di branch `rudis/<ID>` sampai pengguna memutuskan. "Serahkan"/"commit" dari pengguna →
   brief ke Tech Lead tim itu yang mengutip permintaan itu (`agents/tech-lead.md` › Serah ke branch utama).
 - App yang pengguna beri izin deploy tetap juga tercakup di `ruang/system-administrator/.claude/settings.local.json`
-  (dipasang pengguna sendiri; README › Izin deploy tetap).
+  (dipasang pengguna sendiri; docs/izin-deploy.md).
 
 ## 2. Konfigurasi server belum ada / kurang
 Konfigurasi server hanya dibutuhkan saat ada pekerjaan server (deploy yang diminta pengguna, insiden, cek server) —
