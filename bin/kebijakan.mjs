@@ -1105,7 +1105,11 @@ export function envSegmen(s, K, ctx, semua = s.teks, dalam = 0) {
     return null;
   }
   // source / . → isi masuk shell lalu bisa dicetak
-  if (prog === "source" || prog === ".") { const b = args.map(kena).find(Boolean); return b ? hasil(b, "source berkas env") : null; }
+  if (prog === "source" || prog === ".") {
+    const b = args.map(kena).find(Boolean);
+    if (b) return hasil(b, "source berkas env");
+    return kataArgs.some((k) => k.ekspansi) && varEnv(semua, K) ? hasil(".env", "source variabel yang menunjuk berkas env") : null;
+  }
   // perkakas resmi tanpa nilai
   if (/^env-kunci\.(sh|mjs)$/.test(prog) && perkakasAsli(w[i], ctx)) return null;
   if (/^node(js)?$/.test(prog) && /(^|\/)env-kunci\.mjs$/.test(args.find((x) => !x.startsWith("-")) ?? "") && perkakasAsli(args.find((x) => !x.startsWith("-")), ctx)) return null;
@@ -1229,10 +1233,18 @@ export function envSegmen(s, K, ctx, semua = s.teks, dalam = 0) {
     const varLoop = [...semua.matchAll(/\bread\s+(?:-\w+\s+)*([A-Za-z_]\w*)|\bfor\s+([A-Za-z_]\w*)\s+in\b/g)].map((m) => m[1] ?? m[2]);
     if (ekspansi && ENV_PENGELUAR.test(prog) && varLoop.some((v) => new RegExp(`\\$\\{?${v}\\b`).test(k.nilai)) && daftarEnv(semua, K))
       return hasil(".env", "variabel loop atas daftar berkas env");
-    if (ekspansi && ENV_PENGELUAR.test(prog) && (ENV_SEBUT.test(kodeSeg) || [...kodeSemua.matchAll(/[A-Za-z_]\w*=([^\s;&|)]+)/g)].some((m) => namaEnv(m[1].split(/[\\/]/).pop(), K))))
+    if (ekspansi && ENV_PENGELUAR.test(prog) && (ENV_SEBUT.test(kodeSeg) || varEnv(semua, K)))
       return hasil(".env", "ekspansi yang bisa menunjuk berkas env");
   }
   return null;
+}
+/** Ada variabel yang diisi path berkas env di perintah ini? `F=.env`, `F=".env"`, `export F='apps/.env'`, `${1:-.env}`
+ *  (nilai diambil dari hasil urai — tanda kutip sudah dibuang). */
+function varEnv(teks, K) {
+  const kata = urai(teks).segmen.flatMap((s) => s.kata.map((x) => x.nilai));
+  const nilai = kata.filter((w) => /^[A-Za-z_]\w*=/.test(w)).map((w) => w.slice(w.indexOf("=") + 1))
+    .concat([...String(teks).matchAll(/\$\{[\w@*#?]+:?[-=]([^}]+)\}/g)].map((m) => m[1].replace(/^['"]|['"]$/g, "")));
+  return nilai.some((v) => namaEnv(v.split(/[\\/]/).pop(), K));
 }
 /** Teks perintah menyebut/menyaring berkas env non-contoh (anggota daftar for, pola glob/find -name, pola grep)? */
 const CALON_ENV = [".env", ".env.local", ".env.production", ".env.development", ".env.test", "prod.env", ".envrc"];

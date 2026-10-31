@@ -325,3 +325,10 @@ test("tinjauan silang T-2.3 putaran 3: API dotenv yang mencetak nilai → deny; 
   harap(["for f in .env.example apps/api/.env.example; do cat $f; done", "find . -name '.env.example' | while read f; do cat \"$f\"; done",
     "for f in $(find . -name '.env.example'); do cat \"$f\"; done", "node -e \"require('dotenv').config(); require('./x')\""], "—");
 });
+
+test("tinjauan silang T-2.3 putaran 4: variabel bertanda kutip & source lewat variabel → deny", () => {
+  harap(["ENV_FILE=\".env\"; grep -v '^#' \"$ENV_FILE\"", "F=\".env\"; cat \"$F\"", "F='.env'; cat \"$F\"", "F=\".env\"; cat $F",
+    "F=\"apps/api/.env\"; head -5 \"$F\"", "export F='.env' && cat \"$F\"", "ENV=.env; source $ENV", "F=.env; source \"$F\"",
+    "ENV=\".env\"; . \"$ENV\"; echo $DB", "F=${1:-.env}; cat $F"], "deny");
+  harap(["F=\".env.example\"; cat \"$F\"", "F=README.md; cat $F", "source \"$HOME/.nvm/nvm.sh\"", "V=venv; source $V/bin/activate"], "—");
+});
