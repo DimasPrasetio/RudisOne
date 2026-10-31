@@ -113,3 +113,13 @@ test("salinan CRLF (Windows tanpa .gitattributes): sidik & isi sama dengan salin
   assert.equal(bangkitkan("research-analyst", crlf), bangkitkan("research-analyst", lf), "sidik dihitung atas bentuk LF");
   assert.equal(bangkitkanClaudeMd(crlf), bangkitkanClaudeMd(lf));
 });
+
+test("gerbang_stop → hook Stop di frontmatter subagent (T-20261031-2.3)", async () => {
+  const { hookStop, bangkitkan } = await import("./peran.mjs");
+  assert.deepEqual(hookStop(undefined), []);
+  assert.throws(() => hookStop("x; rm -rf ~"), /tidak sah/);
+  const tl = bangkitkan("tech-lead");
+  const fm = tl.split("\n---\n")[0];
+  assert.match(fm, /\nhooks:\n {2}Stop:\n {4}- hooks:\n {8}- type: command\n {10}command: node ~\/.+\/bin\/gerbang-tl\.mjs --hook\n {10}timeout: 60$/);
+  assert.doesNotMatch(bangkitkan("software-engineer").split("\n---\n")[0], /hooks:/);
+});

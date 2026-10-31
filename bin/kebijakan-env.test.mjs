@@ -187,3 +187,20 @@ test("pasang lewat CLI: idempoten, cadangan hanya saat berubah; installer RudisO
   assert.equal(kep(bash("./install.sh", P)), "—", "install.sh proyek lain bukan installer RudisOne");
   fs.rmSync(S);
 });
+
+test("jalur Tech Lead-subagent: SE lapis-2 (induk = sesi COO) tidak diblokir kerja lokal; gerbang-tl allow untuk COO", () => {
+  // transkrip sesi COO + transkrip subagent di <sid>/subagents/ — kebijakan membaca jabatan induk dari transkrip utama
+  const dirT = path.join(tmp, "proyek-transkrip");
+  fs.mkdirSync(path.join(dirT, "sid", "subagents"), { recursive: true });
+  fs.writeFileSync(path.join(dirT, "sid.jsonl"), `${JSON.stringify({ type: "user", cwd: ROOT, message: { role: "user", content: "halo" } })}\n`);
+  const wt = path.join(P, ".claude", "worktrees", "r1-se1-uji");
+  fs.mkdirSync(wt, { recursive: true });
+  const se = (command) => ({ ...bash(command, wt), agent_type: "rudis-software-engineer", transcript_path: path.join(dirT, "sid", "subagents", "agent-x.jsonl") });
+  for (const c of ["git -C . add -A && git commit -m 'feat: x'", "npm test", "node --test", "git merge --no-ff refs/heads/rudis/T-1-se1"])
+    assert.equal(putuskan(se(c), K).keputusan ?? "—", "—", c);
+  assert.equal(putuskan(se("cat .env"), K).keputusan, "deny", "penjaga .env juga berlaku untuk subagent");
+  fs.writeFileSync(path.join(ROOT, "bin", "gerbang-tl.sh"), "#!/bin/sh\n", { mode: 0o755 });
+  execFileSync("git", ["-C", ROOT, "add", "bin/gerbang-tl.sh"]);
+  execFileSync("git", ["-C", ROOT, "-c", "user.email=u@contoh.test", "-c", "user.name=u", "-c", "commit.gpgsign=false", "commit", "-q", "-m", "gerbang"]);
+  assert.equal(kep(bash(`${path.join(ROOT, "bin", "gerbang-tl.sh")} T-20261031-9`, ROOT)), "allow");
+});
