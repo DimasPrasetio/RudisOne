@@ -298,3 +298,10 @@ test("tinjauan silang T-2.3: alat Grep content atas folder berisi env yang tidak
   assert.equal(grep({ pattern: "DB", glob: "{.env,.env.local}", output_mode: "content" }), "deny");
   assert.equal(grep({ pattern: "DB", glob: "*.{js,ts}", output_mode: "content" }), "—");
 });
+
+test("replay 30 hari: teks heredoc & pesan commit yang menyebut .env bukan pembacaan", () => {
+  harap(['git commit -qm "fix: ssh .env server tetap jenjang 3"', "cat > docs/x.md <<'EOF'\n| `cat .env` | `Read(//**/.env)` | deny |\n| a | `grep DB .env` |\nEOF",
+    "node - <<'EOF'\nconst s = 'jangan cat .env di sini';\nconsole.log(s.replace(/\\.env\\b/, 'X'))\nEOF",
+    "cat >> catatan/x.md <<'EOF'\n- 2026: `cat .env` ditolak; source .env juga\nEOF\nwc -l catatan/x.md"], "—");
+  harap(["node - <<'EOF'\nconsole.log(require('fs').readFileSync('.env', 'utf8'))\nEOF", "bash <<'EOF'\ncat .env\nEOF"], "deny");
+});

@@ -1167,7 +1167,7 @@ export function envSegmen(s, K, ctx, semua = s.teks, dalam = 0) {
     while (j < args.length && args[j].startsWith("-")) j += ["-C", "-c", "--git-dir", "--work-tree"].includes(args[j]) ? 2 : 1;
     if (ENV_GIT_TANPA_ISI.test(args[j] ?? "")) return null;
     // git show rev:.env, git diff --no-index .env.example .env, git log -p .env
-    const b = args.slice(j + 1).map((x) => kena(x.includes(":") ? x.slice(x.lastIndexOf(":") + 1) : x)).find(Boolean);
+    const b = args.slice(j + 1).filter((x) => !/\s/.test(x)).map((x) => kena(x.includes(":") ? x.slice(x.lastIndexOf(":") + 1) : x)).find(Boolean);
     return b ? hasil(b, "git mengeluarkan isi berkas env") : null;
   }
   if (ENV_TANPA_ISI.has(prog) || ENV_KATA_KUNCI.test(prog)) return null;
@@ -1239,6 +1239,41 @@ export function bacaEnv(input, K, u = null) {
   return null;
 }
 
+const INTERPRETER_HEREDOC = /(^|[;&|(]\s*|\s)(\S*\/)?(python3?|node(js)?|ruby|perl|php|deno|bun|osascript|tsx|ts-node)\b/;
+/** Penjaga .env atas satu perintah Bash utuh. Badan heredoc ke program selain shell adalah TEKS (berkas yang ditulis,
+ *  kode interpreter) — dibuang sebelum diurai agar tidak dibaca sebagai perintah; heredoc ke interpreter dinilai sebagai
+ *  kode (kodeBacaEnv); heredoc ke shell tetap perintah. Folder dilacak seperti analisisBash (cd harfiah, semua kemungkinan). */
+function envPerintah(cmd, input, K) {
+  let kode = null;
+  const bersih = cmd.replace(HEREDOC, (m, _q, d, body, off, semua) => {
+    if (keShell(semua, off)) return m;
+    if (!kode && INTERPRETER_HEREDOC.test(semua.slice(semua.lastIndexOf("\n", off) + 1, off))) {
+      const b = kodeBacaEnv(body, K); if (b) kode = { berkas: b, sebab: "kode heredoc membaca env" };
+    }
+    return `${m.slice(0, m.indexOf("\n") + 1)}${d}`;
+  });
+  if (kode) return kode;
+  const ctx = { cwd: input.cwd ? rumah(input.cwd) : HOME };
+  ctx.awal = ctx.cwd;
+  ctx.mungkin = ctx.cwd ? [ctx.cwd] : null;
+  for (const s of urai(bersih).segmen) {
+    const h = envSegmen(s, K, ctx, bersih);
+    if (h) return h;
+    const k0 = s.kata[0]?.nilai ?? "";
+    if (/^(pushd|popd)$/.test(k0)) { ctx.cwd = null; ctx.mungkin = null; }
+    else if (k0 === "cd") {
+      const arg = s.kata.slice(1).filter((x) => !/^-[LP]$/.test(x.nilai));
+      const tujuan = arg.length === 0 ? HOME : arg.length === 1 && ctx.cwd && !arg[0].ekspansi && !arg[0].glob && arg[0].nilai !== "-" ? rumah(arg[0].nilai) : null;
+      ctx.cwd = tujuan && ctx.cwd ? path.resolve(ctx.cwd, tujuan) : null;
+      if (!tujuan || !ctx.mungkin) ctx.mungkin = null;
+      else ctx.mungkin = [...new Set([...ctx.mungkin, ...ctx.mungkin.flatMap((c) => [path.resolve(c, tujuan), jalurFisik(c, tujuan)])])];
+    }
+  }
+  const ctxSub = { cwd: ctx.awal, mungkin: ctx.mungkin ?? (ctx.awal ? [ctx.awal] : null) };
+  for (const t of substitusi(bersih).flatMap((x) => urai(x).segmen)) { const h = envSegmen(t, K, ctxSub, bersih, 1); if (h) return h; }
+  return null;
+}
+
 /** Analisis lengkap satu perintah Bash. */
 function analisisBash(input, K) {
   const cmd = String(input.tool_input?.command ?? "");
@@ -1250,21 +1285,14 @@ function analisisBash(input, K) {
   // `cd x &`), jadi folder sebelumnya tidak pernah dibuang; null = tak diketahui.
   ctx.mungkin = ctx.cwd ? [ctx.cwd] : null;
   const hasil = [];
-  let sebut = null, ubahSendiri = false, env = null;
+  let sebut = null, ubahSendiri = false;
   // urai memecah badan heredoc menjadi segmen; baris badan heredoc ke program selain shell bukan perintah claude
   const badan = badanHeredoc(cmd);
-  // heredoc ke interpreter (python3 - <<EOF, node <<EOF) = kode: dinilai utuh; badannya tetap dinilai sebagai segmen
-  let envKode = null;
-  const kodeHeredoc = [];
+  // heredoc ke interpreter (python3 - <<EOF, node <<EOF) = kode: badannya tetap dinilai sebagai segmen (aksi kebijakan)
   for (const m of cmd.matchAll(HEREDOC)) {
-    const awal = cmd.slice(cmd.lastIndexOf("\n", m.index) + 1, m.index);
-    if (/(^|[;&|(]\s*|\s)(\S*\/)?(python3?|node(js)?|ruby|perl|php|deno|bun|osascript|tsx|ts-node)\b/.test(awal) || keShell(cmd, m.index)) {
-      kodeHeredoc.push(...m[3].split(/\n|&&|\|\||[;&|]/).map((x) => x.trim()).filter(Boolean));
-      const b = kodeBacaEnv(m[3], K);
-      if (b && !envKode) envKode = { berkas: b, sebab: "kode heredoc membaca env" };
-    }
+    if (!INTERPRETER_HEREDOC.test(cmd.slice(cmd.lastIndexOf("\n", m.index) + 1, m.index))) continue;
+    for (const t of m[3].split(/\n|&&|\|\||[;&|]/).map((x) => x.trim()).filter(Boolean)) { const n = badan.indexOf(t); if (n >= 0) badan.splice(n, 1); }
   }
-  for (const t of kodeHeredoc) { const n = badan.indexOf(t); if (n >= 0) badan.splice(n, 1); }
   for (const s of u.segmen) {
     let h = klasifikasiSegmen(s, K, ctx);
     // badan heredoc ke program selain shell (cat > f <<EOF … EOF) adalah teks berkas, bukan perintah: tanpa aksi kebijakan
@@ -1274,7 +1302,7 @@ function analisisBash(input, K) {
     if (diBadan) { badan.splice(nBadan, 1); h = { aman: false }; }
     hasil.push(h);
     if (h.ubahSendiri) ubahSendiri = true;
-    if (!env && !diBadan) env = envSegmen(s, K, ctx, cmd);
+
     // T-20261030-6 A9: hanya TARGET PENULISAN nyata yang diperiksa (pengalihan keluar, tee, sed/perl -i, cp/mv/rm/…,
     // git checkout/restore/… dengan path). Membaca, menjalankan, menguji, atau sekadar menyebut path → bukan urusan ini.
     for (const t of targetTulis(s, ctx.cwd)) {
@@ -1304,11 +1332,7 @@ function analisisBash(input, K) {
     aksi.push({ kemampuan: "sesi", jenjang: 3, aksi: "perintah claude untuk sesi latar dalam bentuk yang tidak dikenali" });
   const aman = !u.kompleks && !u.ekspansi && hasil.length > 0 && hasil.every((h) => h.aman);
   const terlindung = ubahSendiri ? "pengelola kebijakan/hook (pasang, lepas, installer, …)" : sebut;
-  if (!env && !envKode) {
-    const ctxSub = { cwd: ctx.awal, mungkin: ctx.mungkin ?? (ctx.awal ? [ctx.awal] : null) };
-    for (const t of substitusi(cmd).flatMap((x) => urai(x).segmen)) { env = envSegmen(t, K, ctxSub, cmd, 1); if (env) break; }
-  }
-  return { aksi, aman, terlindung, ringkasan: cmd, env: env ?? envKode };
+  return { aksi, aman, terlindung, ringkasan: cmd, env: envPerintah(cmd, input, K) };
 }
 
 const ALAT_TULIS = new Set(["Write", "Edit", "MultiEdit", "NotebookEdit"]);
