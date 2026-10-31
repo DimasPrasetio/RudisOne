@@ -305,3 +305,15 @@ test("replay 30 hari: teks heredoc & pesan commit yang menyebut .env bukan pemba
     "cat >> catatan/x.md <<'EOF'\n- 2026: `cat .env` ditolak; source .env juga\nEOF\nwc -l catatan/x.md"], "—");
   harap(["node - <<'EOF'\nconsole.log(require('fs').readFileSync('.env', 'utf8'))\nEOF", "bash <<'EOF'\ncat .env\nEOF"], "deny");
 });
+
+test("tinjauan silang T-2.3 putaran 2: perintah di dalam if/for/while/until/case dinilai; pemuat + kode yang mencetak lingkungan", () => {
+  harap(["if [ -f .env ]; then cat .env; fi", "if [ -f .env ]; then grep DB .env; else echo no; fi", "if grep DB .env; then :; fi",
+    "for i in 1; do cat .env; done", "while true; do cat .env; break; done", "until cat .env; do sleep 1; done", "case x in x) cat .env;; esac",
+    "ls .env* | while read f; do cat \"$f\"; done", "find . -name '.env*' | while read f; do head -3 \"$f\"; done", "for f in .env*; do cat $f; done",
+    "! cat .env", "{ cat .env; }", "dotenvx run -- node -e 'console.log(process.env)'", "dotenvx run -- node -p process.env.DB",
+    "dotenv -e .env -- node -e 'console.log(process.env.DB)'", "node --env-file=.env -e 'console.log(process.env.DB_DSN)'",
+    "python3 -c \"from dotenv import load_dotenv; load_dotenv(); import os; print(os.environ)\""], "deny");
+  harap(["node --env-file-if-exists=.env server.js", "node --env-file=.env -e 'require(\"./x\")'", "python3 -c \"from dotenv import load_dotenv\"",
+    "if [ -f .env ]; then echo ada; fi", "for f in *.md; do cat $f; done", "while read l; do echo \"$l\"; done < README.md",
+    "dotenvx run -- npm test", "if npm test; then echo ok; fi"], "—");
+});
