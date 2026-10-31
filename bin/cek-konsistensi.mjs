@@ -196,7 +196,8 @@ export function cekBahasaAwam(teks) {
     if (PENANDA_BUKA.test(b)) { if (buka) hasil.push({ baris: i + 1, pesan: "penanda ke-pengguna dibuka lagi sebelum ditutup" }); buka = i + 1; kode = false; kurung = 0; continue; }
     if (PENANDA_TUTUP.test(b)) { if (!buka) hasil.push({ baris: i + 1, pesan: "penanda /ke-pengguna tanpa pembuka" }); buka = 0; continue; }
     if (!buka) continue;
-    if (/^\s*(?:>\s*)?```/.test(b)) { kode = !kode; continue; }
+    if (/^\s*>?\s*$/.test(b)) kurung = 0;   // paragraf baru: kurung yang tak tertutup tidak boleh menelan sisa blok
+    if (/^\s*(?:>\s*)?(?:```|~~~)/.test(b)) { kode = !kode; continue; }
     if (kode) continue;
     let tampak = "";
     for (const c of b.replace(/`[^`]*`/g, "").replace(/^\s*>\s?/, "")) {

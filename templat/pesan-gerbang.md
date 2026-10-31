@@ -8,19 +8,18 @@
 <!-- ke-pengguna -->
 > **Persetujuan awal.** Siap mulai membangun <nama aplikasi>? Aplikasi ini untuk <siapa> agar <masalah yang hilang>;
 > versi pertama berisi <kemampuan>; dipakai di <HP / desktop> berbahasa <bahasa>; disimpan di folder <folder>. Belum ada
-> yang dipasang ke server — itu baru saya tanyakan bila Anda ingin aplikasinya diterbitkan. Sepakat?
+> yang diunggah ke internet — itu baru saya tanyakan bila Anda ingin aplikasinya bisa dibuka orang lain. Mulai sekarang? (ya / ada yang diubah)
 >
-> **Persetujuan rancangan.** Rancangan sudah siap. Untuk tiap kemampuan, usulan saya: <kemampuan> → <memakai komponen siap
-> pakai / komponen siap pakai lalu disesuaikan / dibuat dari nol>, karena <alasan singkat>. Tampilan: <gaya, warna, 2–3
+> **Persetujuan rancangan.** Rancangan sudah siap. Untuk tiap kemampuan, usulan saya: <kemampuan> → <memakai bagian jadi
+> yang sudah teruji di aplikasi lain / bagian jadi lalu disesuaikan / dibuat dari nol>, karena <alasan singkat>. Tampilan: <gaya, warna, 2–3
 > pilihan utama>. Setuju, atau ada yang ingin diubah? (rincian: tabel perakitan modul)
 >
 > **Persetujuan hasil.** Hasil kerja siap dan sudah diuji (<ringkasan hasil dan hasil tes>). Pilihan: (a) gabungkan ke
-> versi utama di komputer ini, sehingga muncul di folder proyek Anda; (b) biarkan terpisah dulu, folder Anda tidak
-> berubah. Sesudahnya, bila Anda mau, saya bisa membuat tempat penyimpanan online di GitHub (privat) dan mengirim hasilnya ke
-> sana. Lanjut ke mana? (rincian: merge ke cabang utama, commit, push — tiap langkah tetap minta izin sendiri)
+> versi utama di komputer ini — isi folder proyek Anda ikut berubah; (b) biarkan terpisah dulu — folder Anda tidak
+> berubah. Pilih a atau b? Menyimpannya online di GitHub (privat) saya tanyakan terpisah sesudahnya. (rincian: merge ke cabang utama, commit, push — tiap langkah tetap minta izin sendiri)
 >
-> **Persetujuan pemasangan.** <Nama aplikasi> akan dipasang ke server supaya bisa dipakai orang, di alamat <alamat web>.
+> **Persetujuan pemasangan.** <Nama aplikasi> akan dipasang ke server (komputer di internet yang menjalankan aplikasi terus-menerus) supaya bisa dipakai orang, di alamat <alamat web>. Yang bisa membukanya: <siapa saja / hanya yang punya akun>.
 > Yang terjadi: <tempat data aplikasi dibuat, alamat web didaftarkan, sambungan aman diaktifkan>. Aplikasi lain di server
-> tidak tersentuh. Bila ada masalah, aplikasi bisa dikembalikan ke versi sebelumnya dalam ± <X> menit. Pasang sekarang?
+> tidak tersentuh. Bila ada masalah, aplikasi bisa dikembalikan ke versi sebelumnya dalam ± <X> menit. Pasang sekarang? (ya / tidak)
 > (rincian teknis: <rencana persis dari tim server, port, cara mengembalikan>)
 <!-- /ke-pengguna -->

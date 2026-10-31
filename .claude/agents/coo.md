@@ -231,12 +231,13 @@ Sesi di `ruang/<id-peran>` memuat peran otomatis; subagent `rudis-<id-peran>` su
 
 <!-- ke-pengguna -->
 > Database untuk aplikasi ini belum bisa disiapkan otomatis karena <MySQL di komputer ini meminta sandi / belum menyala>.
-> Mohon jalankan satu perintah di terminal (tertera di bawah); Anda akan diminta mengetik sandi MySQL, dan sandinya tidak
-> saya lihat. Setelah itu kabari saya.
+> Mohon jalankan satu perintah di aplikasi Terminal komputer Anda (perintahnya ada di blok kode tepat di bawah pesan ini).
+> Anda akan diminta mengetik sandi MySQL; huruf sandi memang tidak tampak saat diketik, dan sandinya tidak saya lihat.
+> Setelah selesai, balas "selesai".
 >
-> Database dengan nama serupa sudah ada di komputer ini. Pilihan: (a) **pakai yang sudah ada** — sandi akunnya akan
-> diganti, jadi salinan aplikasi lain yang memakainya perlu diperbarui; (b) **buat dengan nama lain**. **Rekomendasi: (b)** —
-> tidak mengganggu yang sudah berjalan.
+> Database dengan nama serupa sudah ada di komputer ini. Pilihan: (a) **pakai yang sudah ada** — aplikasi lain
+> yang memakainya bisa berhenti berfungsi sampai disetel ulang, karena sandi akunnya diganti; (b) **buat dengan nama lain** —
+> aman, tidak ada yang terganggu. **Rekomendasi: (b).** Pilih a atau b?
 <!-- /ke-pengguna -->
   Login lokal (email `admin@example.com`, sandi
   `admin123`) hanya lokal; penerapan/deploy tidak pernah memakai nilai itu (`deploy.sh` preflight menolaknya) — production

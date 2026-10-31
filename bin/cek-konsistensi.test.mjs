@@ -434,3 +434,9 @@ test("bahasa awam: berkas produk RudisOne sendiri tidak memuat pelanggaran", () 
   }
   assert.deepEqual(hasil, []);
 });
+
+test("bahasa awam: kurung tak berpasangan tidak menelan paragraf berikutnya; pagar ~~~ dikecualikan", () => {
+  const h = cekBahasaAwam(bungkus(":( merge\n\nbranch di paragraf lain"));
+  assert.equal(h.length, 2);
+  assert.deepEqual(cekBahasaAwam(bungkus("> ~~~\n> git push\n> ~~~")), []);
+});
