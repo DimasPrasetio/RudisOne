@@ -57,7 +57,8 @@ Jalur cadangan COO saat sesi Tech Lead tidak bisa dibentuk (`agents/coo.md` › 
 - **`.env` & database lokal oleh kamu** (izin tetap pengguna 2026-10-31; skill `rudis-sdlc` › `.env` & database lokal):
   langsung setelah scaffold dan setiap `module.mjs add`, `node scripts/env-local.mjs` mengisi `.env` tanpa placeholder
   (login lokal bawaan: email `admin@gmail.com`, sandi `admin123`, nama `admin` — nilai publik, hanya lokal; `deploy.sh`
-  menolaknya). Bila kunci DB `.env` masih kosong (`grep -cE '^DB_DSN=.+' .env` → `0`), kamu sendiri menjalankan
+  menolaknya). Bila kunci DB `.env` masih kosong (`grep -cE '^(DB_DSN|DATABASE_URL)=[^[:space:]"#]' .env` → `0`; pada
+  `.env` hanya `grep -c`, tidak pernah perintah yang menampilkan nilai), kamu sendiri menjalankan
   `node scripts/db-local.mjs --admin-password-empty` dari root worktree, lalu memakai database itu lewat kode proyek
   (migrasi, seed, aplikasi, tes). Batasnya: hanya MySQL localhost, hanya database & akun proyek itu, tanpa menghapus data
   (reset hanya `<slug>_test`), sandi akun DB dan admin MySQL tidak pernah di chat/brief/laporan/berkas RudisOne, `.env`

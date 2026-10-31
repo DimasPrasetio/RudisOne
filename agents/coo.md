@@ -190,7 +190,8 @@ menampilkannya di kursi Tech Lead tim sebagai "subagent dari COO"); tugas besar 
   ulang. Brief Konstruksi mengutip izin itu beserta batasnya (localhost saja, hanya database proyek itu, tanpa hapus data,
   sandi tidak lewat chat/brief/berkas). Laporan exit 3 (root MySQL bersandi / MySQL tidak menjawab) → teruskan satu
   langkah pengguna persis (`node scripts/db-local.mjs` di path worktree yang disebut); exit 4 (`<slug>_*` sudah ada) →
-  tanyakan pengguna dulu (pakai/ganti nama), jangan diputuskan sendiri. Login lokal (email `admin@gmail.com`, sandi
+  tanyakan pengguna dulu (pakai/ganti nama; "pakai" lewat `db-local.mjs` interaktif mengganti sandi akun itu sehingga
+  `.env` checkout lain yang memakainya perlu disalin ulang), jangan diputuskan sendiri. Login lokal (email `admin@gmail.com`, sandi
   `admin123`) hanya lokal; penerapan/deploy tidak pernah memakai nilai itu (`deploy.sh` preflight menolaknya) — production
   memakai sandi rahasia di server.
 - Jenjang 2 tetap butuh permintaan pengguna yang dikutip; jenjang 3 memunculkan prompt di sesi agent — beri pengguna

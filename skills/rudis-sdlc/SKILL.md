@@ -148,14 +148,14 @@ ber-database) pada `<slug>_db`/`<slug>_test`. MySQL lain (tes platform §4, data
    (keputusan pengguna 2026-10-31): email `admin@gmail.com`, sandi `admin123`, nama `admin` (`USERS_BOOTSTRAP_NAME`; modul
    users tanpa kolom username) — nilai lokal **publik, bukan rahasia**. Tidak pernah di
    `.env.production*`/server: `deploy.sh` › `[0/5] preflight` menolaknya (exit 1) sebelum apa pun berubah.
-2. **Database** — hanya bila kunci DB `.env` masih kosong (cek tanpa menampilkan nilai: `grep -cE '^DB_DSN=.+' .env`
-   → `0`); terisi → lewati. Tech Lead menjalankan dari root proyek (worktree), tanpa interaksi:
+2. **Database** — hanya bila kunci DB `.env` kosong: `grep -cE '^(DB_DSN|DATABASE_URL)=[^[:space:]"#]' .env` → `0`
+   (hanya `grep -c`, tak pernah menampilkan nilai); terisi → lewati. Tech Lead menjalankan dari root worktree:
    `node scripts/db-local.mjs --admin-password-empty` — memeriksa `SELECT VERSION()`, membuat `<slug>_db`, `<slug>_test`,
    akun `<slug>_dev@'127.0.0.1'` (`caching_sha2_password`, berhak hanya atas keduanya) bersandi acak, menulis kunci DB ke
    `.env`, lalu mencoba login. Exit 0 = siap · 4 = `<slug>_*` sudah ada, tidak ada yang diubah · 3 = root bersandi atau
    MySQL tidak menjawab, tidak ada yang diubah · 1 = sebab lain (baca pesannya).
    **Batas** (wajib, dikutip di brief Konstruksi):
-   - hanya MySQL di **localhost** (`127.0.0.1`/`localhost`/`::1`) — tidak pernah host lain, server, atau production;
+   - hanya MySQL di **localhost** (`127.0.0.1`/`localhost`) — tidak pernah host lain, server, atau production;
    - hanya database dan akun **proyek itu** (`<slug>_*`); database/akun lain tidak dibaca dan tidak diubah;
    - **tanpa menghapus data**: skrip persiapan tidak menjalankan `DROP`/`TRUNCATE`/`DELETE`; data `<slug>_db` hanya diubah
      migrasi maju & seed proyek; reset/migrasi turun/pengosongan hanya pada `<slug>_test` oleh tes;
