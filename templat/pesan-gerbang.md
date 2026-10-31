@@ -50,7 +50,7 @@
 > 2. Buka, lalu klik tombol "Start All". Kalau tombolnya berubah jadi "Stop", berarti sudah menyala.
 > 3. Ketik "sudah" di sini.
 >
-> Tidak ketemu ikonnya? Ketik "tidak ketemu" dan saya tuntun langkah demi langkah, atau tanyakan ke orang yang memasang komputer ini.
+> Tidak ketemu ikonnya, atau tidak punya keduanya? Ketik "tidak ketemu" dan saya tuntun langkah demi langkah, atau tanyakan ke orang yang memasang komputer ini.
 >
 > **pesan-batal-kotak (kotak sandi ditutup).** Kotak sandi tadi tertutup sebelum diisi (tidak apa-apa, bisa tidak sengaja), jadi penyimpanan data belum disiapkan. Tidak ada yang berubah di komputer Anda.
 >
@@ -60,7 +60,7 @@
 > **pesan-batal-sandi (sandi salah).** Sandi yang diketik salah tiga kali, jadi penyimpanan data belum disiapkan. Tidak ada yang rusak dan Anda boleh mencoba lagi.
 >
 > - Ketik "ulangi" kalau Anda ingat sandi yang benar.
-> - Ketik "tidak tahu", lalu saya carikan cara mengatur ulang sandinya atau saya siapkan pesan untuk diteruskan ke teknisi Anda.
+> - Ketik "tidak tahu" (mengatur ulang sandi tidak menghapus data toko Anda), lalu saya carikan cara mengatur ulang sandinya atau saya siapkan pesan untuk diteruskan ke teknisi Anda.
 >
 > **pesan-tanpa-layar (kotak sandi tidak bisa muncul).** Komputer ini sedang tidak bisa menampilkan kotak sandi (bukan karena rusak, dan tidak ada yang berubah). Ada dua cara, pilih salah satu:
 >
@@ -69,8 +69,8 @@
 >
 > **pesan-nama-ada.** Aplikasi <nama aplikasi> sepertinya pernah disiapkan di komputer ini: penyimpanan datanya sudah ada.
 >
-> - **A (saran saya, paling aman):** saya pakai penyimpanan yang sudah ada. Tidak ada yang dihapus atau diubah. Saya hanya perlu menemukan berkas aplikasi lama yang dulu menyiapkannya; kalau tidak ketemu, saya kabari.
-> - **B:** pilihan lain yang lebih berisiko; ketik "jelaskan B" bila ingin tahu.
+> - **A (saran saya, paling aman) — ketik "A":** saya pakai penyimpanan yang sudah ada. Tidak ada yang dihapus atau diubah. Saya hanya perlu menemukan berkas aplikasi lama yang dulu menyiapkannya; kalau tidak ketemu, saya kabari.
+> - **B:** pilihan lain yang bisa mengganggu aplikasi lain; hanya bila teknisi Anda menyarankan. Ketik "jelaskan B" bila ingin tahu.
 > - Ragu? Ketik "tidak tahu" dan saya bantu memutuskan.
 >
 > **pesan-nama-ada-b (hanya bila diminta).** Kalau Anda pilih B, aplikasi lain di komputer ini yang memakai penyimpanan data yang sama akan berhenti jalan, sampai pengaturannya disalin ulang. Data lama tetap aman: tidak dihapus dan tidak dikosongkan. Kalau Anda tidak yakin ada aplikasi lain yang memakainya, pilih A. Untuk B, Anda perlu mengetik sandi MySQL di aplikasi Terminal, dan saya tuntun langkahnya. Ketik "A" (aman) atau "B".
