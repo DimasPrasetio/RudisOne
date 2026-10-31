@@ -27,7 +27,9 @@ const BERKAS_TERLARANG = [
 /** Tanggal cadangan untuk ID contoh (sebelum RudisOne ada, jadi tidak pernah bentrok dengan tugas nyata). */
 const ID_CONTOH = /^T-20260101-/;
 const TGL = String.raw`\b20\d{2}-\d{2}-\d{2}\b`;
-const KODE_FUNGSIONAL = /^(?:D[1-7]|R[1-9]|M[25]|X14|K[12])$/;
+/** Label fungsional yang tampil di keluaran perkakas & diuji — TAMBAHKAN di sini bila membuat label baru (mis. aturan R10).
+ *  Juga akronim teknis umum yang kebetulan berbentuk huruf+angka. */
+const KODE_FUNGSIONAL = /^(?:D[1-7]|R\d{1,2}|M[25]|X14|K[12]|MD5|SHA\d{1,3}|ES\d{1,4}|H[1-6]|UTF8|PHP\d|S3|EC2|IPv[46]|HTTP[23]|OAuth2|K8s)$/;
 const KEPUTUSAN = String.raw`\b(?:pengguna|pemilik|izin tetap|disetujui|persetujuan|keputusan|diputuskan)\b`;
 const POLA = [
   ["id-tugas", /\bT-20\d{6}-\d+(?:\.\d+)*\b/g, (m) => !ID_CONTOH.test(m)],
@@ -43,7 +45,8 @@ const POLA = [
   ["kode-temuan", /\((?:[A-Z]{1,2}\d{1,2})(?:(?:[ ,/–-]|, )+[A-Z]{1,2}\d{1,2})*\)/g,
     (m) => m.slice(1, -1).split(/[ ,/–-]+/).filter(Boolean).some((k) => !KODE_FUNGSIONAL.test(k))],
   // narasi uji / riwayat masukan (frasa disusun dari potongan agar berkas ini tidak menandai dirinya sendiri)
-  ["narasi-uji", new RegExp(`\\b(?:${["masukan", "ditolak", "uji dengan"].map((w) => `${w} pengguna`).concat([["pengguna", "melaporkan"].join(" "), ["log", "uji"].join(" "), ["hasil uji di", "device"].join(" ")]).join("|")})\\b`, "gi"), () => true],
+  // hanya di dokumen (*.md) dan frasa riwayat yang sempit — "masukan pengguna" (user input) di prosedur/kode tetap sah
+  ["narasi-uji", new RegExp(`\\b(?:${[["masukan", "pengguna atas"], ["ditolak", "pengguna karena"], ["uji dengan", "pengguna"], ["log", "uji"], ["hasil uji di", "device"]].map((p) => p.join(" ")).join("|")})\\b`, "gi"), () => true, (rel) => /\.md$/.test(rel)],
 ];
 
 export const dikecualikan = (rel) => DIKECUALIKAN.test(rel);

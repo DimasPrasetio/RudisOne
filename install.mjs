@@ -58,10 +58,10 @@ try {
   pass(`berkas per device dari templat: ${pd.dibuat.length} dibuat, ${pd.ada.length} sudah ada (TEAM.md, catatan/<id-peran>.md)`);
 } catch (e) { fail(`berkas per device (TEAM.md, catatan/) tidak bisa disiapkan: ${e.message}`); }
 // Berkas per device yang masih dilacak git (mis. catatan/) — merge bisa menghapusnya dari disk.
-const git = spawnSync("git", ["-C", ROOT, "ls-files", "-ci", "--exclude-standard"], { encoding: "utf8" });
+const git = spawnSync("git", ["-C", ROOT, "ls-files", "-z", "-ci", "--exclude-standard"], { encoding: "utf8" });   // -z: nama non-ASCII apa adanya
 /** Kutip untuk shell POSIX bila perlu (path berspasi/karakter khusus) — perintah yang dicetak bisa disalin apa adanya. */
 const kutipSh = (f) => (/^[\w./@+-]+$/.test(f) ? f : `'${f.replace(/'/g, "'\\''")}'`);
-const berkasDilacak = git.status === 0 ? git.stdout.split(/\r?\n/).filter(Boolean) : [];
+const berkasDilacak = git.status === 0 ? git.stdout.split("\0").filter(Boolean) : [];
 const dilacak = [...new Set(berkasDilacak.map((f) => f.split("/")[0]))].sort().join(" ");
 // tingkat berkas, bukan folder: folder yang sama bisa berisi berkas terlacak yang sah (mis. uji/suite/ di samping uji/*.md)
 if (dilacak) fail(`berkas per device masih dilacak git: ${dilacak} — sebelum merge: git rm -q --cached -- ${berkasDilacak.map(kutipSh).join(" ")} && git commit (agents/tech-lead.md › Serah ke branch utama)`);

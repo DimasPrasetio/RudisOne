@@ -30,7 +30,7 @@ Brief desain tampilan Kantor RudisOne (`kantor/index.html`, data dari `kantor/se
 | Pixel Agents / Claude-Office: agent masuk lewat pintu, punya meja, pose sesuai alat, istirahat kopi; data dari transkrip `~/.claude/projects` | Bekerja → ke meja dengan pose sesuai alat (mengetik/membaca/berpikir); santai → lounge; menunggu → angkat tangan + "!" |
 | Generative Agents (Smallville), simulasi kantor: agen berpindah sesuai rutinitas dan mengobrol saat bertemu; titik yang dipakai bersama membuat penumpukan | Titik santai **dipesan** satu per orang; dua orang santai yang berdekatan sesekali mengobrol |
 | Pola FSM NPC: pisahkan status, gerak, dan kondisi | Status dari server ≠ perilaku di layar: tiap karakter punya antrean skenario (delegasi, lapor) yang didahulukan |
-| Isometrik: urutan gambar berdasarkan kedalaman x+y; dinding depan dipotong; lintasan sejajar sumbu iso | Perabot & orang diurutkan bersama per bingkai; hanya dinding belakang tinggi; graf titik jalan sejajar sumbu, BFS, kecepatan konstan, menghadap arah gerak |
+| Isometrik: urutan gambar berdasarkan kedalaman x+y; dinding depan dipotong; lintasan sejajar sumbu iso | Perabot & orang diurutkan bersama per bingkai; hanya dinding belakang tinggi; pencarian jalur A* di grid (4 arah, penalti belok), kecepatan konstan, menghadap arah gerak |
 | Indikator presence: jangan hanya warna; kontras tinggi | Status = warna + simbol + label teks |
 
 ## Denah (unit isometrik; lantai 40 × 21)
@@ -48,8 +48,8 @@ Brief desain tampilan Kantor RudisOne (`kantor/index.html`, data dari `kantor/se
   └────────────────┴───────────┴─────────────┴──────────────────┘ y=21
 ```
 - Meja leader di belakang zonanya **menghadap anggota**; anggota di meja baris depan.
-- Kursi tim dipetakan per proyek: nomor tim dari `TEAM.md` (`## Engineering · Tim <n> · <proyek>`) atau nomor kosong
-  terkecil saat sesi tim proyek itu pertama terlihat. Papan nama tim menampilkan proyeknya; tim tanpa proyek diredupkan
+- Kursi tim dipetakan per proyek: nomor tim dari `TEAM.md` (`## Engineering · Tim <n> · <proyek>`), lalu dari nama worktree
+  `r<n>-…`, selain itu nomor kosong terkecil saat sesi tim proyek itu pertama terlihat. Papan nama tim menampilkan proyeknya; tim tanpa proyek diredupkan
   dan disembunyikan dari panel & linimasa.
 - Hanya sesi RudisOne yang tampil (folder repo ini, worktree `r<n>-…`, `/rudisone`, atau pembuka "… di RudisOne"); sistem
   agent lain di device yang sama diabaikan.
@@ -94,7 +94,7 @@ peran lain dipanggil sebagai subagent `rudis-<id-peran>`.
 ## Lapisan & keterbacaan
 - Lapisan tetap: lantai → bayangan & cahaya → perabot + orang (urut kedalaman) → papan nama, label meja & nama →
   gelembung & berkas. Papan nama di pita atas dinding / tepi lantai depan, lebar diukur setelah font siap.
-- Teks denah minimal 10,5–12px (gelembung 11px, papan 14/11,5px); cincin lantai hanya untuk "menunggu Anda"; label nama
+- Teks denah 10,5–14px (gelembung 11px, papan 14/11,5px, nama meja 12px; lencana angka 10px); cincin lantai hanya untuk "menunggu Anda"; label nama
   hanya saat di luar meja; papan meja orang yang santai diredupkan.
 - Suasana: bayangan lembut di bawah perabot, cahaya jendela di lantai, opasitas zona lebih tinggi di tema gelap, karpet
   lorong, kusen + keset + tanda keluar di pintu masuk.
@@ -102,17 +102,22 @@ peran lain dipanggil sebagai subagent `rudis-<id-peran>`.
   kacamata, headset Head of IT Operations, hoodie engineer, lanyard, dasi); tampak belakang menutupi wajah & aksesori depan.
 
 ## Token
-- **Warna (terang):** latar `#E8EDF2`, lantai `#F6F8FA`, garis ubin `#DDE4EB`, partisi `#C9D3DD`, tinta `#1D2833`, redup `#5E6E7E`.
-- **Warna (gelap):** latar `#0E151D`, lantai `#18222D`, garis `#243241`, partisi `#2E3E4E`, tinta `#E4EBF2`, redup `#8FA0B1`.
-- **Status:** Bekerja `#1F9D6A` (▶), Berpikir `#3B7BD8` (…), Menunggu Anda `#D9930B` (!), Santai `#8A97A6` (–), Belum masuk =
-  garis putus-putus. Merah `#D64545` hanya untuk galat/terputus.
-- **Identitas peran:** COO `#B8892B`, System Administrator `#D9534F`, Program Manager `#E08A2E`, Business Systems Analyst
-  `#3D7BD9`, Software Engineer `#7C5CD6` (#1/#2/#3: `#7C5CD6`/`#9A7BE6`/`#6A4FC4`), Tech Lead `#5B3FB8`, Research Analyst
-  `#1FA3AE`, Financial Controller `#3E9E5C`, Technical Writer `#C9A227`.
-- **Zona (tint lantai 8–10%):** Pimpinan kayu `#C9A47A`/gelap `#5A4632`; Engineering `#7C5CD6`; IT Operations `#475BD1`;
-  Layanan bersama `#E08A2E`; Corporate Strategy `#1FA3AE`; Lounge karpet hangat `#E7DFD3`/gelap `#2A2620`.
-- **Huruf:** Bricolage Grotesque (judul & label ruang/zona 13px), Geist (UI & angka, `tabular-nums`; label nama karakter di
-  luar meja 9.5px). Tanpa huruf kapital semua, tanpa monospace dekoratif.
+Nilai di bawah sama dengan variabel CSS di `kantor/index.html` (`:root` dan blok `prefers-color-scheme: dark`) — kode adalah
+sumbernya; ubah keduanya bersamaan.
+- **Dasar (terang / gelap):** latar `#E8EDF2` / `#0E151D`, lantai `#F4F6F8` / `#18222D`, garis ubin `#E1E7ED` / `#202C39`, partisi
+  `#C9D3DD` / `#2E3E4E`, tinta `#1D2833` / `#E4EBF2`, redup `#5E6E7E` / `#8FA0B1`.
+- **Status (terang / gelap):** Bekerja `#1F9D6A` / `#34C38A` (▶), Berpikir `#3B7BD8` / `#5B97EF` (…), Menunggu Anda `#D9930B` /
+  `#F0AA2A` (!), Santai `#8A97A6` / `#7D8B99` (–), Belum masuk = garis putus-putus. Galat `#D64545` / `#EF6461` hanya untuk
+  galat/terputus.
+- **Identitas peran:** COO `#B8892B`, Head of Strategy `#B07A1F`, Financial Controller `#3E9E5C`, Research Analyst `#1FA3AE`,
+  HR Business Partner `#D35F9A`, Tech Lead `#5B3FB8`, Business Systems Analyst `#3D7BD9`, Software Engineer #1 `#7C5CD6` dan #2
+  `#9A7BE6` (dua kursi per tim), Program Manager `#E08A2E`, Technical Writer `#C9A227`, Head of IT Operations `#475BD1`, System
+  Administrator `#D9534F`.
+- **Zona:** tint lantai warna zona dengan opasitas 10% (terang) / 17% (gelap) — Pimpinan `#C9A47A`, Engineering `#7C5CD6`, IT
+  Operations `#475BD1`, Layanan bersama `#E08A2E`, Corporate Strategy `#1FA3AE`, Lounge `#D39A5B`. Lantai kayu Ruang Pimpinan
+  `#D9BB93` / `#5A4632` (garis kayu `#C9A47A` / `#4C3A29`); karpet lounge `#EADFCD` / `#2C2721`.
+- **Huruf:** Bricolage Grotesque (judul & papan zona 14px), Geist (UI & angka, `tabular-nums`; label nama karakter di luar meja
+  10,5px). Tanpa huruf kapital semua, tanpa monospace dekoratif.
 - **Gerak:** momen utama = orang berjalan antar-meja saat bertukar pesan; selebihnya halus — layar menyala berdenyut saat
   bekerja, titik "…" saat berpikir, lencana "!" berdenyut saat menunggu.
 

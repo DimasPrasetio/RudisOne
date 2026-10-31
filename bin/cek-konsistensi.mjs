@@ -159,9 +159,9 @@ export function cekRepo(root = ROOT, opsi = {}) {
   // R8 — berkas per device yang masih dilacak git padahal di-.gitignore (mis. catatan/): merge berikutnya bisa batal atau
   // menghapusnya dari disk → agents/tech-lead.md › Serah ke branch utama
   try {
-    const out = execFileSync("git", ["ls-files", "-ci", "--exclude-standard"], { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+    const out = execFileSync("git", ["ls-files", "-z", "-ci", "--exclude-standard"], { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
     if (out) {
-      const daftar = out.split("\n");
+      const daftar = out.split("\0").filter(Boolean);
       const folder = [...new Set(daftar.map((f) => f.split("/")[0]))];
       catat("peringatan", "git-abaikan", `${daftar.length} berkas di-.gitignore tetapi masih dilacak git (${folder.join(", ")}) — keluarkan dari indeks dulu (tingkat berkas): ${perintahKeluarIndeks(daftar)} && git commit (agents/tech-lead.md › Serah ke branch utama)`);
     }
@@ -557,11 +557,12 @@ export function cekSerah(root, ref) {
   const tmp = path.join(os.tmpdir(), `rudisone-serah-${process.pid}.gitignore`);
   fs.writeFileSync(tmp, abaikan);
   try {
-    const out = execFileSync("git", ["ls-files", "-ci", `--exclude-from=${tmp}`], { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+    const daftar = execFileSync("git", ["ls-files", "-z", "-ci", `--exclude-from=${tmp}`], { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).split("\0").filter(Boolean);
+    const out = daftar.join("\n");
     if (out) {
-      const folder = [...new Set(out.split("\n").map((f) => f.split("/")[0]))];
+      const folder = [...new Set(daftar.map((f) => f.split("/")[0]))];
       const ubah = execFileSync("git", ["status", "--porcelain", "--", ...folder], { cwd: root, encoding: "utf8" }).trim();
-      catat("galat", "serah", `${out.split("\n").length} berkas dilacak di sini tetapi di-.gitignore oleh ${ref} (${folder.join(", ")}${ubah ? `; ${ubah.split("\n").length} berubah lokal` : ""}) — merge langsung akan batal atau menghapusnya dari disk. Dulu (tingkat berkas): ${perintahKeluarIndeks(out.split("\n"))} && git commit, baru merge`);
+      catat("galat", "serah", `${out.split("\n").length} berkas dilacak di sini tetapi di-.gitignore oleh ${ref} (${folder.join(", ")}${ubah ? `; ${ubah.split("\n").length} berubah lokal` : ""}) — merge langsung akan batal atau menghapusnya dari disk. Dulu (tingkat berkas): ${perintahKeluarIndeks(daftar)} && git commit, baru merge`);
     } else catat("info", "serah", `tidak ada berkas dilacak yang di-.gitignore oleh ${ref} — aman di-merge dari sisi ini`);
   } finally { fs.rmSync(tmp, { force: true }); }
   return temuan;

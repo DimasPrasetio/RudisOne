@@ -29,7 +29,8 @@ Perilaku `claude --bg` yang **terbukti**:
 | Subfolder biasa di dalam repo git yang dipercaya persis | diterima | tidak |
 | Repo git sendiri di dalam folder yang dipercaya (mis. `D:\proyek` dipercaya, `D:\proyek\app` repo) | **ditolak** "Workspace not trusted" | — |
 | Worktree dari repo pada baris di atas (`…\app\.claude\worktrees\r1-lead-app`) | **ditolak** | — |
-| Worktree dari repo yang dipercaya persis, setelah pengguna menjalankan `claude` di worktree itu | diterima | ya |
+Di luar tabel itu teramati: setelah pengguna menjalankan `claude` di worktree repo yang dipercaya persis, entri worktree itu
+**tercatat** di `~/.claude.json` (penerimaan `claude --bg` sesudahnya belum diuji).
 Artinya: kepercayaan **tidak menembus batas repo git**; di dalam repo yang sama, induk berlaku. `bin/sesi.sh cek` membedakan:
 *dipercaya* (entri persis), *diwarisi* (di dalam repo yang dipercaya; folder non-git di bawah induk non-git ditandai `[..]`
 karena belum diuji), *batas repo* (induk dipercaya tetapi folder ini/leluhurnya repo sendiri), dan *belum*. Kunci

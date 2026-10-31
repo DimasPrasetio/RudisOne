@@ -55,7 +55,9 @@ test("riwayat bertanggal, kode temuan lama, dan narasi uji ditolak (juga kantor/
     ["agents/coo.md", "Ukur: `node bin/metrik.mjs tugas <ID>` (X14)."], ["bin/env-kunci.mjs", "butuh daftar kunci (K1,K2)"],
     ["bin/cek-konsistensi.mjs", "// tabel pemetaan (R7)"], ["templat/catatan.md", "poin `YYYY-MM-DD` + status"],
     ["bin/metrik.mjs", `// contoh: --sejak ${TGL}`], ["skills/rudis-riset-desain/SKILL.md", "saat pengguna mengeluh desain kuno"],
-    ["skills/rudis-sdd/SKILL.md", "ikuti tabel §8 (namanya sama)"]])
+    ["skills/rudis-sdd/SKILL.md", "ikuti tabel §8 (namanya sama)"], ["agents/software-engineer.md", "validasi masukan pengguna di form"],
+    ["bin/x.mjs", "// validasi masukan pengguna (user input) di sisi server"], ["skills/x/SKILL.md", "Bila pengguna melaporkan bug, catat di register."],
+    ["bin/x.mjs", "const h = hash(x); // (MD5) hanya untuk sidik"], ["bin/cek-konsistensi.mjs", "// aturan baru (R10)"]])
     assert.deepEqual(jenis(rel, s), [], `${rel}: ${s}`);
 });
 
