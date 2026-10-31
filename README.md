@@ -76,7 +76,7 @@ kantor/                    Kantor RudisOne: server status lokal + tampilan pixel
 templat/                   kerangka brief & laporan, pemahaman bersama, register tugas, TEAM, brief-desain, intake/perakitan/onboarding (SDLC)
 skills/<nama>/SKILL.md     skill tim (prosedur dimuat saat perlu): rudisone (pintu COO), rudis-grill-me, rudis-multitugas,
                            rudis-sdlc (membangun software), rudis-sdd, rudis-operasi, rudis-perkakas, rudis-riset-desain — ditautkan ke ~/.claude/skills oleh install.sh
-install.sh                 pemeriksaan & persiapan di device baru (idempoten; tidak menimpa tautan sistem lain)
+install.sh                 pemeriksaan & persiapan di device baru (idempoten; tidak menimpa tautan sistem lain); memasang uv/uvx & Claude Code CLI otomatis bila belum ada (URL dicetak dulu; opt-out `--tanpa-unduh`; gagal → perintah manual)
 TEAM.md, catatan/, handoff/, konfigurasi/server.json  per device, TIDAK di-commit (repo publik): buku alamat sesi,
                            ingatan per peran, register tugas & hasil, fakta server
 ```
@@ -90,14 +90,16 @@ WSL2 (jalur Linux). Windows native: lihat bagian **Windows native** di bawah tab
 | Shell & alat | bawaan (bash, git dari Xcode CLT) | `sudo apt install git curl zip unzip` | `wsl --install -d Ubuntu` (PowerShell admin), lalu semua langkah di terminal **Ubuntu** seperti Linux |
 | Node.js ≥ 18 | `brew install node` | nvm atau paket NodeSource | sama dengan Linux, di dalam WSL |
 | GitHub CLI `gh` (login) | `brew install gh` | paket resmi cli.github.com | sama dengan Linux |
-| Claude Code | installer resmi Claude Code | installer resmi Claude Code | di dalam WSL (bukan Claude Code Windows) |
-| uv/uvx (RUDIS SDD) | `brew install uv` | `curl -LsSf https://astral.sh/uv/install.sh \| sh` | sama dengan Linux |
+| Claude Code | otomatis oleh `install.sh` bila belum ada (`curl -fsSL https://claude.ai/install.sh \| bash`) | sama dengan macOS | otomatis di dalam WSL (bukan Claude Code Windows) |
+| uv/uvx (RUDIS SDD) | otomatis oleh `install.sh` bila belum ada (`curl -LsSf https://astral.sh/uv/install.sh \| sh`) | sama dengan macOS | sama dengan Linux |
 | PAT rudis-sdd | Keychain | berkas 0600 `~/.config/rudisone/rahasia/` | sama dengan Linux |
 
 - **Windows native** (Windows 10/11, tanpa WSL):
   - **Prasyarat:** [Git for Windows](https://git-scm.com/download/win) (menyertakan Git Bash — dipakai Claude Code sebagai Bash tool
     dan untuk pembungkus `bin/*.sh`), Node.js ≥ 18 (≥ 22 untuk menjalankan suite uji), GitHub CLI `gh` (login), dan Claude Desktop
     dan/atau Claude Code CLI dan/atau ekstensi VS Code. OpenSSH klien (bawaan Windows) untuk perkakas server. `uv/uvx` bila memakai RUDIS SDD.
+  - **uv/uvx dan Claude Code CLI dipasang otomatis** oleh `install.cmd`/`node install.mjs` bila belum terdeteksi (PowerShell:
+    `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"` dan `irm https://claude.ai/install.ps1 | iex`).
   - **Lokasi:** `git clone --depth 1 https://github.com/DimasPrasetio/RudisOne.git %USERPROFILE%\Documents\Neuron\ai-agent\RudisOne`
     (PowerShell: `$HOME\Documents\Neuron\ai-agent\RudisOne`). Folder Documents yang dialihkan ke OneDrive dikenali bila `Documents`
     di profil adalah junction/tautan; selain itu pindahkan/clone ke path di atas.

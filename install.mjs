@@ -5,9 +5,11 @@
 // .env (PreToolUse/PostToolUse/PostToolUseFailure), aturan permissions.deny Read .env*, dan hook pemuat ulang inti
 // (SessionStart). Entri & aturan milik sistem lain tidak disentuh; settings hanya ditulis bila berubah, cadangan dulu.
 // Pengganti install.sh — install.sh / install.cmd hanya memanggil berkas ini.
-// Pemakaian: node install.mjs [--tanpa-perkakas] [--tanpa-hook]
+// Pemakaian: node install.mjs [--tanpa-perkakas] [--tanpa-hook] [--tanpa-unduh]
 //   --tanpa-perkakas : lewati bin/perkakas.sh siapkan (mis. saat menguji installer dari worktree atau HOME sementara)
 //   --tanpa-hook     : jangan memasang hook/aturan izin (hanya periksa)
+//   --tanpa-unduh    : jangan memasang uv/uvx & Claude Code CLI otomatis (hanya periksa; RUDISONE_TANPA_UNDUH=1 sama)
+// uv/uvx dan Claude Code CLI yang belum ada dipasang OTOMATIS dari skrip resmi (URL dicetak dulu) — bin/lib/pasang-alat.mjs.
 // Env uji: RUDISONE_INSTALL_PAKSA=1 membuat tautan & memasang hook walau repo bukan di lokasi rumahnya (HOME sementara);
 // RUDISONE_SETTINGS_USER = settings yang dipasangi (bawaan ~/.claude/settings.json).
 import { spawnSync } from "node:child_process";
@@ -17,7 +19,9 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { jalankan, osLogis } from "./bin/lib/platform.mjs";
 import { folderClaudeUser, RUMAH_TAMPIL, rumahRepo, samaPath } from "./bin/lib/lokasi.mjs";
+import { pastikanAlat } from "./bin/lib/pasang-alat.mjs";
 import { siapkanPerDevice } from "./bin/lib/per-device.mjs";
+import { VERSI_MIN } from "./bin/sesi.mjs";
 import { bersihkanYatim, pasangTautan } from "./bin/lib/tautan.mjs";
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
@@ -25,6 +29,7 @@ const BIN = path.join(ROOT, "bin");
 const HOME = os.homedir();
 const TANPA_PERKAKAS = process.argv.includes("--tanpa-perkakas");
 const TANPA_HOOK = process.argv.includes("--tanpa-hook");
+const TANPA_UNDUH = process.argv.includes("--tanpa-unduh") || process.env.RUDISONE_TANPA_UNDUH === "1";
 const AGENTS = ["system-administrator", "head-of-it-operations", "program-manager", "technical-writer", "software-engineer",
   "business-systems-analyst", "head-of-strategy", "research-analyst", "financial-controller", "hr-business-partner"];
 
@@ -136,6 +141,8 @@ if (fs.existsSync(path.join(BIN, "kantor.sh"))) pass("perkakas bin/kantor.sh"); 
 const nodeMajor = Number(process.versions.node.split(".")[0]);
 if (nodeMajor >= 18) pass(`Node.js v${process.versions.node} — dipakai Kantor RudisOne`);
 else fail("Node.js 18+ tidak ditemukan — dibutuhkan bin/kantor.sh");
+// uv/uvx (RUDIS SDD) dan Claude Code CLI: dipasang otomatis bila belum ada (sebelum perkakas SDLC yang butuh uvx).
+pastikanAlat({ home: HOME, tanpaUnduh: TANPA_UNDUH, versiMinClaude: VERSI_MIN, lapor: { ok: pass, gagal: fail, info } });
 // Kebijakan akses + penjaga .env + pemuat ulang inti: dipasang/diperbarui otomatis (idempoten). Hanya dari lokasi rumah:
 // hook yang menunjuk worktree/salinan lain akan patah (atau diam-diam usang) saat folder itu dihapus/tertinggal.
 const pasangHook = (skrip, nama) => {
@@ -163,10 +170,6 @@ else if (bisaJalan("git")) {
 } else fail("perkakas resmi SDLC dilewati — butuh node dan git");
 if (bisaJalan("gh")) pass("GitHub CLI (gh) — dipakai rilis-cek.sh");
 else fail("gh tidak ditemukan — rilis-cek.sh butuh GitHub CLI yang sudah login");
-
-const cli = bisaJalan("claude");
-if (cli) pass(`Claude Code CLI: ${cli.stdout.trim().split(/\r?\n/)[0]}`);
-else fail("Claude Code CLI tidak ditemukan (opsional bila hanya memakai Claude Desktop)");
 
 // Backend sesi per device (protokol.md › Model sesi): desktop (macOS/Windows) · cli (Linux/WSL2, tanpa Claude Desktop).
 // konfigurasi/sesi.json ditulis sekali (tidak pernah ditimpa; ubah manual bila perlu). Backend cli: versi CLI ≥ 2.1.300,

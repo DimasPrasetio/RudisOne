@@ -406,7 +406,7 @@ function siapkan(t, { ubah, segera, paksa, sibuk, state }) {
   // 2. CLI (RUDIS SDD): pelarinya ada, dan sumbernya masih mendukung flag tanpa-marketplace
   if (t.jenis === "cli") {
     const v = jalankan(process.env.RUDISONE_UVX_BIN || t.jalan[0], ["--version"]);
-    if (!v.ok) awas(`${nama}: \`${t.jalan[0]}\` tidak ditemukan — pasang uv dulu (${pakaiKeychain() ? "mis. \`brew install uv\`" : "mis. \`curl -LsSf https://astral.sh/uv/install.sh | sh\`"})`);
+    if (!v.ok) awas(`${nama}: \`${t.jalan[0]}\` tidak ditemukan — jalankan ulang install.sh (memasang uv otomatis) atau pasang manual (${pakaiKeychain() ? "mis. \`brew install uv\`" : "mis. \`curl -LsSf https://astral.sh/uv/install.sh | sh\`"})`);
     if (t.tanpa_marketplace && !dukungFlag(t, dir)) {
       awas(`${nama}: ${t.tanpa_marketplace.flag} tidak ditemukan di ${t.tanpa_marketplace.bukti} — bin/rudis-sdd.sh menolak ${t.tanpa_marketplace.perintah.join("/")} sampai ditinjau`);
     } else if (v.ok) ok(`${nama}: jalan lewat bin/rudis-sdd.sh (${t.jalan.join(" ").replace("{lokal}", t.lokal)}${t.tanpa_marketplace ? `, ${t.tanpa_marketplace.flag}` : ""})`);
