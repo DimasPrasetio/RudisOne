@@ -505,12 +505,12 @@ test("bin/rudis-sdd.sh: init selalu --no-marketplace; GL_TOKEN dari Keychain han
 
 test("bin/rudis-sdd.sh menolak marketplace di luar allowlist, perintah terlarang, dan PAT di argumen", () => {
   const ditolak = [
-    [["run", "ultimate", "x"], /S1/],
+    [["run", "ultimate", "x"], /run ultimate/],
     [["run", "deploy"], /IT Operations/],
-    [["run", "plan", "x"], /U2/],
+    [["run", "plan", "x"], /tanpa izin tulis/],
     [["--verbose", "run", "ultimate"], /opsi sebelum subperintah/],
     [["-v", "init", "--here"], /opsi sebelum subperintah/],
-    [["run", "ultimate", "--help", "--force"], /S1|U2/],
+    [["run", "ultimate", "--help", "--force"], /tanpa izin tulis/],
     [["tui"], /interaktif/],
     [[], /tanpa subperintah/],
     [["skill", "install", "x"], /rudis-marketplace-tooling\.git, yang tidak ada di allowlist/],

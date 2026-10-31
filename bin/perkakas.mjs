@@ -214,7 +214,10 @@ export function folderProyekBaru(folder) {
   });
 }
 
-/** Hasil deteksi berbukti untuk `perkakas.sh proyek`. Folder tidak ada → Error berkode ENOENT (CLI: exit 3, D1).
+/** Hasil deteksi berbukti untuk `perkakas.sh proyek`. Label aturan deteksi (muncul di bukti `ragu: …`, diuji perkakas.test.mjs):
+ *  D1 folder harus ada · D2 folder baru tanpa kode = proyek baru (A) · D3 struktur standar + Go tanpa lock · D4 tidak ada modul
+ *  aktif di lock · D5 beberapa backend · D6 lock rusak / tidak di-track / di luar repo git.
+ *  Folder tidak ada → Error berkode ENOENT (CLI: exit 3, D1).
  *  mode: ragu (D3/D4/D5/D6) · A (lock sah, ter-track, ≥1 modul aktif, backend go; atau folder proyek baru tanpa kode —
  *  proyek baru dirakit dari pustaka, D2) · B (selain itu; pustaka hanya Go). */
 export function deteksiProyek(folder, { root } = {}) {

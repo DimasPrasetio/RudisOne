@@ -16,7 +16,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SERVER = path.join(ROOT, "kantor", "server.mjs");
 const PORT = process.env.RUDISONE_KANTOR_PORT || "7421";
 const ALAMAT = `http://127.0.0.1:${PORT}`;
-// log per port (7421 tetap di nama lama): Kantor uji di port lain tidak menimpa log Kantor yang sedang dipakai (T4)
+// log per port (7421 tetap di nama lama): Kantor uji di port lain tidak menimpa log Kantor yang sedang dipakai
 const LOG = path.join(process.env.TMPDIR || os.tmpdir(), PORT === "7421" ? "kantor-rudisone.log" : `kantor-rudisone-${PORT}.log`);
 const PIDFILE = path.join(os.tmpdir(), `kantor-rudisone-${PORT}.pid`);   // hanya dibersihkan (versi lama menulisnya)
 const AKSI = process.argv[2] || "buka";
@@ -55,7 +55,7 @@ const baku = (t) => (WINDOWS ? String(t).replaceAll("/", "\\").toLowerCase() : S
 const SERVER_BAKU = baku(SERVER);
 /** Server Kantor RudisOne milik checkout ini untuk port ini: baris perintahnya menjalankan SERVER dan (memuat PENANDA,
  *  atau — server versi lama tanpa penanda — prosesnya memang mendengarkan port ini). Bukan dari berkas pid: pid basi
- *  bisa sudah dipakai proses lain (T3), dan pencocokan nama skrip saja ikut mengenai Kantor di port lain (T4). */
+ *  bisa sudah dipakai proses lain, dan pencocokan nama skrip saja ikut mengenai Kantor di port lain. */
 function prosesKantor() {
   let calon;   // [{ pid, cmd, dengar }]
   if (WINDOWS) {

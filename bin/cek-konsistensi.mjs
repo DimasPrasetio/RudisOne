@@ -378,7 +378,7 @@ export function cekDevice(root = ROOT) {
     try { execFileSync(process.execPath, [path.join(root, "bin", "register.mjs"), "validasi"], { stdio: "ignore" }); }
     catch { catat("galat", "register", "register-tugas.json tidak valid — bin/register.sh validasi"); }
   }
-  // D6 kesehatan hook kebijakan (X15) · D7 kebersihan catatan/ (X12)
+  // D6 kesehatan hook kebijakan · D7 kebersihan catatan/
   cekKesehatanHook(root);
   cekCatatan(root);
   return temuan;
@@ -519,7 +519,7 @@ function artefakLuarLetak(folder) {
   return hasil;
 }
 
-/** Drift spec saat serah (G10): spec yang plan.md/tasks.md-nya menyebut path (dalam backtick) yang berubah di
+/** Drift spec saat serah: spec yang plan.md/tasks.md-nya menyebut path (dalam backtick) yang berubah di
  *  <base>...<branch>, sementara folder spec itu sendiri tidak berubah. <base> = merge-base dengan HEAD. */
 export function cekDriftSpec(folder, branch) {
   const g = (...a) => execFileSync("git", a, { cwd: folder, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();

@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Penjaga kebersihan repo RudisOne — READ-ONLY. Repo ini sumber instalasi di device klien, jadi berkas produk tidak boleh
-// membawa sisa pemakaian device pemilik: laporan uji per device, ID tugas, kutipan keputusan bertanggal, atau nama sistem
-// agent pendahulu. Tempat semua itu `handoff/` (per device, tidak ikut git).
+// membawa sisa pemakaian device pemilik: laporan uji per device, ID tugas, kutipan keputusan bertanggal, tanggal riwayat di
+// dokumen (*.md, *.json), kode temuan lama dalam kurung, narasi uji atau riwayat masukan, atau nama sistem agent pendahulu.
+// Tempat semua itu `handoff/` (per device, tidak ikut git); kutipan keputusan pemilik di pesan commit.
 //   node bin/bersih.mjs            periksa berkas terlacak (isi di working tree) — juga dipakai cek-konsistensi --repo
 //   node bin/bersih.mjs --staged   periksa isi yang akan di-commit (indeks) — dipanggil hook .githooks/pre-commit
 // Dikecualikan (alat pengembang & fixture sah): *.test.mjs, bin/lib/uji-util.mjs, uji/suite/, uji/simulasi-linux/,
@@ -26,6 +27,7 @@ const BERKAS_TERLARANG = [
 /** Tanggal cadangan untuk ID contoh (sebelum RudisOne ada, jadi tidak pernah bentrok dengan tugas nyata). */
 const ID_CONTOH = /^T-20260101-/;
 const TGL = String.raw`\b20\d{2}-\d{2}-\d{2}\b`;
+const KODE_FUNGSIONAL = /^(?:D[1-7]|R[1-9]|M[25]|X14|K[12])$/;
 const KEPUTUSAN = String.raw`\b(?:pengguna|pemilik|izin tetap|disetujui|persetujuan|keputusan|diputuskan)\b`;
 const POLA = [
   ["id-tugas", /\bT-20\d{6}-\d+(?:\.\d+)*\b/g, (m) => !ID_CONTOH.test(m)],
@@ -33,6 +35,15 @@ const POLA = [
   // atau tanggal yang langsung diikuti kutipan
   ["kutipan-keputusan", new RegExp(`${KEPUTUSAN}[^.\\n]{0,40}?${TGL}|${TGL}[^.\\n]{0,40}?${KEPUTUSAN}|${TGL}\\s*[:—–-]?\\s*["“]`, "gi"), () => true],
   ["sistem-lama", /\bTim ?Agent\b/g, () => true],
+  // dokumen produk tidak memuat riwayat bertanggal (versi, masukan, uji); templat memakai YYYY-MM-DD
+  ["tanggal-riwayat", new RegExp(TGL, "g"), () => true, (rel) => /\.(md|json)$/.test(rel)],
+  // kode temuan/uji dari dokumen per device dalam kurung, mis. S1, U3 M3, atau S1–S8 + K1–K12; label fungsional yang tampil di
+  // keluaran perkakas & diuji tetap boleh: D1–D7 (deteksi proyek / pemeriksaan device), R1–R9 (aturan cek-konsistensi),
+  // M2, M5, X14 (metrik), K1/K2 (contoh nama kunci .env)
+  ["kode-temuan", /\((?:[A-Z]{1,2}\d{1,2})(?:(?:[ ,/–-]|, )+[A-Z]{1,2}\d{1,2})*\)/g,
+    (m) => m.slice(1, -1).split(/[ ,/–-]+/).filter(Boolean).some((k) => !KODE_FUNGSIONAL.test(k))],
+  // narasi uji / riwayat masukan (frasa disusun dari potongan agar berkas ini tidak menandai dirinya sendiri)
+  ["narasi-uji", new RegExp(`\\b(?:${["masukan", "ditolak", "uji dengan"].map((w) => `${w} pengguna`).concat([["pengguna", "melaporkan"].join(" "), ["log", "uji"].join(" "), ["hasil uji di", "device"].join(" ")]).join("|")})\\b`, "gi"), () => true],
 ];
 
 export const dikecualikan = (rel) => DIKECUALIKAN.test(rel);
@@ -43,7 +54,8 @@ export function periksaBerkas(rel, teks) {
   for (const [pola, alasan] of BERKAS_TERLARANG) if (pola.test(rel)) hasil.push({ rel, baris: 0, jenis: "berkas-terlarang", cuplikan: alasan });
   if (dikecualikan(rel) || typeof teks !== "string" || teks.includes("\0")) return hasil;
   teks.split(/\r?\n/).forEach((l, i) => {
-    for (const [jenis, re, sah] of POLA) {
+    for (const [jenis, re, sah, berlaku] of POLA) {
+      if (berlaku && !berlaku(rel)) continue;
       re.lastIndex = 0;
       for (const m of l.matchAll(re)) {
         if (!sah(m[0])) continue;

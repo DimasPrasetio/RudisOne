@@ -23,14 +23,15 @@ test("ID tugas di berkas produk ditolak; ID contoh T-20260101-n dan pola T-YYYYM
   assert.deepEqual(jenis("templat/brief-tugas.md", "ID `T-YYYYMMDD-n` (sub-tugas `T-YYYYMMDD-n.k`)"), []);
 });
 
-test("kutipan keputusan bertanggal ditolak; tanggal riset/versi dan templat YYYY-MM-DD lolos", () => {
+test("kutipan keputusan bertanggal ditolak di berkas apa pun; tanggal teknis di kode dan templat YYYY-MM-DD lolos", () => {
   for (const s of [`(pengguna ${TGL}: "Agent siapkan sendiri")`, `izin tetap sejak ${TGL}`, `**Izin tetap pengguna** (${TGL},`,
     `disetujui ${TGL}`, `${TGL}: "utamakan otomatis"`, `${TGL} — disetujui pemilik`])
-    assert.deepEqual(jenis("skills/rudis-sdlc/SKILL.md", s), ["kutipan-keputusan"], s);
-  for (const s of [`## Sumber (diakses ${TGL})`, `## v7 — IT Operations saat dibutuhkan (${TGL})`,
-    "- Disetujui pengguna (kesepakatan pemahaman bersama): YYYY-MM-DD HH:MM — \"<kutipan persis>\"",
-    `Dibuat ${TGL} mengikuti skill \`rudis-riset-desain\`. Masukan pengguna atas v3: jelek.`])
-    assert.deepEqual(jenis("kantor/DESAIN.md", s), [], s);
+    assert.deepEqual(jenis("bin/install-x.mjs", `// ${s}`), ["kutipan-keputusan"], s);
+  // di dokumen (*.md) tanggal apa pun juga ditolak sebagai riwayat
+  assert.deepEqual(jenis("skills/rudis-sdlc/SKILL.md", `izin tetap sejak ${TGL}`), ["kutipan-keputusan", "tanggal-riwayat"]);
+  for (const [rel, s] of [["bin/metrik.mjs", `// contoh --sejak ${TGL} (tanggal teknis)`], ["kantor/server.mjs", `const contoh = "${TGL}T10:00:00Z";`],
+    ["templat/intake-proyek.md", "- Disetujui pengguna (kesepakatan pemahaman bersama): YYYY-MM-DD HH:MM — \"<kutipan persis>\""]])
+    assert.deepEqual(jenis(rel, s), [], s);
 });
 
 test("nama sistem agent pendahulu ditolak; frasa umum 'tim agent' lolos", () => {
@@ -38,6 +39,24 @@ test("nama sistem agent pendahulu ditolak; frasa umum 'tim agent' lolos", () => 
   assert.deepEqual(jenis("skills/rudis-operasi/SKILL.md", `(mis. ${lama.join("")}) tidak disentuh`), ["sistem-lama"]);
   assert.deepEqual(jenis("README.md", `sesi ${lama.join(" ")} lama`), ["sistem-lama"]);
   assert.deepEqual(jenis("README.md", "Tim agent Claude Code milik pengguna, di level device"), []);
+});
+
+test("riwayat bertanggal, kode temuan lama, dan narasi uji ditolak (juga kantor/*.md); label fungsional & placeholder lolos", () => {
+  const masukan = ["Masukan", "pengguna"].join(" ");
+  assert.deepEqual(jenis("kantor/DESAIN.md", `${masukan} atas v3: jelek, sempit.`), ["narasi-uji"]);
+  assert.deepEqual(jenis("kantor/DESAIN.md", `## v7 — IT Operations saat dibutuhkan (${TGL})`), ["tanggal-riwayat"]);
+  assert.deepEqual(jenis("perkakas.json", `"catatan": "versi ${TGL} diuji"`), ["tanggal-riwayat"]);
+  assert.deepEqual(jenis("skills/rudisone/backend-cli.md", ["Uji dengan", "pengguna (U4–U6): pengguna menjalankan claude"].join(" ")), ["kode-temuan", "narasi-uji"]);
+  assert.deepEqual(jenis("skills/rudis-sdd/SKILL.md", "Dasar: kajian kelayakan (S1–S8, K1–K12), riset"), ["kode-temuan"]);
+  assert.deepEqual(jenis("bin/kebijakan.mjs", "// klien mysql dari PATH saja (U3 M1)"), ["kode-temuan"]);
+  assert.deepEqual(jenis("skills/rudis-sdd/SKILL.md", "Hanya COO yang bertanya ke pengguna (S6, K5)"), ["kode-temuan"]);
+  // lolos: label fungsional yang tampil di keluaran & diuji, placeholder templat, tanggal di kode, frasa umum
+  for (const [rel, s] of [["bin/perkakas.mjs", "ragu.push(\"lock rusak (D6)\")"], ["bin/metrik.mjs", "Beban keputusan (X14): 3"],
+    ["agents/coo.md", "Ukur: `node bin/metrik.mjs tugas <ID>` (X14)."], ["bin/env-kunci.mjs", "butuh daftar kunci (K1,K2)"],
+    ["bin/cek-konsistensi.mjs", "// tabel pemetaan (R7)"], ["templat/catatan.md", "poin `YYYY-MM-DD` + status"],
+    ["bin/metrik.mjs", `// contoh: --sejak ${TGL}`], ["skills/rudis-riset-desain/SKILL.md", "saat pengguna mengeluh desain kuno"],
+    ["skills/rudis-sdd/SKILL.md", "ikuti tabel §8 (namanya sama)"]])
+    assert.deepEqual(jenis(rel, s), [], `${rel}: ${s}`);
 });
 
 test("laporan uji device, tabel migrasi, dan berkas handoff/ ditolak dari path-nya; suite & simulasi lolos", () => {

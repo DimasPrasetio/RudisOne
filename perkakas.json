@@ -51,10 +51,10 @@
         }
       },
       "dilarang": {
-        "run": "U2 — rudis run berjalan tanpa izin tulis dan tetap melapor sukses; pakai command /rudis.<langkah> per langkah (S1). Termasuk run ultimate (S1), run deploy/operate (milik IT Operations, analisis §2.2)",
+        "run": "rudis run berjalan tanpa izin tulis dan tetap melapor sukses; pakai command /rudis.<langkah> per langkah. Termasuk run ultimate, run deploy/operate (milik IT Operations)",
         "tui": "antarmuka interaktif; init lewat TUI bisa melewati --no-marketplace"
       },
-      "dasar": "kajian kelayakan RUDIS SDD (S1–S8, K4, K7, K8) — dokumen per device di handoff/, bukan bagian repo"
+      "dasar": "kajian kelayakan RUDIS SDD — dokumen per device di handoff/, bukan bagian repo"
     }
   ],
   "kebijakan_marketplace": {

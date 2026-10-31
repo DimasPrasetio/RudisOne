@@ -81,7 +81,7 @@ export function rollback(cwd, id, sha, paths) {
     if (/^:|[*?[]/.test(p)) throw new Tolak(`pathspec khusus/glob tidak didukung: ${p}`);
   }
   // Berkas yang di-.gitignore tidak masuk checkpoint, tetapi `git restore --worktree` tetap menimpanya bila ada di
-  // checkpoint → isinya hilang dari mana pun (U3 M5). Tolak; pengguna/TL memindahkan atau meng-commit-nya dulu.
+  // checkpoint → isinya hilang dari mana pun. Tolak; pengguna/TL memindahkan atau meng-commit-nya dulu.
   const abai = execFileSync("git", ["ls-files", "--others", "--ignored", "--exclude-standard", "-z", "--", ...paths], { cwd: akar, encoding: "utf8" })
     .split("\0").filter(Boolean);
   if (abai.length) {
