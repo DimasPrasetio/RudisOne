@@ -90,11 +90,11 @@ TEAM.md, catatan/, handoff/, konfigurasi/server.json  per device, TIDAK di-commi
 ## Pasang di device baru
 
 ### Pasang lewat Claude — salin prompt ini
-Cara termudah: buka aplikasi **Claude** di komputermu dan pilih tab **Code** (atau Claude Code di terminal/VS Code), tempel
+Cara termudah: buka aplikasi **Claude** di komputermu dan pilih tab **Code** (kalau tab itu tidak ada, minta orang yang memasangkan Claude untukmu membukakannya), tempel
 prompt di bawah ini, lalu ikuti arahan Claude. RudisOne adalah satu paket asisten kerja; berkas-berkas tokomu atau proyekmu tidak
 disentuh. Claude memeriksa komputermu, menjelaskan apa yang akan ditambahkan, menunggu izinmu, memasangnya, lalu melaporkan
-hasilnya. Kata sandi dan kunci akses (token) tidak pernah kamu ketik di chat: kalau perlu, Claude memberi tahu cara
-mengetiknya sendiri di jendela Terminal komputermu.
+hasilnya. Kata sandi dan kunci akses (token) tidak pernah kamu ketik di chat: kalau ada yang perlu diketik,
+Claude menunjukkan caranya selangkah demi selangkah.
 
 ```text
 Kamu adalah asisten pemasang RudisOne di komputer ini. Pemakai bukan orang teknis: bicara bahasa Indonesia yang sederhana,
@@ -144,12 +144,12 @@ LOKASI RUMAH = path ABSOLUT hasil `node -e "console.log(require('os').homedir()+
    `cd "$HOME\Documents\Neuron\ai-agent\RudisOne"; node install.mjs`), lalu: "Tunggu sampai berhenti bergerak, lalu balas
    'selesai'. Bila ada tulisan merah atau kamu ragu, salin semua tulisan di layar ke sini (itu bukan rahasia)." Setelah
    "selesai", lanjut ke langkah 7 dan nilai hasilnya dari pemeriksaanmu sendiri, bukan dari kata pemakai.
-6. RUDIS SDD (alat penyusun rancangan aplikasi; repo privat git.neuron.id). Bila keluaran installer menyebut rudis-sdd "butuh PAT"
+6. RUDIS SDD (alat penyusun rancangan aplikasi; repo privat git.neuron.id). Bagian ini OPSIONAL: buka dengan "Bagian ini boleh dilewati; RudisOne tetap jalan tanpanya" dan mulai dari kalimat "Pemasangan hampir selesai", bukan nada tugas berat. Bila keluaran installer menyebut rudis-sdd "butuh PAT"
    atau gagal, tanyakan: "Apakah kamu sudah punya akun git.neuron.id dan izin ke proyek research/rudis?" Belum: sampaikan itu
    fitur tambahan yang butuh izin dari tim Neuron, bisa menyusul (jalankan prompt ini lagi nanti), RudisOne tetap jalan. Sudah:
    pandu membuat kunci akses (token) miliknya sendiri: di git.neuron.id klik foto profil › Preferences (atau Edit profile) ›
    Access tokens › Add new token; nama bebas, centang `read_repository` dan `read_api`, buat, lalu salin kuncinya (hanya
-   tampil sekali); bila menunya beda, minta ia menceritakan apa yang tampak. JANGAN minta kunci ditempel di chat. Suruh ia
+   tampil sekali); bila menunya beda, minta ia menceritakan apa yang tampak. JANGAN minta kunci ditempel di chat. Pecah jadi dua pesan: buat kunci dulu, baru simpan. Sebelum perintah, katakan bahwa yang diminta nanti adalah kunci akses tadi, bukan sandi Mac; sebut "Jangan tempel kunci di chat" satu kali saja. Suruh ia
    menyalin SATU baris ke Terminal; kunci diketik di kotak tersembunyi, tulisannya memang tidak tampak: macOS
    `security add-generic-password -U -s rudisone-rudis-sdd -a "$USER" -w` (menyimpannya di brankas sandi Mac/Keychain; bila
    muncul "password data for new item" itu minta kunci akses tadi, bukan sandi Mac); Linux/WSL2
@@ -161,8 +161,7 @@ LOKASI RUMAH = path ABSOLUT hasil `node -e "console.log(require('os').homedir()+
    aturan inti terpasang); dan tautan: `~/.claude/skills/rudisone` ada dan terbaca, serta `~/.claude/agents/rudis-*.md` tidak kosong (Windows: dir; di sana skill berupa junction dan agen berupa salinan).
    Perintah cek hanya membaca, tidak mengubah apa pun.
 8. Lapor ke pemakai, singkat, bahasa awam, tanda ✅ / ⚠️ / ❌, tanpa angka hitungan installer, tanpa kata hook/PAT/skill/
-   cek-konsistensi/register. Buka dengan satu kalimat: bila tak ada ❌ → "RudisOne sudah terpasang; tidak ada yang wajib kamu lakukan
-   sekarang." Butir: sistem; alat dasar (git, Node, GitHub: bila gh belum login, ⚠️ "hanya dibutuhkan saat merilis aplikasi";
+   cek-konsistensi/register. Buka dengan: bila tak ada ❌ → "RudisOne sudah terpasang. Satu hal terakhir: tutup jendela Claude ini, buka lagi, lalu ketik /rudisone dan tekan Enter. Sisanya boleh menyusul." Kelompokkan butir di bawah "Sudah beres" (✅) dan "Boleh menyusul, tidak mengganggu pemakaian" (⚠️, tulis "tidak wajib"); jangan mengulang jawaban pemakai sebagai pertanyaan baru. Butir: sistem; alat dasar (git, Node, GitHub: bila gh belum login, ⚠️ "hanya dibutuhkan saat merilis aplikasi";
    perbaikan: ketik `gh auth login`); RudisOne di tempatnya; pengaman terpasang (baru bekerja di jendela Claude baru; temuan
    "belum berdenyut/daftar tugas belum ada" itu wajar untuk pemasangan baru: satu kalimat saja); asisten kerja siap (sebut jumlah
    peran bila ada); fitur RUDIS SDD; Claude Code (versi di bawah 2.1.300 → ⚠️ "beberapa asisten bekerja bersamaan di belakang layar
