@@ -1,7 +1,10 @@
-// Inventaris aturan lama — memecah protokol.md, sdlc.md, dan agents/coo.md pada sebuah git ref menjadi unit aturan
-// berkode stabil (P-/S-/C-nnn, urut dokumen) untuk tabel pemetaan docs/pemetaan-aturan-v5.md.
+// Inventaris aturan lama — memecah berkas instruksi pada sebuah git ref menjadi unit aturan berkode stabil (urut
+// dokumen) untuk tabel pemetaan docs/pemetaan-aturan-v*.md.
+//   v5 (bawaan untuk ref 3b1c888): protokol.md, sdlc.md, agents/coo.md → P-/S-/C-nnn (docs/pemetaan-aturan-v5.md)
+//   v6 (ref lain, T-20261031-2.3): protokol.md → P-nnn, agents/coo.md → C-nnn, agents/<id>.md → A-<id>-nnn,
+//       skills/<skill>/SKILL.md → K-<skill>-nnn — semua berkas yang ada di ref itu (docs/pemetaan-aturan-v6.md)
 // Unit = butir daftar (beserta baris lanjutannya), baris data tabel, atau paragraf. Judul & pagar kode bukan unit.
-//   node bin/inventaris-aturan.mjs [--ref 3b1c888] [--json]
+//   node bin/inventaris-aturan.mjs [--ref 3b1c888] [--sumber v5|v6] [--json]
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -43,9 +46,22 @@ export function unit(teks) {
   return hasil.filter((u) => u.teks.length > 0);
 }
 
-export function inventaris(ref = REF_LAMA, cwd = process.cwd()) {
+/** Sumber v6: berkas instruksi yang ada di `ref` → [[awalan, path]]. */
+export function sumberV6(ref, cwd = process.cwd()) {
+  const daftar = execFileSync("git", ["ls-tree", "-r", "--name-only", ref], { cwd, encoding: "utf8" }).split("\n");
+  const out = [];
+  if (daftar.includes("protokol.md")) out.push(["P", "protokol.md"]);
+  for (const f of daftar.filter((x) => /^agents\/[a-z-]+\.md$/.test(x)).sort()) {
+    const id = f.slice(7, -3);
+    out.push([id === "coo" ? "C" : `A-${id}`, f]);
+  }
+  for (const f of daftar.filter((x) => /^skills\/[\w-]+\/SKILL\.md$/.test(x)).sort()) out.push([`K-${f.split("/")[1]}`, f]);
+  return out;
+}
+
+export function inventaris(ref = REF_LAMA, cwd = process.cwd(), sumber = ref === REF_LAMA ? SUMBER : sumberV6(ref, cwd)) {
   const semua = [];
-  for (const [awal, f] of SUMBER) {
+  for (const [awal, f] of sumber) {
     const teks = execFileSync("git", ["show", `${ref}:${f}`], { cwd, encoding: "utf8" });
     unit(teks).forEach((u, i) => semua.push({ kode: `${awal}-${String(i + 1).padStart(3, "0")}`, berkas: f, ...u }));
   }
@@ -55,7 +71,9 @@ export function inventaris(ref = REF_LAMA, cwd = process.cwd()) {
 if (process.argv[1] && path.resolve(process.argv[1]) === INI) {
   const a = process.argv.slice(2);
   const iRef = a.indexOf("--ref");
-  const daftar = inventaris(iRef >= 0 ? a[iRef + 1] : REF_LAMA);
+  const iSumber = a.indexOf("--sumber");
+  const ref = iRef >= 0 ? a[iRef + 1] : REF_LAMA;
+  const daftar = inventaris(ref, process.cwd(), iSumber < 0 ? undefined : a[iSumber + 1] === "v5" ? SUMBER : sumberV6(ref));
   if (a.includes("--json")) console.log(JSON.stringify(daftar));
   else for (const u of daftar) console.log(`${u.kode}\t${u.berkas} › ${u.bagian}\t${u.teks.slice(0, 140)}`);
 }

@@ -72,7 +72,8 @@
       "repo_buat_privat": "^repo\\s+create\\s+\\S+(?=.*\\s--private\\b)(?!.*--public)(?!.*--push)(?!.*--internal)(?!.*--private=)(?!.*--visibility)",
       "akun": "belum ada"
     },
-    "git": { "jenis": "cli", "perintah": "git", "kemampuan": "repo", "tulis_remote": "^push\\b" }
+    "git": { "jenis": "cli", "perintah": "git", "kemampuan": "repo", "tulis_remote": "^push\\b",
+      "lokal_perusak": "^(stash(\\s+(push|pop|apply|drop|clear|save)\\b|\\s*$|\\s+-)|reset\\s+(.*\\s)?--hard\\b|checkout\\s+(.*\\s)?--(\\s|$)|checkout\\s+\\.(\\s|$)|clean\\s+(.*\\s)?-[a-zA-Z]*f|restore\\s(?!.*--staged)|worktree\\s+remove\\b|branch\\s+(.*\\s)?-D\\b)" }
   },
 
   "keterangan_konfigurasi": "Host ssh (jenis ssh, kemampuan server), daftar aplikasi deploy jenjang 2, dan MCP DNS yang aktif berasal dari konfigurasi/server.json: server.<alias>.ssh_host · aplikasi.<slug>.{server,folder,repo} · dns.mcp_server (harus punya adapter di adapter_mcp).",

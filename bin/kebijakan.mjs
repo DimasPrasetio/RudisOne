@@ -594,7 +594,11 @@ function klasifikasiSegmen(s, K, ctx) {
     let rest = args;
     if (nama === "git") while (rest.length && rest[0].startsWith("-")) rest = rest.slice(["-C", "-c", "--git-dir", "--work-tree"].includes(rest[0]) ? 2 : 1);
     const a = rest.join(" ");
-    // git: hanya push yang urusan kebijakan (jenjang 3); git lain = perintah lokal biasa, TIDAK pernah ikut diloloskan.
+    // git yang menimpa/menghapus kerja (stash, reset --hard, checkout --, clean -f, restore, hapus worktree/branch) — protokol
+    // › Ruang kerja Engineering (T-20261031-2.3): jenjang 3, selalu ditanya di sesi RudisOne; padanan aman bin/rudis-git.sh
+    if (p.lokal_perusak && new RegExp(p.lokal_perusak).test(a))
+      return { aman: false, aksi: [{ kemampuan: p.kemampuan, jenjang: 3, aksi: `${nama} ${a} — menimpa/menghapus kerja (bin/rudis-git.sh untuk checkpoint/rollback)`.slice(0, 120) }] };
+    // git: push = jenjang 3; git lain = perintah lokal biasa, TIDAK pernah ikut diloloskan.
     if (p.tulis_remote) return new RegExp(p.tulis_remote).test(a)
       ? { aman: false, aksi: [{ kemampuan: p.kemampuan, jenjang: 3, aksi: `${nama} ${a}`.slice(0, 80) }] } : { aman: false };
     const amanCli = dasarAman && !/\$ENV|\benv\b|--show-token/.test(a) && !(rest[0] === "auth" && rest.some((x) => /^-[A-Za-z]*t/.test(x)));
@@ -1170,6 +1174,8 @@ function analisisBash(input, K) {
 const ALAT_TULIS = new Set(["Write", "Edit", "MultiEdit", "NotebookEdit"]);
 /** Alat baca yang dilihat hook hanya untuk penjaga .env (T-20261031-2.3). */
 const ALAT_BACA = new Set(["Read", "Grep", "Glob"]);
+/** Pemanggil subagent: brief ke subagent peran rudis-* wajib ber-ID tugas di baris pertama (protokol › Tugas 1). */
+const ALAT_AGENT = new Set(["Agent", "Task"]);
 
 /** Semua aksi infrastruktur dalam satu panggilan alat + apakah SEMUA bagiannya dikenali aman + berkas terlindung. */
 export function klasifikasi(input, K) {
@@ -1195,6 +1201,13 @@ export function klasifikasi(input, K) {
     const pola = menulis ? NAMA_TERLINDUNG.find((r) => r.test(teks)) : null;
     return { aksi: [], dipahami: false, powershell: true, ringkasan: `PowerShell ${cmd}`,
       terlindung: pola ? "perintah PowerShell menulis ke/menyebut berkas terlindung (kebijakan, konfigurasi, audit, settings)" : null };
+  }
+  if (ALAT_AGENT.has(input.tool_name)) {
+    const t = input.tool_input ?? {};
+    const tipe = String(t.subagent_type ?? "");
+    const pertama = String(t.prompt ?? "").split("\n").find((l) => l.trim()) ?? "";
+    const tanpaId = /^rudis-[a-z-]+$/.test(tipe) && !/\bT-\d{8}-\d+(\.\d+)*\b/.test(pertama);
+    return { aksi: [], dipahami: false, terlindung: null, briefTanpaId: tanpaId ? tipe : null, ringkasan: `${input.tool_name} ${tipe} ${pertama}`.slice(0, 200) };
   }
   if (String(input.tool_name).startsWith("mcp__")) {
     const aksi = klasifikasiMcp(input.tool_name, input.tool_input, K) ?? [];
@@ -1350,6 +1363,12 @@ export function putuskan(input, K) {
     }
   }
   if (ALAT_BACA.has(input.tool_name)) return { keputusan: null, alasan: "bukan pembacaan berkas env", sesi: null };
+  if (ALAT_AGENT.has(input.tool_name)) {
+    if (!k.briefTanpaId) return { keputusan: null, alasan: "panggilan subagent berformat benar", sesi: null };
+    const sesiA = kenaliSesi(input, K);
+    if (!sesiA.rudisOne) return { keputusan: null, alasan: "bukan sesi RudisOne", sesi: sesiA };
+    return { keputusan: "deny", sesi: sesiA, aksi: [], alasan: `RudisOne · brief ke ${k.briefTanpaId} tanpa ID tugas di baris pertama — tulis ulang dengan baris pertama mis. "[Tugas dari <Jabatan>] T-YYYYMMDD-n · <judul>" (ID dari register; sub-tugas T-…-n.k), lalu panggil lagi.` };
+  }
   if (k.terlindung) {
     const sesi0 = kenaliSesi(input, K);
     return { keputusan: "ask", alasan: `RudisOne · berkas terlindung: ${k.terlindung} — mengubah kebijakan/izin/audit adalah keputusan pemilik`, sesi: sesi0, aksi: k.aksi };
@@ -1396,7 +1415,7 @@ export function hitungBaris(out, a = {}) {
 }
 
 export function catatSesudah(input, K) {
-  if (ALAT_BACA.has(input.tool_name)) return null;
+  if (ALAT_BACA.has(input.tool_name) || ALAT_AGENT.has(input.tool_name)) return null;
   const { aksi, ringkasan, terlindung } = klasifikasi(input, K);
   const sesi = kenaliSesi(input, K);
   if (!sesi.rudisOne && !terlindung) return null;
@@ -1419,7 +1438,7 @@ export function catatSesudah(input, K) {
 
 // ---------- pemasangan (dijalankan pengguna) ----------
 /** Alat yang dilihat hook. Write/Edit/MultiEdit/NotebookEdit sejak T-20261030-5 (berkas terlindung). */
-export const MATCHER = "^(Bash|PowerShell|Read|Grep|Glob|Write|Edit|MultiEdit|NotebookEdit|mcp__.*)$";
+export const MATCHER = "^(Bash|PowerShell|Read|Grep|Glob|Agent|Task|Write|Edit|MultiEdit|NotebookEdit|mcp__.*)$";
 /** PostToolUseFailure: perintah yang gagal (exit ≠ 0) tetap bisa sudah mengembalikan data prod ke transkrip (U3 M3). */
 const PERISTIWA = ["PreToolUse", "PostToolUse", "PostToolUseFailure"];
 function entriHook() {
@@ -1434,7 +1453,7 @@ export function statusPasang() {
 /** Alat yang WAJIB dilihat hook di OS ini (contoh nama untuk diuji terhadap matcher terpasang). PowerShell hanya ada
  *  di Windows — di macOS/Linux matcher lama tanpa PowerShell tetap mutakhir, tidak perlu dipasang ulang (T1). */
 export function alatWajib(sistem = osLogis()) {
-  return ["Bash", ...(sistem === "win32" ? ["PowerShell"] : []), "Read", "Grep", "Write", "Edit", "MultiEdit", "NotebookEdit", "mcp__contoh__alat"];
+  return ["Bash", ...(sistem === "win32" ? ["PowerShell"] : []), "Read", "Grep", "Agent", "Write", "Edit", "MultiEdit", "NotebookEdit", "mcp__contoh__alat"];
 }
 /** Matcher Claude Code: kosong/"*" = semua alat; selain itu diuji sebagai regex utuh. Rusak → tidak mencakup apa pun. */
 function cocokMatcher(matcher, alat) {

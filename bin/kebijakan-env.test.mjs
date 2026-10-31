@@ -204,3 +204,26 @@ test("jalur Tech Lead-subagent: SE lapis-2 (induk = sesi COO) tidak diblokir ker
   execFileSync("git", ["-C", ROOT, "-c", "user.email=u@contoh.test", "-c", "user.name=u", "-c", "commit.gpgsign=false", "commit", "-q", "-m", "gerbang"]);
   assert.equal(kep(bash(`${path.join(ROOT, "bin", "gerbang-tl.sh")} T-20261031-9`, ROOT)), "allow");
 });
+
+test("A6: git yang menimpa/menghapus kerja di sesi RudisOne → ask; git baca & kerja biasa tanpa keputusan", () => {
+  harap(["git stash", "git stash push -u -m x", "git stash pop", "git stash drop stash@{0}", "git reset --hard HEAD~1", "git reset --soft HEAD && git reset --hard",
+    "git checkout -- a.txt", "git checkout main -- a.txt", "git checkout .", "git clean -fd", "git clean -xf", "git restore a.txt",
+    "git worktree remove ../wt", "git branch -D rudis/T-1", "git -C /x/repo reset --hard"], "ask");
+  harap(["git stash list", "git status", "git log --oneline -3", "git diff", "git restore --staged a.txt", "git checkout -b rudis/T-1",
+    "git switch rudis/T-1", "git commit -m x", "git merge --no-ff refs/heads/rudis/T-1-se1", "git worktree add -b x ../wt", "git branch -d x",
+    "git reset --soft HEAD~1", "git clean -n"], "—");
+  harap(["git reset --hard"], "—", LUAR);   // sesi pribadi: dijaga settings pengguna, bukan hook
+});
+
+test("A1: brief ke subagent rudis-* tanpa ID tugas di baris pertama → deny; ber-ID / subagent lain → tanpa keputusan", () => {
+  const ag = (subagent_type, prompt, cwd = P) => kep({ session_id: `a${++n}`, cwd, tool_name: "Agent", tool_input: { subagent_type, prompt, description: "x" }, hook_event_name: "PreToolUse" });
+  assert.equal(ag("rudis-software-engineer", "Kerjakan fitur X"), "deny");
+  assert.equal(ag("rudis-research-analyst", "Riset harga\nT-20261031-2 di baris kedua"), "deny");
+  assert.equal(ag("rudis-software-engineer", "[Tugas dari Tech Lead] T-20261031-2.3 · env-kunci\nisi"), "—");
+  assert.equal(ag("rudis-tech-lead", "\n\n[Tugas dari COO] T-20261031-12 · x"), "—");
+  assert.equal(ag("Explore", "cari berkas"), "—");
+  assert.equal(ag("general-purpose", "apa saja"), "—");
+  assert.equal(ag("rudis-software-engineer", "tanpa id", LUAR), "—", "sesi pribadi tidak diatur");
+  const p = putuskan({ session_id: "a0", cwd: P, tool_name: "Agent", tool_input: { subagent_type: "rudis-business-systems-analyst", prompt: "analisis" }, hook_event_name: "PreToolUse" }, K);
+  assert.match(p.alasan, /\[Tugas dari <Jabatan>\] T-YYYYMMDD-n/);
+});

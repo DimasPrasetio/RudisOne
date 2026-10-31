@@ -936,7 +936,7 @@ test("T1: matcher hook dinilai per OS — tanpa PowerShell tetap mutakhir di mac
   assert.ok(!alatWajib("darwin").includes("PowerShell") && !alatWajib("linux").includes("PowerShell"));
   try {
     // matcher tanpa PowerShell (instalasi Mac/Linux; Read/Grep/Glob sejak T-20261031-2.3)
-    tulis("^(Bash|Read|Grep|Glob|Write|Edit|MultiEdit|NotebookEdit|mcp__.*)$");
+    tulis("^(Bash|Read|Grep|Glob|Agent|Task|Write|Edit|MultiEdit|NotebookEdit|mcp__.*)$");
     for (const os_ of ["darwin", "linux"]) {
       assert.equal(matcherMutakhir(os_), true, os_);
       const r = cek(os_);
