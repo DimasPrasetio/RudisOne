@@ -24,7 +24,7 @@ hasilnya, lalu melapor. Contoh: "buatkan aplikasi pencatat stok barang" atau "ca
 2. Salin seluruh kotak di bawah dengan ikon salin (dua kotak bertumpuk) di pojok kanan atasnya. Kotak itu petunjuk untuk Claude, tidak perlu dibaca.
 3. Tempel ke kotak chat, lalu tekan Enter.
 4. Claude mengunduh, menjelaskan yang akan ditambahkan, menunggu izinmu, memasang, lalu melapor.
-5. Setelah selesai, tutup jendela Claude, buka lagi, ketik `/rudisone` (dengan garis miring di depan), lalu tekan Enter.
+5. Setelah selesai, tutup jendela Claude, buka lagi.
 
 Berkas tokomu atau proyekmu tidak disentuh. Kata sandi dan kunci akses tidak pernah kamu ketik di chat.
 
