@@ -15,15 +15,18 @@ hasilnya, lalu melapor. Contoh: "buatkan aplikasi pencatat stok barang" atau "ca
 - **Bisa dipantau**: ada halaman web bernama "Kantor" yang memperlihatkan siapa sedang mengerjakan apa.
 
 ## Pasang
-**Yang perlu disiapkan:** aplikasi **Claude** (unduh di claude.ai/download) dan akun Claude milikmu; pastikan kamu
-sudah masuk. Pemasangan sekitar 10 menit, dan kamu cukup menjawab "ya" saat ditanya.
+**Yang disiapkan:**
+- Aplikasi **Claude** (unduh di claude.ai/download) dan akun Claude milikmu, sudah masuk.
+- Waktu sekitar 10 menit; kamu cukup menjawab "ya" saat ditanya.
 
-Buka Claude, pilih tab **Code** (satu dari beberapa tab di bagian atas jendela Claude; kalau tab itu tidak ada, minta orang yang memasangkan Claude untukmu membukakannya).
-Salin seluruh kotak di bawah ini dengan ikon salin (dua kotak bertumpuk) di pojok kanan atas kotak (tidak perlu dibaca; itu petunjuk untuk Claude), tempel ke kotak chat, lalu tekan Enter.
-Claude mengunduh RudisOne ke satu folder baru, membaca petunjuk lengkap yang ada di dalamnya
-([`docs/pasang-lewat-claude.md`](docs/pasang-lewat-claude.md)), menjelaskan apa yang akan ditambahkan, menunggu izinmu,
-memasangnya, lalu melaporkan hasilnya. Berkas tokomu atau proyekmu tidak disentuh. Kata sandi dan kunci akses tidak pernah kamu ketik di chat;
-kalau ada yang perlu diketik, Claude menunjukkan caranya selangkah demi selangkah. Setelah selesai, tutup jendela Claude, buka lagi, lalu ketik `/rudisone` (dengan garis miring di depan) dan tekan tombol Enter.
+**Langkahnya:**
+1. Buka Claude, pilih tab **Code**. Tab tidak ada? Minta orang yang memasangkan Claude untukmu membukakannya.
+2. Salin seluruh kotak di bawah dengan ikon salin (dua kotak bertumpuk) di pojok kanan atasnya. Kotak itu petunjuk untuk Claude, tidak perlu dibaca.
+3. Tempel ke kotak chat, lalu tekan Enter.
+4. Claude mengunduh, menjelaskan yang akan ditambahkan, menunggu izinmu, memasang, lalu melapor.
+5. Setelah selesai, tutup jendela Claude, buka lagi, ketik `/rudisone` (dengan garis miring di depan), lalu tekan Enter.
+
+Berkas tokomu atau proyekmu tidak disentuh. Kata sandi dan kunci akses tidak pernah kamu ketik di chat.
 
 ```text
 ROLE: RudisOne installer. User non-technical → reply to user in simple Indonesian; jargon only in (parentheses).
