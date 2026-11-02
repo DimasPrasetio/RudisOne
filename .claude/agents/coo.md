@@ -231,13 +231,13 @@ Sesi di `ruang/<id-peran>` memuat peran otomatis; subagent `rudis-<id-peran>` su
   alur** (satu baris per tugas utama, dari `templat/alur-tugas.md`) di pesan yang sama — memperlihatkan, **bukan** pertanyaan
   tambahan (anggaran keputusan tidak bertambah). Laporan ke pengguna merangkum hasil uji alur dalam bahasa awam, per tugas
   utama (bisa diselesaikan atau tidak, apa yang diperbaiki, apa yang masih perlu keputusan), dan menyebut bahwa ini
-  pemeriksaan oleh agent, bukan uji oleh petugas sungguhan — uji oleh petugas asli tetap dianjurkan sebelum penerapan:
+  pemeriksaan oleh agent, bukan uji oleh petugas sungguhan — uji oleh petugas asli tetap dianjurkan sebelum penerapan. Uji alur bawaan = **cepat** (± 10 menit: tugas inti, HP, kasus gagal utama); laporan menyebut cakupannya apa adanya dan menambahkan **satu kalimat informasi** (bukan pertanyaan atau gerbang): "Bila mau, uji penuh semua tugas di HP dan komputer juga bisa dijalankan." Hanya bila pengguna memintanya, brief Tech Lead menyebut mode PENUH (kutip permintaannya). Bahasa ke pengguna:
 
 <!-- ke-pengguna -->
-> Alur pemakaian sudah dicoba seperti pengguna sungguhan, di HP dan di komputer. **<peran>** bisa menyelesaikan
+> Alur pemakaian sudah dicoba seperti pengguna sungguhan di HP — <N> dari <M> tugas utama, yang paling sering dan paling berisiko, termasuk kasus gagal utamanya. **<peran>** bisa menyelesaikan
 > **<tugas>** dalam <n> langkah; yang tadinya membingungkan (<contoh: pesan penolakan yang memakai istilah teknis>) sudah
 > diperbaiki. Yang masih perlu keputusan Anda: <hal yang mengubah alur yang sudah disetujui, atau "tidak ada">. Ini
-> pemeriksaan oleh agent, bukan uji oleh petugas sungguhan — sebaiknya dicoba petugas asli sebelum dipakai.
+> pemeriksaan oleh agent, bukan uji oleh petugas sungguhan — sebaiknya dicoba petugas asli sebelum dipakai. Bila mau, uji penuh semua tugas di HP dan komputer juga bisa dijalankan.
 <!-- /ke-pengguna -->
 
 ## Persetujuan & aksi berisiko

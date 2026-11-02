@@ -7,6 +7,20 @@ yang menutupi halaman, pemilih berupa dialog pencarian, dialog sisa yang menghal
 Isi: `kit.mjs` (Playwright: sesi, login, tangkapan, penutup penghalang, pemilih, isian) · `periksa.mjs` (pemeriksaan dasar
 murni, diuji `node --test bin/uji-alur-kit.test.mjs`) · `contoh-uji.mjs` (skrip tipis untuk disalin).
 
+## Dua mode: CEPAT (bawaan) dan PENUH (hanya bila pengguna memintanya)
+| | **CEPAT** — bawaan di gerbang akhir (⑦) | **PENUH** — hanya atas permintaan pengguna |
+|---|---|---|
+| Tugas | hanya **tugas inti** (1–2 per peran, ditandai di bagian "Tugas inti (uji cepat)" `alur-tugas.md` sejak ②b) | semua tugas |
+| Perangkat | **HP (390 px) saja** | HP + komputer |
+| Kasus gagal | **kasus gagal utama** per tugas inti (1–2, tertulis di bagian tugas inti) | semua kasus gagal + layar kosong |
+| Pemeriksaan otomatis kit | di **setiap layar yang dikunjungi** (angka berlebih nol, teks terlarang/Inggris, label, target sentuh, geser horizontal, papan ketik angka, konsol/respons) | sama |
+| Tangkapan | hanya langkah kunci (`snap(nama, { kunci: true })`), kasus gagal, galat | setiap `snap` |
+| Waktu | satu eksekusi skrip ≤ ± 2 mnt; BSA total ± 10 mnt (aplikasi pertama; ukur nyata: lihat agents BSA › Uji jalan alur); uji ulang butir ± 2–3 mnt | ≈ 25–50 mnt (eksekusi penuh ≈ 6 mnt) |
+| Putusan | LULUS / PERLU PERBAIKAN untuk sha terakhir **beserta pernyataan cakupan** ("cepat: N dari M tugas, HP saja") dan daftar *belum terverifikasi* | sama |
+Pilih lewat opsi `mode` atau env `UJI_MODE=cepat|penuh` (PowerShell: `$env:UJI_MODE='penuh'`; env menang). Skrip memakai `uji.perangkatUji`
+(cepat = `["hp"]`), menyatakan cakupan dengan `uji.cakupan({ tugasUji, tugasSemua })`, dan `ringkasan.md` memuat **Cakupan** dan
+**Belum terverifikasi** otomatis — tidak ada yang tampak lengkap bila tidak lengkap. Mode cepat tidak memangkas diam-diam: yang tak dicakup tertulis.
+
 ## Langkah pakai (BSA)
 1. **Salin** `templat/uji-alur-kit/{kit.mjs,periksa.mjs,contoh-uji.mjs}` ke `handoff/<ID>/uji-alur/` (bukan repo proyek).
    Pasang Playwright **sekali** di `handoff/<ID>/` (`npm i playwright && npx playwright install chromium`); repo proyek dan
@@ -14,8 +28,8 @@ murni, diuji `node --test bin/uji-alur-kit.test.mjs`) · `contoh-uji.mjs` (skrip
 2. **Tulis skrip tipis** `uji.mjs` dari `contoh-uji.mjs`: isi alamat, akun per peran, kata terlarang proyek, lalu satu fungsi
    per tugas di `alur-tugas.md` (jalur lancar + kasus gagal + layar kosong). Gunakan `snap` di tiap layar penting.
 3. **Debug per tugas, jalankan penuh sekali**: bungkus tiap tugas dengan `s.tugas("nama", fn)` lalu jalankan `UJI_TUGAS=masuk node uji.mjs` (PowerShell: `$env:UJI_TUGAS='masuk'; node uji.mjs`)
-   (hanya tugas yang namanya memuat kata itu; pisahkan dengan koma) sampai bersih; baru satu `node uji.mjs` penuh. Eksekusi penuh aplikasi
-   9 tugas (2 peran) × 2 perangkat ≈ 6 mnt — mengulanginya tiap perbaikan skrip adalah penyebab utama uji lambat. Galat skrip tertangkap
+   (hanya tugas yang namanya memuat kata itu; pisahkan dengan koma) sampai bersih; baru satu `node uji.mjs` penuh. Eksekusi **penuh** aplikasi
+   9 tugas (2 peran) × 2 perangkat ≈ 6 mnt — mengulanginya tiap perbaikan skrip adalah penyebab utama uji lambat (mode cepat: ± 2 mnt). Galat skrip tertangkap
    (`tugas`/`coba`) dan tidak menghentikan uji; langkah GALAT = skrip/selektor salah, bukan temuan aplikasi.
 4. **Isi templat**: `hasil/ringkasan.md` memuat baris matriks dan tabel calon temuan; `hasil/hasil.json` memuat semuanya per
    langkah. Kit hanya MENEMUKAN calon temuan — kamu memutuskan tingkat, mengaitkan kode sumber (A#/G#/K#/R#/N#), usulan, dan
@@ -45,8 +59,9 @@ Kasus gagal sengaja: `snap(nama, { gagal: true })` (respons 4xx dianggap diharap
   `pergiDengan` (`goto` | `spa`), `menu {tautan,pemicuHp}`, `teksTerlarang`, `polaAngka`, `abaikanKonsol`, `responsDiizinkan`,
   `penghalang` (daftar selektor dialog/overlay), `fotoPenuh` (true | false | null = tanpa tangkapan). `PRESET_RUDIS` mengisi
   login `?next=`, `pergiDengan: "spa"` (token di memori; `goto` biasa memutus login), dan sidebar shadcn.
+- `uji.perangkatUji` (cepat `["hp"]`, penuh `["hp","komputer"]`) · `uji.cakupan({ tugasUji, tugasSemua })` · `uji.mode`.
 - `uji.sesi(peran, "hp" | "komputer", { awal })` → `s` (sudah login; HP = iPhone 13, komputer = 1440×900).
-- `s.snap(nama, { gagal })` tangkapan bernomor + pemeriksaan · `s.klik(target)` (menutup penghalang atau membuka menu HP
+- `s.snap(nama, { gagal, kunci })` tangkapan bernomor + pemeriksaan (mode cepat: PNG hanya bila `kunci`/`gagal`/galat; pemeriksaan selalu) · `s.klik(target)` (menutup penghalang atau membuka menu HP
   bila sasaran tertutup) · `s.menu(nama)` · `s.pergi(alamat)` · `s.isi/isiAngka/isiTanggal(target, nilai)` (mengembalikan nilai yang
   tampil) · `s.pilihOpsi({ pemicu, cari, opsi })` (select asli, dialog pencarian, combobox) · `s.tutupPenghalang()` ·
   `s.tugas(nama, fn)` / `s.coba(nama, fn)` · `s.pesan()` (toast, galat inline, dialog yang tampak; `snap` menyimpannya di `hasil.json` › `pesan`) · `s.lepasPenjaga()` (dialog "Perubahan belum disimpan"; otomatis dipanggil `klik`/`tutupPenghalang`, tombol di opsi `tombolPenjaga`) · `s.catatTemuan({...})` · `s.page` (Playwright mentah bila perlu).
@@ -63,4 +78,7 @@ Kasus gagal sengaja: `snap(nama, { gagal: true })` (respons 4xx dianggap diharap
 - Pemicu `pilihOpsi`/`klik` berupa RegExp dicari sebagai tombol, combobox, tautan, lalu teks; tombol yang namanya dari label (aria) ikut ketemu.
 - Tangkapan `fullPage` menaruh header lengket di tengah gambar HP; pakai `fotoPenuh: false` bila mengganggu.
 - Batas tunggu langkah 8 dtk (bukan 30 dtk bawaan Playwright) supaya selektor salah gagal cepat.
+- Tugas berantai lintas peran (admin buat barang → petugas catat → admin batalkan): buka dua sesi sekaligus (`uji.sesi` dua kali) dan beri data uji awalan tetap (mis. "Cepat-"); `UJI_TUGAS` hanya menjalankan tugas yang dipilih, jadi sediakan datanya lewat langkah awal tugas itu atau cari data berawalan itu yang sudah ada.
+- Sunting skrip dengan alat Edit/Write, bukan `node -e`/heredoc di Git Bash: `\s` di regex bisa hilang.
+- Respons 401 `GET /rbac/me` atau `/auth/me` di pemuatan pertama (preset Rudis) sudah diizinkan; 401 di tempat lain tetap calon temuan.
 - Kit tidak mengubah kode atau data aplikasi selain apa yang dilakukan skrip kamu (data uji = milikmu); jangan menghapus data lain.

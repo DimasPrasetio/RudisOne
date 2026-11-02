@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { polaAngkaBerlebih, polaTanggalIso, temuanTeksTerlarang, temuanGeser, temuanTargetSentuh, temuanLabel, temuanPapanKetik,
-  temuanKonsol, temuanRespons, periksaLayar, kelompokkanTemuan, tabelTemuan, barisMatriks } from "../templat/uji-alur-kit/periksa.mjs";
+  temuanKonsol, temuanRespons, periksaLayar, kelompokkanTemuan, tabelTemuan, barisMatriks, tentukanMode, perangkatUntukMode, perluTangkapan, teksCakupan } from "../templat/uji-alur-kit/periksa.mjs";
 
 const jenis = (arr) => arr.map((t) => t.jenis);
 
@@ -116,4 +116,32 @@ test("kelompokkanTemuan + tabelTemuan + barisMatriks: keluaran siap tempel ke te
   ]);
   assert.match(m, /\| petugas \| Barang masuk \| LULUS · 001\.png \| SELESAI-MENYIMPANG \(temuan 1\) \| 2 dari 2 \|/);
   assert.match(m, /\| admin \| Pengguna \| BELUM TERVERIFIKASI \| GAGAL \|/);
+});
+
+test("mode uji: cepat = HP saja + tangkapan hanya di langkah kunci/gagal/galat; penuh = semua; mode asing ditolak", () => {
+  assert.equal(tentukanMode(undefined, undefined), "cepat", "bawaan = cepat");
+  assert.equal(tentukanMode("penuh", ""), "penuh");
+  assert.equal(tentukanMode("penuh", "CEPAT"), "cepat", "env UJI_MODE menang atas opsi");
+  assert.equal(tentukanMode("cepat", ""), "cepat");
+  assert.throws(() => tentukanMode("kilat"), /tidak dikenal/);
+  assert.deepEqual(perangkatUntukMode("cepat"), ["hp"]);
+  assert.deepEqual(perangkatUntukMode("cepat", ["komputer", "hp"]), ["hp"]);
+  assert.deepEqual(perangkatUntukMode("penuh"), ["hp", "komputer"]);
+  assert.equal(perluTangkapan("penuh"), true);
+  assert.equal(perluTangkapan("cepat"), false);
+  assert.equal(perluTangkapan("cepat", { kunci: true }), true);
+  assert.equal(perluTangkapan("cepat", { gagal: true }), true);
+  assert.equal(perluTangkapan("cepat", { galat: true }), true);
+});
+
+test("teksCakupan: pernyataan jujur 'cepat: N dari M tugas, HP saja' + daftar belum terverifikasi dari tugas yang tak dijalankan", () => {
+  const c = teksCakupan({ mode: "cepat", tugasUji: ["masuk", "keluar"], tugasSemua: ["masuk", "keluar", "stok", "riwayat"], perangkat: ["hp"] });
+  assert.match(c.pernyataan, /^cepat: 2 dari 4 tugas, HP saja/);
+  assert.ok(c.belum.some((b) => b.endsWith(": stok")) && c.belum.some((b) => b.endsWith(": riwayat")));
+  assert.ok(c.belum.some((b) => /komputer/.test(b)) && c.belum.some((b) => /layar kosong/.test(b)));
+  const p = teksCakupan({ mode: "penuh", tugasUji: ["a", "b"], tugasSemua: ["a", "b"], perangkat: ["hp", "komputer"] });
+  assert.equal(p.pernyataan, "penuh: 2 dari 2 tugas, HP + komputer");
+  assert.deepEqual(p.belum, []);
+  assert.match(teksCakupan({ mode: "cepat", perangkat: ["hp"] }).pernyataan, /jumlah tugas belum dinyatakan/, "cakupan tak dinyatakan tidak berpura-pura lengkap");
+  assert.equal(teksCakupan({ mode: "cepat", tugasUji: ["x"], tugasSemua: ["x"], perangkat: ["hp"] }).pernyataan.startsWith("cepat: 1 dari 1 tugas"), true);
 });

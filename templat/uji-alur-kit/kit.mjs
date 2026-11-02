@@ -7,16 +7,18 @@ import fs from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
-import { periksaLayar, kelompokkanTemuan, tabelTemuan, barisMatriks, AMBANG_SENTUH } from "./periksa.mjs";
+import { periksaLayar, kelompokkanTemuan, tabelTemuan, barisMatriks, AMBANG_SENTUH, tentukanMode, perangkatUntukMode, perluTangkapan, teksCakupan } from "./periksa.mjs";
 
 /** Bawaan aplikasi monorepo Rudis (app-shell shadcn: sidebar, dialog radix, login `?next=`, token di memori → navigasi lewat SPA). */
 export const PRESET_RUDIS = {
   login: { path: "/login", email: "input[type=email],input[name=email]", sandi: "input[type=password]", kirim: "button[type=submit]", next: "next" },
   pergiDengan: "spa",
+  responsDiizinkan: [/^GET \/(rbac|auth)\/me 401/], // pemuatan pertama sebelum token ada (token di memori): bukan temuan; 401 di tempat lain tetap ditandai
   menu: { tautan: "a[data-sidebar=menu-button]", pemicuHp: "button[data-slot=sidebar-trigger]" },
 };
 
 const BAWAAN = {
+  mode: "cepat", // cepat (bawaan di gerbang akhir: HP saja, tugas inti, tangkapan di langkah kunci) | penuh (hanya bila pengguna meminta); env UJI_MODE menang
   baseUrl: "http://localhost:5173",
   apiUrl: "",
   keluaran: "./hasil",
@@ -163,7 +165,7 @@ class Sesi {
     return this.page.evaluate(() => {
       const tampak = (e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(e).visibility !== "hidden"; };
       const sel = "[role=alert],[role=status],[aria-live],[data-sonner-toast],[data-slot=toast],[role=dialog],[role=alertdialog],[id$=-error],[id$=-message],[data-slot=form-message],.text-destructive";
-      return [...new Set([...document.querySelectorAll(sel)].filter(tampak).map((e) => e.innerText.trim().replace(/\s+/g, " ")).filter(Boolean))].map((t) => t.slice(0, 300)).slice(0, 8);
+      return [...new Set([...document.querySelectorAll(sel)].filter(tampak).map((e) => String(e.innerText ?? e.textContent ?? "").trim().replace(/\s+/g, " ")).filter(Boolean))].map((t) => t.slice(0, 300)).slice(0, 8);
     });
   }
 
@@ -265,13 +267,15 @@ class Sesi {
     }
   }
 
-  /** Tangkapan bernomor + pemeriksaan dasar. `gagal: true` = kasus gagal sengaja dipicu (respons 4xx dianggap diharapkan; 5xx tetap temuan). */
+  /** Tangkapan bernomor + pemeriksaan dasar. `gagal: true` = kasus gagal sengaja dipicu (respons 4xx dianggap diharapkan; 5xx tetap temuan).
+   *  `kunci: true` = langkah kunci (layar awal, terisi, hasil berhasil): di mode cepat hanya langkah kunci, kasus gagal, dan galat yang dipotret; pemeriksaan tetap jalan di setiap snap. */
   async snap(nama, extra = {}) {
     const o = this.uji.opsi, t0 = Date.now();
     await this.tenang();
     const no = ++this.uji.no;
     const berkas = `${String(no).padStart(3, "0")}-${this.perangkat}-${this.peran}-${slug(nama)}.png`;
-    if (o.fotoPenuh !== null) await this.page.screenshot({ path: path.join(this.uji.dirFoto, berkas), fullPage: o.fotoPenuh }).catch(() => {});
+    const foto = o.fotoPenuh !== null && perluTangkapan(this.uji.mode, { kunci: extra.kunci, gagal: extra.gagal, galat: !!extra.galat });
+    if (foto) await this.page.screenshot({ path: path.join(this.uji.dirFoto, berkas), fullPage: o.fotoPenuh }).catch(() => {});
     const pesan = await this.pesan().catch(() => []); // paling awal: toast cepat hilang
     const dom = await this.page.evaluate(ambilDom);
     const konsol = this._konsol.splice(0), respons = this._respons.splice(0);
@@ -281,7 +285,7 @@ class Sesi {
       sentuh: this.hp, min: AMBANG_SENTUH, teksTerlarang: o.teksTerlarang, bawaanTerlarang: o.bawaanTerlarang, polaNama: o.polaAngka,
       konsol, abaikanKonsol: o.abaikanKonsol, respons: respons.filter((r) => !diharapkan.includes(r)), responsDiizinkan: o.responsDiizinkan,
     })];
-    const l = { no, nama, peran: this.peran, perangkat: this.perangkat, url: dom.url, foto: o.fotoPenuh === null ? null : berkas, geser: dom.scrollW > dom.innerW + 1,
+    const l = { no, nama, peran: this.peran, perangkat: this.perangkat, url: dom.url, foto: foto ? berkas : null, geser: dom.scrollW > dom.innerW + 1,
       gagal: !!extra.gagal, responsDiharapkan: diharapkan.map((r) => `${r.metode} ${r.jalur} → ${r.status}${r.isi ? " " + r.isi.slice(0, 120) : ""}`),
       pesan, teks: dom.teks.replace(/\s*\n+\s*/g, " | ").slice(0, 1500), nilaiIsian: dom.nilaiIsian.slice(0, 12), temuan, ...(extra.galat ? { galat: extra.galat } : {}), ms: Date.now() - t0 };
     this.uji.langkah.push(l);
@@ -293,12 +297,17 @@ class Sesi {
 class Uji {
   constructor(opsi) {
     const saring = (process.env.UJI_TUGAS ?? "").split(",").map((x) => x.trim().toLowerCase()).filter(Boolean);
+    this.mode = tentukanMode(opsi.mode, process.env.UJI_MODE);
     Object.assign(this, { opsi, saring: saring.length ? saring : null, no: 0, langkah: [], tugas: [], fakta: {}, galat: [], sesiAktif: [], mulai: Date.now() });
     // uji ulang parsial (UJI_TUGAS) tidak boleh menimpa hasil/tangkapan eksekusi penuh: keluaran sendiri
     if (this.saring) opsi.keluaran = `${opsi.keluaran.replace(/[\\/]+$/, "")}-ulang-${this.saring.join("-").replace(/[^a-z0-9-]+/g, "").slice(0, 30)}`;
     this.dirFoto = path.resolve(opsi.keluaran, "tangkapan");
     fs.mkdirSync(this.dirFoto, { recursive: true });
   }
+  /** Perangkat yang diuji menurut mode: cepat = ["hp"], penuh = ["hp", "komputer"]. Pakai di perulangan skrip: `for (const p of uji.perangkatUji)`. */
+  get perangkatUji() { return perangkatUntukMode(this.mode, Object.keys(this.opsi.perangkat)); }
+  /** Nyatakan cakupan jujur (masuk ringkasan.md + hasil.json): tugasUji = yang dijalankan, tugasSemua = semua tugas di alur-tugas.md. */
+  cakupan({ tugasUji = [], tugasSemua = [] } = {}) { this.cakupanDinyatakan = { tugasUji, tugasSemua }; }
   /** Sesi baru (konteks browser sendiri) untuk satu peran di satu perangkat, sudah masuk bila `masuk` ≠ false. */
   async sesi(peran, perangkat, { masuk = true, awal = "/" } = {}) {
     const cfg = this.opsi.perangkat[perangkat];
@@ -319,14 +328,16 @@ class Uji {
   async selesai() {
     const selesai = Date.now();
     const kelompok = kelompokkanTemuan(this.langkah);
-    const meta = { mulai: new Date(this.mulai).toISOString(), selesai: new Date(selesai).toISOString(), durasiDetik: dtk(selesai - this.mulai), baseUrl: this.opsi.baseUrl,
+    const cakupan = teksCakupan({ mode: this.mode, ...(this.cakupanDinyatakan ?? {}), perangkat: this.perangkatUji });
+    const meta = { mode: this.mode, cakupan: cakupan.pernyataan, belumTerverifikasi: cakupan.belum, mulai: new Date(this.mulai).toISOString(), selesai: new Date(selesai).toISOString(), durasiDetik: dtk(selesai - this.mulai), baseUrl: this.opsi.baseUrl,
       langkah: this.langkah.length, galatLangkah: this.galat.length, kasusGagal: this.sesiAktif.reduce((n, s) => n + s.kasusGagal, 0) };
     fs.writeFileSync(path.resolve(this.opsi.keluaran, "hasil.json"), JSON.stringify({ meta, tugas: this.tugas, fakta: this.fakta, galat: this.galat, kelompok, langkah: this.langkah }, null, 1));
     const perJenis = {}; for (const g of kelompok) perJenis[g.jenis] = (perJenis[g.jenis] ?? 0) + 1;
-    const md = [`# Ringkasan uji otomatis (kit)`, "", `Mulai ${meta.mulai} · selesai ${meta.selesai} · ${meta.durasiDetik} dtk eksekusi kit · ${meta.langkah} tangkapan · ${meta.galatLangkah} langkah galat`, "",
+    const md = [`# Ringkasan uji otomatis (kit) — mode ${this.mode.toUpperCase()}`, "", `**Cakupan — ${cakupan.pernyataan}**`, "", `Mulai ${meta.mulai} · selesai ${meta.selesai} · ${meta.durasiDetik} dtk eksekusi kit · ${meta.langkah} tangkapan · ${meta.galatLangkah} langkah galat`, "",
       "## Matriks (isi dari hasilTugas)", this.tugas.length ? barisMatriks(this.tugas) : "(belum ada hasilTugas)", "",
       "## Calon temuan (usul kit; BSA menentukan tingkat, kode sumber, usulan)", kelompok.length ? tabelTemuan(kelompok) : "(tidak ada temuan otomatis)", "",
-      "## Langkah galat (skrip gagal, bukan temuan aplikasi)", this.galat.length ? this.galat.map((g) => `- ${g.perangkat}/${g.peran} ${g.nama}: ${g.pesan}`).join("\n") : "(tidak ada)", ""].join("\n");
+      "## Langkah galat (skrip gagal, bukan temuan aplikasi)", this.galat.length ? this.galat.map((g) => `- ${g.perangkat}/${g.peran} ${g.nama}: ${g.pesan}`).join("\n") : "(tidak ada)", "",
+      "## Belum terverifikasi (di luar cakupan mode ini — salin ke templat)", cakupan.belum.length ? cakupan.belum.map((b) => `- ${b}`).join("\n") : "(tidak ada)", ""].join("\n");
     fs.writeFileSync(path.resolve(this.opsi.keluaran, "ringkasan.md"), md);
     await this.browser.close().catch(() => {});
     console.log(JSON.stringify({ ...meta, temuanPerJenis: perJenis }));

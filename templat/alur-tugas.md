@@ -31,7 +31,16 @@ Alur yang **disalin dari pustaka** (jalur ekspres) memakai kode berkas pustaka a
 | G2 | <Pesan galat muncul dekat isian yang bermasalah, bukan hanya di bagian atas halaman> | <A#, N5> |
 | G3 | <Angka jumlah tanpa nol desimal yang tidak perlu (7, bukan 7,0000); tanggal 02/11/2026> | <A#, N2> |
 
-## <Peran> — <tugas utama n> (3–5 tugas per peran, dari kriteria selesai pemahaman bersama)
+## Tugas inti (uji cepat)
+<!-- Ditetapkan BSA di sini, sejak ②b, supaya uji jalan alur CEPAT (bawaan di ⑦) tidak mengarang tugas. Bukan untuk pengguna dan bukan
+     keputusan baru: hanya penanda. 1–2 tugas per peran: yang paling sering dipakai ATAU paling berisiko (mengubah data/stok/uang,
+     aksi tak bisa diurungkan, izin). Tiap tugas inti menyebut 1–2 kasus gagal utama yang pasti diuji. Tugas lain tetap tertulis
+     lengkap di bawah dan baru diuji bila pengguna meminta uji penuh. Judul tugas inti di bawah diberi akhiran [inti]. -->
+| Peran | Tugas inti | Alasan (paling sering / paling berisiko) | Kasus gagal utama (1–2 dari tabel kasus gagal tugasnya) |
+|---|---|---|---|
+| <petugas gudang> | <Barang keluar> | <sering + mengubah stok> | <stok kurang; jumlah kosong> |
+
+## <Peran> — <tugas utama n> [inti] (3–5 tugas per peran, dari kriteria selesai pemahaman bersama; tugas inti diberi [inti])
 
 ### Alur
 - **Layar awal:** <layar tempat tugas dimulai; aksi utama mudah ditemukan di sini>
