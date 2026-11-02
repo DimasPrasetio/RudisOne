@@ -171,8 +171,11 @@ const bacaIdTerakhir = (file = berkasIdTerakhir()) => { try { const j = JSON.par
 export function catatIdTerakhir(id, file = berkasIdTerakhir()) {
   const m = String(id).match(/^T-(\d{8})-(\d+)$/);
   if (!m) return;
+  // ID eksplisit bertanggal masa depan tidak dicatat dan catatan masa depan tidak membekukan nomor hari ini
+  const hari = tanggalLokal().replace(/-/g, "");
+  if (m[1] > hari) return;
   const j = bacaIdTerakhir(file);
-  if (j.tanggal > m[1] || (j.tanggal === m[1] && Number(j.n) >= Number(m[2]))) return;
+  if ((j.tanggal > m[1] && j.tanggal <= hari) || (j.tanggal === m[1] && Number(j.n) >= Number(m[2]))) return;
   try { tulisAtomik(file, `${JSON.stringify({ tanggal: m[1], n: Number(m[2]) })}\n`); } catch { /* best effort */ }
 }
 /** ID berikut untuk tanggal lokal hari ini: T-YYYYMMDD-(n terbesar + 1), n terbesar dari register, folder handoff/<ID>/,

@@ -66,6 +66,12 @@ test("T-20261102-4: ID tidak terulang setelah register dikosongkan (pasang ulang
   R.catatIdTerakhir(`T-${hariIni}-4`, path.join(l.dir, ".id-terakhir.json"));
   R.catatIdTerakhir(`T-${hariIni}-2`, path.join(l.dir, ".id-terakhir.json"));
   assert.equal(JSON.parse(fs.readFileSync(path.join(l.dir, ".id-terakhir.json"), "utf8")).n, 4);
+  // ID masa depan tidak dicatat; catatan masa depan (rusak) tidak membekukan nomor hari ini
+  R.catatIdTerakhir("T-20991231-1", path.join(l.dir, ".id-terakhir.json"));
+  assert.equal(JSON.parse(fs.readFileSync(path.join(l.dir, ".id-terakhir.json"), "utf8")).tanggal, hariIni);
+  fs.writeFileSync(path.join(l.dir, ".id-terakhir.json"), JSON.stringify({ tanggal: "20991231", n: 1 }));
+  R.catatIdTerakhir(`T-${hariIni}-5`, path.join(l.dir, ".id-terakhir.json"));
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(l.dir, ".id-terakhir.json"), "utf8")), { tanggal: hariIni, n: 5 });
   // register device sendiri → berkas di rumah pengguna (di luar folder RudisOne)
   assert.equal(R.berkasIdTerakhir(path.join(path.dirname(SKRIP), "..", "handoff", "register-tugas.json")).startsWith(os.homedir()), !process.env.RUDISONE_ID_TERAKHIR);
 });

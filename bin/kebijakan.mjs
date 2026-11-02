@@ -965,17 +965,92 @@ export function globKeRegex(g) {
   try { return new RegExp("^" + r + "$"); } catch { return /(?!)/; }
 }
 /** Glob saringan nama berkas (grep --include, rg -g) → RegExp tanpa beda huruf besar/kecil; kurawal `{a,b}` diurai
- *  (rg mengenalnya). Kurawal bersarang/tak tertutup → cocok dengan apa pun (ragu = berkas env dianggap lolos saringan). */
+ *  (rg mengenalnya). Ragu → cocok dengan apa pun (berkas env dianggap lolos saringan): kurawal tak seimbang, pemisah path
+ *  (`/`, `\` — juga escape fnmatch `\.env`), kelas POSIX `[[:punct:]]`, glob yang gagal diterjemahkan. */
 export function globNama(g) {
   g = String(g);
+  if (/[\\/]|\[:/.test(g)) return /^/;
   const m = g.match(/\{([^{}]*)\}/);
   if (!m) {
     if (/[{}]/.test(g)) return /^/;
     const r = globKeRegex(g);
-    return new RegExp(r.source, "i");
+    return r.source === "(?!)" ? /^/ : new RegExp(r.source, "i");
   }
   const alt = m[1].split(",").map((x) => globNama(g.slice(0, m.index) + x + g.slice(m.index + m[0].length)));
   return { test: (s) => alt.some((r) => r.test(s)) };
+}
+// Opsi grep (GNU) dan rg yang dikenal pengurai saringan. Opsi panjang di luar daftar (juga singkatan GNU `--inc`, `--lab`)
+// → ragu: nilai opsi tak dikenal bisa berbunyi `--include`/`-g`, jadi saringan tidak dipercaya.
+const OPSI_CARI = {
+  grep: {
+    nilaiPendek: "efmABCdDX",
+    nilaiPanjang: new Set(["regexp", "file", "max-count", "label", "after-context", "before-context", "context", "binary-files", "devices",
+      "directories", "exclude", "exclude-from", "exclude-dir", "include", "group-separator"]),
+    bendera: new Set(["extended-regexp", "fixed-strings", "basic-regexp", "perl-regexp", "ignore-case", "no-ignore-case", "word-regexp",
+      "line-regexp", "null-data", "no-messages", "invert-match", "byte-offset", "line-number", "line-buffered", "with-filename", "no-filename",
+      "only-matching", "quiet", "silent", "text", "files-without-match", "files-with-matches", "count", "initial-tab", "null", "recursive",
+      "dereference-recursive", "color", "colour", "no-group-separator", "binary"]),
+  },
+  rg: {
+    nilaiPendek: "ABCdeEfgjmMrtT",
+    nilaiPanjang: new Set(["after-context", "before-context", "context", "context-separator", "colors", "color", "encoding", "engine", "file",
+      "glob", "iglob", "ignore-file", "max-columns", "max-count", "max-depth", "max-filesize", "path-separator", "pre", "pre-glob", "regexp",
+      "replace", "sort", "sortr", "threads", "type", "type-add", "type-clear", "type-not"]),
+    bendera: new Set(["hidden", "no-hidden", "follow", "no-follow", "ignore-case", "smart-case", "case-sensitive", "line-number", "no-line-number",
+      "fixed-strings", "word-regexp", "line-regexp", "files", "files-with-matches", "files-without-match", "count", "count-matches", "heading",
+      "no-heading", "with-filename", "no-filename", "only-matching", "multiline", "multiline-dotall", "vimgrep", "json", "pcre2",
+      "unrestricted", "invert-match", "null", "null-data", "text", "trim", "column", "no-column", "no-messages", "quiet", "stats",
+      "byte-offset", "crlf", "no-config", "no-ignore", "no-ignore-vcs", "no-ignore-dot", "no-ignore-parent", "no-ignore-global",
+      "no-ignore-exclude", "no-ignore-files", "binary", "sort-files"]),
+  },
+};
+/** Urai opsi grep/rg → { saring: [{ jenis: "include"|"exclude", glob }] menurut urutan, nilaiSaring: indeks nilai saringan
+ *  yang terpisah, ragu }. Nilai setiap opsi bernilai dilewati (`-e --include` = pola), berhenti di `--`. rg (lexopt) membuang
+ *  `=` pada nilai opsi pendek (`-g=*` = `*`); glob rg berawalan `!` = kecualikan. */
+export function opsiCari(args, rg = false) {
+  const D = rg ? OPSI_CARI.rg : OPSI_CARI.grep;
+  const saring = [], nilaiSaring = new Set();
+  let ragu = false;
+  const catat = (nama, v, j) => {
+    if (v === undefined) return;
+    if (rg && (nama === "glob" || nama === "iglob")) saring.push(v.startsWith("!") ? { jenis: "exclude", glob: v.slice(1) } : { jenis: "include", glob: v });
+    else if (!rg && nama === "include") saring.push({ jenis: "include", glob: v });
+    else if (!rg && (nama === "exclude" || nama === "exclude-from")) saring.push({ jenis: "exclude", glob: v });
+    else return;
+    if (j !== null) nilaiSaring.add(j);
+  };
+  for (let j = 0; j < args.length; j++) {
+    const x = args[j];
+    if (x === "--") break;
+    if (x.startsWith("--")) {
+      const eq = x.indexOf("="), nama = eq < 0 ? x.slice(2) : x.slice(2, eq);
+      if (D.nilaiPanjang.has(nama)) {
+        if (eq >= 0) catat(nama, x.slice(eq + 1), null);
+        else if (j + 1 < args.length) { catat(nama, args[j + 1], j + 1); j++; }
+      } else if (!D.bendera.has(nama) && !(rg && /^no-ignore/.test(nama))) ragu = true;
+      continue;
+    }
+    if (x.length < 2 || !x.startsWith("-")) continue;
+    for (let k = 1; k < x.length; k++) {
+      if (!D.nilaiPendek.includes(x[k])) continue;
+      let v = x.slice(k + 1), jNilai = null;
+      if (!v) { if (j + 1 < args.length) { v = args[j + 1]; jNilai = j + 1; j++; } else v = undefined; }
+      else if (rg && v.startsWith("=")) v = v.slice(1);
+      if (rg && x[k] === "g") catat("glob", v, jNilai);
+      break;
+    }
+  }
+  return { saring, nilaiSaring, ragu };
+}
+/** Saringan nama berkas yang bisa dipercaya → (nama) => lolos?; null = semua berkas dibaca.
+ *  grep: berkas yang tak cocok pola mana pun tetap dibaca KECUALI opsi saringan pertama adalah --include (dok GNU grep).
+ *  rg: glob positif mana pun = daftar putih. Berkas env lolos bila cocok salah satu glob include (pengecualian diabaikan). */
+export function saringNama(opsi, rg = false) {
+  if (opsi.ragu || !opsi.saring.length) return null;
+  const inc = opsi.saring.filter((s) => s.jenis === "include");
+  if (!inc.length || (!rg && opsi.saring[0].jenis !== "include")) return null;
+  const re = inc.map((s) => globNama(s.glob));
+  return (nama) => re.some((r) => r.test(nama));
 }
 /** Glob yang bisa mencocokkan berkas env di foldernya (`cat .e*`, `cat .env*`). */
 function globEnv(pola, folder, K) {
@@ -1172,29 +1247,24 @@ export function envSegmen(s, K, ctx, semua = s.teks, dalam = 0) {
     for (const c of folder ?? []) { const b = kena(path.join(c, ".env")); if (b && fs.existsSync(b)) return hasil(b, `${prog} mencetak nilai .env yang dimuat otomatis`); }
   }
   if (prog === "env" && !args.some((x) => !x.startsWith("-") && !/^[A-Za-z_]\w*=/.test(x))) return null;   // env telanjang: lingkungan agent sendiri
-  // pencarian rekursif: grep -r / rg / git grep --untracked
+  // pencarian rekursif: grep -r / grep -d recurse / rg / git grep --untracked
   const grepProg = /^(grep|egrep|fgrep)$/.test(prog);
-  const rekursif = (grepProg && args.some((x) => /^--(recursive|dereference-recursive)$|^-[A-Za-z]*[rR]/.test(x)))
+  const rekursif = (grepProg && args.some((x) => /^--(recursive|dereference-recursive|directories)(=|$)|^-[A-Za-z]*[rRd]/.test(x)))
     || /^(rg|ag|ack)$/.test(prog) || (prog === "git" && args[0] === "grep");
   // argumen non-opsi pertama grep/rg/ag/ack/git grep = pola, bukan berkas (kecuali pola diberikan lewat -e/-f)
   const polaLewatOpsi = args.some((x) => /^(-e|-f|--regexp|--file)$|^--(regexp|file)=|^-[A-Za-z]*[ef]$/.test(x));
-  // saring nama berkas: grep --include=GLOB, rg -g/--glob/--iglob GLOB (glob positif saja). Nilai opsi yang terpisah
-  // (`--include '*.go'`) bukan pola/akar pencarian.
-  const OPSI_SARING = grepProg ? /^--include$/ : /^(-g|--glob|--iglob)$/;
-  const saring = [], nilaiOpsi = new Set();
-  if (grepProg || prog === "rg") args.forEach((x, j) => {
-    const m = grepProg ? x.match(/^--include=(.*)$/) : x.match(/^(?:--glob|--iglob)=(.*)$|^-g(.+)$/);
-    if (m) saring.push(m[1] ?? m[2]);
-    else if (OPSI_SARING.test(x) && j + 1 < args.length) { saring.push(args[j + 1]); nilaiOpsi.add(j + 1); }
-  });
-  const positif = saring.filter((g) => !g.startsWith("!"));
-  // berkas env yang lolos saringan; null = tanpa saringan yang bisa dinilai (semua berkas dibaca)
-  const lolosSaring = positif.length && positif.every((g) => !g.includes("/") && !g.includes("\\"))
-    ? (nama) => positif.some((g) => globNama(g).test(nama)) : null;
+  // saringan nama berkas (grep --include/--exclude, rg -g/--glob/--iglob) dari pengurai opsi; nilai saringan yang terpisah
+  // (`--include '*.go'`) bukan pola/akar pencarian. Opsi tak dikenal → `ragu` → saringan tidak dipercaya.
+  const opsi = grepProg || prog === "rg" ? opsiCari(args, prog === "rg") : { saring: [], nilaiSaring: new Set(), ragu: false };
+  const lolosSaring = saringNama(opsi, prog === "rg");
+  // rg: glob positif mengalahkan semua aturan abaikan, termasuk berkas tersembunyi
+  const rgGlob = prog === "rg" && (opsi.ragu ? args.some((x) => /^(-[A-Za-z]*g|--i?glob)/.test(x)) : opsi.saring.some((s) => s.jenis === "include"));
+  const nilaiOpsi = opsi.ragu ? new Set() : opsi.nilaiSaring;
   const tanpaPola = (xs) => { const o = xs.filter((x, j) => !x.startsWith("-") && !(xs === args && nilaiOpsi.has(j))); return polaLewatOpsi ? o : o.slice(1); };
   if (rekursif) {
     const tanpaIgnore = (grepProg && (w[i].includes("/") || pembungkus.some((x) => x === "command") || args.some((x) => /^(-[A-Za-z]*Z|--null)$/.test(x))))
-      || /^(ag|ack|egrep|fgrep)$/.test(prog) || args.some((x) => /^(-uu+|--no-ignore.*|--unrestricted|--untracked|--no-index)$/.test(x)) || osLogis() === "win32";
+      || /^(ag|ack|egrep|fgrep)$/.test(prog) || args.some((x) => /^(-uu+|--no-ignore.*|--unrestricted|--untracked|--no-index)$/.test(x)) || osLogis() === "win32"
+      || rgGlob;
     const rgTersembunyi = args.some((x) => /^(-u|--hidden|-\.)$/.test(x));
     const mode = tanpaIgnore ? "semua" : grepProg ? "pohon" : prog === "rg" && rgTersembunyi ? "git" : null;
     const akar = tanpaPola(prog === "git" ? args.slice(1) : args);
@@ -1337,21 +1407,23 @@ function envPerintah(cmd, input, K) {
   // `cd x && …`: bila cd gagal, rantai && sesudahnya tidak berjalan → selama rantai itu folder lama tidak mungkin aktif
   // (pencarian `cd sub && grep -r .` tidak lagi dinilai atas folder awal). Folder lama disimpan di `cadangan` dan kembali
   // berlaku begitu rantai putus (;, ||, &, baris baru, akhir). Tidak dipersempit bila ada subshell/substitusi (kompleks):
-  // `(cd x && a) && grep -r .` berjalan di folder awal.
-  let cadangan = [];
+  // `(cd x && a) && grep -r .` berjalan di folder awal. Juga tidak bila cd bisa terlewati sementara rantai && tetap jalan:
+  // `a || cd x && b` = `(a || cd x) && b` (a berhasil → cd tidak jalan), atau cd anggota pipeline (`a | cd x && b`: subshell).
+  let cadangan = [], sebelum;
   for (const s of u.segmen) {
     const h = envSegmen(s, K, ctx, bersih);
     if (h) return h;
     const k0 = s.kata[0]?.nilai ?? "";
+    const kc = /^(command|builtin)$/.test(k0) && s.kata[1]?.nilai === "cd" ? 1 : 0;   // command cd / builtin cd
     if (/^(pushd|popd)$/.test(k0)) { ctx.cwd = null; ctx.mungkin = null; }
-    else if (k0 === "cd") {
-      const arg = s.kata.slice(1).filter((x) => !/^-[LP]$/.test(x.nilai));
+    else if (k0 === "cd" || kc) {
+      const arg = s.kata.slice(1 + kc).filter((x) => !/^-[LP]$/.test(x.nilai));
       const tujuan = arg.length === 0 ? HOME : arg.length === 1 && ctx.cwd && !arg[0].ekspansi && !arg[0].glob && arg[0].nilai !== "-" ? rumah(arg[0].nilai) : null;
       ctx.cwd = tujuan && ctx.cwd ? path.resolve(ctx.cwd, tujuan) : null;
       if (!tujuan || !ctx.mungkin) ctx.mungkin = null;
       else {
         const baru = [...new Set(ctx.mungkin.flatMap((c) => [path.resolve(c, tujuan), jalurFisik(c, tujuan)]))];
-        if (s.sesudah === "&&" && !u.kompleks) { cadangan = [...new Set([...cadangan, ...ctx.mungkin])]; ctx.mungkin = baru; }
+        if (s.sesudah === "&&" && !u.kompleks && !["||", "|", "|&"].includes(sebelum)) { cadangan = [...new Set([...cadangan, ...ctx.mungkin])]; ctx.mungkin = baru; }
         else ctx.mungkin = [...new Set([...ctx.mungkin, ...baru])];
       }
     }
@@ -1359,6 +1431,7 @@ function envPerintah(cmd, input, K) {
       if (ctx.mungkin) ctx.mungkin = [...new Set([...ctx.mungkin, ...cadangan])];
       cadangan = [];
     }
+    sebelum = s.sesudah;
   }
   if (ctx.mungkin && cadangan.length) ctx.mungkin = [...new Set([...ctx.mungkin, ...cadangan])];
   const ctxSub = { cwd: ctx.awal, mungkin: ctx.mungkin ?? (ctx.awal ? [ctx.awal] : null) };

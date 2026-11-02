@@ -295,7 +295,16 @@ test("T-20261102-4: `cd sub && grep -r` dinilai di sub saja; saringan --include/
   harap(["cd proj/apps/api && grep -rn DB .", "cd proj/apps/api && grep -rl DB --include=*.go . | head",
     "cd proj && cd apps/api && grep -rn DB .", "cd proj/apps/web/src/pages && grep -rn x ../ | grep -v y",
     "grep -rn --include=*.go DB .", "grep -rn --include '*.go' DB .", "grep -rn --include=*.go --include=*.ts* DB proj",
-    "cd proj/apps/web/src/pages && grep -rn x ../ --include=*.ts*", "rg -uu -g '*.go' DB .", "rg -uu --glob=*.{go,ts} DB ."], "—", W);
+    "cd proj/apps/web/src/pages && grep -rn x ../ --include=*.ts*", "rg -uu -g '*.go' DB .", "rg -uu --glob=*.{go,ts} DB .",
+    "grep -rn --exclude-dir=node_modules --include=*.go DB .", "grep -rn -A 3 --include=*.go DB .", "rg -g '*.go' DB", "true && cd proj/apps/api && grep -rn DB ."], "—", W);
+  // tinjauan silang T-20261102-4: bentuk yang mengakali pelonggaran → tetap deny
+  harap(["true || cd proj/apps/api && grep -r DB .", "echo x || cd proj/apps/api && grep -rn DB .", "true | cd proj/apps/api && grep -r DB .",
+    "printf '' | cd proj/apps/api && grep -rn DB .", "grep -r --exclude='a*' --include='*.go' DB .", "grep -r --label --include . .",
+    "grep -r -e DB -e --include x .", "rg -uu -e DB -e -g x .", "grep -r -e . -- --include x .", "rg DB -g=*", "rg -uu DB -g=*",
+    "rg DB -g .env", "rg DB -g '.env*'", "rg DB -g '*'", "grep -r --include='[[:punct:]]env' DB .", "grep -r --include='\\.env' DB .",
+    "grep -r --inc=*.go DB .", "grep -d recurse DB .", "grep --directories=recurse DB .", "grep -rd recurse DB ."], "deny", W);
+  harap(["grep -rn DB .", "cd ../.. && cd apps/api && grep -rn DB ."], "—", API);
+  harap(["command cd ../.. && grep -r DB .", "builtin cd ../.. ; grep -r DB .", "cd ../.. && grep -rn DB ."], "deny", API);
   harap(["cd proj/apps/api ; grep -rn DB .", "cd proj/apps/api || grep -rn DB .", "cd proj/apps/api && true ; grep -rn DB .",
     "cd proj/apps/api && true || grep -rn DB .", "(cd proj/apps/api && true) && grep -rn DB .", "cd proj/apps/api & grep -rn DB .",
     "cd proj && grep -rn DB .", "cd proj/apps/api && grep -rn DB ../..", "grep -rn DB .",
