@@ -226,7 +226,8 @@ Sesi di `ruang/<id-peran>` memuat peran otomatis; subagent `rudis-<id-peran>` su
   sebelum melapor.
 - **Alur pemakaian (aplikasi baru / fitur yang menambah atau mengubah layar)**: brief ke Tech Lead menyebut riset alur
   (Research Analyst) dan alur tugas utama (BSA) di Analisis, serta uji jalan alur oleh BSA di gerbang akhir (skill `rudis-sdlc`
-  › Jalur Rakit Paralel); tidak untuk perbaikan bug tanpa perubahan alur. **Persetujuan Rancangan** menampilkan **ringkasan
+  › Jalur Rakit Paralel); tidak untuk perbaikan bug tanpa perubahan alur, dan jalur ekspres dikecualikan dari riset alur.
+  **Persetujuan Rancangan** menampilkan **ringkasan
   alur** (satu baris per tugas utama, dari `templat/alur-tugas.md`) di pesan yang sama — memperlihatkan, **bukan** pertanyaan
   tambahan (anggaran keputusan tidak bertambah). Laporan ke pengguna merangkum hasil uji alur dalam bahasa awam, per tugas
   utama (bisa diselesaikan atau tidak, apa yang diperbaiki, apa yang masih perlu keputusan), dan menyebut bahwa ini

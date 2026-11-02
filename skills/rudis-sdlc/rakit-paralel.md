@@ -10,7 +10,7 @@ akhir; SDD menurut tingkat risiko (skill `rudis-sdd` › Tingkat SDD). Peran, ge
 | ① | Selaras kilat + cek lingkungan | COO | grill kedalaman *standar* (bukan *mendalam*) untuk aplikasi back-office; `bin/perkakas.sh siapkan --segera` |
 | ② | Analisis → **tabel perakitan** | BSA (dipanggil TL) | mulai dari **resep** pustaka (`recipes/` di `rudis-modules`, mis. `back-office-dasar`, `inventori`) lalu tambah/kurangi per kemampuan; kolom Tingkat SDD + Pemilik folder; spek ringkas untuk baris tingkat 1; nomor spek tingkat 2 dialokasikan di sini |
 | ②b | **Riset alur** ‖ alur tugas utama (paralel dengan ②; aplikasi baru & fitur yang menambah/mengubah layar) | RA (riset) → BSA (alur) | RA: `templat/riset-alur.md` (pustaka `recipes/alur/<kategori>.md` dipakai ulang bila belum kedaluwarsa); BSA: `templat/alur-tugas.md` per peran × 3–5 tugas utama, tiap aturan bersumber |
-| ③ | **Satu** persetujuan pengguna | COO | ringkasan + tabel (+ arah desain + **ringkasan alur**, satu baris per tugas; bukan keputusan tambahan). Semua baris *pasang* → digabung dengan Persetujuan Inisiasi |
+| ③ | **Satu** persetujuan pengguna (menunggu ②b selesai) | COO | ringkasan + tabel (+ arah desain + **ringkasan alur**, satu baris per tugas; bukan keputusan tambahan). Semua baris *pasang* → digabung dengan Persetujuan Inisiasi |
 | ④ | Pasang semua modul terpilih | TL, **satu perintah** | `node <rudis-modules>/scripts/rakit.mjs <manifest.json>` (scaffold → resep/modul → env-local → npm install ‖ go mod tidy → sqlc → db-local → migrate → build → arch:check → smoke; ringkasan satu halaman). Proyek sudah ada: `module.mjs recipe <id>` (= `add --recipe <id>`) / `add <id>…` |
 | ⑤ | Kerangka modul kustom | TL | `npm run new:module -- <def.json>` untuk baris CRUD (selesai di sini, tinggal aturan non-CRUD) atau `--skeleton` untuk modul berlogika khusus; TL meng-commit kerangka sebelum membagi |
 | ⑥ | Rakit **paralel** | ≤ 5 subagent SE | satu agent = satu folder (`apps/api/internal/modules/<id>` **atau** `apps/web/src/modules/<id>`); api dan web modul yang sama dikerjakan bersamaan terhadap tipe kontrak dari kerangka; di tengah hanya `go build ./internal/modules/<id>/...` / `tsc` |
@@ -51,12 +51,17 @@ aplikasi baru dan fitur yang menambah/mengubah layar (Mode A dan B); perbaikan b
 ## Jalur ekspres (semua baris *pasang*)
 Tidak ada kode kustom → tidak ada yang perlu dibagi: COO memanggil Tech Lead **sebagai subagent** (`agents/coo.md` ›
 Tech Lead sebagai subagent) tanpa membentuk sesi, dengan brief ②–⑧ sekaligus; persetujuan gabungan di ③ sudah diambil.
+Karena persetujuan sudah diambil dan tidak ada layar kustom (alur ditetapkan modul pustaka), jalur ekspres **dikecualikan**
+dari riset alur (②b) dan alur tugas utama baru. **Uji jalan alur (⑦)** tetap berjalan bila aplikasi berlayar dan pustaka
+punya `recipes/alur/<kategori>.md` untuk resepnya (alur tugas diambil dari sana, tanpa riset baru); tanpa itu dilewati dan
+laporan menyebutnya "alur belum dicakup uji".
 
 ## Anggaran waktu per fase
 Sasaran, bukan batas keras; Kantor menampilkan menit berjalan terhadap anggaran fase di daftar tugas (kolom Fase register +
 `fase_sejak`; angkanya dimiliki `kantor/server.mjs` › `ANGGARAN_FASE`). Melewati anggaran → TL menyebut sebabnya di laporan
 (satu baris), bukan menambah lingkup. Target aplikasi seperti pencatatan stok: ±25–40 mnt sampai lulus `gate`. Anggaran
-Analisis mencakup riset alur dan alur tugas utama (riset penuh ± 5–8 mnt paralel dengan tabel perakitan, lalu alur tugas);
+Analisis mencakup riset alur dan alur tugas utama (riset penuh ± 5–8 mnt paralel dengan tabel perakitan, lalu alur tugas
+sesudahnya — itu sebab anggarannya naik ± 3 mnt);
 uji jalan alur (± 5 mnt) berjalan paralel dengan tinjauan kode di dalam anggaran Pengujian.
 
 ## Proyek lama tanpa alat ini

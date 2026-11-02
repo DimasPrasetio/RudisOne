@@ -78,7 +78,8 @@ Analisis sekali → **satu** persetujuan → pasang dengan skrip (`rakit` / rese
 uji jalan alur BSA) → lapor. Aplikasi baru dan fitur yang menambah/mengubah layar juga memakai **riset alur** (Research
 Analyst, paralel dengan tabel perakitan) dan **alur tugas utama** (BSA; ringkasannya ikut Persetujuan Rancangan, tanpa
 keputusan tambahan). Aplikasi yang semua
-barisnya *pasang* memakai **jalur ekspres** (Tech Lead sebagai subagent, Inisiasi + Rancangan satu persetujuan).
+barisnya *pasang* memakai **jalur ekspres** (Tech Lead sebagai subagent, Inisiasi + Rancangan satu persetujuan; tanpa riset
+alur baru, uji alur hanya bila pustaka punya alurnya).
 Langkah, brief per agent, anggaran waktu per fase: [rakit-paralel.md](rakit-paralel.md).
 
 ### Lingkup Konstruksi — tanpa kerja tambahan
