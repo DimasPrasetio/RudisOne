@@ -1,0 +1,57 @@
+# Uji jalan alur — <ID> · <aplikasi / fitur>
+<!-- Disusun Business Systems Analyst di gerbang akhir Jalur Rakit Paralel, paralel dengan tinjauan kode, setelah
+     `npm run gate` lulus (agents/business-systems-analyst.md › Uji jalan alur). Disimpan handoff/<ID>/uji-alur.md;
+     skrip dan tangkapan layar di handoff/<ID>/uji-alur/ (bukan di repo proyek). Bukan uji pengguna sungguhan:
+     memperkecil masalah yang jelas; uji oleh petugas asli tetap dianjurkan sebelum Persetujuan Penerapan. Cakupan:
+     aplikasi baru dan fitur yang menambah/mengubah layar. -->
+
+Business Systems Analyst · <YYYY-MM-DD> · sha: <sha HEAD rudis/<ID> yang diuji> · Alur tugas: handoff/<ID>/alur-tugas.md
+
+**Putusan: LULUS | PERLU PERBAIKAN** (untuk sha di atas; putaran uji ulang ditambahkan di bawah, putusan terakhir menang)
+
+## Prasyarat
+| Prasyarat | Status | Bukti |
+|---|---|---|
+| `npm run gate` lulus | <ya/tidak> | <keluaran> |
+| Aplikasi berjalan lokal (API + web) | <ya/tidak> | <alamat, perintah> |
+| Akun tiap peran tersedia (seed lokal) | <ya/tidak> | <peran: email> |
+| Database lokal siap | <ya/tidak> | <… — tidak siap: alur yang butuh data = belum terverifikasi> |
+
+## Matriks peran × tugas × perangkat
+Tiap sel: LULUS / GAGAL (→ nomor temuan) / BELUM TERVERIFIKASI (+ alasan), dengan tautan tangkapan layar per langkah.
+| Peran | Tugas | HP (iPhone 13, 390 px) | Komputer (1440×900) | Kasus gagal dipicu | Layar kosong dibuka |
+|---|---|---|---|---|---|
+| <peran> | <tugas> | <LULUS · uji-alur/…png> | <LULUS · …> | <n dari n> | <ya> |
+
+## Daftar periksa bersumber
+Tiap butir merujuk sumbernya (aturan di riset alur / `alur-tugas.md`, atau heuristik kegunaan Nielsen). Hasil: ✓ / ✗ (→ temuan) / —.
+| # | Butir | Sumber | Hasil |
+|---|---|---|---|
+| 1 | Alur sesuai `alur-tugas.md`: jumlah langkah, bawaan isian, umpan balik berhasil | <A#> | |
+| 2 | Pesan galat menyebut apa yang salah dan cara memperbaikinya, bahasa sehari-hari, tanpa kode atau singkatan teknis | <A#> | |
+| 3 | Format angka dan tanggal Indonesia, tanpa desimal yang tidak perlu (mis. `999,0000` = gagal) | <A#> | |
+| 4 | Layar kosong memberi arah tindakan; aksi utama mudah ditemukan; aksi berisiko dikonfirmasi | <A#> | |
+| 5 | HP: tanpa geser horizontal, target sentuh ≥ 44 px, papan ketik angka untuk isian angka | <A#> | |
+| 6 | Istilah konsisten dengan bahasa pengguna (pemahaman bersama) | <A#> | |
+| 7 | Aksesibilitas dasar: label isian, kontras, urutan fokus keyboard | <A#> | |
+| 8 | 10 heuristik kegunaan Nielsen sebagai payung (kesesuaian dengan dunia nyata, kontrol pengguna, pencegahan galat, …) | Nielsen | |
+
+## Temuan
+Tingkat: **kritis** (tugas tidak bisa diselesaikan / data bisa salah) · **sedang** (bisa selesai tetapi membingungkan, pesan tidak jelas) · **kosmetik**.
+| # | Tingkat | Aturan/heuristik yang dilanggar | Apa yang terlihat (tangkapan) | Usulan | Jenis tindak lanjut |
+|---|---|---|---|---|---|
+| 1 | <kritis/sedang/kosmetik> | <A# / heuristik> | <uji-alur/…png> | <perbaikan konkret> | <perbaikan (folder pemilik) / mengubah alur → keputusan pengguna / modul pustaka → usulan Jalur Platform / daftar> |
+
+## Tindak lanjut
+- Kritis dan sedang yang tidak mengubah alur → putaran perbaikan gerbang akhir (pemilik folder, maks. 2 putaran), lalu BSA
+  menguji ulang **hanya** butir itu; hasil ditambahkan di bawah.
+- Perbaikan yang mengubah alur yang sudah disetujui → bagian keputusan laporan (dampak dulu, lalu `Rincian:`).
+- Kosmetik → daftar di laporan, dikerjakan bila murah. Temuan di modul pustaka → usulan perbaikan pustaka (tugas terpisah), tidak diperbaiki diam-diam.
+
+## Putaran uji ulang
+### Putaran <n> — sha <sha>
+- Butir yang diuji ulang: <nomor temuan> → <hasil + tangkapan>
+- Putusan: <LULUS | PERLU PERBAIKAN>
+
+## Belum terverifikasi
+- <alur yang tidak bisa dijalankan + alasan (database, perangkat fisik, …)>

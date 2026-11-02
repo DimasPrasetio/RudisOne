@@ -61,6 +61,9 @@ brief dulu.
 - Cek konsol browser bebas galat; uji interaksi utama (klik, keyboard/fokus).
 - Bandingkan dengan brief, lakukan minimal satu putaran kritik → perbaiki → screenshot ulang.
 - Laporkan apa yang sudah dan belum terverifikasi (mis. perangkat fisik).
+- Pemeriksaan ini oleh pembuatnya dan berfokus pada rupa. Aplikasi/fitur dengan alur baru juga diperiksa **independen** oleh
+  BSA lewat uji jalan alur di gerbang akhir (skill `rudis-sdlc` › Jalur Rakit Paralel; `templat/uji-alur.md`) — dari sisi
+  pengguna, bersumber riset alur. Verifikasi visual di atas tetap wajib; tidak digantikan.
 
 ## Hasil yang dilaporkan
 Path brief, ringkasan temuan riset (dengan tautan), keputusan utama, screenshot/hasil verifikasi, dan sisa

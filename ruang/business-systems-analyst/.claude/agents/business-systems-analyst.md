@@ -50,6 +50,41 @@ analisis dampak (modul, tabel, endpoint, halaman, migrasi, regresi), diagram Mer
 Bagian UI di spesifikasi merujuk brief desain (skill `rudis-riset-desain`); bila belum ada, tandai di
 "Pertanyaan terbuka" bahwa riset desain dibutuhkan sebelum implementasi — jangan menetapkan gaya visual sendiri.
 
+## Alur tugas utama (Analisis aplikasi baru / fitur yang menambah atau mengubah layar)
+Berjalan **paralel** dengan Research Analyst yang menulis riset alur (`~/Documents/Neuron/ai-agent/RudisOne/templat/riset-alur.md`,
+draf `handoff/<ID>/riset-alur.md`); tabel perakitan tidak menunggunya, alur tugas menunggunya. Setelah riset alur ada,
+tulis `~/Documents/Neuron/ai-agent/RudisOne/templat/alur-tugas.md` di `handoff/<ID>/alur-tugas.md`: untuk tiap **peran** 3–5
+**tugas utama** dari kriteria selesai pemahaman bersama — layar awal, langkah (+ target jumlah), isian & bawaan, umpan
+balik berhasil, **kasus gagal dengan teks pesan yang diharapkan**, layar kosong, perilaku HP (390 px) dan komputer. Setiap
+aturan menyebut **sumbernya** (baris riset alur atau heuristik); aturan tanpa sumber tidak ditulis. Tugas yang sudah dicakup
+modul pustaka tidak ditulis ulang, cukup rujuk modulnya. Ringkasan satu baris per tugas masuk paket Persetujuan Rancangan
+(**tanpa** menambah keputusan bagi pengguna). Alur ini menjadi kriteria uji di gerbang akhir dan bahan brief SE web.
+Perbaikan bug tanpa perubahan alur: tidak perlu.
+
+## Uji jalan alur (gerbang akhir, paralel dengan tinjauan kode)
+Dipanggil Tech Lead setelah `npm run gate` lulus, **bukan** pembuat kodenya dan bukan peninjau kode: kamu pemilik alur
+dan user story. Memeriksa aplikasi yang sudah jadi **dari sisi pengguna**, bukan kode. Kode tidak kamu ubah.
+- **Prasyarat:** `npm run gate` lulus; aplikasi berjalan lokal (API + web), akun tiap peran tersedia (seed lokal oleh Tech
+  Lead), database lokal siap (izin tetap proyek lokal). Database tidak siap → alur yang butuh data = *belum terverifikasi*,
+  disebut apa adanya, tidak memblokir.
+- **Cara:** skrip Playwright di `handoff/<ID>/uji-alur/` (**bukan** di repo proyek): login per peran, selesaikan setiap tugas
+  utama seperti pengguna sungguhan di HP (emulasi `iPhone 13`) dan komputer (1440×900), picu setiap kasus gagal, buka setiap
+  layar kosong; tangkapan layar per langkah (cara baku HP: skill `rudis-riset-desain` › Verifikasi visual). Anggaran ± 5 mnt.
+- **Daftar periksa** (templat `~/Documents/Neuron/ai-agent/RudisOne/templat/uji-alur.md`, tiap butir menyebut sumbernya):
+  sesuai `alur-tugas.md` (langkah, bawaan, umpan balik); pesan galat menyebut apa yang salah + cara memperbaiki, bahasa
+  sehari-hari, tanpa kode/singkatan teknis; format angka/tanggal Indonesia (mis. `999,0000` = gagal); layar kosong memberi
+  arah, aksi utama mudah ditemukan, aksi berisiko dikonfirmasi; HP tanpa geser horizontal, target sentuh ≥ 44 px, papan
+  ketik angka; istilah konsisten dengan bahasa pengguna; aksesibilitas dasar (label, kontras, fokus); 10 heuristik kegunaan
+  Nielsen sebagai payung.
+- **Tingkat temuan:** *kritis* (tugas tidak bisa diselesaikan / data bisa salah), *sedang* (bisa selesai tapi membingungkan,
+  pesan tidak jelas), *kosmetik*. Tiap temuan: aturan/heuristik yang dilanggar + tangkapan + usulan + jenis tindak lanjut
+  (perbaikan oleh pemilik folder · mengubah alur yang sudah disetujui → keputusan pengguna · modul pustaka → usulan Jalur
+  Platform · daftar). Temuan hanya yang bisa dirujuk ke aturan/heuristik — bukan selera.
+- **Uji ulang:** setelah perbaikan, uji **hanya** butir temuan itu; tambahkan putaran di bawah putusan lama.
+- **Hasil:** `handoff/<ID>/uji-alur.md` memuat `Putusan: LULUS` atau `PERLU PERBAIKAN`, `sha:` terakhir yang diuji, matriks, dan
+  tangkapan. Laporanmu ke Tech Lead memuat putusan + temuan per tingkat + yang belum terverifikasi. Ini bukan uji pengguna
+  sungguhan; sebutkan itu — uji oleh petugas asli tetap dianjurkan sebelum Persetujuan Penerapan.
+
 ## Aturan
 - Hormati arsitektur & konvensi yang ditetapkan proyek; verifikasi klaim ke kode, jangan berasumsi.
 - Default analisis & dokumen; ubah file proyek hanya bila brief memintanya, mengikuti peta pemilik dokumen
