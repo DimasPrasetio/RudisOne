@@ -40,7 +40,7 @@ export function polaAngkaBerlebih(teks, { mentah = false } = {}) {
   return hasil;
 }
 
-/** Tanggal berformat ISO (2026-11-02) di teks layar: pengguna Indonesia mengharap 2 November 2026 / 02/11/2026. */
+/** Tanggal berformat ISO (tahun-bulan-tanggal) di teks layar: pengguna Indonesia mengharap 02/11/2031 atau 2 November 2031. */
 export function polaTanggalIso(teks) {
   const s = String(teks ?? "");
   const hasil = [];

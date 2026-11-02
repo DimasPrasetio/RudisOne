@@ -29,7 +29,7 @@ murni, diuji `node --test bin/uji-alur-kit.test.mjs`) · `contoh-uji.mjs` (skrip
 | `target-sentuh` | 5b | tombol/tautan < 44 px (HP; tautan sebaris dikecualikan) |
 | `papan-ketik` | 5c | isian bertema jumlah/harga tanpa `inputmode` numeric/decimal atau type number/tel (HP; atur `polaAngka`) |
 | `angka-berlebih` | 3 | `999,0000`, `25,0000` di teks dan `12.0000` di nilai isian (`\d+,\d{3,}`) |
-| `format-tanggal` | 3 | tanggal ISO `2026-11-02` di teks layar |
+| `format-tanggal` | 3 | tanggal bentuk ISO (tahun-bulan-tanggal berangka) di teks layar |
 | `teks-terlarang` | 2 / 6 | bawaan: "Required", undefined/NaN, galat HTTP/teknis, kata antarmuka Inggris; **tambah per proyek** lewat `teksTerlarang` (kode/singkatan internal, istilah teknis) |
 | `label-hilang` | 7 | isian tanpa label terhubung (placeholder saja tidak cukup) |
 | `konsol`, `respons` | — | galat konsol/`pageerror`/jaringan dan respons ≥ 400 tak terduga sejak `snap` sebelumnya |
