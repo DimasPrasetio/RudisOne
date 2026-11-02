@@ -20,7 +20,7 @@ memuat pilihan baru untuk pengguna — hanya memperlihatkan alur yang akan diban
 ## Aturan bersama (opsional; dirujuk tiap tugas sebagai G1, G2, …)
 Aturan yang berlaku lintas tugas (pola pesan galat, format angka/tanggal, istilah, aksi berisiko, HP) ditulis **sekali** di sini
 dan dirujuk dari tiap tugas, supaya subbagian di bawah tidak berulang. **Kode sumber**: `A#` = aturan di riset alur; `N#` = heuristik
-Nielsen; `K#` = kriteria selesai pemahaman bersama; `AB#` = aturan bisnis tabel perakitan (kode berbeda dari `A#` riset agar tidak
+Nielsen; `K#` = kriteria selesai pemahaman bersama; `R#` = aturan di spek ringkas/aturan bisnis tabel perakitan (`templat/tabel-perakitan.md`; kode `R` berbeda dari `A#` riset agar tidak
 tertukar); "keputusan BSA" = ditetapkan BSA tanpa sumber riset (ditandai, ditulis juga di Pertanyaan terbuka). Bila aturan riset
 bertentangan dengan kriteria pemahaman bersama, **pemahaman menang** — tulis pertentangannya di Pertanyaan terbuka.
 
@@ -29,13 +29,13 @@ bertentangan dengan kriteria pemahaman bersama, **pemahaman menang** — tulis p
 ### Alur
 - **Layar awal:** <layar tempat tugas dimulai; aksi utama mudah ditemukan di sini>
 - **Langkah** (target: ≤ <n> dari layar awal): 1 <…> → 2 <…> → 3 <…>
-- **Isian & bawaan:** <isian — bawaan, mis. tanggal = hari ini; jenis papan ketik; satuan> (sumber: <A# riset alur / heuristik>)
+- **Isian & bawaan:** <isian — bawaan, mis. tanggal = hari ini; jenis papan ketik; satuan> (sumber: <kode sumber>)
 - **Berhasil:** <apa yang dilihat pengguna: pesan, perubahan angka, ke layar mana>
 
 ### Kasus gagal (teks pesan yang diharapkan)
 | Kasus | Pesan (apa yang salah + cara memperbaiki, tanpa kode/singkatan teknis) | Sumber |
 |---|---|---|
-| <stok kurang> | "<Stok Beras tinggal 20 kg. Kurangi jumlahnya atau tambah stok dulu.>" | <A#> |
+| <stok kurang> | "<Stok Beras tinggal 20 kg. Kurangi jumlahnya atau tambah stok dulu.>" | <kode sumber> |
 
 ### Layar kosong
 - <kondisi data kosong> → <teks + arah tindakan, mis. tombol "Tambah barang pertama">
@@ -49,11 +49,12 @@ bertentangan dengan kriteria pemahaman bersama, **pemahaman menang** — tulis p
   <daftar istilah yang dipakai dan yang dihindari>
 
 ### Sumber aturan
-- <kode sumber: A# / N# / G# / K# / AB#> — tiap aturan di atas punya sumber; tanpa sumber = tidak ditulis, kecuali ditandai "keputusan BSA" (dan dicatat di Pertanyaan terbuka)
+- <kode sumber: A# / N# / G# / K# / R#> — tiap aturan di atas punya sumber; tanpa sumber = tidak ditulis, kecuali ditandai "keputusan BSA" (dan dicatat di Pertanyaan terbuka)
 
 ## Catatan untuk Software Engineer web
 Bagian di atas yang relevan dengan folder modul tertentu masuk brief SE pemilik folder itu (satu brief, hanya alur modul
 itu). Hal yang sudah ditentukan modul pustaka tidak ditulis ulang; penyesuaian modul pustaka ditandai di tabel perakitan.
 
 ## Pertanyaan terbuka
+- Entri bertanda "keputusan BSA" atau "pertentangan riset" = pemberitahuan untuk Tech Lead, bukan pertanyaan; tidak dibawa ke pengguna.
 - <hanya yang belum bisa diputuskan dari riset; masuk "Pertanyaan terbuka" laporan BSA — bukan keputusan baru bagi pengguna kecuali mengubah hasil>

@@ -26,7 +26,7 @@ Tiap sel: LULUS / SELESAI-MENYIMPANG (tugas bisa diselesaikan tetapi tidak sesua
 | <peran> | <tugas> | <LULUS · uji-alur/…png> | <LULUS · …> | <n dari n> | <ya> |
 
 ## Daftar periksa bersumber
-Tiap butir merujuk sumbernya (kode di `alur-tugas.md`: A# riset alur, G# aturan bersama, K# kriteria pemahaman, AB# aturan bisnis, atau N# heuristik kegunaan Nielsen). Hasil: ✓ / ✗ (→ temuan) / —.
+Tiap butir merujuk sumbernya (kode di `alur-tugas.md`: A# riset alur, G# aturan bersama, K# kriteria pemahaman, R# aturan bisnis, atau N# heuristik kegunaan Nielsen). Hasil: ✓ / ✗ (→ temuan) / —.
 | # | Butir | Sumber | Hasil |
 |---|---|---|---|
 | 1a | Jumlah langkah ≤ target di `alur-tugas.md` | <kode sumber> | |
@@ -48,7 +48,7 @@ Hal penting yang diuji dan **benar** (mis. stok berubah tepat, penolakan tidak m
 Tingkat: **kritis** (tugas tidak bisa diselesaikan / data bisa salah) · **sedang** (bisa selesai tetapi membingungkan, pesan tidak jelas) · **kosmetik**.
 | # | Tingkat | Aturan/heuristik yang dilanggar | Apa yang terlihat (tangkapan) | Usulan | Jenis tindak lanjut |
 |---|---|---|---|---|---|
-| 1 | <kritis/sedang/kosmetik> | <kode sumber: A# / G# / K# / AB# / N#> | <uji-alur/…png> | <perbaikan konkret> | <perbaikan (folder pemilik) / mengubah alur → keputusan pengguna / modul pustaka → usulan Jalur Platform / daftar> |
+| 1 | <kritis/sedang/kosmetik> | <kode sumber: A# / G# / K# / R# / N#> | <uji-alur/…png> | <perbaikan konkret> | <perbaikan (folder pemilik) / mengubah alur → keputusan pengguna / modul pustaka → usulan Jalur Platform / daftar> |
 
 ## Tindak lanjut
 - Kritis dan sedang yang tidak mengubah alur → putaran perbaikan gerbang akhir (pemilik folder, maks. 2 putaran), lalu BSA
