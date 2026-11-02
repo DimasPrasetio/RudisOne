@@ -1052,6 +1052,26 @@ export function saringNama(opsi, rg = false) {
   const re = inc.map((s) => globNama(s.glob));
   return (nama) => re.some((r) => r.test(nama));
 }
+/** Perintah POLOS: setiap segmen dijalankan program baca yang dikenal (daftar izin), tanpa $-ekspansi, substitusi, subshell,
+ *  penugasan variabel, alias, fungsi, export, source, atau shell bersarang. Hanya perintah polos yang mendapat dua
+ *  kelonggaran penjaga .env (penyempitan folder `cd x && …` dan saringan nama --include/-g): selain itu bash bisa mengubah
+ *  arti kata yang dilihat hook (alias/fungsi grep atau cd, GREP_OPTIONS hasil rakitan, …). */
+const PROG_POLOS = new Set(["cd", "grep", "egrep", "fgrep", "rg", "head", "tail", "sort", "uniq", "cut", "wc", "cat", "ls", "tr", "nl", "column", "pwd", "true", "echo"]);
+const _polos = new Map();
+export function perintahPolos(teks) {
+  if (_polos.has(teks)) return _polos.get(teks);
+  const u = urai(teks);
+  const ok = !u.kompleks && !u.ekspansi && u.segmen.length > 0 && u.segmen.every((s) => {
+    const w = s.kata.map((k) => k.nilai);
+    if (!w.length || s.kata.some((k) => k.ekspansi)) return false;
+    // sed hanya bentuk cetak baris: sed -n 1,40p <berkas…> (skrip sed lain bisa menjalankan perintah: `e`)
+    if (w[0] === "sed") return w[1] === "-n" && /^\d+(,(\d+|\$))?p$/.test(w[2] ?? "") && w.slice(3).every((x) => !x.startsWith("-"));
+    return PROG_POLOS.has(w[0]);
+  });
+  if (_polos.size > 200) _polos.clear();
+  _polos.set(teks, ok);
+  return ok;
+}
 /** Glob yang bisa mencocokkan berkas env di foldernya (`cat .e*`, `cat .env*`). */
 function globEnv(pola, folder, K) {
   const p = rumah(pola);
@@ -1258,6 +1278,7 @@ export function envSegmen(s, K, ctx, semua = s.teks, dalam = 0) {
   const opsi = grepProg || prog === "rg" ? opsiCari(args, prog === "rg") : { saring: [], nilaiSaring: new Set(), ragu: false };
   // Argumen yang baru terbentuk saat dijalankan ($X, "$@", -{-exclude=a,…}), nilai saringan terpisah ber-glob, nullglob,
   // atau variabel yang mengubah penguraian (POSIXLY_CORRECT, GREP_OPTIONS, RIPGREP_CONFIG_PATH) → saringan tidak dipercaya.
+  if (opsi.saring.length && !perintahPolos(semua)) opsi.ragu = true;
   if (opsi.saring.length) {
     const iAkhir = args.indexOf("--") < 0 ? args.length : args.indexOf("--");
     const kurawalSah = prog === "rg" ? /^(--i?glob=|-g)/ : /^--include=/;
@@ -1420,7 +1441,8 @@ function envPerintah(cmd, input, K) {
   // `a || cd x && b` = `(a || cd x) && b` (a berhasil → cd tidak jalan), atau cd anggota pipeline (`a | cd x && b`: subshell).
   // Shell bersarang / eval (`bash -c "cd ..; grep -r ."`, `xargs sh -c`, `find -exec sh -c`): cd di dalam teksnya tidak dilacak
   // → tanpa penyempitan sama sekali (kembali ke penilaian lama: semua folder yang mungkin).
-  const bersarang = u.segmen.some((s) => s.kata.some((k) => /^(sh|bash|zsh|dash|ksh|mksh|fish|eval)(\.exe)?$/i.test(path.basename(k.nilai))));
+  // Ditambah syarat perintah polos (perintahPolos): alias/fungsi `cd`, penugasan, $-ekspansi → tanpa penyempitan.
+  const bersarang = !perintahPolos(bersih) || u.segmen.some((s) => s.kata.some((k) => /^(sh|bash|zsh|dash|ksh|mksh|fish|eval)(\.exe)?$/i.test(path.basename(k.nilai))));
   let cadangan = [], sebelum;
   for (const s of u.segmen) {
     const h = envSegmen(s, K, ctx, bersih);

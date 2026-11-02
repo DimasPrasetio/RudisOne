@@ -309,7 +309,14 @@ test("T-20261102-4: `cd sub && grep -r` dinilai di sub saja; saringan --include/
     "X=-g=*; rg -uu -g '*.go' $X DB .", "POSIXLY_CORRECT=1 grep -r DB . --include=*.go", "export POSIXLY_CORRECT=1; grep -r DB . --include=*.go",
     "GREP_OPTIONS=--exclude=a grep -r --include=*.go DB .", "RIPGREP_CONFIG_PATH=c.txt rg -uu -g '*.go' DB .",
     "shopt -s nullglob; grep -r --include=*.go --exclude=a* DB .", "grep -r --include .e* DB .",
-    "cd proj/apps/api && bash -c \"cd ../../..; grep -r DB .\"", "cd proj/apps/api && sh -c 'cd ../../.. && grep -r DB .'"], "deny", W);
+    "cd proj/apps/api && bash -c \"cd ../../..; grep -r DB .\"", "cd proj/apps/api && sh -c 'cd ../../.. && grep -r DB .'",
+    // putaran 3: alias/fungsi grep, rg, cd; nama variabel dirakit — hanya perintah polos yang mendapat kelonggaran
+    "grep() { command grep --exclude=a \"$@\"; }; grep -r --include=*.go DB .", "function grep { command grep --exclude=a \"$@\"; }; grep -r --include=*.go DB .",
+    "alias grep='grep --exclude=a'\ngrep -r --include=*.go DB .", "alias rg='rg -g=*'\nrg -uu -g '*.go' DB .",
+    "P=POSIXLY; export ${P}_CORRECT=1; grep -r DB . --include=*.go", "G=GREP; export ${G}_OPTIONS=--exclude=a; grep -r --include=*.go DB .",
+    "alias cd=true\ncd proj/apps/api && grep -rn DB .", "function cd { :; }; cd proj/apps/api && grep -rn DB ."], "deny", W);
+  harap(["cd proj/apps/api && grep -rn DB . | head -20; ls", "cd proj/apps/api && cat main.go | sed -n 1,40p",
+    "cd proj/apps/api && grep -rn DB --include=*.go . 2>/dev/null | cut -c1-200 | head"], "—", W);
   harap(["grep -rn --include=*.{go,ts} DB .", "grep -rn DB . --include=*.go"], "—", W);
   harap(["grep -rn DB .", "cd ../.. && cd apps/api && grep -rn DB ."], "—", API);
   harap(["command cd ../.. && grep -r DB .", "builtin cd ../.. ; grep -r DB .", "cd ../.. && grep -rn DB ."], "deny", API);
