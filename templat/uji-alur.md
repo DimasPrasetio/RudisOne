@@ -9,6 +9,8 @@ Business Systems Analyst · <YYYY-MM-DD> · sha: <sha HEAD rudis/<ID> yang diuji
 
 **Putusan: LULUS | PERLU PERBAIKAN** (untuk sha di atas; putaran uji ulang ditambahkan di bawah, putusan terakhir menang)
 
+Waktu uji: mulai <jam> · selesai <jam> · durasi <mnt> (anggaran ± 5 mnt; bila lewat, tulis penyebabnya: menulis/memperbaiki skrip, menjalankan, membaca kode, menulis laporan — jujur, jangan memangkas cakupan demi anggaran)
+
 ## Prasyarat
 | Prasyarat | Status | Bukti |
 |---|---|---|
@@ -18,7 +20,7 @@ Business Systems Analyst · <YYYY-MM-DD> · sha: <sha HEAD rudis/<ID> yang diuji
 | Database lokal siap | <ya/tidak> | <… — tidak siap: alur yang butuh data = belum terverifikasi> |
 
 ## Matriks peran × tugas × perangkat
-Tiap sel: LULUS / GAGAL (→ nomor temuan) / BELUM TERVERIFIKASI (+ alasan), dengan tautan tangkapan layar per langkah.
+Tiap sel: LULUS / SELESAI-MENYIMPANG (tugas bisa diselesaikan tetapi tidak sesuai `alur-tugas.md` → nomor temuan) / GAGAL (tugas tidak bisa diselesaikan → nomor temuan) / BELUM TERVERIFIKASI (+ alasan), dengan tautan tangkapan layar per langkah.
 | Peran | Tugas | HP (iPhone 13, 390 px) | Komputer (1440×900) | Kasus gagal dipicu | Layar kosong dibuka |
 |---|---|---|---|---|---|
 | <peran> | <tugas> | <LULUS · uji-alur/…png> | <LULUS · …> | <n dari n> | <ya> |
@@ -27,14 +29,20 @@ Tiap sel: LULUS / GAGAL (→ nomor temuan) / BELUM TERVERIFIKASI (+ alasan), den
 Tiap butir merujuk sumbernya (aturan di riset alur / `alur-tugas.md`, atau heuristik kegunaan Nielsen). Hasil: ✓ / ✗ (→ temuan) / —.
 | # | Butir | Sumber | Hasil |
 |---|---|---|---|
-| 1 | Alur sesuai `alur-tugas.md`: jumlah langkah, bawaan isian, umpan balik berhasil | <A#> | |
+| 1a | Jumlah langkah ≤ target di `alur-tugas.md` | <A#> | |
+| 1b | Bawaan isian (mis. tanggal hari ini) dan umpan balik berhasil sesuai `alur-tugas.md` | <A#> | |
 | 2 | Pesan galat menyebut apa yang salah dan cara memperbaikinya, bahasa sehari-hari, tanpa kode atau singkatan teknis | <A#> | |
 | 3 | Format angka dan tanggal Indonesia, tanpa desimal yang tidak perlu (mis. `999,0000` = gagal) | <A#> | |
 | 4 | Layar kosong memberi arah tindakan; aksi utama mudah ditemukan; aksi berisiko dikonfirmasi | <A#> | |
-| 5 | HP: tanpa geser horizontal, target sentuh ≥ 44 px, papan ketik angka untuk isian angka | <A#> | |
+| 5a | HP: tanpa geser horizontal (juga di komputer dengan isi panjang) | <A#> | |
+| 5b | HP: target sentuh aksi utama dan menu ≥ 44 px | <A#> | |
+| 5c | HP: papan ketik angka untuk isian angka | <A#> | |
 | 6 | Istilah konsisten dengan bahasa pengguna (pemahaman bersama) | <A#> | |
 | 7 | Aksesibilitas dasar: label isian, kontras, urutan fokus keyboard | <A#> | |
 | 8 | 10 heuristik kegunaan Nielsen sebagai payung (kesesuaian dengan dunia nyata, kontrol pengguna, pencegahan galat, …) | Nielsen | |
+
+## Terverifikasi benar
+Hal penting yang diuji dan **benar** (mis. stok berubah tepat, penolakan tidak mengubah data, peran terbatas tidak melihat aksi admin), agar putusan PERLU PERBAIKAN tidak terbaca seolah semuanya rusak. Satu baris per hal + tangkapan.
 
 ## Temuan
 Tingkat: **kritis** (tugas tidak bisa diselesaikan / data bisa salah) · **sedang** (bisa selesai tetapi membingungkan, pesan tidak jelas) · **kosmetik**.

@@ -17,6 +17,13 @@ memuat pilihan baru untuk pengguna — hanya memperlihatkan alur yang akan diban
 | <petugas gudang> | <Barang keluar> | <pilih barang, isi jumlah, simpan — 3 langkah; berhasil: muncul "Tersimpan" dan stok baru> |
 <!-- /ke-pengguna -->
 
+## Aturan bersama (opsional; dirujuk tiap tugas sebagai G1, G2, …)
+Aturan yang berlaku lintas tugas (pola pesan galat, format angka/tanggal, istilah, aksi berisiko, HP) ditulis **sekali** di sini
+dan dirujuk dari tiap tugas, supaya subbagian di bawah tidak berulang. **Kode sumber**: `A#`/`S#` = riset alur; `N#` = heuristik
+Nielsen; `K#` = kriteria selesai pemahaman bersama; `AB#` = aturan bisnis tabel perakitan (kode berbeda dari `A#` riset agar tidak
+tertukar); "keputusan BSA" = ditetapkan BSA tanpa sumber riset (ditandai, ditulis juga di Pertanyaan terbuka). Bila aturan riset
+bertentangan dengan kriteria pemahaman bersama, **pemahaman menang** — tulis pertentangannya di Pertanyaan terbuka.
+
 ## <Peran> — <tugas utama n> (3–5 tugas per peran, dari kriteria selesai pemahaman bersama)
 
 ### Alur
