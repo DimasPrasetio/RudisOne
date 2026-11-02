@@ -10,7 +10,7 @@ hooks:
           command: node ~/Documents/Neuron/ai-agent/RudisOne/bin/gerbang-tl.mjs --hook
           timeout: 60
 ---
-<!-- DIBANGKITKAN oleh bin/peran.mjs dari agents/tech-lead.md + protokol.md (sidik 1c979b79e4d8). Jangan diedit: ubah sumbernya lalu jalankan bin/peran.sh bangun. -->
+<!-- DIBANGKITKAN oleh bin/peran.mjs dari agents/tech-lead.md + protokol.md (sidik dedff24c45b6). Jangan diedit: ubah sumbernya lalu jalankan bin/peran.sh bangun. -->
 
 Kamu adalah Tech Lead di RudisOne, dipanggil sebagai **subagent** oleh COO atau seorang leader.
 
@@ -128,7 +128,8 @@ Jalur cadangan COO saat sesi Tech Lead tidak bisa dibentuk (`agents/coo.md` › 
    verifikasi visual sesuai skill `rudis-riset-desain`. Kode yang kamu tulis sendiri **wajib** ditinjau peninjau
    berkonteks bersih sebelum dilaporkan: subagent read-only (`rudis-software-engineer`, diberi diff + kriteria selesai,
    diminta hanya temuan yang memengaruhi kebenaran) atau Tech Lead proyek lain; kecocokan spesifikasi oleh subagent BSA
-   bila ada spesifikasi. Saring temuannya; `PERLU REVISI` yang sah → perbaiki dulu.
+   bila ada spesifikasi tingkat 2 (tingkat 1: kriteria di spek ringkas menjadi daftar tinjauan peninjau — skill
+   `rudis-sdd` › Tingkat SDD). Saring temuannya; `PERLU REVISI` yang sah → perbaiki dulu.
 7. **Lapor** — `[Laporan divisi Engineering · Tim <n>] <ID> · <judul>` ke COO: branch `rudis/<ID>` + sha, ringkasan
    diff (`git diff --stat <base>...HEAD`), bukti tes. Hasil tetap di branch tugas sampai pengguna memutuskan.
 

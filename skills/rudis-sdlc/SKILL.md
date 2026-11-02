@@ -56,7 +56,7 @@ restrukturisasi ke standar tetap tugas eksplisit.
 | Analisis & perakitan | Tech Lead | Business Systems Analyst (kemampuan, tabel perakitan, MODULE_MAP, API); C: Financial Controller/HR Business Partner bila domainnya | `module-library.md` §1–3, `backend-modular-monolith.md`, `api-standard.md` | `templat/tabel-perakitan.md` → `analysis/` proyek | **Persetujuan Rancangan** |
 | Desain UI | Tech Lead | Research Analyst (paralel dengan Analisis) | `design-research.md` | draf → `knowledge/DESIGN.md` proyek | ikut **Persetujuan Rancangan** |
 | Konstruksi | Tech Lead | Software Engineer #1/#2, asisten | Langkah 1 (scaffold), `module-library.md` §4–6, referensi stack, `frontend.md`; `.env` & database lokal | branch `rudis/<ID>`; `.env` lokal tanpa placeholder | — |
-| Pengujian | Tech Lead | peninjau berkonteks bersih (subagent `rudis-software-engineer`, tinjauan silang), BSA (cocok spesifikasi) | Final Checklist | laporan divisi + checklist terisi | — |
+| Pengujian | Tech Lead | peninjau berkonteks bersih (subagent `rudis-software-engineer`, tinjauan silang), BSA (cocok spesifikasi, baris tingkat 2) | Final Checklist + `npm run arch:check` (batas modul dari kode; keluaran ditempel di laporan) | laporan divisi + checklist terisi | — |
 | Rilis & penerapan | Head of IT Operations | System Administrator; Tech Lead (sha + catatan rilis, isi penanda) | Step 0b, `docker-deployment.md` | `templat/onboarding-app.md`, `templat/laporan-deploy.md` | **Persetujuan Rilis**, **Persetujuan Penerapan** |
 | Operasi & pemeliharaan | Head of IT Operations (operasi) · Tech Lead (kode) | — | `module-library.md` (status/upgrade), `backend-go.md` › Kernel versions | tugas baru per perubahan | sesuai jenisnya |
 
@@ -68,7 +68,15 @@ apakah tabel perakitan dipakai. Jalur per perubahan (jenis × cakupan: pasang, p
 kustom, tracer, redesign, revamp, upgrade, tanpa SDD) dipilih BSA dengan kriteria tertulis, ditinjau TL, ikut brief /
 Persetujuan Rancangan, dicatat di register (`jalur_awal`, `jalur_akhir`), dan ditanyakan ke pengguna hanya bila `ragu`.
 Rinciannya, termasuk gerbang mutu baseline (tidak ada temuan **baru**) dan aturan CVE: skill `rudis-sdd` (dimuat
-hanya untuk baris yang memakai command `/rudis.*`). Baris *pasang* biasa dan perubahan kecil tidak lewat SDD.
+hanya untuk baris yang memakai command `/rudis.*`). Baris *pasang* biasa, perubahan kecil, dan baris **tingkat 1** (spek
+ringkas di tabel perakitan; tingkat ditentukan aturan berisiko, skill `rudis-sdd` › Tingkat SDD) tidak lewat SDD.
+
+### Lingkup Konstruksi — tanpa kerja tambahan
+Yang dibangun dan diuji = kriteria selesai + aturan di tabel perakitan/spek, tidak lebih. **Tidak** dikerjakan kecuali
+sebuah kriteria memintanya: uji kinerja/beban, `EXPLAIN` dan indeks "jaga-jaga", optimasi, fitur atau layar yang tidak
+diminta, dokumen di luar artefak milik proyek. Temuan yang menurut pelaksana penting (mis. risiko kinerja pada data besar)
+ditulis satu baris di laporan bagian keputusan, tidak dikerjakan diam-diam (pekerjaan seperti ini terukur memakan
+belasan menit per modul tanpa menambah kriteria yang terpenuhi).
 
 ### Gerbang keputusan pengguna (ditanyakan COO)
 Poin di bawah = bahan kerja COO; ke pengguna **bahasa awam** (`agents/coo.md` › Bahasa awam ke pengguna), kata-kata baku: `templat/pesan-gerbang.md`.
@@ -189,7 +197,7 @@ pustaka); skill `rudis-riset-desain` RudisOne dipakai untuk proyek lain dan untu
   agar skill terpasang mengikuti (commit lokal yang belum di-push dipakai apa adanya; push hanya atas permintaan).
 
 ## 5. Belum diputuskan
-- Pemeriksa batas modul otomatis untuk proyek hasil scaffold (`arch:check`) — usulan perbaikan skill; disarankan
-  sebagai tugas Jalur Platform pertama sebelum proyek baru pertama.
+- Proyek yang di-scaffold sebelum `arch:check` ada: salin `scripts/arch-check.mjs` dari scaffold baru (berkas mandiri,
+  tanpa dependensi) dan tambah skrip `arch:check` — dikerjakan sebagai tugas proyek itu, bukan otomatis.
 - Izin tetap menyalakan MySQL lokal khusus tes platform — saat ini izin per kali.
   Persiapan database lokal **proyek** sudah izin tetap (*`.env` & database lokal*).
