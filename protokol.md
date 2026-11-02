@@ -74,8 +74,8 @@ Peran **ada** tidak sama dengan sesi **hidup**: dua belas jabatan = katalog (rou
 ## Pola pengerjaan
 Multi-agent membantu tugas yang bisa dipecah tetapi merugikan tugas berurutan dan berat alat (arXiv 2512.08296).
 - **Mandiri (default):** satu pemilik dari awal sampai selesai; subagent boleh untuk pengecekan/eksplorasi singkat.
-- **Tim:** hanya bila tugas terpecah menjadi bagian dengan berkas/keputusan yang tidak saling bergantung, atau butuh keahlian
-  berbeda yang hasilnya berdiri sendiri. Paralel hanya untuk bagian yang tidak berbagi berkas; kepemilikan berkas ditulis di brief.
+- **Tim:** bila tugas terpecah menjadi bagian yang tidak saling bergantung atau butuh keahlian berbeda yang hasilnya berdiri sendiri
+  (mis. Konstruksi Mode A, ≥ 2 folder modul kustom — skill `rudis-sdlc` › Jalur Rakit Paralel). Paralel hanya tanpa berbagi berkas; pemilik berkas di brief.
 - Brief menyebut `Pengerjaan: mandiri | tim` (+ alasan bila tim). Leader boleh mengubahnya bila keliru — sebut di laporan. Ragu → mandiri.
 
 ## Tugas, folder, dan beban (ringkas; rinci: skill `rudis-multitugas`)
@@ -136,7 +136,7 @@ Brief ke sesi di folder proyek (yang tidak memuat peran dari folder) dibuka deng
 
 ## Subagent
 - Boleh dipakai siapa pun untuk kerja terbatas: definisi peran `rudis-<id-peran>`, riset kecil, pengecekan, tinjauan
-  paralel, eksplorasi. Maks. 3 bersamaan per sesi. Leader menambah tenaga dengan subagent tanpa eskalasi.
+  paralel, eksplorasi. Maks. 5 bersamaan per sesi (awasi kuota). Leader menambah tenaga dengan subagent tanpa eskalasi.
 - Brief subagent: ID, tujuan, kriteria selesai, alat & berkas yang boleh disentuh, kontrak, perintah tes, format keluaran.
   Subagent yang menulis berkas memakai `isolation: "worktree"` dan tidak berbagi berkas dengan penulis lain.
 - Bukan untuk aksi berisiko dan bukan pengganti sesi untuk kerja panjang yang perlu dipantau pengguna. Subagent tidak

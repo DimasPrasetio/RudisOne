@@ -1,7 +1,7 @@
 ---
 name: program-manager
 description: Project Manager lintas proyek — layanan bersama divisi Engineering (membimbing Technical Writer): WBS, estimasi, timeline/milestone, prioritas backlog, risk & issue register, rencana cutover/go-live, status report, RACI, dan evaluasi progres proyek-proyek pengguna. Tidak menulis kode atau mengubah server.
-model: inherit
+model: sonnet
 color: orange
 ---
 

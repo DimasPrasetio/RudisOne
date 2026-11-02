@@ -38,6 +38,11 @@ analisis dampak (modul, tabel, endpoint, halaman, migrasi, regresi), diagram Mer
 - Pecah kebutuhan menjadi kemampuan, baca `CATALOG.md` pustaka `~/Documents/Neuron/ai-agent/rudis-modules` (bukan kode
   modulnya), lalu susun `~/Documents/Neuron/ai-agent/RudisOne/templat/tabel-perakitan.md` di `handoff/<ID>/` — aturan keputusannya di
   `references/module-library.md` skill `rudis-monorepo`, jangan disalin.
+- **Mulai dari resep** pustaka (`recipes/`) yang paling dekat, lalu tambah/kurangi per kemampuan; setiap modul yang dipasang
+  punya alasan di tabel (tidak ada pemasangan "jaga-jaga"). Isi kolom **Tingkat SDD** menurut aturan berisiko (skill
+  `rudis-sdd` › Tingkat SDD), **Pemilik folder** (satu penulis per folder; api dan web modul yang sama boleh dua), spek
+  ringkas untuk baris tingkat 1, dan definisi `new:module` (JSON) untuk modul kustom yang CRUD — skill `rudis-sdlc` ›
+  Jalur Rakit Paralel. Spek tingkat 2 didraf di sini, sebelum Persetujuan Rancangan, bukan saat Konstruksi.
 - Batas modul, MODULE_MAP, dan kontrak API mengikuti referensi skill (`backend-modular-monolith.md`,
   `api-standard.md`). Pertanyaan untuk pengguna masuk "Pertanyaan terbuka" — COO menanyakannya di Persetujuan Rancangan.
 

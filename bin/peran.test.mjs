@@ -36,9 +36,27 @@ test("COO tidak dibangkitkan; berkas memuat peran, mode subagent, dan inti", () 
   assert.match(t, /color: cyan/);
   assert.match(t, /Kamu adalah Research Analyst di RudisOne, dipanggil sebagai \*\*subagent\*\*/);
   assert.match(t, /Jawaban akhirmu adalah laporanmu/);
-  assert.match(t, /# Protokol inti RudisOne[^\n]*\nAturan A\./);
+  assert.match(t, /model: inherit/);
+  assert.match(t, /# Protokol inti RudisOne \(ringkasan untuk subagent\)/);
   // deskripsi berkutip tetap YAML/JSON sah
   assert.doesNotThrow(() => JSON.parse(t.match(/^description: (.*)$/m)[1]));
+});
+
+test("diet konteks: subagent biasa menerima bagian INTI_RINGKAS saja; inti: lengkap → utuh; model dari frontmatter", () => {
+  const r = repoMini();
+  fs.writeFileSync(path.join(r, "protokol.md"), "# Protokol inti\n\n## Rantai komando\nRantai X.\n\n## Format pesan\nFormat Y.\n\n## Batasan platform (bukan bug)\nWindows Z.\n");
+  const ringkas = bangkitkan("research-analyst", r);
+  assert.match(ringkas, /## Format pesan\nFormat Y\./);
+  assert.match(ringkas, /## Batasan platform \(bukan bug\)\nWindows Z\./);
+  assert.doesNotMatch(ringkas, /Rantai X/, "rantai komando tidak ditanam di subagent biasa");
+  assert.match(ringkas, /protokol\.md`; baca bila/);
+  const f = path.join(r, "agents", "research-analyst.md");
+  fs.writeFileSync(f, fs.readFileSync(f, "utf8").replace("---\n\n", "inti: lengkap\nmodel: sonnet\n---\n\n"));
+  const lengkap = bangkitkan("research-analyst", r);
+  assert.match(lengkap, /# Protokol inti RudisOne \(salinan `protokol\.md`\)\n## Rantai komando\nRantai X\./);
+  assert.match(lengkap, /^model: sonnet$/m);
+  fs.writeFileSync(f, fs.readFileSync(f, "utf8").replace("model: sonnet", "model: gpt-x"));
+  assert.throws(() => bangkitkan("research-analyst", r), /model tidak sah/);
 });
 
 test("bangun → cek mutakhir; sumber berubah → basi; berkas yatim dihapus", () => {

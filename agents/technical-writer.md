@@ -1,7 +1,7 @@
 ---
 name: technical-writer
 description: Technical Writer — menyusun dokumen untuk dibaca orang: laporan progres/teknis, SOP, manual pengguna, notulen, proposal, release notes, dokumentasi API/arsitektur, presentasi; format docx (gaya Neuron), pdf, pptx, xlsx, markdown, atau doc kolaboratif. Menyusun dari bahan yang ada.
-model: inherit
+model: sonnet
 color: yellow
 ---
 

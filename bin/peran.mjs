@@ -50,6 +50,27 @@ export function hookStop(nama) {
   return ["hooks:", "  Stop:", "    - hooks:", "        - type: command", `          command: node ${RUMAH}/bin/${nama}.mjs --hook`, "          timeout: 60"];
 }
 
+/** Bagian protokol.md yang ditanam di subagent biasa (diet konteks): yang dipakai saat mengerjakan satu tugas — ID &
+ *  folder, format & isi laporan, git, aturan subagent, akses, batasan platform. Rantai komando, model sesi, jabatan, dan
+ *  pembagian peran dibaca dari `protokol.md` bila perlu. Peran dengan `inti: lengkap` (leader) menerima semuanya. */
+export const INTI_RINGKAS = ["Tugas, folder, dan beban", "Format pesan", "Isi brief & laporan", "Ruang kerja Engineering",
+  "Subagent", "Akses & batas kewenangan", "Batasan platform"];
+/** Inti yang ditanam: utuh (lengkap) atau hanya bagian INTI_RINGKAS (judul `## ` yang diawali salah satunya). */
+export function intiUntuk(sumberInti, mode = "ringkas") {
+  const badan = sumberInti.replace(/^# .*\n/, "").trim();
+  if (mode === "lengkap") return { judul: "Protokol inti RudisOne (salinan `protokol.md`)", isi: badan };
+  const bagian = badan.split(/\n(?=## )/).filter((b) => INTI_RINGKAS.some((j) => b.startsWith(`## ${j}`)));
+  return {
+    judul: "Protokol inti RudisOne (ringkasan untuk subagent)",
+    isi: `Bagian yang berlaku saat mengerjakan tugas. Protokol lengkap — pemilik fakta, jabatan, rantai komando, model sesi,
+pola pengerjaan, anggota & leader, aturan main — ada di \`${RUMAH}/protokol.md\`; baca bila tugasmu menyentuhnya
+(mis. kamu memimpin anggota lain) atau bila ragu. Bila ringkasan ini dan protokol lengkap tampak berbeda, protokol lengkap menang.
+
+${bagian.join("\n\n").trim()}`,
+  };
+}
+/** Model subagent dari frontmatter peran (`model: sonnet` untuk penulis dokumen, diet biaya); bawaan inherit. */
+const MODEL_SAH = /^(inherit|sonnet|opus|haiku|fable|claude-[a-z0-9.-]+)$/;
 /** Isi berkas agen/rudis-<id>.md untuk satu peran — deterministik (tanpa waktu), agar `cek` bisa membandingkan. */
 export function bangkitkan(id, root = ROOT) {
   const sumberPeran = bacaLf(path.join(root, "agents", `${id}.md`));
@@ -58,7 +79,10 @@ export function bangkitkan(id, root = ROOT) {
   const jabatan = jabatanDari(isi, id);
   const sidik = crypto.createHash("sha1").update(sumberPeran).update("\0").update(sumberInti).digest("hex").slice(0, 12);
   const desk = `RudisOne · ${jabatan} (subagent dari definisi peran). ${String(fm.description ?? "").replace(/\s+/g, " ").trim()}`;
-  const kepala = ["---", `name: rudis-${id}`, `description: ${JSON.stringify(desk)}`, "model: inherit"];
+  const model = fm.model ?? "inherit";
+  if (!MODEL_SAH.test(model)) throw new Error(`agents/${id}.md: model tidak sah: ${model}`);
+  const inti = intiUntuk(sumberInti, fm.inti === "lengkap" ? "lengkap" : "ringkas");
+  const kepala = ["---", `name: rudis-${id}`, `description: ${JSON.stringify(desk)}`, `model: ${model}`];
   if (fm.color) kepala.push(`color: ${fm.color}`);
   kepala.push(...hookStop(fm.gerbang_stop));
   kepala.push("---");
@@ -84,8 +108,8 @@ Kamu adalah ${jabatan} di RudisOne, dipanggil sebagai **subagent** oleh COO atau
 # Peran
 ${isi.trim()}
 
-# Protokol inti RudisOne (salinan \`protokol.md\`)
-${sumberInti.replace(/^# .*\n/, "").trim()}
+# ${inti.judul}
+${inti.isi}
 `;
 }
 

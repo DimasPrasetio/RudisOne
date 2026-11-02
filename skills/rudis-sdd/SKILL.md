@@ -1,6 +1,6 @@
 ---
 name: rudis-sdd
-description: Prosedur RudisOne untuk RUDIS SDD (CLI rudis, command /rudis.*, folder .rudis/, specs/, docs/brd/) — mode proyek A/B dari kartu proyek, jalur dua sumbu (jenis × cakupan), pemicu re-route, gerbang mutu baseline, aturan CVE, dan pengaman git/data. Muat saat tugas Engineering memakai command /rudis.* — Mode A (bangun, pasang + sesuaikan, ubah modul kustom) atau Mode B (brd, tracer, redesign, revamp, upgrade, test, siklus penuh) — atau saat brief menyebut RUDIS SDD, kartu proyek, jalur, specs/<NNN>-<slug>. JANGAN dimuat untuk baris "pasang" biasa (module.mjs tanpa SDD), perubahan kecil tanpa SDD (templat/spesifikasi.md), audit, deploy, atau pekerjaan non-Engineering.
+description: Prosedur RudisOne untuk RUDIS SDD (CLI rudis, command /rudis.*, folder .rudis/, specs/, docs/brd/) — mode proyek A/B dari kartu proyek, jalur dua sumbu (jenis × cakupan), pemicu re-route, gerbang mutu baseline, aturan CVE, dan pengaman git/data. Muat saat tugas Engineering memakai command /rudis.* — Mode A (bangun, pasang + sesuaikan, ubah modul kustom) atau Mode B (brd, tracer, redesign, revamp, upgrade, test, siklus penuh) — atau saat brief menyebut RUDIS SDD, kartu proyek, jalur, specs/<NNN>-<slug>. JANGAN dimuat untuk baris "pasang" biasa (module.mjs tanpa SDD), baris tingkat 1 (spek ringkas di tabel perakitan), perubahan kecil tanpa SDD (templat/spesifikasi.md), audit, deploy, atau pekerjaan non-Engineering.
 ---
 
 # RUDIS SDD di RudisOne
@@ -44,9 +44,24 @@ bug selalu **mulai** dengan tracer (baris 5); perbaikannya pindah ke baris 3/4 b
 - **Jaring dulu:** area yang akan disentuh belum punya tes → `/rudis.test` lebih dulu dengan instruksi characterization:
   *"rekam perilaku kini sebagai expected; jangan menebak expected; bug yang terekam ditandai, tidak diperbaiki di langkah ini"*.
 - Bug memakai tracer di **kedua** mode; upgrade modul pustaka = `module.mjs upgrade`, bukan `/rudis.upgrade`.
-- Baris 2/8 = satu folder baru `specs/<NNN>-<slug>/`; baris 6 memperbarui folder yang ada; baris 7 berbatas `docs/brd/`.
-  Tabel perakitan (Mode A) menautkannya di kolom **Spesifikasi**.
+- Baris 2/8 **tingkat 2** = satu folder baru `specs/<NNN>-<slug>/`; baris 6 memperbarui folder yang ada; baris 7 berbatas
+  `docs/brd/`. Tabel perakitan (Mode A) menautkannya di kolom **Spesifikasi**.
 - Register: TL mencatat saat mulai `bin/register.sh ubah <ID> --mode-saat-mulai A --jalur-awal tracer`.
+
+### Tingkat SDD — seberat apa dokumennya (baris 2, 6, 7, 8)
+Jalur = *jenis* langkah; tingkat = *berat dokumen*. BSA menentukannya per baris dengan alasan tertulis, ditinjau TL.
+Ukurannya **aturan** yang dibangun, bukan kata domain (keputusan pengguna): "stok" yang hanya menjumlah catatan (boleh
+minus, tanpa penguncian) = tingkat 1.
+
+| Tingkat | Kapan | Dokumen · `/rudis.*` |
+|---|---|---|
+| 0 | baris 1 dan 9 | — / `templat/spesifikasi.md` · tidak |
+| 1 | baris 2/6/7/8 tanpa pemicu tingkat 2 | **spek ringkas** per modul di tabel perakitan (aturan, kontrak API, layar, kriteria); baris 6/7: Current/Expected/Unchanged · tidak (tanpa `rudis init` bila semua baris ≤ 1) |
+| 2 | ada pemicu: hitungan **uang/pajak** · saldo/stok **berkonkurensi** (larangan minus, reservasi, kunci) · **posting tak bisa dibatalkan** / mesin status · **kontrak lintas modul** · **migrasi data lama** · hak akses di luar izin per rute | siklus penuh §5, `analyze`/`converge` **sekali** di Pengujian · ya |
+
+- Ragu 1 atau 2 → pecah baris; hanya bagian yang memicu jadi tingkat 2.
+- Tingkat 1: tanpa BSA cocok-spesifikasi; kriteria spek ringkas = daftar tinjauan peninjau.
+- Spek tingkat 2 didraf BSA **di Analisis**, bukan di tengah Konstruksi; `<NNN>` dialokasikan di tabel sebelum kerja dibagi.
 
 ## 3. Pemicu re-route & kapan bertanya
 - **Pemicu re-route:** tracer menyimpulkan "ini fitur, bukan bug"; cakupan bertambah melewati ambang (±5 berkas atau
@@ -83,12 +98,12 @@ bug selalu **mulai** dengan tracer (baris 5); perbaikannya pindah ke baris 3/4 b
 ## 5. Langkah per fase (urutan skill `rudis-sdlc` › Jalur Aplikasi tetap)
 | Fase | Siapa | Yang dikerjakan |
 |---|---|---|
-| Analisis | **BSA** (read-only), diperiksa TL | Jalur per perubahan (§2) + kriteria jenis tertulis. Baris 2/8: draf spec **dengan tangan** (`spec-template.md` RUDIS + pertanyaan gaya clarify) di `handoff/<ID>/specs/<slug>/spec.md`; baris 5/6/7: Current/Expected/Unchanged (`templat/spesifikasi.md`, atau usulan perubahan spec lama). Baris 5: TL menjalankan `/rudis.tracer` di worktree-nya, BSA menganalisis laporannya. Mode A: tabel perakitan. Persetujuan Rancangan memuat tabel/jalur + ringkasan draf + asumsi berisiko. |
+| Analisis | **BSA** (read-only), diperiksa TL | Jalur + **tingkat** per perubahan (§2) + kriteria jenis tertulis. Tingkat 1: spek ringkas di tabel perakitan, selesai di sini — baris Konstruksi 1/2 di bawah tidak berlaku untuknya. Baris 2/8 tingkat 2: draf spec **dengan tangan** (`spec-template.md` RUDIS + pertanyaan gaya clarify) di `handoff/<ID>/specs/<slug>/spec.md`; baris 5/6/7: Current/Expected/Unchanged (`templat/spesifikasi.md`, atau usulan perubahan spec lama). Baris 5: TL menjalankan `/rudis.tracer` di worktree-nya, BSA menganalisis laporannya. Mode A: tabel perakitan. Persetujuan Rancangan memuat tabel/jalur + ringkasan draf + asumsi berisiko. |
 | Konstruksi 1 (sekali per proyek) | **Tech Lead** | `bin/rudis-sdd.sh init --here --force --ai claude --script sh` di worktree → `.gitignore`: tambah bila belum ada — proyek hasil scaffold kernel v7.1+ sudah memuat `.rudis/audit.log`, `.rudis/audit/`, `.rudis/.current-feature`, `docs/trace-reports/`, `docs/test-reports/`; `!.env.*.example` tetap perlu dicek → `/rudis.constitution` dari templat mode (§1). **Mode B** sebelum constitution: `/rudis.brd` ter-scope ke modul yang akan disentuh (bukan seluruh repo); constitution as-is berstatus Draft sampai pengguna/lead klien mengesahkan; catat `baseline` gerbang mutu (§6) di kartu. |
 | Konstruksi 1 (per tugas) | **Tech Lead** | `bin/rudis-git.sh checkpoint <ID>` sebelum command yang mengubah kode. Baris 2/8: `/rudis.specify --number N` (draf BSA + jawaban COO; N unik dari register) → `/rudis.checklist`. Baris 3/4/6/7: command jalurnya, gerbang interaktif dijawab dari brief. Commit sesudahnya. |
-| Konstruksi 2 (rencana) | **Tech Lead** (C: BSA) | `/rudis.plan` argumen baku *"jangan bertanya; keputusan pemilik produk tandai NEEDS CLARIFICATION dengan default"* → `/rudis.tasks` → **BSA** `/rudis.analyze` (read-only). |
+| Konstruksi 2 (rencana) | **Tech Lead** (C: BSA) | `/rudis.plan` argumen baku *"jangan bertanya; keputusan pemilik produk tandai NEEDS CLARIFICATION dengan default"* → `/rudis.tasks`. `/rudis.analyze` **tidak** di sini — sekali di Pengujian. |
 | Konstruksi | **SE** per `T###` di brief | Sekali per worktree `printf '%s\n' <NNN-slug> > .rudis/.current-feature`. `/rudis.implement` hanya `T###` di brief; `STOP and ask` → `[Terhambat]`. Commit sesudah command. |
-| Pengujian | TL; peninjau; BSA cocok-spesifikasi | `/rudis.analyze` ulang (+ `/rudis.converge` bila ada spec/plan/tasks; brownfield tanpa spec: cek terhadap `docs/brd/`) + gerbang mutu §6 + Final Checklist (Mode A). Drift spec diperiksa saat serah (`--serah <branch> --proyek <folder>`). |
+| Pengujian | TL; peninjau; BSA cocok-spesifikasi (tingkat 2) | Tingkat 2: `/rudis.analyze` sekali (+ `/rudis.converge` bila ada spec/plan/tasks; brownfield tanpa spec: cek terhadap `docs/brd/`) + gerbang mutu §6 + Final Checklist (Mode A). Drift spec diperiksa saat serah (`--serah <branch> --proyek <folder>`). |
 | Rilis / Operasi | IT Operations | RUDIS **tidak dipakai**. |
 
 Brief TL → SE/BSA menambah: mode, jalur, path spec, `<NNN-slug>`, `T###`, koneksi DB dev/snapshot, keputusan alat gerbang (§6).
@@ -173,7 +188,8 @@ Command RUDIS ditulis untuk agent yang bicara langsung dengan pengguna (`clarify
 - **Penomoran paralel:** selalu `--number N` dari register.
 - **Letak `specs/`:** masuk standar rudis-monorepo (kernel/v7.1) — belum di main sampai pengguna
   menyerahkannya; sementara itu ikuti tabel §8 (namanya sama).
-- **Biaya dokumen:** ±2.000 baris per modul kecil; `clarify`/`checklist` boleh dilewati untuk baris kecil.
+- **Biaya dokumen:** ±2.000 baris per modul kecil pada tingkat 2; karena itu modul tanpa pemicu memakai tingkat 1 (§2).
+  `clarify`/`checklist` boleh dilewati untuk baris kecil. Tingkat 2 di repo nyata belum diukur ulang sesudah perubahan ini.
 - Allowlist marketplace: `rudis init` tidak menegakkan pin — periksa `.claude/settings.json` sesudahnya.
 
 ## 12. Rujukan

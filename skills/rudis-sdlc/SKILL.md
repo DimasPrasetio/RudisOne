@@ -54,9 +54,9 @@ restrukturisasi ke standar tetap tugas eksplisit.
 |---|---|---|---|---|---|
 | Inisiasi | COO | Head of Strategy bila perlu nilai bisnis; **tanpa server** — IT Operations tidak dilibatkan | Step 0 (backend); Step 0b ditunda ke Penerapan | `handoff/<ID>/pemahaman.md` + `intake.md` (`templat/pemahaman-bersama.md`, `templat/intake-proyek.md`) | **Persetujuan Inisiasi** |
 | Analisis & perakitan | Tech Lead | Business Systems Analyst (kemampuan, tabel perakitan, MODULE_MAP, API); C: Financial Controller/HR Business Partner bila domainnya | `module-library.md` §1–3, `backend-modular-monolith.md`, `api-standard.md` | `templat/tabel-perakitan.md` → `analysis/` proyek | **Persetujuan Rancangan** |
-| Desain UI | Tech Lead | Research Analyst (paralel dengan Analisis) | `design-research.md` | draf → `knowledge/DESIGN.md` proyek | ikut **Persetujuan Rancangan** |
-| Konstruksi | Tech Lead | Software Engineer #1/#2, asisten | Langkah 1 (scaffold), `module-library.md` §4–6, referensi stack, `frontend.md`; `.env` & database lokal | branch `rudis/<ID>`; `.env` lokal tanpa placeholder | — |
-| Pengujian | Tech Lead | peninjau berkonteks bersih (subagent `rudis-software-engineer`, tinjauan silang), BSA (cocok spesifikasi) | Final Checklist | laporan divisi + checklist terisi | — |
+| Desain UI | Tech Lead | Research Analyst (paralel dengan Analisis) — **back-office: preset `bingkai-navy` bawaan, riset web dilewati** kecuali pengguna meminta tampilan khas atau aplikasinya untuk publik | `design-research.md` | draf → `knowledge/DESIGN.md` proyek | ikut **Persetujuan Rancangan** |
+| Konstruksi | Tech Lead | Software Engineer (≤ 5 paralel, satu folder modul per agent), asisten | Langkah 1 (scaffold), `module-library.md` §4–6, referensi stack, `frontend.md`; `.env` & database lokal; **Jalur Rakit Paralel** | branch `rudis/<ID>`; `.env` lokal tanpa placeholder | — |
+| Pengujian | Tech Lead | peninjau berkonteks bersih **hanya untuk kode kustom** (subagent `rudis-software-engineer`), BSA (cocok spesifikasi, baris tingkat 2) | `npm run gate` (checklist yang bisa diskrip, `arch:check`, build, tes, lockfile vs tabel — per modul; keluaran ditempel di laporan) + sisa Final Checklist | laporan divisi + checklist terisi | — |
 | Rilis & penerapan | Head of IT Operations | System Administrator; Tech Lead (sha + catatan rilis, isi penanda) | Step 0b, `docker-deployment.md` | `templat/onboarding-app.md`, `templat/laporan-deploy.md` | **Persetujuan Rilis**, **Persetujuan Penerapan** |
 | Operasi & pemeliharaan | Head of IT Operations (operasi) · Tech Lead (kode) | — | `module-library.md` (status/upgrade), `backend-go.md` › Kernel versions | tugas baru per perubahan | sesuai jenisnya |
 
@@ -68,7 +68,22 @@ apakah tabel perakitan dipakai. Jalur per perubahan (jenis × cakupan: pasang, p
 kustom, tracer, redesign, revamp, upgrade, tanpa SDD) dipilih BSA dengan kriteria tertulis, ditinjau TL, ikut brief /
 Persetujuan Rancangan, dicatat di register (`jalur_awal`, `jalur_akhir`), dan ditanyakan ke pengguna hanya bila `ragu`.
 Rinciannya, termasuk gerbang mutu baseline (tidak ada temuan **baru**) dan aturan CVE: skill `rudis-sdd` (dimuat
-hanya untuk baris yang memakai command `/rudis.*`). Baris *pasang* biasa dan perubahan kecil tidak lewat SDD.
+hanya untuk baris yang memakai command `/rudis.*`). Baris *pasang* biasa, perubahan kecil, dan baris **tingkat 1** (spek
+ringkas di tabel perakitan; tingkat ditentukan aturan berisiko, skill `rudis-sdd` › Tingkat SDD) tidak lewat SDD.
+
+### Jalur Rakit Paralel (bawaan aplikasi Mode A)
+Analisis sekali → **satu** persetujuan → pasang dengan skrip (`rakit` / resep pustaka) → kerangka modul kustom
+(`npm run new:module`) → rakit paralel, satu agent per folder modul (api dan web modul yang sama boleh bersamaan) →
+**satu** gerbang akhir (`npm run gate`, gagal → agent pemilik folder, maks. 2 putaran) → lapor. Aplikasi yang semua
+barisnya *pasang* memakai **jalur ekspres** (Tech Lead sebagai subagent, Inisiasi + Rancangan satu persetujuan).
+Langkah, brief per agent, anggaran waktu per fase: [rakit-paralel.md](rakit-paralel.md).
+
+### Lingkup Konstruksi — tanpa kerja tambahan
+Yang dibangun dan diuji = kriteria selesai + aturan di tabel perakitan/spek, tidak lebih. **Tidak** dikerjakan kecuali
+sebuah kriteria memintanya: uji kinerja/beban, `EXPLAIN` dan indeks "jaga-jaga", optimasi, fitur atau layar yang tidak
+diminta, dokumen di luar artefak milik proyek. Temuan yang menurut pelaksana penting (mis. risiko kinerja pada data besar)
+ditulis satu baris di laporan bagian keputusan, tidak dikerjakan diam-diam (pekerjaan seperti ini terukur memakan
+belasan menit per modul tanpa menambah kriteria yang terpenuhi).
 
 ### Gerbang keputusan pengguna (ditanyakan COO)
 Poin di bawah = bahan kerja COO; ke pengguna **bahasa awam** (`agents/coo.md` › Bahasa awam ke pengguna), kata-kata baku: `templat/pesan-gerbang.md`.
@@ -80,7 +95,8 @@ Poin di bawah = bahan kerja COO; ke pengguna **bahasa awam** (`agents/coo.md` �
   di Inisiasi** (slug, domain, pemilik GHCR, port, konfigurasi server): proyek bisa hanya lokal dan device bisa belum
   punya `konfigurasi/server.json`. Persetujuan Rancangan sampai Penerapan di bawah: satu pesan per gerbang, rekomendasi COO di setiap keputusan.
 - **Persetujuan Rancangan** — tabel perakitan (pasang / pasang + sesuaikan / bangun per kemampuan) dan arah desain
-  ringkas (preset, elemen khas, 2–3 keputusan utama).
+  ringkas (preset, elemen khas, 2–3 keputusan utama). **Aplikasi yang semua barisnya *pasang*:** digabung dengan
+  Persetujuan Inisiasi — satu pesan berisi ringkasan pemahaman + tabel perakitan (keputusan pengguna).
 - **Persetujuan Rilis** — serah ke branch utama, commit, membuat repo GitHub (repo privat oleh COO = jenjang 2; push = jenjang 3,
   skill `rudis-operasi`), push: aturan biasa (kutipan
   permintaan per aksi).
@@ -124,40 +140,10 @@ menulis pertanyaannya di laporan bagian **Keputusan yang dibutuhkan** (atau `[Te
 7. Deploy pertama hanya bila pengguna memintanya → Persetujuan Penerapan (fakta *Sebelum penerapan pertama*).
 
 ### `.env` & database lokal (Konstruksi, langsung setelah scaffold) — disiapkan agent
-Proyek **langsung bisa dijalankan**: `.env` lokal tanpa placeholder (`__ISI_…__`, `change-me`) dan database lokal siap,
-tanpa pengguna menyunting `.env`. **Izin tetap** (aturan bawaan): agent menyiapkannya sendiri. Izin ini menggantikan "izin per kali" **hanya** untuk database lokal
-proyek yang sedang dibangun: menyiapkannya, lalu memakainya lewat kode proyek (migrasi, seed, menjalankan aplikasi, tes
-ber-database) pada `<slug>_db`/`<slug>_test`. MySQL lain (tes platform §4, database lain, menyalakan layanan) tetap per kali.
-1. **`.env` non-DB:** `node scripts/env-local.mjs` (skill `rudis-monorepo`; scaffold menjalankannya sekali, Tech Lead
-   menjalankannya lagi setelah setiap `module.mjs add`): JWT acak, login lokal di kunci `*BOOTSTRAP*`, kunci lain dari
-   `.env.example`; nilai yang ada tidak diubah; placeholder tak dikenal → exit 1 + namanya. **Login awal lokal bawaan**:
-   email `admin@example.com`, sandi `admin123`, nama `admin` (`USERS_BOOTSTRAP_NAME`; users tanpa
-   username) — lokal, **publik**. Tidak pernah di `.env.production*`/server: `deploy.sh` › `[0/5] preflight` menolaknya
-   (juga `admin@gmail.com` proyek lama; exit 1) sebelum apa pun berubah.
-2. **Database** — hanya bila kunci DB kosong: `~/Documents/Neuron/ai-agent/RudisOne/bin/env-kunci.sh --salah-satu
-   DB_DSN,DATABASE_URL` exit 3 (tanpa membaca `.env`); exit 0 → lewati. Tech Lead menjalankan dari root worktree:
-   `node scripts/db-local.mjs --password-box --lang id` (root tanpa sandi; bila MySQL meminta sandi → kotak di layar pengguna) — memeriksa `SELECT VERSION()`, membuat `<slug>_db`, `<slug>_test`,
-   akun `<slug>_dev@'127.0.0.1'` (`caching_sha2_password`, berhak hanya atas keduanya) bersandi acak, menulis kunci DB ke
-   `.env`, lalu mencoba login. Exit 0 = siap · 4 = `<slug>_*` sudah ada, tidak ada yang diubah · 3 = root bersandi atau
-   MySQL tidak menjawab, tidak ada yang diubah (baris `reason:` memilih pesan: `templat/pesan-gerbang.md` › Database lokal) · 1 = sebab lain (baca pesannya).
-   **Batas** (wajib, dikutip di brief Konstruksi):
-   - hanya MySQL di **localhost** (`127.0.0.1`/`localhost`) — tidak pernah host lain, server, atau production;
-   - hanya database dan akun **proyek itu** (`<slug>_*`); database/akun lain tidak dibaca dan tidak diubah;
-   - **tanpa menghapus data**: skrip persiapan tidak menjalankan `DROP`/`TRUNCATE`/`DELETE`; data `<slug>_db` hanya diubah
-     migrasi maju & seed proyek; reset/migrasi turun/pengosongan hanya pada `<slug>_test` oleh tes;
-   - **`<slug>_*` sudah ada** (exit 4) → berhenti, tanpa memakai database itu; COO menanyakan pengguna;
-   - **sandi** (sandi akun DB acak dan sandi admin MySQL) tidak pernah lewat chat, brief, laporan, log, atau berkas
-     RudisOne. Agent tidak membaca `.env` — skrip menulis & menguji login; aplikasi/tes memuat `.env` sendiri, jadi brief
-     cukup menyebut nama database. Laporan: "DB siap, login akun proyek berhasil" + nama database.
-3. **Exit 3 atau 4 → agent berhenti, satu langkah pengguna** (tanpa menebak sandi/host lain) di laporan, diteruskan COO
-   persis (PowerShell 5.1: tanpa `&&`): pengguna (menyalakan MySQL bila mati — agent tidak menyalakan layanan; `no-screen`: menjalankan
-   `node scripts/db-local.mjs` di **path absolut worktree** Tech Lead, interaktif, sandi tersembunyi; `--print-sql` = pratinjau). Exit 4: COO menanyakan pengguna dulu. Setelah "sudah", Tech Lead
-   **tidak** mengulang mode agent; verifikasi lewat kode proyek (migrasi/tes memuat `.env`).
-4. Tanpa MySQL lokal → tes non-DB jalan terus; kriteria ber-database "belum terverifikasi", bukan `[Terhambat]`.
-   Hasil dicatat di *Database lokal* `templat/intake-proyek.md` (tanpa sandi/DSN).
-5. **Serah**: `.env` (gitignored, tidak ikut merge) disalin ke checkout utama bila di sana **belum ada**, tanpa
-   dibaca dan tanpa menimpa (`agents/tech-lead.md` › Serah ke branch utama).
-6. Uji penolakan penjaga skrip: pada fungsi penjaga, bukan dengan menjalankan skrip (`protokol.md` › Ruang kerja Engineering).
+Proyek langsung bisa dijalankan: `.env` lokal tanpa placeholder (`node scripts/env-local.mjs`) dan database lokal siap
+(`node scripts/db-local.mjs --password-box --lang id`), disiapkan Tech Lead sendiri atas **izin tetap** — hanya MySQL
+localhost, hanya `<slug>_*` proyek itu, tanpa menghapus data, sandi tidak pernah lewat chat/brief/berkas. Prosedur, kode
+keluar, **Batas** (dikutip di brief Konstruksi), langkah pengguna, dan serah `.env`: [env-db-lokal.md](env-db-lokal.md).
 
 ### Artefak milik proyek
 Hasil yang menjadi bagian proyek (`analysis/`, `knowledge/DESIGN.md`, ADR di `knowledge/decisions/`,
@@ -189,7 +175,5 @@ pustaka); skill `rudis-riset-desain` RudisOne dipakai untuk proyek lain dan untu
   agar skill terpasang mengikuti (commit lokal yang belum di-push dipakai apa adanya; push hanya atas permintaan).
 
 ## 5. Belum diputuskan
-- Pemeriksa batas modul otomatis untuk proyek hasil scaffold (`arch:check`) — usulan perbaikan skill; disarankan
-  sebagai tugas Jalur Platform pertama sebelum proyek baru pertama.
 - Izin tetap menyalakan MySQL lokal khusus tes platform — saat ini izin per kali.
   Persiapan database lokal **proyek** sudah izin tetap (*`.env` & database lokal*).
