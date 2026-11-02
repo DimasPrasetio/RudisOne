@@ -1464,7 +1464,11 @@ function envPerintah(cmd, input, K) {
       if (!tujuan || !ctx.mungkin) ctx.mungkin = null;
       else {
         const baru = [...new Set(ctx.mungkin.flatMap((c) => [path.resolve(c, tujuan), jalurFisik(c, tujuan)]))];
-        if (s.sesudah === "&&" && !u.kompleks && !bersarang && !["||", "|", "|&"].includes(sebelum)) { cadangan = [...new Set([...cadangan, ...ctx.mungkin])]; ctx.mungkin = baru; }
+        // tujuan harus pasti: folder ada menurut hook, dan di Windows bukan path mount Git Bash yang tidak diterjemahkan
+        // (`/tmp`, `/usr`, `/` = folder lain daripada `D:\tmp`); `/c/…` & `C:\…` diterjemahkan → boleh
+        const pasti = !(osLogis() === "win32" && /^\//.test(tujuan) && !/^\/[A-Za-z](\/|$)/.test(tujuan))
+          && baru.filter(Boolean).every((d) => { try { return fs.statSync(d).isDirectory(); } catch { return false; } });
+        if (pasti && s.sesudah === "&&" && !u.kompleks && !bersarang && !["||", "|", "|&"].includes(sebelum)) { cadangan = [...new Set([...cadangan, ...ctx.mungkin])]; ctx.mungkin = baru; }
         else ctx.mungkin = [...new Set([...ctx.mungkin, ...baru])];
       }
     }

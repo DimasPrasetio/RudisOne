@@ -318,7 +318,13 @@ test("T-20261102-4: `cd sub && grep -r` dinilai di sub saja; saringan --include/
     // putaran 4: rg --pre, kata glob yang berkembang menjadi nama berkas berbentuk opsi, perintah polos tidak menulis berkas
     "echo 'cat .env' > x.go; rg --pre sh -g '*.go' '' .", "echo 'cat .env' > x.go; rg -uu --pre=sh -g '*.go' '' .",
     "echo > ./--exclude=a; grep -r * --include=*.go -e DB .", "grep -r * --include=*.go -e DB .", "rg -uu -g '*.go' DB *",
-    "echo '!.env' > .gitignore; cd proj/apps/api && grep -rn DB ../../.."], "deny", W);
+    "echo '!.env' > .gitignore; cd proj/apps/api && grep -rn DB ../../..",
+    // putaran 5: tujuan cd yang tidak pasti (tidak ada menurut hook) → tanpa penyempitan
+    "cd tidak-ada/x && grep -rn DB ."], "deny", W);
+  // Windows: path mount Git Bash (/tmp, /usr, /Users/… tanpa huruf drive) ≠ path Windows yang dihitung hook → tanpa penyempitan
+  if (process.platform === "win32" && (process.env.RUDISONE_OS ?? "win32") === "win32")
+    harap([`cd ${API.slice(2).replaceAll("\\", "/")} && grep -rn DB .`], "deny", W);
+  harap([`cd ${API.replaceAll("\\", "/")} && grep -rn DB .`], "—", W);
   harap(["cd proj/apps/api && grep -rn DB . | head -20; ls", "cd proj/apps/api && cat main.go | sed -n 1,40p",
     "cd proj/apps/api && grep -rn DB --include=*.go . 2>/dev/null | cut -c1-200 | head"], "—", W);
   harap(["grep -rn --include=*.{go,ts} DB .", "grep -rn DB . --include=*.go"], "—", W);
