@@ -199,20 +199,22 @@ export function tentukanMode(opsiMode, envMode) {
 }
 /** Perangkat yang diuji: cepat = HP saja; penuh = semua yang dikonfigurasi (urut tetap HP lalu komputer). */
 export function perangkatUntukMode(mode, semua = ["hp", "komputer"]) {
-  return mode === "cepat" ? semua.filter((p) => p === "hp").slice(0, 1) : [...semua];
+  if (mode !== "cepat") return [...semua];
+  return semua.includes("hp") ? ["hp"] : semua.slice(0, 1); // cepat = HP; tanpa HP terkonfigurasi: perangkat pertama (jangan menguji tanpa perangkat)
 }
 /** Mode cepat menyimpan PNG hanya di langkah kunci (`kunci: true`), kasus gagal, dan galat; pemeriksaan otomatis tetap tiap layar. */
 export function perluTangkapan(mode, { kunci = false, gagal = false, galat = false } = {}) {
   return mode !== "cepat" || !!(kunci || gagal || galat);
 }
 /** Pernyataan cakupan jujur + daftar "belum terverifikasi" dari tugas yang tidak dijalankan. */
-export function teksCakupan({ mode, tugasUji = [], tugasSemua = [], perangkat = [] } = {}) {
+export function teksCakupan({ mode, tugasUji = [], tugasSemua = [], perangkat = [], parsial = "" } = {}) {
   const uji = [...new Set(tugasUji)], semua = [...new Set([...tugasSemua, ...uji])];
   const tak = semua.filter((t) => !uji.includes(t));
   const dev = perangkat.length === 1 && perangkat[0] === "hp" ? "HP saja" : perangkat.map((p) => (p === "hp" ? "HP" : "komputer")).join(" + ") || "perangkat belum dinyatakan";
   const jml = tugasSemua.length || uji.length ? `${uji.length} dari ${semua.length} tugas` : "jumlah tugas belum dinyatakan (panggil uji.cakupan)";
-  const pernyataan = mode === "cepat" ? `cepat: ${jml}, ${dev}; kasus gagal utama per tugas inti; tangkapan hanya di langkah kunci` : `penuh: ${jml}, ${dev}`;
-  const belum = tak.map((t) => `tugas tidak dijalankan (${mode === "cepat" ? "mode cepat" : "di luar cakupan"}): ${t}`);
+  const pernyataan = (mode === "cepat" ? `cepat: ${jml}, ${dev}; kasus gagal utama per tugas inti; tangkapan hanya di langkah kunci` : `penuh: ${jml}, ${dev}`)
+    + (parsial ? `; UJI ULANG PARSIAL (UJI_TUGAS=${parsial})` : "");
+  const belum = tak.map((t) => `tugas tidak dijalankan (${parsial ? "uji ulang parsial" : mode === "cepat" ? "mode cepat" : "di luar cakupan"}): ${t}`);
   if (mode === "cepat" && !perangkat.includes("komputer")) belum.push("tampilan komputer (1440 px): tidak diuji di mode cepat");
   if (mode === "cepat") belum.push("layar kosong dan kasus gagal selain yang utama: tidak diuji di mode cepat");
   return { pernyataan, belum };

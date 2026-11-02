@@ -21,7 +21,7 @@ identitas; "TL / BSA / SE" = tim proyek yang bersangkutan.
 | Desain/tampilan (skill `rudis-riset-desain`) | G | **R** | C | S | — | — | — | — | S | — | — | — |
 | Riset alur pemakaian (sumber bertanggal; aplikasi baru / fitur ber-layar) | G | C | C | — | — | — | — | — | **R** | — | — | — |
 | Alur tugas utama per peran (dari riset alur) | G | C | **R** | I | I | — | — | — | S | — | — | — |
-| Uji jalan alur di gerbang akhir (aplikasi berjalan, HP & komputer) | G | C | **R** | S⁹ | I | — | — | — | — | — | — | — |
+| Uji jalan alur di gerbang akhir (aplikasi berjalan; bawaan cepat: HP; penuh atas permintaan: HP & komputer) | G | C | **R** | S⁹ | I | — | — | — | — | — | — | — |
 | Serah ke branch utama / commit (atas permintaan pengguna) | G | **R** | — | S | I | — | — | — | — | — | — | — |
 | Rencana, status, risiko lintas proyek, cutover | G | C | C | — | **R** | S | C | — | — | — | C | — |
 | Dokumen untuk dibaca orang | G | C | C | — | **R** | S | C | C | C | C | C | — |

@@ -13,7 +13,7 @@ import { periksaLayar, kelompokkanTemuan, tabelTemuan, barisMatriks, AMBANG_SENT
 export const PRESET_RUDIS = {
   login: { path: "/login", email: "input[type=email],input[name=email]", sandi: "input[type=password]", kirim: "button[type=submit]", next: "next" },
   pergiDengan: "spa",
-  responsDiizinkan: [/^GET \/(rbac|auth)\/me 401/], // pemuatan pertama sebelum token ada (token di memori): bukan temuan; 401 di tempat lain tetap ditandai
+  responsDiizinkan: [/^GET \/(rbac|auth)\/me 401/], // pemuatan pertama sebelum token ada (token di memori): bukan temuan. Cocok pada jalur setelah apiUrl (isi apiUrl); 401 di jalur lain tetap ditandai, tetapi 401 di /me saat sesi kedaluwarsa di tengah uji ikut diizinkan
   menu: { tautan: "a[data-sidebar=menu-button]", pemicuHp: "button[data-slot=sidebar-trigger]" },
 };
 
@@ -308,6 +308,12 @@ class Uji {
   get perangkatUji() { return perangkatUntukMode(this.mode, Object.keys(this.opsi.perangkat)); }
   /** Nyatakan cakupan jujur (masuk ringkasan.md + hasil.json): tugasUji = yang dijalankan, tugasSemua = semua tugas di alur-tugas.md. */
   cakupan({ tugasUji = [], tugasSemua = [] } = {}) { this.cakupanDinyatakan = { tugasUji, tugasSemua }; }
+  /** Cakupan efektif: uji ulang parsial (UJI_TUGAS) hanya menjalankan tugas yang namanya memuat kata penyaring — sisanya dilaporkan belum terverifikasi. */
+  cakupanEfektif() {
+    const c = this.cakupanDinyatakan ?? {};
+    if (!this.saring || !c.tugasUji) return c;
+    return { ...c, tugasUji: c.tugasUji.filter((n) => this.saring.some((k) => String(n).toLowerCase().includes(k))), parsial: process.env.UJI_TUGAS };
+  }
   /** Sesi baru (konteks browser sendiri) untuk satu peran di satu perangkat, sudah masuk bila `masuk` ≠ false. */
   async sesi(peran, perangkat, { masuk = true, awal = "/" } = {}) {
     const cfg = this.opsi.perangkat[perangkat];
@@ -328,7 +334,7 @@ class Uji {
   async selesai() {
     const selesai = Date.now();
     const kelompok = kelompokkanTemuan(this.langkah);
-    const cakupan = teksCakupan({ mode: this.mode, ...(this.cakupanDinyatakan ?? {}), perangkat: this.perangkatUji });
+    const cakupan = teksCakupan({ mode: this.mode, ...this.cakupanEfektif(), perangkat: this.perangkatUji });
     const meta = { mode: this.mode, cakupan: cakupan.pernyataan, belumTerverifikasi: cakupan.belum, mulai: new Date(this.mulai).toISOString(), selesai: new Date(selesai).toISOString(), durasiDetik: dtk(selesai - this.mulai), baseUrl: this.opsi.baseUrl,
       langkah: this.langkah.length, galatLangkah: this.galat.length, kasusGagal: this.sesiAktif.reduce((n, s) => n + s.kasusGagal, 0) };
     fs.writeFileSync(path.resolve(this.opsi.keluaran, "hasil.json"), JSON.stringify({ meta, tugas: this.tugas, fakta: this.fakta, galat: this.galat, kelompok, langkah: this.langkah }, null, 1));

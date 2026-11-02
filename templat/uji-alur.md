@@ -12,7 +12,7 @@ Business Systems Analyst · <YYYY-MM-DD> · sha: <sha HEAD rudis/<ID> yang diuji
 
 **Mode: CEPAT | PENUH** (CEPAT = bawaan; PENUH hanya atas permintaan pengguna) · **Cakupan: <cepat: N dari M tugas, HP saja | penuh: M dari M tugas, HP + komputer>** — dari `hasil/ringkasan.md` kit; yang tak dicakup ada di *Belum terverifikasi*, putusan di atas hanya berlaku untuk yang dicakup.
 
-Waktu uji: mulai <jam> · selesai <jam> · durasi <mnt> · pecahan: baca <mnt> / tulis skrip <mnt> / eksekusi kit (<n> putaran × <mnt>) <mnt> / perbaiki skrip <mnt> / menilai + menulis <mnt> (anggaran cepat: aplikasi pertama ± 10 mnt [ukur nyata 12 mnt 16 dtk], satu eksekusi ≤ ± 2 mnt, uji ulang butir ± 2–3 mnt; penuh ≈ 25–50 mnt — lihat agents BSA › Uji jalan alur; bila lewat tulis penyebabnya, jujur, jangan memangkas cakupan diam-diam demi anggaran)
+Waktu uji: mulai <jam> · selesai <jam> · durasi <mnt> · pecahan: baca <mnt> / tulis skrip <mnt> / eksekusi kit (<n> putaran × <mnt>) <mnt> / perbaiki skrip <mnt> / menilai + menulis <mnt> (anggaran cepat: aplikasi pertama ± 10 mnt [ukur nyata 12 mnt 16 dtk], satu eksekusi ≤ ± 2 mnt, uji ulang butir ± 2–3 mnt; penuh: sasaran ≈ 25 mnt, terukur 52 mnt dengan kit awal — lihat agents BSA › Uji jalan alur; bila lewat tulis penyebabnya, jujur, jangan memangkas cakupan diam-diam demi anggaran)
 
 ## Prasyarat
 | Prasyarat | Status | Bukti |

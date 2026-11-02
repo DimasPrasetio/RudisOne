@@ -1,6 +1,7 @@
 // Uji pustaka murni kit uji jalan alur (templat/uji-alur-kit/periksa.mjs): detektor angka/teks/layar tanpa Playwright.
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { PRESET_RUDIS } from "../templat/uji-alur-kit/kit.mjs";
 import { polaAngkaBerlebih, polaTanggalIso, temuanTeksTerlarang, temuanGeser, temuanTargetSentuh, temuanLabel, temuanPapanKetik,
   temuanKonsol, temuanRespons, periksaLayar, kelompokkanTemuan, tabelTemuan, barisMatriks, tentukanMode, perangkatUntukMode, perluTangkapan, teksCakupan } from "../templat/uji-alur-kit/periksa.mjs";
 
@@ -126,6 +127,7 @@ test("mode uji: cepat = HP saja + tangkapan hanya di langkah kunci/gagal/galat; 
   assert.throws(() => tentukanMode("kilat"), /tidak dikenal/);
   assert.deepEqual(perangkatUntukMode("cepat"), ["hp"]);
   assert.deepEqual(perangkatUntukMode("cepat", ["komputer", "hp"]), ["hp"]);
+  assert.deepEqual(perangkatUntukMode("cepat", ["komputer"]), ["komputer"], "tanpa HP terkonfigurasi: tetap satu perangkat, bukan nol");
   assert.deepEqual(perangkatUntukMode("penuh"), ["hp", "komputer"]);
   assert.equal(perluTangkapan("penuh"), true);
   assert.equal(perluTangkapan("cepat"), false);
@@ -144,4 +146,17 @@ test("teksCakupan: pernyataan jujur 'cepat: N dari M tugas, HP saja' + daftar be
   assert.deepEqual(p.belum, []);
   assert.match(teksCakupan({ mode: "cepat", perangkat: ["hp"] }).pernyataan, /jumlah tugas belum dinyatakan/, "cakupan tak dinyatakan tidak berpura-pura lengkap");
   assert.equal(teksCakupan({ mode: "cepat", tugasUji: ["x"], tugasSemua: ["x"], perangkat: ["hp"] }).pernyataan.startsWith("cepat: 1 dari 1 tugas"), true);
+});
+
+test("preset Rudis: hanya 401 GET /rbac|auth/me yang diizinkan; jalur lain dan metode lain tetap calon temuan", () => {
+  const diizinkan = PRESET_RUDIS.responsDiizinkan;
+  const r = (metode, jalur, status = 401) => ({ metode, jalur, status });
+  assert.deepEqual(temuanRespons([r("GET", "/rbac/me"), r("GET", "/auth/me")], { diizinkan }), []);
+  assert.equal(temuanRespons([r("GET", "/rbac/menu"), r("POST", "/auth/me"), r("GET", "/rbac/me", 403), r("GET", "/stock/items")], { diizinkan })[0].jumlah, 4);
+});
+
+test("teksCakupan: uji ulang parsial (UJI_TUGAS) menyatakan dirinya dan memasukkan tugas tersaring ke belum terverifikasi", () => {
+  const c = teksCakupan({ mode: "cepat", tugasUji: ["masuk"], tugasSemua: ["masuk", "keluar"], perangkat: ["hp"], parsial: "masuk" });
+  assert.match(c.pernyataan, /cepat: 1 dari 2 tugas.*UJI ULANG PARSIAL .UJI_TUGAS=masuk./);
+  assert.ok(c.belum.some((b) => /uji ulang parsial.*keluar/.test(b)));
 });

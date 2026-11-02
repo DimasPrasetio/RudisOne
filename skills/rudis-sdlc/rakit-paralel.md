@@ -44,7 +44,7 @@ aplikasi baru dan fitur yang menambah/mengubah layar (Mode A dan B); perbaikan b
   `PERLU PERBAIKAN` untuk sha terakhir di `handoff/<ID>/uji-alur.md`. Verifikasi visual TL (skill `rudis-riset-desain` ›
   Verifikasi visual) tetap; uji alur adalah pemeriksaan kedua oleh pihak lain.
 - **Anggaran tambahan** (sasaran): jenis aplikasi baru ≤ 5 mnt di atas total biasa (riset penuh paralel dengan BSA, jadi
-  sebagian besar tak menambah waktu dinding; uji alur paralel dengan tinjauan kode; uji alurnya sendiri **tidak** muat ± 5 mnt untuk aplikasi dua peran dengan banyak tugas — **mode cepat (bawaan) terukur 12 mnt 16 dtk**, sasaran ± 10 mnt, uji ulang butir ± 2–3 mnt; mode penuh (hanya atas permintaan) ≈ 25–52 mnt; lihat agents BSA › Uji jalan alur); jenis yang sudah diriset ≤ 2 mnt untuk riset dan alur tugas, bukan untuk uji alur.
+  sebagian besar tak menambah waktu dinding; uji alur paralel dengan tinjauan kode; uji alurnya sendiri **tidak** muat ± 5 mnt untuk aplikasi dua peran dengan banyak tugas — **mode cepat (bawaan) terukur 12 mnt 16 dtk**, sasaran ± 10 mnt, uji ulang butir ± 2–3 mnt; mode penuh (hanya atas permintaan) sasaran ≈ 25 mnt, terukur 52 mnt dengan kit awal; lihat agents BSA › Uji jalan alur); jenis yang sudah diriset ≤ 2 mnt untuk riset dan alur tugas, bukan untuk uji alur.
   Tidak ada keputusan tambahan bagi pengguna.
 - Bukan uji pengguna sungguhan: laporan menyebutnya dan menganjurkan uji oleh petugas asli sebelum Persetujuan Penerapan.
 
@@ -63,7 +63,7 @@ Sasaran, bukan batas keras; Kantor menampilkan menit berjalan terhadap anggaran 
 (satu baris), bukan menambah lingkup. Target aplikasi seperti pencatatan stok: ±25–40 mnt sampai lulus `gate`. Anggaran
 Analisis mencakup riset alur dan alur tugas utama (riset penuh ± 5–8 mnt paralel dengan tabel perakitan, lalu alur tugas
 sesudahnya — itu sebab anggarannya naik ± 3 mnt);
-uji jalan alur berjalan paralel dengan tinjauan kode: **mode cepat** aplikasi pertama ± 10 mnt (terukur 12 mnt 16 dtk di Gudangku, dengan bug kit yang sudah diperbaiki; satu eksekusi skrip 75 dtk), uji ulang butir ± 2–3 mnt; **mode penuh** (hanya atas permintaan pengguna) ≈ 25–52 mnt (agents BSA › Uji jalan alur). Anggaran Pengujian di Kantor (10 mnt) sengaja tidak diubah — sudah sama dengan sasaran cepat dan baru satu ukuran; melewatinya disebut sebabnya di laporan.
+uji jalan alur berjalan paralel dengan tinjauan kode: **mode cepat** aplikasi pertama ± 10 mnt (terukur 12 mnt 16 dtk di Gudangku dengan kit SEBELUM perbaikan bug-nya; ± 10 mnt dengan kit yang sudah diperbaiki belum terukur ulang; satu eksekusi skrip 75 dtk), uji ulang butir ± 2–3 mnt; **mode penuh** (hanya atas permintaan pengguna) sasaran ≈ 25 mnt, terukur 52 mnt dengan kit awal (agents BSA › Uji jalan alur). Anggaran Pengujian di Kantor (10 mnt) sengaja tidak diubah — sudah sama dengan sasaran cepat dan baru satu ukuran; melewatinya disebut sebabnya di laporan.
 
 ## Proyek lama tanpa alat ini
 `scripts/arch-check.mjs`, `new-module.mjs`, `gate.mjs` adalah berkas mandiri: salin dari scaffold baru dan tambahkan skrip

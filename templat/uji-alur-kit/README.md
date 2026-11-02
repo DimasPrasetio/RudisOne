@@ -15,7 +15,7 @@ murni, diuji `node --test bin/uji-alur-kit.test.mjs`) · `contoh-uji.mjs` (skrip
 | Kasus gagal | **kasus gagal utama** per tugas inti (1–2, tertulis di bagian tugas inti) | semua kasus gagal + layar kosong |
 | Pemeriksaan otomatis kit | di **setiap layar yang dikunjungi** (angka berlebih nol, teks terlarang/Inggris, label, target sentuh, geser horizontal, papan ketik angka, konsol/respons) | sama |
 | Tangkapan | hanya langkah kunci (`snap(nama, { kunci: true })`), kasus gagal, galat | setiap `snap` |
-| Waktu | satu eksekusi skrip ≤ ± 2 mnt; BSA total ± 10 mnt (aplikasi pertama; ukur nyata: lihat agents BSA › Uji jalan alur); uji ulang butir ± 2–3 mnt | ≈ 25–50 mnt (eksekusi penuh ≈ 6 mnt) |
+| Waktu | satu eksekusi skrip ≤ ± 2 mnt; BSA total ± 10 mnt (aplikasi pertama; ukur nyata: lihat agents BSA › Uji jalan alur); uji ulang butir ± 2–3 mnt | sasaran ≈ 25 mnt, terukur 52 mnt dengan kit awal (eksekusi penuh ≈ 6 mnt) |
 | Putusan | LULUS / PERLU PERBAIKAN untuk sha terakhir **beserta pernyataan cakupan** ("cepat: N dari M tugas, HP saja") dan daftar *belum terverifikasi* | sama |
 Pilih lewat opsi `mode` atau env `UJI_MODE=cepat|penuh` (PowerShell: `$env:UJI_MODE='penuh'`; env menang). Skrip memakai `uji.perangkatUji`
 (cepat = `["hp"]`), menyatakan cakupan dengan `uji.cakupan({ tugasUji, tugasSemua })`, dan `ringkasan.md` memuat **Cakupan** dan
