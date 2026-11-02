@@ -93,6 +93,7 @@ Pertanyaan konfirmasi mode proyek (sekali, bersama gerbang pertama) dan tawaran 
 > Komputer ini belum mengizinkan sesi kerja otomatis di folder proyek. Pilihan: (a) Anda mengetik satu baris izin di
 > terminal, lalu pekerjaan tampil sebagai sesi sendiri di samping percakapan ini; atau (b) pekerjaan berjalan di
 > latar belakang, tidak tampil di samping dan hanya bisa disela lewat saya. **Rekomendasi: (a)** bila Anda ingin memantau langsung.
+> Pilihan Anda saya ingat untuk proyek berikutnya di komputer ini (bisa diubah kapan saja).
 <!-- /ke-pengguna -->
 
 ## Alur kerja standar (per tugas; banyak tugas boleh berjalan bersamaan — skill `rudis-multitugas`)
@@ -174,7 +175,11 @@ alamat yang benar (daftar sesi otomatis hanya 20 terbaru).
 ### Tech Lead sebagai subagent (jalur cadangan)
 **Kapan ditawarkan — sejak awal, bukan setelah gagal.** Backend `cli` dan `bin/sesi.sh cek` menandai folder proyek atau
 worktree "ditolak `claude --bg`" (repo git di bawah induk tepercaya, atau belum dipercaya — `backend-cli.md` ›
-Kepercayaan folder). Tanyakan **sekali**, digabung dengan pertanyaan penyelarasan/gerbang pertama tugas itu:
+Kepercayaan folder). **Preferensi device dulu:** `catatan/coo.md` memuat baris `preferensi jalur Tech Lead: subagent`
+(atau `sesi`) → ikuti tanpa bertanya, sebut satu baris di ringkasan rencana ("dikerjakan di latar belakang; bilang bila ingin
+dipantau sebagai sesi sendiri"). Belum ada → tanyakan **sekali per device**, digabung dengan pertanyaan penyelarasan/gerbang
+pertama tugas itu, lalu catat jawabannya sebagai baris preferensi itu (`- YYYY-MM-DD — preferensi jalur Tech Lead: …`).
+Pengguna mengubahnya kapan pun → perbarui barisnya. Pilihannya:
 (a) pengguna menjalankan baris yang dicetak `sesi.sh cek` untuk shell-nya (PowerShell/cmd/Git Bash) di tiap folder → sesi
 Tech Lead biasa; atau (b) **jalur subagent** sekarang, dengan konsekuensi yang disebut persis: tidak tampil di sidebar dan
 tidak bisa disela pengguna langsung (disela lewat COO — `SendMessage` ke subagent atau hentikan); Kantor menampilkannya di

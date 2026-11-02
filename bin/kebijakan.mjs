@@ -229,11 +229,13 @@ export function urai(cmd) {
     if (tunggu) { seg.alih.push({ op: tunggu, target: w.nilai, glob: w.glob, ekspansi: w.ekspansi }); tunggu = null; } else seg.kata.push(w);
     w = null;
   };
-  const tutupSeg = () => {
+  // `sesudah` = pemisah yang menutup segmen (&&, ||, ;, |, |&, &, \n; undefined = akhir). Pemisah sesudah segmen kosong
+  // (`a &&\n b`) tidak menimpa pemisah segmen sebelumnya — bash membaca baris baru sesudah && sebagai lanjutan.
+  const tutupSeg = (op) => {
     tutupKata();
     if (tunggu) { kompleks = true; seg.alih.push({ op: tunggu, target: "", glob: false, ekspansi: false }); tunggu = null; }
     seg.teks = seg.teks.trim();
-    if (seg.teks) segmen.push(seg);
+    if (seg.teks) { seg.sesudah = op; segmen.push(seg); }
     seg = { teks: "", kata: [], alih: [] };
   };
   for (let i = 0; i < cmd.length; i++) {
@@ -263,9 +265,9 @@ export function urai(cmd) {
       kini().nilai += c; seg.teks += c; continue;
     }
     if (c === "`") { kompleks = true; kini().nilai += c; seg.teks += c; continue; }
-    if ((c === "&" && n === "&") || (c === "|" && (n === "|" || n === "&"))) { tutupSeg(); i++; continue; }
-    if (c === ";" || c === "\n" || c === "|") { tutupSeg(); continue; }
-    if (c === "&" && n !== ">") { tutupSeg(); continue; }
+    if ((c === "&" && n === "&") || (c === "|" && (n === "|" || n === "&"))) { tutupSeg(c + n); i++; continue; }
+    if (c === ";" || c === "\n" || c === "|") { tutupSeg(c); continue; }
+    if (c === "&" && n !== ">") { tutupSeg(c); continue; }
     if (c === "(" || c === ")") { kompleks = true; tutupKata(); seg.teks += c; continue; }
     if (c === ">" || c === "<" || (c === "&" && n === ">")) {
       let fd = "";
@@ -962,6 +964,118 @@ export function globKeRegex(g) {
   }
   try { return new RegExp("^" + r + "$"); } catch { return /(?!)/; }
 }
+/** Glob saringan nama berkas (grep --include, rg -g) → RegExp tanpa beda huruf besar/kecil; kurawal `{a,b}` diurai
+ *  (rg mengenalnya). Ragu → cocok dengan apa pun (berkas env dianggap lolos saringan): kurawal tak seimbang, pemisah path
+ *  (`/`, `\` — juga escape fnmatch `\.env`), kelas POSIX `[[:punct:]]`, glob yang gagal diterjemahkan. */
+export function globNama(g) {
+  g = String(g);
+  if (/[\\/]|\[:/.test(g)) return /^/;
+  const m = g.match(/\{([^{}]*)\}/);
+  if (!m) {
+    if (/[{}]/.test(g)) return /^/;
+    const r = globKeRegex(g);
+    return r.source === "(?!)" ? /^/ : new RegExp(r.source, "i");
+  }
+  const alt = m[1].split(",").map((x) => globNama(g.slice(0, m.index) + x + g.slice(m.index + m[0].length)));
+  return { test: (s) => alt.some((r) => r.test(s)) };
+}
+// Opsi grep (GNU) dan rg yang dikenal pengurai saringan. Opsi panjang di luar daftar (juga singkatan GNU `--inc`, `--lab`)
+// → ragu: nilai opsi tak dikenal bisa berbunyi `--include`/`-g`, jadi saringan tidak dipercaya.
+const OPSI_CARI = {
+  grep: {
+    nilaiPendek: "efmABCdDX",
+    nilaiPanjang: new Set(["regexp", "file", "max-count", "label", "after-context", "before-context", "context", "binary-files", "devices",
+      "directories", "exclude", "exclude-from", "exclude-dir", "include", "group-separator"]),
+    bendera: new Set(["extended-regexp", "fixed-strings", "basic-regexp", "perl-regexp", "ignore-case", "no-ignore-case", "word-regexp",
+      "line-regexp", "null-data", "no-messages", "invert-match", "byte-offset", "line-number", "line-buffered", "with-filename", "no-filename",
+      "only-matching", "quiet", "silent", "text", "files-without-match", "files-with-matches", "count", "initial-tab", "null", "recursive",
+      "dereference-recursive", "color", "colour", "no-group-separator", "binary"]),
+  },
+  rg: {
+    nilaiPendek: "ABCdeEfgjmMrtT",
+    nilaiPanjang: new Set(["after-context", "before-context", "context", "context-separator", "colors", "color", "encoding", "engine", "file",
+      "glob", "iglob", "ignore-file", "max-columns", "max-count", "max-depth", "max-filesize", "path-separator", "pre", "pre-glob", "regexp",
+      "replace", "sort", "sortr", "threads", "type", "type-add", "type-clear", "type-not"]),
+    bendera: new Set(["hidden", "no-hidden", "follow", "no-follow", "ignore-case", "smart-case", "case-sensitive", "line-number", "no-line-number",
+      "fixed-strings", "word-regexp", "line-regexp", "files", "files-with-matches", "files-without-match", "count", "count-matches", "heading",
+      "no-heading", "with-filename", "no-filename", "only-matching", "multiline", "multiline-dotall", "vimgrep", "json", "pcre2",
+      "unrestricted", "invert-match", "null", "null-data", "text", "trim", "column", "no-column", "no-messages", "quiet", "stats",
+      "byte-offset", "crlf", "no-config", "no-ignore", "no-ignore-vcs", "no-ignore-dot", "no-ignore-parent", "no-ignore-global",
+      "no-ignore-exclude", "no-ignore-files", "binary", "sort-files"]),
+  },
+};
+/** Urai opsi grep/rg → { saring: [{ jenis: "include"|"exclude", glob }] menurut urutan, nilaiSaring: indeks nilai saringan
+ *  yang terpisah, ragu }. Nilai setiap opsi bernilai dilewati (`-e --include` = pola), berhenti di `--`. rg (lexopt) membuang
+ *  `=` pada nilai opsi pendek (`-g=*` = `*`); glob rg berawalan `!` = kecualikan. */
+export function opsiCari(args, rg = false) {
+  const D = rg ? OPSI_CARI.rg : OPSI_CARI.grep;
+  const saring = [], nilaiSaring = new Set();
+  let ragu = false;
+  const catat = (nama, v, j) => {
+    if (v === undefined) return;
+    if (rg && (nama === "glob" || nama === "iglob")) saring.push(v.startsWith("!") ? { jenis: "exclude", glob: v.slice(1) } : { jenis: "include", glob: v });
+    else if (!rg && nama === "include") saring.push({ jenis: "include", glob: v });
+    else if (!rg && (nama === "exclude" || nama === "exclude-from")) saring.push({ jenis: "exclude", glob: v });
+    else return;
+    if (j !== null) nilaiSaring.add(j);
+  };
+  for (let j = 0; j < args.length; j++) {
+    const x = args[j];
+    if (x === "--") break;
+    if (x.startsWith("--")) {
+      const eq = x.indexOf("="), nama = eq < 0 ? x.slice(2) : x.slice(2, eq);
+      if (D.nilaiPanjang.has(nama)) {
+        if (eq >= 0) catat(nama, x.slice(eq + 1), null);
+        else if (j + 1 < args.length) { catat(nama, args[j + 1], j + 1); j++; }
+      } else if (!D.bendera.has(nama) && !(rg && /^no-ignore/.test(nama))) ragu = true;
+      continue;
+    }
+    if (x.length < 2 || !x.startsWith("-")) continue;
+    for (let k = 1; k < x.length; k++) {
+      if (!D.nilaiPendek.includes(x[k])) continue;
+      let v = x.slice(k + 1), jNilai = null;
+      if (!v) { if (j + 1 < args.length) { v = args[j + 1]; jNilai = j + 1; j++; } else v = undefined; }
+      else if (rg && v.startsWith("=")) v = v.slice(1);
+      if (rg && x[k] === "g") catat("glob", v, jNilai);
+      break;
+    }
+  }
+  return { saring, nilaiSaring, ragu };
+}
+/** Saringan nama berkas yang bisa dipercaya → (nama) => lolos?; null = semua berkas dibaca.
+ *  grep: berkas yang tak cocok pola mana pun tetap dibaca KECUALI opsi saringan pertama adalah --include (dok GNU grep).
+ *  rg: glob positif mana pun = daftar putih. Berkas env lolos bila cocok salah satu glob include (pengecualian diabaikan). */
+export function saringNama(opsi, rg = false) {
+  if (opsi.ragu || !opsi.saring.length) return null;
+  const inc = opsi.saring.filter((s) => s.jenis === "include");
+  if (!inc.length || (!rg && opsi.saring[0].jenis !== "include")) return null;
+  const re = inc.map((s) => globNama(s.glob));
+  return (nama) => re.some((r) => r.test(nama));
+}
+/** Perintah POLOS: setiap segmen dijalankan program baca yang dikenal (daftar izin), tanpa $-ekspansi, substitusi, subshell,
+ *  penugasan variabel, alias, fungsi, export, source, atau shell bersarang. Hanya perintah polos yang mendapat dua
+ *  kelonggaran penjaga .env (penyempitan folder `cd x && …` dan saringan nama --include/-g): selain itu bash bisa mengubah
+ *  arti kata yang dilihat hook (alias/fungsi grep atau cd, GREP_OPTIONS hasil rakitan, …). */
+const PROG_POLOS = new Set(["cd", "grep", "egrep", "fgrep", "rg", "head", "tail", "sort", "uniq", "cut", "wc", "cat", "ls", "tr", "nl", "column", "pwd", "true", "echo"]);
+const _polos = new Map();
+export function perintahPolos(teks) {
+  if (_polos.has(teks)) return _polos.get(teks);
+  const u = urai(teks);
+  const ok = !u.kompleks && !u.ekspansi && u.segmen.length > 0 && u.segmen.every((s) => {
+    const w = s.kata.map((k) => k.nilai);
+    if (!w.length || s.kata.some((k) => k.ekspansi)) return false;
+    // tanpa menulis berkas (skrip untuk --pre, berkas bernama opsi, .gitignore baru): hanya /dev/null, dup fd, baca
+    if (s.alih.some((a) => !alihAman(a))) return false;
+    // rg --pre / --pre-glob menjalankan program atas setiap berkas
+    if (w[0] === "rg" && w.some((x) => /^--pre(-glob)?(=|$)/.test(x))) return false;
+    // sed hanya bentuk cetak baris: sed -n 1,40p <berkas…> (skrip sed lain bisa menjalankan perintah: `e`)
+    if (w[0] === "sed") return w[1] === "-n" && /^\d+(,(\d+|\$))?p$/.test(w[2] ?? "") && w.slice(3).every((x) => !x.startsWith("-"));
+    return PROG_POLOS.has(w[0]);
+  });
+  if (_polos.size > 200) _polos.clear();
+  _polos.set(teks, ok);
+  return ok;
+}
 /** Glob yang bisa mencocokkan berkas env di foldernya (`cat .e*`, `cat .env*`). */
 function globEnv(pola, folder, K) {
   const p = rumah(pola);
@@ -1002,11 +1116,12 @@ const kataDari = (t) => urai(t).segmen;
 /** Berkas env di pohon `akar` (kedalaman ≤ 6, ≤ 5.000 entri, lewati node_modules/.git) yang akan terbaca pencarian:
  *  mode "semua" (grep tanpa ignore, ag/ack, GNU grep di Windows) · "pohon" (grep bawaan Claude Code = ugrep
  *  --ignore-files: hanya berkas `.gitignore` DI DALAM pohon pencarian yang dihormati — bukan .gitignore induk,
- *  .git/info/exclude, atau excludes global) · "git" (rg & alat Grep: semua aturan ignore git → `git check-ignore`). */
-function pohonEnv(akar, K, mode = "semua") {
+ *  .git/info/exclude, atau excludes global) · "git" (rg & alat Grep: semua aturan ignore git → `git check-ignore`).
+ *  `lolos(nama)` = saringan nama berkas pencarian (grep --include, rg -g): berkas env yang tidak lolos tidak terbaca. */
+function pohonEnv(akar, K, mode = "semua", lolos = null, ikut = false) {
   try { if (fs.statSync(akar).isFile()) return namaEnv(path.basename(akar), K) ? akar : null; } catch { return null; }
   let n = 0;
-  const temu = [];
+  const temu = [], kunjung = new Set();
   const jalan = (d, k, aturan) => {
     if (k > 6 || n > 5000) return;
     let isi = [];
@@ -1021,8 +1136,16 @@ function pohonEnv(akar, K, mode = "semua") {
     for (const e of isi) {
       if (++n > 5000) return;
       const p = path.join(d, e.name);
+      // pencarian yang mengikuti tautan (grep -R, rg -L): symlink/junction ditelusuri ke tujuannya (penjaga loop: kunjung)
+      if (ikut && e.isSymbolicLink()) {
+        let nyata, st;
+        try { nyata = fs.realpathSync.native(p); st = fs.statSync(nyata); } catch { continue; }
+        if (st.isDirectory()) { const kk = nyata.toLowerCase(); if (!kunjung.has(kk)) { kunjung.add(kk); jalan(nyata, k + 1, lokal); } }
+        else if ((namaEnv(e.name, K) || namaEnv(path.basename(nyata), K)) && (!lolos || lolos(e.name))) temu.push(nyata);
+        continue;
+      }
       if (e.isDirectory()) { if (!/^(node_modules|\.git)$/.test(e.name)) jalan(p, k + 1, lokal); }
-      else if (namaEnv(e.name, K) && !(mode === "pohon" && diabaikan(p, lokal))) temu.push(p);
+      else if (namaEnv(e.name, K) && (!lolos || lolos(e.name)) && !(mode === "pohon" && diabaikan(p, lokal))) temu.push(p);
     }
   };
   jalan(akar, 0, []);
@@ -1156,17 +1279,41 @@ export function envSegmen(s, K, ctx, semua = s.teks, dalam = 0) {
     for (const c of folder ?? []) { const b = kena(path.join(c, ".env")); if (b && fs.existsSync(b)) return hasil(b, `${prog} mencetak nilai .env yang dimuat otomatis`); }
   }
   if (prog === "env" && !args.some((x) => !x.startsWith("-") && !/^[A-Za-z_]\w*=/.test(x))) return null;   // env telanjang: lingkungan agent sendiri
-  // pencarian rekursif: grep -r / rg / git grep --untracked
+  // pencarian rekursif: grep -r / grep -d recurse / rg / git grep --untracked
   const grepProg = /^(grep|egrep|fgrep)$/.test(prog);
-  const rekursif = (grepProg && args.some((x) => /^--(recursive|dereference-recursive)$|^-[A-Za-z]*[rR]/.test(x)))
+  const rekursif = (grepProg && args.some((x) => /^--(recursive|dereference-recursive|directories)(=|$)|^-[A-Za-z]*[rRd]/.test(x)))
     || /^(rg|ag|ack)$/.test(prog) || (prog === "git" && args[0] === "grep");
   // argumen non-opsi pertama grep/rg/ag/ack/git grep = pola, bukan berkas (kecuali pola diberikan lewat -e/-f)
   const polaLewatOpsi = args.some((x) => /^(-e|-f|--regexp|--file)$|^--(regexp|file)=|^-[A-Za-z]*[ef]$/.test(x));
-  const tanpaPola = (xs) => { const o = xs.filter((x) => !x.startsWith("-")); return polaLewatOpsi ? o : o.slice(1); };
+  // saringan nama berkas (grep --include/--exclude, rg -g/--glob/--iglob) dari pengurai opsi; nilai saringan yang terpisah
+  // (`--include '*.go'`) bukan pola/akar pencarian. Opsi tak dikenal → `ragu` → saringan tidak dipercaya.
+  const opsi = grepProg || prog === "rg" ? opsiCari(args, prog === "rg") : { saring: [], nilaiSaring: new Set(), ragu: false };
+  // Argumen yang baru terbentuk saat dijalankan ($X, "$@", -{-exclude=a,…}), nilai saringan terpisah ber-glob, nullglob,
+  // atau variabel yang mengubah penguraian (POSIXLY_CORRECT, GREP_OPTIONS, RIPGREP_CONFIG_PATH) → saringan tidak dipercaya.
+  if (opsi.saring.length && !perintahPolos(semua)) opsi.ragu = true;
+  if (opsi.saring.length) {
+    const iAkhir = args.indexOf("--") < 0 ? args.length : args.indexOf("--");
+    const kurawalSah = prog === "rg" ? /^(--i?glob=|-g)/ : /^--include=/;
+    // kata ber-glob di luar nilai saringan yang menempel bisa berkembang menjadi nama berkas berbentuk opsi (`--exclude=a`,
+    // `-g…`); rg: posisi mana pun (glob -g belakangan tetap berlaku)
+    const kataCek = prog === "rg" ? kataArgs : kataArgs.slice(0, iAkhir);
+    if (kataCek.some((k, j) => k.ekspansi || (k.kurawal && !kurawalSah.test(k.nilai)) || (k.glob && (opsi.nilaiSaring.has(j) || !kurawalSah.test(k.nilai))))
+      || /POSIXLY_CORRECT|GREP_OPTIONS|RIPGREP_CONFIG_PATH|nullglob/.test(semua)
+      || ["POSIXLY_CORRECT", "GREP_OPTIONS", "RIPGREP_CONFIG_PATH"].some((v) => process.env[v] !== undefined)) opsi.ragu = true;
+  }
+  const lolosSaring = saringNama(opsi, prog === "rg");
+  // rg: glob positif mengalahkan semua aturan abaikan, termasuk berkas tersembunyi
+  const rgGlob = prog === "rg" && (opsi.ragu ? args.some((x) => /^(-[A-Za-z]*g|--i?glob)/.test(x)) : opsi.saring.some((s) => s.jenis === "include"));
+  const nilaiOpsi = opsi.ragu ? new Set() : opsi.nilaiSaring;
+  const tanpaPola = (xs) => { const o = xs.filter((x, j) => !x.startsWith("-") && !(xs === args && nilaiOpsi.has(j))); return polaLewatOpsi ? o : o.slice(1); };
   if (rekursif) {
     const tanpaIgnore = (grepProg && (w[i].includes("/") || pembungkus.some((x) => x === "command") || args.some((x) => /^(-[A-Za-z]*Z|--null)$/.test(x))))
-      || /^(ag|ack|egrep|fgrep)$/.test(prog) || args.some((x) => /^(-uu+|--no-ignore.*|--unrestricted|--untracked|--no-index)$/.test(x)) || osLogis() === "win32";
+      || /^(ag|ack|egrep|fgrep)$/.test(prog) || args.some((x) => /^(-uu+|--no-ignore.*|--unrestricted|--untracked|--no-index)$/.test(x)) || osLogis() === "win32"
+      || rgGlob;
     const rgTersembunyi = args.some((x) => /^(-u|--hidden|-\.)$/.test(x));
+    // mengikuti tautan saat menelusuri: grep -R/--dereference-recursive, rg -L/--follow
+    const ikutTautan = grepProg ? args.some((x) => /^--dereference-recursive$|^-[A-Za-z]*R/.test(x))
+      : prog === "rg" && args.some((x) => /^--follow$|^-[A-Za-z]*L/.test(x));
     const mode = tanpaIgnore ? "semua" : grepProg ? "pohon" : prog === "rg" && rgTersembunyi ? "git" : null;
     const akar = tanpaPola(prog === "git" ? args.slice(1) : args);
     for (const a of akar.length ? akar : ["."]) {
@@ -1174,7 +1321,7 @@ export function envSegmen(s, K, ctx, semua = s.teks, dalam = 0) {
       if (!mode) continue;   // rg tanpa -u/--hidden melewati berkas tersembunyi; git grep hanya berkas terlacak
       for (const c of folder ?? []) {
         const daftar = /[*?[]/.test(a) ? globDaftar(a, c) : [path.resolve(c, rumah(a))];
-        for (const d of daftar) { const t = pohonEnv(d, K, mode); if (t) return hasil(t, "pencarian rekursif atas folder berisi berkas env"); }
+        for (const d of daftar) { const t = pohonEnv(d, K, mode, lolosSaring, ikutTautan); if (t) return hasil(t, "pencarian rekursif atas folder berisi berkas env"); }
       }
     }
     return null;
@@ -1304,19 +1451,54 @@ function envPerintah(cmd, input, K) {
   const ctx = { cwd: input.cwd ? rumah(input.cwd) : HOME };
   ctx.awal = ctx.cwd;
   ctx.mungkin = ctx.cwd ? [ctx.cwd] : null;
-  for (const s of urai(bersih).segmen) {
+  const u = urai(bersih);
+  // `cd x && …`: bila cd gagal, rantai && sesudahnya tidak berjalan → selama rantai itu folder lama tidak mungkin aktif
+  // (pencarian `cd sub && grep -r .` tidak lagi dinilai atas folder awal). Folder lama disimpan di `cadangan` dan kembali
+  // berlaku begitu rantai putus (;, ||, &, baris baru, akhir). Tidak dipersempit bila ada subshell/substitusi (kompleks):
+  // `(cd x && a) && grep -r .` berjalan di folder awal. Juga tidak bila cd bisa terlewati sementara rantai && tetap jalan:
+  // `a || cd x && b` = `(a || cd x) && b` (a berhasil → cd tidak jalan), atau cd anggota pipeline (`a | cd x && b`: subshell).
+  // Shell bersarang / eval (`bash -c "cd ..; grep -r ."`, `xargs sh -c`, `find -exec sh -c`): cd di dalam teksnya tidak dilacak
+  // → tanpa penyempitan sama sekali (kembali ke penilaian lama: semua folder yang mungkin).
+  // Ditambah syarat perintah polos (perintahPolos): alias/fungsi `cd`, penugasan, $-ekspansi → tanpa penyempitan.
+  const bersarang = !perintahPolos(bersih) || process.env.CDPATH !== undefined || u.segmen.some((s) => s.kata.some((k) => /^(sh|bash|zsh|dash|ksh|mksh|fish|eval)(\.exe)?$/i.test(path.basename(k.nilai))));
+  let cadangan = [], sebelum;
+  for (const s of u.segmen) {
     const h = envSegmen(s, K, ctx, bersih);
     if (h) return h;
     const k0 = s.kata[0]?.nilai ?? "";
+    const kc = /^(command|builtin)$/.test(k0) && s.kata[1]?.nilai === "cd" ? 1 : 0;   // command cd / builtin cd
     if (/^(pushd|popd)$/.test(k0)) { ctx.cwd = null; ctx.mungkin = null; }
-    else if (k0 === "cd") {
-      const arg = s.kata.slice(1).filter((x) => !/^-[LP]$/.test(x.nilai));
+    else if (k0 === "cd" || kc) {
+      const arg = s.kata.slice(1 + kc).filter((x) => !/^-[LP]$/.test(x.nilai));
       const tujuan = arg.length === 0 ? HOME : arg.length === 1 && ctx.cwd && !arg[0].ekspansi && !arg[0].glob && arg[0].nilai !== "-" ? rumah(arg[0].nilai) : null;
       ctx.cwd = tujuan && ctx.cwd ? path.resolve(ctx.cwd, tujuan) : null;
       if (!tujuan || !ctx.mungkin) ctx.mungkin = null;
-      else ctx.mungkin = [...new Set([...ctx.mungkin, ...ctx.mungkin.flatMap((c) => [path.resolve(c, tujuan), jalurFisik(c, tujuan)])])];
+      else {
+        const baru = [...new Set(ctx.mungkin.flatMap((c) => [path.resolve(c, tujuan), jalurFisik(c, tujuan)]))];
+        // tujuan harus pasti: folder ada menurut hook, dan di Windows bukan path mount Git Bash yang tidak diterjemahkan
+        // (`/tmp`, `/usr`, `/` = folder lain daripada `D:\tmp`); `/c/…` & `C:\…` diterjemahkan → boleh
+        // dan hanya TURUN ke subfolder folder yang mungkin aktif (kasus yang dibutuhkan: `cd apps/api && grep -r .`); tanpa `..`
+        // (normalisasi `..` bash bisa berbeda: `/c/../tmp` = mount /tmp, bukan C:\tmp). Naik/pindah ke folder lain → tidak.
+        // dibandingkan dalam bentuk fisik (Windows: nama pendek DIMASP~1 vs nama panjang, symlink/junction)
+        const fisik = (p) => { try { return fs.realpathSync.native(p); } catch { return path.resolve(p); } };
+        const turunan = (d) => ctx.mungkin.some((c) => {
+          const r = path.relative(fisik(c), fisik(d));
+          return r && !r.startsWith("..") && !path.isAbsolute(r);
+        });
+        const pasti = !(osLogis() === "win32" && /^\//.test(tujuan) && !/^\/[A-Za-z](\/|$)/.test(tujuan))
+          && !String(tujuan).split(/[\\/]/).includes("..")
+          && baru.filter(Boolean).every((d) => { try { return fs.statSync(d).isDirectory() && turunan(d); } catch { return false; } });
+        if (pasti && s.sesudah === "&&" && !u.kompleks && !bersarang && !["||", "|", "|&"].includes(sebelum)) { cadangan = [...new Set([...cadangan, ...ctx.mungkin])]; ctx.mungkin = baru; }
+        else ctx.mungkin = [...new Set([...ctx.mungkin, ...baru])];
+      }
     }
+    if (cadangan.length && !["&&", "|", "|&"].includes(s.sesudah)) {
+      if (ctx.mungkin) ctx.mungkin = [...new Set([...ctx.mungkin, ...cadangan])];
+      cadangan = [];
+    }
+    sebelum = s.sesudah;
   }
+  if (ctx.mungkin && cadangan.length) ctx.mungkin = [...new Set([...ctx.mungkin, ...cadangan])];
   const ctxSub = { cwd: ctx.awal, mungkin: ctx.mungkin ?? (ctx.awal ? [ctx.awal] : null) };
   for (const t of substitusi(bersih).flatMap((x) => urai(x).segmen)) { const h = envSegmen(t, K, ctxSub, bersih, 1); if (h) return h; }
   return null;
@@ -1570,8 +1752,12 @@ export function putuskan(input, K) {
     const sesiEnv = kenaliSesi(input, K);
     if (sesiEnv.rudisOne) {
       const nama = path.basename(String(k.env.berkas));
+      // pencarian kode yang tertolak hanya karena ada .env di pohonnya: beri bentuk yang lolos agar agent tidak menebak-nebak
+      const saranCari = /pencarian rekursif/.test(k.env.sebab)
+        ? ` Mencari kode? Batasi ke berkas kode: grep -rn --include='*.go' --include='*.ts*' <pola> <folder>, cari di subfolder tanpa .env, atau pindah folder dengan \`cd <folder> && grep …\` (bukan \`;\`) — atau pakai alat Grep.`
+        : "";
       return { keputusan: "deny", sesi: sesiEnv, aksi: [], env: k.env, ringkasan: k.ringkasan,
-        alasan: `RudisOne · membaca isi ${nama} ditolak (${k.env.sebab}) — nilai rahasia tidak boleh masuk transkrip. Cek kunci tanpa nilai: ${ROOT}/bin/env-kunci.sh [--wajib K1,K2 | --salah-satu K1,K2] <berkas>. Aplikasi/tes/skrip proyek yang memuat .env sendiri tetap boleh dijalankan; isi yang memang perlu dilihat → minta pengguna membukanya sendiri.` };
+        alasan: `RudisOne · membaca isi ${nama} ditolak (${k.env.sebab}) — nilai rahasia tidak boleh masuk transkrip.${saranCari} Cek kunci tanpa nilai: ${ROOT}/bin/env-kunci.sh [--wajib K1,K2 | --salah-satu K1,K2] <berkas>. Aplikasi/tes/skrip proyek yang memuat .env sendiri tetap boleh dijalankan; isi yang memang perlu dilihat → minta pengguna membukanya sendiri.` };
     }
   }
   if (ALAT_BACA.has(input.tool_name)) return { keputusan: null, alasan: "bukan pembacaan berkas env", sesi: null };

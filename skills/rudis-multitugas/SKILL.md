@@ -9,7 +9,8 @@ Inti aturannya ada di `protokol.md` › Tugas, folder, dan beban. Skill ini memu
 banyak tugas sekaligus di proyek atau folder berbeda yang tidak saling terkait; yang menjaga agar tidak tercampur:
 
 ## 1. ID tugas
-COO memberi ID `T-YYYYMMDD-n` saat menerima tugas (`bin/register.sh tambah` memberi nomor berikut); sub-tugas dari
+COO memberi ID `T-YYYYMMDD-n` saat menerima tugas (`bin/register.sh tambah` memberi nomor berikut — dari register, folder
+`handoff/<ID>/`, dan nomor terakhir device di `~/.rudisone/id-terakhir.json`, sehingga tidak terulang setelah pasang ulang); sub-tugas dari
 leader `T-YYYYMMDD-n.k`. ID ada di baris pertama **setiap** pesan, di `handoff/<ID>/…`, dan di laporan. Pesan tanpa
 ID → minta pengirim menyebutkan ID-nya dulu.
 

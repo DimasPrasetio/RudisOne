@@ -285,6 +285,77 @@ test("tinjauan silang T-2.3 & replay 30 hari: positif palsu → tanpa keputusan"
   for (const c of ["echo [$", "ls t[j-200", "cat a]b", "echo {a,b", "grep x [^]"]) assert.doesNotThrow(() => putuskan(bash(c), K), c);
 });
 
+test("T-20261102-4: `cd sub && grep -r` dinilai di sub saja; saringan --include/-g yang tidak mengenai env → tanpa keputusan", () => {
+  // tiruan run Gudangku: sesi di folder induk non-git yang memuat proyek ber-.env; agent mencari di subfolder kode
+  const W = path.join(ROOT, "ruang", "wadah"), PR = path.join(W, "proj"), API = path.join(PR, "apps", "api"), PG = path.join(PR, "apps", "web", "src", "pages");
+  for (const d of [API, PG]) fs.mkdirSync(d, { recursive: true });
+  fs.writeFileSync(path.join(PR, ".env"), `X=${NILAI}\n`);
+  fs.writeFileSync(path.join(API, "main.go"), "package main\n");
+  fs.writeFileSync(path.join(PG, "a.tsx"), "x\n");
+  harap(["cd proj/apps/api && grep -rn DB .", "cd proj/apps/api && grep -rl DB --include=*.go . | head",
+    "cd proj && cd apps/api && grep -rn DB .", "cd proj/apps/web/src/pages && grep -rn x ../ | grep -v y",
+    "grep -rn --include=*.go DB .", "grep -rn --include '*.go' DB .", "grep -rn --include=*.go --include=*.ts* DB proj",
+    "cd proj/apps/web/src/pages && grep -rn x ../ --include=*.ts*", "rg -uu -g '*.go' DB .", "rg -uu --glob=*.{go,ts} DB .",
+    "grep -rn --exclude-dir=node_modules --include=*.go DB .", "grep -rn -A 3 --include=*.go DB .", "rg -g '*.go' DB", "true && cd proj/apps/api && grep -rn DB ."], "—", W);
+  // tinjauan silang T-20261102-4: bentuk yang mengakali pelonggaran → tetap deny
+  harap(["true || cd proj/apps/api && grep -r DB .", "echo x || cd proj/apps/api && grep -rn DB .", "true | cd proj/apps/api && grep -r DB .",
+    "printf '' | cd proj/apps/api && grep -rn DB .", "grep -r --exclude='a*' --include='*.go' DB .", "grep -r --label --include . .",
+    "grep -r -e DB -e --include x .", "rg -uu -e DB -e -g x .", "grep -r -e . -- --include x .", "rg DB -g=*", "rg -uu DB -g=*",
+    "rg DB -g .env", "rg DB -g '.env*'", "rg DB -g '*'", "grep -r --include='[[:punct:]]env' DB .", "grep -r --include='\\.env' DB .",
+    "grep -r --inc=*.go DB .", "grep -d recurse DB .", "grep --directories=recurse DB .", "grep -rd recurse DB .",
+    // putaran 2: argumen hasil ekspansi/kurawal, variabel yang mengubah penguraian, shell bersarang
+    "X=--exclude=a; grep -r $X --include=*.go DB .", "grep -r \"${X:---exclude=a}\" --include=*.go DB .",
+    "set -- --exclude=a; grep -r \"$@\" --include=*.go DB .", "grep -r -{-exclude=x,-exclude=y} --include=*.go DB .",
+    "X=-g=*; rg -uu -g '*.go' $X DB .", "POSIXLY_CORRECT=1 grep -r DB . --include=*.go", "export POSIXLY_CORRECT=1; grep -r DB . --include=*.go",
+    "GREP_OPTIONS=--exclude=a grep -r --include=*.go DB .", "RIPGREP_CONFIG_PATH=c.txt rg -uu -g '*.go' DB .",
+    "shopt -s nullglob; grep -r --include=*.go --exclude=a* DB .", "grep -r --include .e* DB .",
+    "cd proj/apps/api && bash -c \"cd ../../..; grep -r DB .\"", "cd proj/apps/api && sh -c 'cd ../../.. && grep -r DB .'",
+    // putaran 3: alias/fungsi grep, rg, cd; nama variabel dirakit — hanya perintah polos yang mendapat kelonggaran
+    "grep() { command grep --exclude=a \"$@\"; }; grep -r --include=*.go DB .", "function grep { command grep --exclude=a \"$@\"; }; grep -r --include=*.go DB .",
+    "alias grep='grep --exclude=a'\ngrep -r --include=*.go DB .", "alias rg='rg -g=*'\nrg -uu -g '*.go' DB .",
+    "P=POSIXLY; export ${P}_CORRECT=1; grep -r DB . --include=*.go", "G=GREP; export ${G}_OPTIONS=--exclude=a; grep -r --include=*.go DB .",
+    "alias cd=true\ncd proj/apps/api && grep -rn DB .", "function cd { :; }; cd proj/apps/api && grep -rn DB .",
+    // putaran 4: rg --pre, kata glob yang berkembang menjadi nama berkas berbentuk opsi, perintah polos tidak menulis berkas
+    "echo 'cat .env' > x.go; rg --pre sh -g '*.go' '' .", "echo 'cat .env' > x.go; rg -uu --pre=sh -g '*.go' '' .",
+    "echo > ./--exclude=a; grep -r * --include=*.go -e DB .", "grep -r * --include=*.go -e DB .", "rg -uu -g '*.go' DB *",
+    "echo '!.env' > .gitignore; cd proj/apps/api && grep -rn DB ../../..",
+    // putaran 5: tujuan cd yang tidak pasti (tidak ada menurut hook) → tanpa penyempitan
+    "cd tidak-ada/x && grep -rn DB .",
+    // putaran 6: hanya turun ke subfolder; naik / pindah / `..` → tanpa penyempitan
+    "cd proj/apps/api/.. && grep -rn DB ../..", "cd proj/apps/api && cd ../../.. && grep -rn DB .",
+    `cd ${path.dirname(W).replaceAll("\\", "/")} && grep -rn DB .`, "cd ~ && grep -rn DB ."], "deny", W);
+  // putaran 7: pencarian yang mengikuti tautan (grep -R, rg -L) menelusuri symlink/junction ke tujuannya
+  const NAIK = path.join(PR, "apps", "web", "naik");
+  let adaTautan = true;
+  try { fs.symlinkSync(PR, NAIK, "junction"); } catch { adaTautan = false; }
+  if (adaTautan) {
+    harap(["cd proj/apps/web && grep -Rn DB .", "cd proj/apps/web && grep -rn --dereference-recursive DB .", "grep -Rn DB proj/apps/web",
+      "cd proj/apps/web && rg -L -uu DB .", "cd proj/apps/web && rg --follow -uu DB ."], "deny", W);
+    harap(["cd proj/apps/web && grep -rn DB .", "cd proj/apps/web && grep -Rn --include=*.go DB ."], "—", W);   // -r tidak mengikuti tautan
+    fs.unlinkSync(NAIK);
+  }
+  // `..` di tujuan: tetap dinilai atas folder awal juga (tidak dipersempit)
+  harap([`cd ${PR.replaceAll("\\", "/")}/../proj/apps/api && grep -rn DB .`], "deny", W);
+  // Windows: path mount Git Bash (/tmp, /usr, /Users/… tanpa huruf drive) ≠ path Windows yang dihitung hook → tanpa penyempitan
+  if (process.platform === "win32" && (process.env.RUDISONE_OS ?? "win32") === "win32")
+    harap([`cd ${API.slice(2).replaceAll("\\", "/")} && grep -rn DB .`], "deny", W);
+  harap([`cd ${API.replaceAll("\\", "/")} && grep -rn DB .`], "—", W);
+  harap(["cd proj/apps/api && grep -rn DB . | head -20; ls", "cd proj/apps/api && cat main.go | sed -n 1,40p",
+    "cd proj/apps/api && grep -rn DB --include=*.go . 2>/dev/null | cut -c1-200 | head"], "—", W);
+  harap(["grep -rn --include=*.{go,ts} DB .", "grep -rn DB . --include=*.go"], "—", W);
+  harap(["grep -rn DB ."], "—", API);
+  // naik lalu turun lagi: tujuan pertama memuat `..` → tidak dipersempit (penilaian ketat seperti sebelumnya)
+  harap(["cd ../.. && cd apps/api && grep -rn DB ."], "deny", API);
+  harap(["command cd ../.. && grep -r DB .", "builtin cd ../.. ; grep -r DB .", "cd ../.. && grep -rn DB ."], "deny", API);
+  harap(["cd proj/apps/api ; grep -rn DB .", "cd proj/apps/api || grep -rn DB .", "cd proj/apps/api && true ; grep -rn DB .",
+    "cd proj/apps/api && true || grep -rn DB .", "(cd proj/apps/api && true) && grep -rn DB .", "cd proj/apps/api & grep -rn DB .",
+    "cd proj && grep -rn DB .", "cd proj/apps/api && grep -rn DB ../..", "grep -rn DB .",
+    "grep -rn --include=*.env DB .", "grep -rn --include=* DB .", "grep -rn --include=.env* DB .", "grep -rn --include='*.{go,env}' DB .",
+    "grep -rn --include=*.go DB proj/.env", "grep -rn --include=proj/*.go DB .", "rg -uu -g '*.{go,env}' DB .", "rg -uu -g '!*.md' DB .",
+    "rg -uu -g '*.go' -g '.env' DB ."], "deny", W);
+  fs.rmSync(W, { recursive: true, force: true });
+});
+
 test("tinjauan silang T-2.3: A6 bentuk tambahan → ask", () => {
   harap(["git checkout -f main", "git switch -f main", "git switch --discard-changes main", "git restore --staged --worktree a.txt",
     "git clean --force -d", "git checkout HEAD .", "git branch --delete --force x"], "ask");
