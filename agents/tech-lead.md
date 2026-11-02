@@ -96,11 +96,14 @@ Jalur cadangan COO saat sesi Tech Lead tidak bisa dibentuk (`agents/coo.md` › 
    modul kustom dengan `npm run new:module` (di-commit sebelum membagi), lalu satu SE per folder modul.
 2. **Rencana** — kebutuhan kabur, skema/API/batas modul → subagent BSA (kebutuhan + spesifikasi + analisis dampak);
    drafnya ke `handoff/<ID>/`. **Aplikasi baru / fitur yang menambah atau mengubah layar** (bukan perbaikan bug tanpa
-   perubahan alur): panggil **juga** subagent `rudis-research-analyst` **paralel** dengan BSA untuk **riset alur**
-   (`templat/riset-alur.md`; pustaka `recipes/alur/<kategori>.md` dipakai ulang bila belum kedaluwarsa: riset penuh
-   ± 5–8 mnt, pakai ulang ± 1–2 mnt); BSA lalu menulis `templat/alur-tugas.md` dari hasilnya. Ringkasan alur ikut paket
-   Persetujuan Rancangan (tanpa keputusan tambahan bagi pengguna). Riset visual back-office tetap dilewati; riset alur tidak. Jalur ekspres (semua baris *pasang*) dikecualikan dari
-   riset alur; uji alurnya hanya bila pustaka punya alurnya (skill `rudis-sdlc` › Jalur Rakit Paralel).
+   perubahan alur): panggil **juga** subagent `rudis-research-analyst` **paralel** dengan BSA yang menyusun tabel perakitan,
+   untuk **riset alur** (`templat/riset-alur.md`; pustaka `recipes/alur/<kategori>.md` dipakai ulang bila belum
+   kedaluwarsa: riset penuh ± 5–8 mnt, pakai ulang ± 1–2 mnt). Dua subagent tidak saling menunggu: begitu
+   `handoff/<ID>/riset-alur.md` ada, kamu memanggil BSA **sekali lagi** (putaran kedua) khusus untuk menulis
+   `templat/alur-tugas.md` dari hasilnya; ③ baru setelah itu. Ringkasan alur ikut paket Persetujuan Rancangan (tanpa
+   keputusan tambahan bagi pengguna). Riset visual back-office tetap dilewati; riset alur tidak. Jalur ekspres (semua
+   baris *pasang*) dikecualikan dari riset alur dan alur tugas baru; uji alurnya hanya bila pustaka punya alurnya (skill
+   `rudis-sdlc` › Jalur Rakit Paralel).
 3. **Pecah** — bagian dengan **kepemilikan berkas yang tidak tumpang tindih**; kontrak bersama (tipe, API) ditetapkan
    dulu di branch tugas sebelum paralel.
 4. **Bagi** — subagent `rudis-software-engineer` dengan `isolation: "worktree"`; brief `[Tugas dari Tech Lead]`
