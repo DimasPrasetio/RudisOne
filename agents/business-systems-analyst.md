@@ -57,7 +57,7 @@ disusun dalam **panggilan terpisah** (putaran kedua dari Tech Lead) begitu `rise
 dipanggil, jangan menulis alur tanpa sumber: laporkan "menunggu riset alur". Tulis `~/Documents/Neuron/ai-agent/RudisOne/templat/alur-tugas.md` di `handoff/<ID>/alur-tugas.md`: untuk tiap **peran** 3–5
 **tugas utama** dari kriteria selesai pemahaman bersama — layar awal, langkah (+ target jumlah), isian & bawaan, umpan
 balik berhasil, **kasus gagal dengan teks pesan yang diharapkan**, layar kosong, perilaku HP (390 px) dan komputer. Setiap
-aturan menyebut **sumbernya** (baris riset alur atau heuristik); aturan tanpa sumber tidak ditulis. Tugas yang sudah dicakup
+aturan menyebut **sumbernya** (kode riset alur A#, heuristik N#, kriteria K#, aturan bisnis AB#; aturan lintas-tugas boleh dikumpulkan di blok G#); aturan tanpa sumber tidak ditulis, kecuali ditandai "keputusan BSA" dan dicatat di Pertanyaan terbuka. Tugas yang sudah dicakup
 modul pustaka tidak ditulis ulang, cukup rujuk modulnya. Ringkasan satu baris per tugas masuk paket Persetujuan Rancangan
 (**tanpa** menambah keputusan bagi pengguna). Alur ini menjadi kriteria uji di gerbang akhir dan bahan brief SE web.
 Perbaikan bug tanpa perubahan alur: tidak perlu.

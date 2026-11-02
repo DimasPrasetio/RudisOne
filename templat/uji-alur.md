@@ -26,19 +26,19 @@ Tiap sel: LULUS / SELESAI-MENYIMPANG (tugas bisa diselesaikan tetapi tidak sesua
 | <peran> | <tugas> | <LULUS · uji-alur/…png> | <LULUS · …> | <n dari n> | <ya> |
 
 ## Daftar periksa bersumber
-Tiap butir merujuk sumbernya (aturan di riset alur / `alur-tugas.md`, atau heuristik kegunaan Nielsen). Hasil: ✓ / ✗ (→ temuan) / —.
+Tiap butir merujuk sumbernya (kode di `alur-tugas.md`: A# riset alur, G# aturan bersama, K# kriteria pemahaman, AB# aturan bisnis, atau N# heuristik kegunaan Nielsen). Hasil: ✓ / ✗ (→ temuan) / —.
 | # | Butir | Sumber | Hasil |
 |---|---|---|---|
-| 1a | Jumlah langkah ≤ target di `alur-tugas.md` | <A#> | |
-| 1b | Bawaan isian (mis. tanggal hari ini) dan umpan balik berhasil sesuai `alur-tugas.md` | <A#> | |
-| 2 | Pesan galat menyebut apa yang salah dan cara memperbaikinya, bahasa sehari-hari, tanpa kode atau singkatan teknis | <A#> | |
-| 3 | Format angka dan tanggal Indonesia, tanpa desimal yang tidak perlu (mis. `999,0000` = gagal) | <A#> | |
-| 4 | Layar kosong memberi arah tindakan; aksi utama mudah ditemukan; aksi berisiko dikonfirmasi | <A#> | |
-| 5a | HP: tanpa geser horizontal (juga di komputer dengan isi panjang) | <A#> | |
-| 5b | HP: target sentuh aksi utama dan menu ≥ 44 px | <A#> | |
-| 5c | HP: papan ketik angka untuk isian angka | <A#> | |
-| 6 | Istilah konsisten dengan bahasa pengguna (pemahaman bersama) | <A#> | |
-| 7 | Aksesibilitas dasar: label isian, kontras, urutan fokus keyboard | <A#> | |
+| 1a | Jumlah langkah ≤ target di `alur-tugas.md` | <kode sumber> | |
+| 1b | Bawaan isian (mis. tanggal hari ini) dan umpan balik berhasil sesuai `alur-tugas.md` | <kode sumber> | |
+| 2 | Pesan galat menyebut apa yang salah dan cara memperbaikinya, bahasa sehari-hari, tanpa kode atau singkatan teknis | <kode sumber> | |
+| 3 | Format angka dan tanggal Indonesia, tanpa desimal yang tidak perlu (mis. `999,0000` = gagal) | <kode sumber> | |
+| 4 | Layar kosong memberi arah tindakan; aksi utama mudah ditemukan; aksi berisiko dikonfirmasi | <kode sumber> | |
+| 5a | HP: tanpa geser horizontal (juga di komputer dengan isi panjang) | <kode sumber> | |
+| 5b | HP: target sentuh aksi utama dan menu ≥ 44 px | <kode sumber> | |
+| 5c | HP: papan ketik angka untuk isian angka | <kode sumber> | |
+| 6 | Istilah konsisten dengan bahasa pengguna (pemahaman bersama) | <kode sumber> | |
+| 7 | Aksesibilitas dasar: label isian, kontras, urutan fokus keyboard | <kode sumber> | |
 | 8 | 10 heuristik kegunaan Nielsen sebagai payung (kesesuaian dengan dunia nyata, kontrol pengguna, pencegahan galat, …) | Nielsen | |
 
 ## Terverifikasi benar
@@ -48,7 +48,7 @@ Hal penting yang diuji dan **benar** (mis. stok berubah tepat, penolakan tidak m
 Tingkat: **kritis** (tugas tidak bisa diselesaikan / data bisa salah) · **sedang** (bisa selesai tetapi membingungkan, pesan tidak jelas) · **kosmetik**.
 | # | Tingkat | Aturan/heuristik yang dilanggar | Apa yang terlihat (tangkapan) | Usulan | Jenis tindak lanjut |
 |---|---|---|---|---|---|
-| 1 | <kritis/sedang/kosmetik> | <A# / heuristik> | <uji-alur/…png> | <perbaikan konkret> | <perbaikan (folder pemilik) / mengubah alur → keputusan pengguna / modul pustaka → usulan Jalur Platform / daftar> |
+| 1 | <kritis/sedang/kosmetik> | <kode sumber: A# / G# / K# / AB# / N#> | <uji-alur/…png> | <perbaikan konkret> | <perbaikan (folder pemilik) / mengubah alur → keputusan pengguna / modul pustaka → usulan Jalur Platform / daftar> |
 
 ## Tindak lanjut
 - Kritis dan sedang yang tidak mengubah alur → putaran perbaikan gerbang akhir (pemilik folder, maks. 2 putaran), lalu BSA

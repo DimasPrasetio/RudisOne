@@ -19,7 +19,7 @@ memuat pilihan baru untuk pengguna — hanya memperlihatkan alur yang akan diban
 
 ## Aturan bersama (opsional; dirujuk tiap tugas sebagai G1, G2, …)
 Aturan yang berlaku lintas tugas (pola pesan galat, format angka/tanggal, istilah, aksi berisiko, HP) ditulis **sekali** di sini
-dan dirujuk dari tiap tugas, supaya subbagian di bawah tidak berulang. **Kode sumber**: `A#`/`S#` = riset alur; `N#` = heuristik
+dan dirujuk dari tiap tugas, supaya subbagian di bawah tidak berulang. **Kode sumber**: `A#` = aturan di riset alur; `N#` = heuristik
 Nielsen; `K#` = kriteria selesai pemahaman bersama; `AB#` = aturan bisnis tabel perakitan (kode berbeda dari `A#` riset agar tidak
 tertukar); "keputusan BSA" = ditetapkan BSA tanpa sumber riset (ditandai, ditulis juga di Pertanyaan terbuka). Bila aturan riset
 bertentangan dengan kriteria pemahaman bersama, **pemahaman menang** — tulis pertentangannya di Pertanyaan terbuka.
@@ -49,7 +49,7 @@ bertentangan dengan kriteria pemahaman bersama, **pemahaman menang** — tulis p
   <daftar istilah yang dipakai dan yang dihindari>
 
 ### Sumber aturan
-- <A# di riset alur / heuristik kegunaan Nielsen yang dirujuk> — tiap aturan di atas punya sumber; tanpa sumber = tidak ditulis
+- <kode sumber: A# / N# / G# / K# / AB#> — tiap aturan di atas punya sumber; tanpa sumber = tidak ditulis, kecuali ditandai "keputusan BSA" (dan dicatat di Pertanyaan terbuka)
 
 ## Catatan untuk Software Engineer web
 Bagian di atas yang relevan dengan folder modul tertentu masuk brief SE pemilik folder itu (satu brief, hanya alur modul
