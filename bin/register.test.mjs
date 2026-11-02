@@ -321,3 +321,22 @@ test("impor --timpa menyalin register JSON lama lebih dulu (bukti tidak hilang)"
   assert.equal(cadangan.length, 1);
   assert.match(fs.readFileSync(path.join(d, cadangan[0]), "utf8"), /sha abc/);
 });
+
+test("fase_sejak: diisi saat fase berubah (tambah & ubah), tetap saat kolom lain berubah; Kantor menghitung menit vs anggaran", async () => {
+  const l = lokasi();
+  const id = R.tambah({ judul: "Fase", fase: "Analisis" }, l);
+  const t0 = baca(l).tugas.find((t) => t.id === id);
+  assert.ok(t0.fase_sejak, "tambah dengan fase mengisi fase_sejak");
+  R.ubah(id, { pemilik: "Tech Lead · toko" }, l);
+  assert.equal(baca(l).tugas.find((t) => t.id === id).fase_sejak, t0.fase_sejak, "kolom lain tidak mengubahnya");
+  R.ubah(id, { fase: "Konstruksi B" }, l);
+  const t1 = baca(l).tugas.find((t) => t.id === id);
+  assert.ok(t1.fase_sejak >= t0.fase_sejak);
+  assert.deepEqual(R.validasi(baca(l)), []);
+  const { kemajuanFase } = await import("../kantor/server.mjs");
+  const mulai = Date.parse("2026-11-02T01:00:00Z");
+  assert.deepEqual(kemajuanFase({ fase: "Konstruksi B", fase_sejak: "2026-11-02T01:00:00Z" }, mulai + 30 * 60000), { menit: 30, anggaran: 25, lewat: true });
+  assert.deepEqual(kemajuanFase({ fase: "Analisis", fase_sejak: "2026-11-02T01:00:00Z" }, mulai + 5 * 60000), { menit: 5, anggaran: 8, lewat: false });
+  assert.equal(kemajuanFase({ fase: "—" }), null);
+  assert.equal(kemajuanFase({ fase: "Konstruksi" }), null, "tanpa fase_sejak tidak ditebak");
+});
