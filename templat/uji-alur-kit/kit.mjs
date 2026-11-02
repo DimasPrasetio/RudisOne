@@ -235,7 +235,7 @@ class Sesi {
   /** Pilih opsi dari <select> asli, dialog pencarian, atau combobox: klik pemicu → (isi pencarian) → klik opsi. */
   async pilihOpsi({ pemicu, cari, opsi }) {
     const l = this.lokasi(pemicu).first();
-    if ((await l.evaluate((e) => e.tagName).catch(() => "")) === "SELECT") { const kena = (await l.locator("option").evaluateAll((os) => os.map((o) => o.textContent.trim()))).find((t) => (opsi instanceof RegExp ? opsi.test(t) : new RegExp(esc(String(opsi ?? cari)), "i").test(t))); await l.selectOption({ label: kena }); return; }
+    if ((await l.evaluate((e) => e.tagName).catch(() => "")) === "SELECT") { const kena = (await l.locator("option").evaluateAll((os) => os.map((o) => o.textContent.trim()))).find((t) => (opsi instanceof RegExp ? opsi.test(t) : new RegExp(esc(String(opsi ?? cari)), "i").test(t))); if (kena === undefined) throw new Error(`opsi tidak ditemukan di <select>: ${opsi ?? cari}`); await l.selectOption({ label: kena }); return; }
     await this.klik(l);
     await this.page.waitForTimeout(300);
     const kotakCari = this.page.locator('input[role=combobox],input[placeholder*="cari" i],input[placeholder*="search" i],[cmdk-input],input[type=search]').last();
