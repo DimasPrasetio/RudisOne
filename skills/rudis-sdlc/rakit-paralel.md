@@ -63,7 +63,7 @@ Sasaran, bukan batas keras; Kantor menampilkan menit berjalan terhadap anggaran 
 (satu baris), bukan menambah lingkup. Target aplikasi seperti pencatatan stok: ±25–40 mnt sampai lulus `gate`. Anggaran
 Analisis mencakup riset alur dan alur tugas utama (riset penuh ± 5–8 mnt paralel dengan tabel perakitan, lalu alur tugas
 sesudahnya — itu sebab anggarannya naik ± 3 mnt);
-uji jalan alur (± 5 mnt) berjalan paralel dengan tinjauan kode di dalam anggaran Pengujian.
+uji jalan alur berjalan paralel dengan tinjauan kode: aplikasi pertama ≈ 25 mnt (sasaran, belum terukur; ukur nyata dengan kit awal ≈ 52 mnt), uji ulang ± 5 mnt (agents BSA › Uji jalan alur). Anggaran Pengujian di Kantor (10 mnt) sengaja belum diubah — satu ukuran dengan kit awal belum cukup dasar; melewatinya pada aplikasi besar disebut sebabnya di laporan.
 
 ## Proyek lama tanpa alat ini
 `scripts/arch-check.mjs`, `new-module.mjs`, `gate.mjs` adalah berkas mandiri: salin dari scaffold baru dan tambahkan skrip

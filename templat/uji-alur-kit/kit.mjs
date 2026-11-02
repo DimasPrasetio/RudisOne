@@ -6,6 +6,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
+import { pathToFileURL } from "node:url";
 import { periksaLayar, kelompokkanTemuan, tabelTemuan, barisMatriks, AMBANG_SENTUH } from "./periksa.mjs";
 
 /** Bawaan aplikasi monorepo Rudis (app-shell shadcn: sidebar, dialog radix, login `?next=`, token di memori → navigasi lewat SPA). */
@@ -92,7 +93,7 @@ function adaPenghalang(selektor) {
 
 async function muatPlaywright() {
   try { return await import("playwright"); } catch { /* lanjut: cari dari folder kerja */ }
-  try { return await import(createRequire(path.join(process.cwd(), "x.js")).resolve("playwright")); } catch { /* ke galat */ }
+  try { const m = await import(pathToFileURL(createRequire(path.join(process.cwd(), "x.js")).resolve("playwright")).href); return m.default ?? m; } catch { /* ke galat */ }
   throw new Error("Playwright belum terpasang. Di folder handoff/<ID>/ jalankan: npm i playwright && npx playwright install chromium (jangan di repo proyek).");
 }
 
@@ -234,7 +235,7 @@ class Sesi {
   /** Pilih opsi dari <select> asli, dialog pencarian, atau combobox: klik pemicu → (isi pencarian) → klik opsi. */
   async pilihOpsi({ pemicu, cari, opsi }) {
     const l = this.lokasi(pemicu).first();
-    if ((await l.evaluate((e) => e.tagName).catch(() => "")) === "SELECT") { await l.selectOption({ label: typeof opsi === "string" ? opsi : undefined }); return; }
+    if ((await l.evaluate((e) => e.tagName).catch(() => "")) === "SELECT") { const kena = (await l.locator("option").evaluateAll((os) => os.map((o) => o.textContent.trim()))).find((t) => (opsi instanceof RegExp ? opsi.test(t) : new RegExp(esc(String(opsi ?? cari)), "i").test(t))); await l.selectOption({ label: kena }); return; }
     await this.klik(l);
     await this.page.waitForTimeout(300);
     const kotakCari = this.page.locator('input[role=combobox],input[placeholder*="cari" i],input[placeholder*="search" i],[cmdk-input],input[type=search]').last();
@@ -280,7 +281,7 @@ class Sesi {
       sentuh: this.hp, min: AMBANG_SENTUH, teksTerlarang: o.teksTerlarang, bawaanTerlarang: o.bawaanTerlarang, polaNama: o.polaAngka,
       konsol, abaikanKonsol: o.abaikanKonsol, respons: respons.filter((r) => !diharapkan.includes(r)), responsDiizinkan: o.responsDiizinkan,
     })];
-    const l = { no, nama, peran: this.peran, perangkat: this.perangkat, url: dom.url, foto: berkas, geser: dom.scrollW > dom.innerW + 1,
+    const l = { no, nama, peran: this.peran, perangkat: this.perangkat, url: dom.url, foto: o.fotoPenuh === null ? null : berkas, geser: dom.scrollW > dom.innerW + 1,
       gagal: !!extra.gagal, responsDiharapkan: diharapkan.map((r) => `${r.metode} ${r.jalur} → ${r.status}${r.isi ? " " + r.isi.slice(0, 120) : ""}`),
       pesan, teks: dom.teks.replace(/\s*\n+\s*/g, " | ").slice(0, 1500), nilaiIsian: dom.nilaiIsian.slice(0, 12), temuan, ...(extra.galat ? { galat: extra.galat } : {}), ms: Date.now() - t0 };
     this.uji.langkah.push(l);
@@ -293,6 +294,8 @@ class Uji {
   constructor(opsi) {
     const saring = (process.env.UJI_TUGAS ?? "").split(",").map((x) => x.trim().toLowerCase()).filter(Boolean);
     Object.assign(this, { opsi, saring: saring.length ? saring : null, no: 0, langkah: [], tugas: [], fakta: {}, galat: [], sesiAktif: [], mulai: Date.now() });
+    // uji ulang parsial (UJI_TUGAS) tidak boleh menimpa hasil/tangkapan eksekusi penuh: keluaran sendiri
+    if (this.saring) opsi.keluaran = `${opsi.keluaran.replace(/[\\/]+$/, "")}-ulang-${this.saring.join("-").replace(/[^a-z0-9-]+/g, "").slice(0, 30)}`;
     this.dirFoto = path.resolve(opsi.keluaran, "tangkapan");
     fs.mkdirSync(this.dirFoto, { recursive: true });
   }

@@ -10,7 +10,7 @@ Business Systems Analyst · <YYYY-MM-DD> · sha: <sha HEAD rudis/<ID> yang diuji
 
 **Putusan: LULUS | PERLU PERBAIKAN** (untuk sha di atas; putaran uji ulang ditambahkan di bawah, putusan terakhir menang)
 
-Waktu uji: mulai <jam> · selesai <jam> · durasi <mnt> · pecahan: baca <mnt> / tulis skrip <mnt> / eksekusi kit (<n> putaran × <mnt>) <mnt> / perbaiki skrip <mnt> / menilai + menulis <mnt> (anggaran: aplikasi pertama ≈ 25 mnt, uji ulang sebatas butir yang berubah ± 5 mnt — lihat agents BSA › Uji jalan alur; bila lewat tulis penyebabnya, jujur, jangan memangkas cakupan demi anggaran)
+Waktu uji: mulai <jam> · selesai <jam> · durasi <mnt> · pecahan: baca <mnt> / tulis skrip <mnt> / eksekusi kit (<n> putaran × <mnt>) <mnt> / perbaiki skrip <mnt> / menilai + menulis <mnt> (anggaran: aplikasi pertama ≈ 25 mnt (sasaran, belum terukur; ukur nyata dengan kit awal ≈ 52 mnt), uji ulang sebatas butir yang berubah ± 5 mnt — lihat agents BSA › Uji jalan alur; bila lewat tulis penyebabnya, jujur, jangan memangkas cakupan demi anggaran)
 
 ## Prasyarat
 | Prasyarat | Status | Bukti |

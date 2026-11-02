@@ -1,7 +1,7 @@
 # Kit uji jalan alur
 
 Pustaka kecil agar Business Systems Analyst (BSA) **tidak menulis skrip Playwright dari nol** setiap kali menguji alur
-(`templat/uji-alur.md`). Pilot pertama menghabiskan ± separuh waktu uji untuk menulis dan memperbaiki skrip: menu samping HP
+(`templat/uji-alur.md`). Pilot pertama menghabiskan (perkiraan BSA) ± separuh waktu uji untuk menulis dan memperbaiki skrip: menu samping HP
 yang menutupi halaman, pemilih berupa dialog pencarian, dialog sisa yang menghalangi klik. Semua itu sudah ditangani di sini.
 
 Isi: `kit.mjs` (Playwright: sesi, login, tangkapan, penutup penghalang, pemilih, isian) · `periksa.mjs` (pemeriksaan dasar
@@ -15,12 +15,12 @@ murni, diuji `node --test bin/uji-alur-kit.test.mjs`) · `contoh-uji.mjs` (skrip
    per tugas di `alur-tugas.md` (jalur lancar + kasus gagal + layar kosong). Gunakan `snap` di tiap layar penting.
 3. **Debug per tugas, jalankan penuh sekali**: bungkus tiap tugas dengan `s.tugas("nama", fn)` lalu jalankan `UJI_TUGAS=masuk node uji.mjs`
    (hanya tugas yang namanya memuat kata itu; pisahkan dengan koma) sampai bersih; baru satu `node uji.mjs` penuh. Eksekusi penuh aplikasi
-   9 tugas × 2 peran × 2 perangkat ≈ 6 mnt — mengulanginya tiap perbaikan skrip adalah penyebab utama uji lambat. Galat skrip tertangkap
+   9 tugas (2 peran) × 2 perangkat ≈ 6 mnt — mengulanginya tiap perbaikan skrip adalah penyebab utama uji lambat. Galat skrip tertangkap
    (`tugas`/`coba`) dan tidak menghentikan uji; langkah GALAT = skrip/selektor salah, bukan temuan aplikasi.
 4. **Isi templat**: `hasil/ringkasan.md` memuat baris matriks dan tabel calon temuan; `hasil/hasil.json` memuat semuanya per
    langkah. Kit hanya MENEMUKAN calon temuan — kamu memutuskan tingkat, mengaitkan kode sumber (A#/G#/K#/R#/N#), usulan, dan
    jenis tindak lanjut; temuan yang tak bisa dirujuk ke aturan/heuristik dibuang.
-5. **Uji ulang** sesudah perbaikan: `UJI_TUGAS=<tugas yang berubah> node uji.mjs`; tugas yang bergantung data tugas lain: sediakan data lewat langkah awalnya (data uji milikmu).
+5. **Uji ulang** sesudah perbaikan: `UJI_TUGAS=<tugas yang berubah> node uji.mjs` — hasilnya ke `<keluaran>-ulang-<kata>/` (otomatis; `hasil/` dan nomor tangkapan eksekusi penuh tidak tertimpa), nomor tangkapan mulai dari 001 lagi; tugas yang bergantung data tugas lain: sediakan data lewat langkah awalnya (data uji milikmu).
 
 ## Pemeriksaan otomatis di setiap `snap`
 | Jenis | Butir templat | Apa yang diperiksa |
