@@ -302,7 +302,15 @@ test("T-20261102-4: `cd sub && grep -r` dinilai di sub saja; saringan --include/
     "printf '' | cd proj/apps/api && grep -rn DB .", "grep -r --exclude='a*' --include='*.go' DB .", "grep -r --label --include . .",
     "grep -r -e DB -e --include x .", "rg -uu -e DB -e -g x .", "grep -r -e . -- --include x .", "rg DB -g=*", "rg -uu DB -g=*",
     "rg DB -g .env", "rg DB -g '.env*'", "rg DB -g '*'", "grep -r --include='[[:punct:]]env' DB .", "grep -r --include='\\.env' DB .",
-    "grep -r --inc=*.go DB .", "grep -d recurse DB .", "grep --directories=recurse DB .", "grep -rd recurse DB ."], "deny", W);
+    "grep -r --inc=*.go DB .", "grep -d recurse DB .", "grep --directories=recurse DB .", "grep -rd recurse DB .",
+    // putaran 2: argumen hasil ekspansi/kurawal, variabel yang mengubah penguraian, shell bersarang
+    "X=--exclude=a; grep -r $X --include=*.go DB .", "grep -r \"${X:---exclude=a}\" --include=*.go DB .",
+    "set -- --exclude=a; grep -r \"$@\" --include=*.go DB .", "grep -r -{-exclude=x,-exclude=y} --include=*.go DB .",
+    "X=-g=*; rg -uu -g '*.go' $X DB .", "POSIXLY_CORRECT=1 grep -r DB . --include=*.go", "export POSIXLY_CORRECT=1; grep -r DB . --include=*.go",
+    "GREP_OPTIONS=--exclude=a grep -r --include=*.go DB .", "RIPGREP_CONFIG_PATH=c.txt rg -uu -g '*.go' DB .",
+    "shopt -s nullglob; grep -r --include=*.go --exclude=a* DB .", "grep -r --include .e* DB .",
+    "cd proj/apps/api && bash -c \"cd ../../..; grep -r DB .\"", "cd proj/apps/api && sh -c 'cd ../../.. && grep -r DB .'"], "deny", W);
+  harap(["grep -rn --include=*.{go,ts} DB .", "grep -rn DB . --include=*.go"], "—", W);
   harap(["grep -rn DB .", "cd ../.. && cd apps/api && grep -rn DB ."], "—", API);
   harap(["command cd ../.. && grep -r DB .", "builtin cd ../.. ; grep -r DB .", "cd ../.. && grep -rn DB ."], "deny", API);
   harap(["cd proj/apps/api ; grep -rn DB .", "cd proj/apps/api || grep -rn DB .", "cd proj/apps/api && true ; grep -rn DB .",

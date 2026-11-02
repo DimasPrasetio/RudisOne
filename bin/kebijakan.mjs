@@ -1256,6 +1256,15 @@ export function envSegmen(s, K, ctx, semua = s.teks, dalam = 0) {
   // saringan nama berkas (grep --include/--exclude, rg -g/--glob/--iglob) dari pengurai opsi; nilai saringan yang terpisah
   // (`--include '*.go'`) bukan pola/akar pencarian. Opsi tak dikenal → `ragu` → saringan tidak dipercaya.
   const opsi = grepProg || prog === "rg" ? opsiCari(args, prog === "rg") : { saring: [], nilaiSaring: new Set(), ragu: false };
+  // Argumen yang baru terbentuk saat dijalankan ($X, "$@", -{-exclude=a,…}), nilai saringan terpisah ber-glob, nullglob,
+  // atau variabel yang mengubah penguraian (POSIXLY_CORRECT, GREP_OPTIONS, RIPGREP_CONFIG_PATH) → saringan tidak dipercaya.
+  if (opsi.saring.length) {
+    const iAkhir = args.indexOf("--") < 0 ? args.length : args.indexOf("--");
+    const kurawalSah = prog === "rg" ? /^(--i?glob=|-g)/ : /^--include=/;
+    if (kataArgs.slice(0, iAkhir).some((k, j) => k.ekspansi || (k.kurawal && !kurawalSah.test(k.nilai)) || (k.glob && opsi.nilaiSaring.has(j)))
+      || /POSIXLY_CORRECT|GREP_OPTIONS|RIPGREP_CONFIG_PATH|nullglob/.test(semua)
+      || ["POSIXLY_CORRECT", "GREP_OPTIONS", "RIPGREP_CONFIG_PATH"].some((v) => process.env[v] !== undefined)) opsi.ragu = true;
+  }
   const lolosSaring = saringNama(opsi, prog === "rg");
   // rg: glob positif mengalahkan semua aturan abaikan, termasuk berkas tersembunyi
   const rgGlob = prog === "rg" && (opsi.ragu ? args.some((x) => /^(-[A-Za-z]*g|--i?glob)/.test(x)) : opsi.saring.some((s) => s.jenis === "include"));
@@ -1409,6 +1418,9 @@ function envPerintah(cmd, input, K) {
   // berlaku begitu rantai putus (;, ||, &, baris baru, akhir). Tidak dipersempit bila ada subshell/substitusi (kompleks):
   // `(cd x && a) && grep -r .` berjalan di folder awal. Juga tidak bila cd bisa terlewati sementara rantai && tetap jalan:
   // `a || cd x && b` = `(a || cd x) && b` (a berhasil → cd tidak jalan), atau cd anggota pipeline (`a | cd x && b`: subshell).
+  // Shell bersarang / eval (`bash -c "cd ..; grep -r ."`, `xargs sh -c`, `find -exec sh -c`): cd di dalam teksnya tidak dilacak
+  // → tanpa penyempitan sama sekali (kembali ke penilaian lama: semua folder yang mungkin).
+  const bersarang = u.segmen.some((s) => s.kata.some((k) => /^(sh|bash|zsh|dash|ksh|mksh|fish|eval)(\.exe)?$/i.test(path.basename(k.nilai))));
   let cadangan = [], sebelum;
   for (const s of u.segmen) {
     const h = envSegmen(s, K, ctx, bersih);
@@ -1423,7 +1435,7 @@ function envPerintah(cmd, input, K) {
       if (!tujuan || !ctx.mungkin) ctx.mungkin = null;
       else {
         const baru = [...new Set(ctx.mungkin.flatMap((c) => [path.resolve(c, tujuan), jalurFisik(c, tujuan)]))];
-        if (s.sesudah === "&&" && !u.kompleks && !["||", "|", "|&"].includes(sebelum)) { cadangan = [...new Set([...cadangan, ...ctx.mungkin])]; ctx.mungkin = baru; }
+        if (s.sesudah === "&&" && !u.kompleks && !bersarang && !["||", "|", "|&"].includes(sebelum)) { cadangan = [...new Set([...cadangan, ...ctx.mungkin])]; ctx.mungkin = baru; }
         else ctx.mungkin = [...new Set([...ctx.mungkin, ...baru])];
       }
     }
