@@ -14,7 +14,7 @@ akhir; SDD menurut tingkat risiko (skill `rudis-sdd` › Tingkat SDD). Peran, ge
 | ④ | Pasang semua modul terpilih | TL, **satu perintah** | `node <rudis-modules>/scripts/rakit.mjs <manifest.json>` (scaffold → resep/modul → env-local → npm install ‖ go mod tidy → sqlc → db-local → migrate → build → arch:check → smoke; ringkasan satu halaman). Proyek sudah ada: `module.mjs recipe <id>` (= `add --recipe <id>`) / `add <id>…` |
 | ⑤ | Kerangka modul kustom | TL | `npm run new:module -- <def.json>` untuk baris CRUD (selesai di sini, tinggal aturan non-CRUD) atau `--skeleton` untuk modul berlogika khusus; TL meng-commit kerangka sebelum membagi |
 | ⑥ | Rakit **paralel** | ≤ 5 subagent SE | satu agent = satu folder (`apps/api/internal/modules/<id>` **atau** `apps/web/src/modules/<id>`); api dan web modul yang sama dikerjakan bersamaan terhadap tipe kontrak dari kerangka; di tengah hanya `go build ./internal/modules/<id>/...` / `tsc` |
-| ⑦ | **Satu** gerbang akhir | TL + skrip | `npm run gate` (per modul); gagal → kembali ke agent pemilik folder, maks. 2 putaran; lalu **paralel**: tinjauan LLM **hanya kode kustom** (diff folder kustom — bukan hasil generator yang tak disentuh, bukan modul pustaka) ‖ **uji jalan alur** BSA (aplikasi berjalan, HP & komputer; `templat/uji-alur.md`). Temuan kecil → putaran perbaikan yang sama (maks. 2); temuan yang mengubah alur → keputusan pengguna |
+| ⑦ | **Satu** gerbang akhir | TL + skrip | `npm run gate` (per modul); gagal → kembali ke agent pemilik folder, maks. 2 putaran; lalu **paralel**: tinjauan LLM **hanya kode kustom** (diff folder kustom — bukan hasil generator yang tak disentuh, bukan modul pustaka) ‖ **uji jalan alur** BSA (aplikasi berjalan, HP & komputer; `templat/uji-alur.md`; BSA memakai kit `templat/uji-alur-kit/`). Temuan kecil → putaran perbaikan yang sama (maks. 2); temuan yang mengubah alur → keputusan pengguna |
 | ⑦b | Database lokal tidak siap | — | `rakit`/`gate` melaporkan tes ber-database "dilewati"; kriteria ber-database = *belum terverifikasi* (bukan `[Terhambat]`) — `env-db-lokal.md` |
 | ⑧ | Lapor | TL → COO | keluaran `rakit` + `gate`, kriteria per nomor, **hasil uji alur per alur tugas**; rilis/deploy tetap gerbang terpisah |
 
@@ -44,7 +44,7 @@ aplikasi baru dan fitur yang menambah/mengubah layar (Mode A dan B); perbaikan b
   `PERLU PERBAIKAN` untuk sha terakhir di `handoff/<ID>/uji-alur.md`. Verifikasi visual TL (skill `rudis-riset-desain` ›
   Verifikasi visual) tetap; uji alur adalah pemeriksaan kedua oleh pihak lain.
 - **Anggaran tambahan** (sasaran): jenis aplikasi baru ≤ 5 mnt di atas total biasa (riset penuh paralel dengan BSA, jadi
-  sebagian besar tak menambah waktu dinding; uji alur ± 5 mnt paralel dengan tinjauan kode); jenis yang sudah diriset ≤ 2 mnt.
+  sebagian besar tak menambah waktu dinding; uji alur paralel dengan tinjauan kode; uji alurnya sendiri **tidak** muat ± 5 mnt untuk aplikasi dua peran dengan banyak tugas — ukur nyata ≈ 52 mnt dengan kit awal, sasaran ≈ 25 mnt dengan kit `templat/uji-alur-kit/`, uji ulang sebatas butir yang berubah ± 5 mnt; lihat agents BSA › Uji jalan alur); jenis yang sudah diriset ≤ 2 mnt untuk riset dan alur tugas, bukan untuk uji alur.
   Tidak ada keputusan tambahan bagi pengguna.
 - Bukan uji pengguna sungguhan: laporan menyebutnya dan menganjurkan uji oleh petugas asli sebelum Persetujuan Penerapan.
 

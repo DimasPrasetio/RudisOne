@@ -23,6 +23,13 @@ dan dirujuk dari tiap tugas, supaya subbagian di bawah tidak berulang. **Kode su
 Nielsen; `K#` = kriteria selesai pemahaman bersama; `R#` = aturan di spek ringkas/aturan bisnis tabel perakitan (`templat/tabel-perakitan.md`; kode `R` berbeda dari `A#` riset agar tidak
 tertukar); "keputusan BSA" = ditetapkan BSA tanpa sumber riset (ditandai, ditulis juga di Pertanyaan terbuka). Bila aturan riset
 bertentangan dengan kriteria pemahaman bersama, **pemahaman menang** — tulis pertentangannya di Pertanyaan terbuka.
+Alur yang **disalin dari pustaka** (jalur ekspres) memakai kode berkas pustaka apa adanya (`A#`, `N#`); sebutkan berkasnya di baris kepala.
+
+| Kode | Aturan | Sumber |
+|---|---|---|
+| G1 | <Pesan galat menyebut apa yang salah dan cara memperbaikinya, tanpa kode/singkatan teknis> | <A#, N9> |
+| G2 | <Pesan galat muncul dekat isian yang bermasalah, bukan hanya di bagian atas halaman> | <A#, N5> |
+| G3 | <Angka jumlah tanpa nol desimal yang tidak perlu (7, bukan 7,0000); tanggal 02/11/2026> | <A#, N2> |
 
 ## <Peran> — <tugas utama n> (3–5 tugas per peran, dari kriteria selesai pemahaman bersama)
 

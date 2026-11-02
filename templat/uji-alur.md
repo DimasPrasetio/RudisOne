@@ -1,5 +1,6 @@
 # Uji jalan alur — <ID> · <aplikasi / fitur>
-<!-- Disusun Business Systems Analyst di gerbang akhir Jalur Rakit Paralel, paralel dengan tinjauan kode, setelah
+<!-- Dikerjakan dengan kit templat/uji-alur-kit/ (README.md: salin kit → skrip tipis per aplikasi → jalankan → isi templat ini dari hasil/ringkasan.md).
+     Disusun Business Systems Analyst di gerbang akhir Jalur Rakit Paralel, paralel dengan tinjauan kode, setelah
      `npm run gate` lulus (agents/business-systems-analyst.md › Uji jalan alur). Disimpan handoff/<ID>/uji-alur.md;
      skrip dan tangkapan layar di handoff/<ID>/uji-alur/ (bukan di repo proyek). Bukan uji pengguna sungguhan:
      memperkecil masalah yang jelas; uji oleh petugas asli tetap dianjurkan sebelum Persetujuan Penerapan. Cakupan:
@@ -9,7 +10,7 @@ Business Systems Analyst · <YYYY-MM-DD> · sha: <sha HEAD rudis/<ID> yang diuji
 
 **Putusan: LULUS | PERLU PERBAIKAN** (untuk sha di atas; putaran uji ulang ditambahkan di bawah, putusan terakhir menang)
 
-Waktu uji: mulai <jam> · selesai <jam> · durasi <mnt> (anggaran ± 5 mnt; bila lewat, tulis penyebabnya: menulis/memperbaiki skrip, menjalankan, membaca kode, menulis laporan — jujur, jangan memangkas cakupan demi anggaran)
+Waktu uji: mulai <jam> · selesai <jam> · durasi <mnt> · pecahan: baca <mnt> / tulis skrip <mnt> / eksekusi kit (<n> putaran × <mnt>) <mnt> / perbaiki skrip <mnt> / menilai + menulis <mnt> (anggaran: aplikasi pertama ≈ 25 mnt, uji ulang sebatas butir yang berubah ± 5 mnt — lihat agents BSA › Uji jalan alur; bila lewat tulis penyebabnya, jujur, jangan memangkas cakupan demi anggaran)
 
 ## Prasyarat
 | Prasyarat | Status | Bukti |
