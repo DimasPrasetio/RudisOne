@@ -52,7 +52,7 @@ mencatat kunci di register dan menjalankan `bin/register.sh kunci-cek <ID>` sebe
 `prod-db:<app>`, `deploy:<app>`, `dok:<path>`.
 
 ## 6. Kapasitas
-Kekurangan tenaga sesaat → leader menambah subagent sendiri (maks. 3 bersamaan). Antrean satu sesi inti > 1 dan
+Kekurangan tenaga sesaat → leader menambah subagent sendiri (maks. 5 bersamaan). Antrean satu sesi inti > 1 dan
 independen dalam waktu lama → COO mengusulkan sesi saat dibutuhkan (`<Jabatan> #2`) dan membentuknya pada giliran
 pengguna berikutnya atas "ya".
 

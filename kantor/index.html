@@ -130,6 +130,7 @@
   .tugas .judul { font-weight: 600; font-size: 14px; overflow-wrap: anywhere; }
   .tugas .judul.segera::before { content: "Segera · "; color: var(--galat); }
   .tugas .meta { font-size: 12.5px; color: var(--redup); overflow-wrap: anywhere; }
+  .tugas .meta .lewat { color: var(--galat); font-weight: 600; }
   .aktivitas { list-style: none; margin: 0; padding: 0; max-height: 360px; overflow: auto; }
   .aktivitas li { display: grid; grid-template-columns: 46px 10px minmax(0, 1fr); gap: 8px; padding: 6px 0; border-top: 1px solid var(--garis); font-size: 14px; }
   .aktivitas li:first-child { border-top: 0; }
@@ -1276,6 +1277,15 @@ function sorotTugasDariTautan(s) {
   document.querySelector(`.tugas li[data-id="${CSS.escape(TUGAS_SOROT)}"]`)?.scrollIntoView({ block: "nearest" });
 }
 
+/** " · <fase> · 12/25 mnt" — menit berjalan di fase ini terhadap anggarannya (server: ANGGARAN_FASE). */
+function faseTeks(t) {
+  if (!t.fase || t.fase === "—") return "";
+  const k = t.kemajuan;
+  if (!k) return ` · ${esc(t.fase)}`;
+  const angka = k.anggaran ? `${k.menit}/${k.anggaran} mnt` : `${k.menit} mnt`;
+  return ` · ${esc(t.fase)} · <span class="${k.lewat ? "lewat" : ""}" title="${k.lewat ? "melewati anggaran waktu fase" : "dalam anggaran waktu fase"}">${angka}${k.lewat ? " ⚠" : ""}</span>`;
+}
+
 function renderTugas(tugas = []) {
   const el = document.getElementById("tugas");
   document.getElementById("hitung-tugas").textContent = tugas.length ? `${tugas.length}` : "";
@@ -1284,7 +1294,7 @@ function renderTugas(tugas = []) {
     const folder = t.folder ? t.folder.split("/").filter(Boolean).at(-1) : "";
     return `<li data-id="${esc(t.id)}"${t.id === TUGAS_SOROT ? ' class="sorot"' : ""}><span class="st" style="--warna:${WARNA_STATUS[st] ?? "var(--santai)"}">${esc(t.status || "baru")}</span>
       <span class="judul${t.prioritas === "segera" ? " segera" : ""}">${esc(t.tugas)}</span>
-      <span class="meta">${esc(t.id)}${folder ? ` · ${esc(folder)}` : ""}${t.pemilik ? ` · ${esc(t.pemilik)}` : ""}</span></li>`;
+      <span class="meta">${esc(t.id)}${folder ? ` · ${esc(folder)}` : ""}${t.pemilik ? ` · ${esc(t.pemilik)}` : ""}${faseTeks(t)}</span></li>`;
   }).join("") : `<li><p class="kosong">Tidak ada tugas berjalan. Tugas yang diterima COO muncul di sini.</p></li>`;
 }
 

@@ -61,6 +61,8 @@ Tidak ada brief sebelum COO dan pengguna **sepakat** tentang maksud permintaan. 
   menunggu tugas lain.
 - **Proyek baru**: kedalaman *mendalam* sekaligus intake Persetujuan Inisiasi (bagian Inisiasi `templat/intake-proyek.md`
   = cabang wawancara, tanpa fakta deploy & tanpa cek server; persetujuan ringkasan akhir = Persetujuan Inisiasi). Pengguna tidak ditanya dua kali.
+  Aplikasi back-office biasa: kedalaman *standar* cukup. Jalur Rakit Paralel (skill `rudis-sdlc`): bila tabel perakitan
+  ternyata semua *pasang*, Inisiasi + Rancangan **satu** persetujuan dan Tech Lead dipanggil sebagai subagent (jalur ekspres).
 - **Kesepakatan** = ringkasan pemahaman bersama + persetujuan eksplisit; kutip jawabannya di bagian Kesepakatan, ubah
   status pemahaman menjadi `disepakati`. Kesepakatan bukan izin aksi berisiko — kecuali pengguna menyebut aksinya
   sendiri, yang lalu dikutip persis.
@@ -108,7 +110,7 @@ Pertanyaan konfirmasi mode proyek (sekali, bersama gerbang pertama) dan tawaran 
 5. **Brief** (`templat/brief-tugas.md`): ID di baris pertama, `Pengerjaan:`, `Prioritas:`, folder kerja, kunci, path
    `pemahaman.md`, dan **kriteria selesai disalin apa adanya**; pertanyaan terbuka untuk pelaksana masuk sebagai bagian
    tugas. Ke sesi: `SendMessage` (sesi di folder proyek: dengan pembuka peran). Ke subagent: `Agent` dengan
-   `subagent_type: "rudis-<id-peran>"` dan brief yang sama (yang independen dijalankan paralel, maks. 3).
+   `subagent_type: "rudis-<id-peran>"` dan brief yang sama (yang independen dijalankan paralel, maks. 5).
 6. Satu baris per tugas ke pengguna: ID, folder, pemilik, sesi/subagent, paralel/antre — dengan tautan sesi bila ada.
 7. **Tindak** hanya atas laporan (pesan `[Laporan divisi …]`/`[Laporan ke COO]` atau jawaban subagent), `[Antre]`,
    `[Diparkir]`, eskalasi, `[Terhambat]` — dicocokkan dengan ID di register. Catatan akhir-giliran otomatis dari sesi
@@ -178,7 +180,9 @@ Tech Lead biasa; atau (b) **jalur subagent** sekarang, dengan konsekuensi yang d
 tidak bisa disela pengguna langsung (disela lewat COO — `SendMessage` ke subagent atau hentikan); Kantor menampilkannya di
 kursi Tech Lead tim sebagai "subagent dari COO"; tugas besar dipecah per panggilan. Kualitas kerja tetap: Tech Lead-subagent
 memanggil BSA, SE, dan peninjau sendiri (subagent bersarang; butuh Claude Code ≥ 2.1.219).
-Pengguna memilih (b), atau backend `desktop` tetapi `start_session` gagal → jalur ini.
+Pengguna memilih (b), atau backend `desktop` tetapi `start_session` gagal → jalur ini. **Juga jalur ekspres** (keputusan
+pengguna): aplikasi yang tabel perakitannya semua *pasang* — tanpa kode kustom yang perlu dipantau — memakai jalur ini
+tanpa ditanyakan, satu panggilan berisi ②–⑧ skill `rudis-sdlc` › `rakit-paralel.md`.
 **Aturan mode:**
 1. Worktree integrasi dibuat COO: `git -C <repo> worktree add -b rudis/<ID> <repo>/.claude/worktrees/r<n>-lead-<proyek>`
    (repo baru tanpa commit: commit awal dulu). Catat di `TEAM.md` baris Tech Lead dengan `subagent` di kolom id.

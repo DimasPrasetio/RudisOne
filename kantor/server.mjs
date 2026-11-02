@@ -445,6 +445,24 @@ export function bacaRegister(teks) {
 }
 const dua = (n) => String(n).padStart(2, "0");
 const waktuLokal = (iso) => { const d = new Date(iso); return Number.isNaN(+d) ? "" : `${d.getFullYear()}-${dua(d.getMonth() + 1)}-${dua(d.getDate())} ${dua(d.getHours())}:${dua(d.getMinutes())}`; };
+/** Anggaran waktu per fase (menit) — sasaran Jalur Rakit Paralel, bukan batas keras; pemilik angka ini.
+ *  Fase dicocokkan dari awal teks kolom Fase register (mis. "Konstruksi B …" → konstruksi). */
+export const ANGGARAN_FASE = [
+  [/^(inisiasi|penyelarasan|selaras)/i, 5],
+  [/^(analisis|rancangan|desain)/i, 8],
+  [/^(konstruksi|rakit|pasang)/i, 25],
+  [/^(pengujian|gerbang|tinjau)/i, 10],
+  [/^(rilis|penerapan|deploy)/i, 15],
+];
+/** {menit berjalan, anggaran, lewat} untuk fase tugas, atau null bila fase/waktunya tidak diketahui. */
+export function kemajuanFase(t, kini = Date.now()) {
+  const fase = String(t?.fase ?? "").trim();
+  const mulai = Date.parse(t?.fase_sejak ?? "");
+  if (!fase || fase === "—" || Number.isNaN(mulai)) return null;
+  const menit = Math.max(0, Math.round((kini - mulai) / 60000));
+  const anggaran = ANGGARAN_FASE.find(([re]) => re.test(fase))?.[1] ?? null;
+  return { menit, anggaran, lewat: anggaran !== null && menit > anggaran };
+}
 /** Tugas belum selesai dari register-tugas.json (bin/register.mjs), dalam bentuk yang sama dengan bacaRegister. */
 export function tugasDariJson(reg) {
   if (!reg || !Array.isArray(reg.tugas)) throw new Error("register JSON tanpa larik tugas");
@@ -454,7 +472,7 @@ export function tugasDariJson(reg) {
     .sort((a, b) => ((urutan[a.prioritas] ?? 2) - (urutan[b.prioritas] ?? 2)) || String(a.dibuat ?? "").localeCompare(String(b.dibuat ?? "")))
     .map((t) => ({ id: t.id, tugas: clip(t.judul, 90), folder: bersih(t.folder).replace(/\/+$/, ""), divisi: bersih(t.divisi),
       pemilik: bersih(t.pemilik), prioritas: bersih(t.prioritas), status: bersih(t.status), fase: bersih(t.fase),
-      perkakas: bersih(t.perkakas), diperbarui: waktuLokal(t.diperbarui) }))
+      perkakas: bersih(t.perkakas), diperbarui: waktuLokal(t.diperbarui), faseSejak: t.fase_sejak ?? null, kemajuan: kemajuanFase(t) }))
     .slice(0, 30);
 }
 let tugasCache = { kunci: "", isi: [] };
@@ -464,12 +482,14 @@ function muatTugas() {
     let st;
     try { st = fs.statSync(file); } catch { continue; }
     const kunci = `${file}|${st.mtimeMs}|${st.size}`;
-    if (kunci === tugasCache.kunci) return tugasCache.isi;
-    try { tugasCache = { kunci, isi: urai(fs.readFileSync(file, "utf8")) }; return tugasCache.isi; } catch { /* rusak → sumber berikutnya */ }
+    if (kunci === tugasCache.kunci) return segarkanKemajuan(tugasCache.isi);
+    try { tugasCache = { kunci, isi: urai(fs.readFileSync(file, "utf8")) }; return segarkanKemajuan(tugasCache.isi); } catch { /* rusak → sumber berikutnya */ }
   }
   tugasCache = { kunci: "", isi: [] };
   return tugasCache.isi;
 }
+/** Menit berjalan dihitung ulang setiap kali dibaca (cache hanya mengikuti berkas register). */
+const segarkanKemajuan = (isi) => isi.map((t) => (t.faseSejak ? { ...t, kemajuan: kemajuanFase({ fase: t.fase, fase_sejak: t.faseSejak }) } : t));
 
 // ---------- penurunan status ----------
 /** "Kamu adalah Tech Lead di RudisOne…", "Kamu adalah **Software Engineer #2** di RudisOne …" */

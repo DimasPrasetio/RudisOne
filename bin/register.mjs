@@ -31,7 +31,9 @@ export const JALUR = ["mode_saat_mulai", "jalur_awal", "jalur_akhir", "reroute"]
 export const MODE = ["A", "B", "-"];
 const RE_JALUR = /^[a-z0-9][a-z0-9+-]{0,39}$/;
 const REROUTE_MAKS = 200;
-const KOLOM_TUGAS = new Set(["id", ...TEKS, "prioritas", "status", ...DAFTAR, "dibuat", "diperbarui", "selesai_pada", "bukti", ...JALUR]);
+// fase_sejak: kapan fase sekarang dimulai (diisi otomatis saat --fase berubah) — Kantor membandingkannya dengan
+// anggaran waktu per fase (skill rudis-sdlc › rakit-paralel.md › Anggaran waktu).
+const KOLOM_TUGAS = new Set(["id", ...TEKS, "prioritas", "status", ...DAFTAR, "dibuat", "diperbarui", "selesai_pada", "bukti", "fase_sejak", ...JALUR]);
 /** Kolom yang boleh "?" — hanya selama status penyelarasan. */
 const BOLEH_TANYA = new Set(["folder", "divisi", "pemilik", "prioritas", "fase", "perkakas"]);
 const RAPIKAN_HARI = 14;
@@ -195,6 +197,7 @@ export function tambah(opsi, lokasi) {
     const t = { id, judul: "", folder: "?", divisi: "?", pemilik: "COO", prioritas: "normal", status: "penyelarasan",
       fase: "—", kunci: [], bergantung: [], perkakas: "—", dibuat: kini, diperbarui: kini };
     terapkanKolom(t, opsi);
+    if (t.fase !== "—") t.fase_sejak = kini;
     reg.tugas.push(t);
     return id;
   }, lokasi);
@@ -206,8 +209,10 @@ export function ubah(id, opsi, lokasi) {
     const t = reg.tugas.find((x) => x.id === id);
     if (!t) throw new Error(`tugas tidak ditemukan: ${id}`);
     if (opsi.id && opsi.id !== id) throw new Error("ID tidak bisa diubah");
+    const faseLama = t.fase;
     terapkanKolom(t, opsi);
     t.diperbarui = new Date().toISOString();
+    if (opsi.fase !== undefined && t.fase !== faseLama) t.fase_sejak = t.diperbarui;
     return t;
   }, { ...lokasi, bolehBaru: false });
 }
