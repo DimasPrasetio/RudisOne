@@ -9,6 +9,7 @@
 //   kunci-cek <ID> | --kunci a,b [--kecuali ID]   keluar 1 + daftar tugas aktif yang berbagi kunci; 0 bila bebas
 //   validasi · bangkitkan · impor [--dari <md>] [--timpa] · rapikan (buang selesai/dibatalkan > 14 hari)
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -158,10 +159,31 @@ export function perbarui(ubah, { json = berkasJson(), md = berkasMd(), bolehBaru
 }
 
 // ---------- operasi ----------
-/** ID berikut untuk tanggal lokal hari ini: T-YYYYMMDD-(n terbesar + 1). */
-export function idBaru(reg, d = new Date()) {
+/** Nomor ID terakhir yang pernah dibagikan di device ini. Disimpan di LUAR folder RudisOne agar tetap ada setelah pasang
+ *  ulang / klon baru (register & handoff kosong lagi) — tanpa itu ID hari yang sama terulang dan bentrok dengan transkrip,
+ *  folder proyek, dan pengukuran metrik dari instalasi sebelumnya. Register selain register device ini (tes, `lokasi`,
+ *  RUDISONE_REGISTER_JSON) memakai berkas di sampingnya, kecuali RUDISONE_ID_TERAKHIR diberikan. */
+export const berkasIdTerakhir = (json = berkasJson()) => process.env.RUDISONE_ID_TERAKHIR
+  || (path.resolve(json) !== path.join(ROOT, "handoff", "register-tugas.json")
+    ? path.join(path.dirname(json), ".id-terakhir.json") : path.join(os.homedir(), ".rudisone", "id-terakhir.json"));
+const bacaIdTerakhir = (file = berkasIdTerakhir()) => { try { const j = JSON.parse(fs.readFileSync(file, "utf8")); return j && typeof j === "object" ? j : {}; } catch { return {}; } };
+/** Catat ID yang dibagikan (best effort: gagal menulis tidak menggagalkan register). Hanya tanggal terbaru disimpan. */
+export function catatIdTerakhir(id, file = berkasIdTerakhir()) {
+  const m = String(id).match(/^T-(\d{8})-(\d+)$/);
+  if (!m) return;
+  const j = bacaIdTerakhir(file);
+  if (j.tanggal > m[1] || (j.tanggal === m[1] && Number(j.n) >= Number(m[2]))) return;
+  try { tulisAtomik(file, `${JSON.stringify({ tanggal: m[1], n: Number(m[2]) })}\n`); } catch { /* best effort */ }
+}
+/** ID berikut untuk tanggal lokal hari ini: T-YYYYMMDD-(n terbesar + 1), n terbesar dari register, folder handoff/<ID>/,
+ *  dan nomor terakhir device (`berkasIdTerakhir`). */
+export function idBaru(reg, d = new Date(), { handoff = path.dirname(berkasJson()), terakhir = bacaIdTerakhir(berkasIdTerakhir(path.join(handoff, "register-tugas.json"))) } = {}) {
   const tgl = tanggalLokal(d).replace(/-/g, "");
-  const pakai = reg.tugas.map((t) => t.id.match(new RegExp(`^T-${tgl}-(\\d+)`))?.[1]).filter(Boolean).map(Number);
+  const re = new RegExp(`^T-${tgl}-(\\d+)`);
+  let folder = [];
+  try { folder = fs.readdirSync(handoff); } catch { /* belum ada */ }
+  const pakai = [...reg.tugas.map((t) => t.id), ...folder].map((x) => x.match(re)?.[1]).filter(Boolean).map(Number);
+  if (terakhir?.tanggal === tgl && Number.isInteger(Number(terakhir.n))) pakai.push(Number(terakhir.n));
   return `T-${tgl}-${pakai.length ? Math.max(...pakai) + 1 : 1}`;
 }
 const urutPrioritas = (p) => { const i = PRIORITAS.indexOf(p); return i < 0 ? PRIORITAS.length : i; };
@@ -189,8 +211,9 @@ function terapkanKolom(t, opsi) {
 
 export function tambah(opsi, lokasi) {
   if (!opsi.judul) throw new Error("--judul wajib");
+  const handoff = path.dirname(lokasi?.json ?? berkasJson());
   return perbarui((reg) => {
-    const id = !opsi.id || opsi.id === "baru" ? idBaru(reg) : String(opsi.id);
+    const id = !opsi.id || opsi.id === "baru" ? idBaru(reg, new Date(), { handoff }) : String(opsi.id);
     if (reg.tugas.some((t) => t.id === id)) throw new Error(`ID sudah ada: ${id}`);
     const kini = new Date().toISOString();
     // bawaan = tugas baru dalam penyelarasan (Pemilik COO; kolom yang belum jelas "?")
@@ -199,6 +222,7 @@ export function tambah(opsi, lokasi) {
     terapkanKolom(t, opsi);
     if (t.fase !== "—") t.fase_sejak = kini;
     reg.tugas.push(t);
+    catatIdTerakhir(id, berkasIdTerakhir(lokasi?.json));   // di dalam kunci register: penulis paralel tidak saling menurunkan
     return id;
   }, lokasi);
 }

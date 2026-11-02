@@ -229,11 +229,13 @@ export function urai(cmd) {
     if (tunggu) { seg.alih.push({ op: tunggu, target: w.nilai, glob: w.glob, ekspansi: w.ekspansi }); tunggu = null; } else seg.kata.push(w);
     w = null;
   };
-  const tutupSeg = () => {
+  // `sesudah` = pemisah yang menutup segmen (&&, ||, ;, |, |&, &, \n; undefined = akhir). Pemisah sesudah segmen kosong
+  // (`a &&\n b`) tidak menimpa pemisah segmen sebelumnya — bash membaca baris baru sesudah && sebagai lanjutan.
+  const tutupSeg = (op) => {
     tutupKata();
     if (tunggu) { kompleks = true; seg.alih.push({ op: tunggu, target: "", glob: false, ekspansi: false }); tunggu = null; }
     seg.teks = seg.teks.trim();
-    if (seg.teks) segmen.push(seg);
+    if (seg.teks) { seg.sesudah = op; segmen.push(seg); }
     seg = { teks: "", kata: [], alih: [] };
   };
   for (let i = 0; i < cmd.length; i++) {
@@ -263,9 +265,9 @@ export function urai(cmd) {
       kini().nilai += c; seg.teks += c; continue;
     }
     if (c === "`") { kompleks = true; kini().nilai += c; seg.teks += c; continue; }
-    if ((c === "&" && n === "&") || (c === "|" && (n === "|" || n === "&"))) { tutupSeg(); i++; continue; }
-    if (c === ";" || c === "\n" || c === "|") { tutupSeg(); continue; }
-    if (c === "&" && n !== ">") { tutupSeg(); continue; }
+    if ((c === "&" && n === "&") || (c === "|" && (n === "|" || n === "&"))) { tutupSeg(c + n); i++; continue; }
+    if (c === ";" || c === "\n" || c === "|") { tutupSeg(c); continue; }
+    if (c === "&" && n !== ">") { tutupSeg(c); continue; }
     if (c === "(" || c === ")") { kompleks = true; tutupKata(); seg.teks += c; continue; }
     if (c === ">" || c === "<" || (c === "&" && n === ">")) {
       let fd = "";
@@ -962,6 +964,19 @@ export function globKeRegex(g) {
   }
   try { return new RegExp("^" + r + "$"); } catch { return /(?!)/; }
 }
+/** Glob saringan nama berkas (grep --include, rg -g) → RegExp tanpa beda huruf besar/kecil; kurawal `{a,b}` diurai
+ *  (rg mengenalnya). Kurawal bersarang/tak tertutup → cocok dengan apa pun (ragu = berkas env dianggap lolos saringan). */
+export function globNama(g) {
+  g = String(g);
+  const m = g.match(/\{([^{}]*)\}/);
+  if (!m) {
+    if (/[{}]/.test(g)) return /^/;
+    const r = globKeRegex(g);
+    return new RegExp(r.source, "i");
+  }
+  const alt = m[1].split(",").map((x) => globNama(g.slice(0, m.index) + x + g.slice(m.index + m[0].length)));
+  return { test: (s) => alt.some((r) => r.test(s)) };
+}
 /** Glob yang bisa mencocokkan berkas env di foldernya (`cat .e*`, `cat .env*`). */
 function globEnv(pola, folder, K) {
   const p = rumah(pola);
@@ -1002,8 +1017,9 @@ const kataDari = (t) => urai(t).segmen;
 /** Berkas env di pohon `akar` (kedalaman ≤ 6, ≤ 5.000 entri, lewati node_modules/.git) yang akan terbaca pencarian:
  *  mode "semua" (grep tanpa ignore, ag/ack, GNU grep di Windows) · "pohon" (grep bawaan Claude Code = ugrep
  *  --ignore-files: hanya berkas `.gitignore` DI DALAM pohon pencarian yang dihormati — bukan .gitignore induk,
- *  .git/info/exclude, atau excludes global) · "git" (rg & alat Grep: semua aturan ignore git → `git check-ignore`). */
-function pohonEnv(akar, K, mode = "semua") {
+ *  .git/info/exclude, atau excludes global) · "git" (rg & alat Grep: semua aturan ignore git → `git check-ignore`).
+ *  `lolos(nama)` = saringan nama berkas pencarian (grep --include, rg -g): berkas env yang tidak lolos tidak terbaca. */
+function pohonEnv(akar, K, mode = "semua", lolos = null) {
   try { if (fs.statSync(akar).isFile()) return namaEnv(path.basename(akar), K) ? akar : null; } catch { return null; }
   let n = 0;
   const temu = [];
@@ -1022,7 +1038,7 @@ function pohonEnv(akar, K, mode = "semua") {
       if (++n > 5000) return;
       const p = path.join(d, e.name);
       if (e.isDirectory()) { if (!/^(node_modules|\.git)$/.test(e.name)) jalan(p, k + 1, lokal); }
-      else if (namaEnv(e.name, K) && !(mode === "pohon" && diabaikan(p, lokal))) temu.push(p);
+      else if (namaEnv(e.name, K) && (!lolos || lolos(e.name)) && !(mode === "pohon" && diabaikan(p, lokal))) temu.push(p);
     }
   };
   jalan(akar, 0, []);
@@ -1162,7 +1178,20 @@ export function envSegmen(s, K, ctx, semua = s.teks, dalam = 0) {
     || /^(rg|ag|ack)$/.test(prog) || (prog === "git" && args[0] === "grep");
   // argumen non-opsi pertama grep/rg/ag/ack/git grep = pola, bukan berkas (kecuali pola diberikan lewat -e/-f)
   const polaLewatOpsi = args.some((x) => /^(-e|-f|--regexp|--file)$|^--(regexp|file)=|^-[A-Za-z]*[ef]$/.test(x));
-  const tanpaPola = (xs) => { const o = xs.filter((x) => !x.startsWith("-")); return polaLewatOpsi ? o : o.slice(1); };
+  // saring nama berkas: grep --include=GLOB, rg -g/--glob/--iglob GLOB (glob positif saja). Nilai opsi yang terpisah
+  // (`--include '*.go'`) bukan pola/akar pencarian.
+  const OPSI_SARING = grepProg ? /^--include$/ : /^(-g|--glob|--iglob)$/;
+  const saring = [], nilaiOpsi = new Set();
+  if (grepProg || prog === "rg") args.forEach((x, j) => {
+    const m = grepProg ? x.match(/^--include=(.*)$/) : x.match(/^(?:--glob|--iglob)=(.*)$|^-g(.+)$/);
+    if (m) saring.push(m[1] ?? m[2]);
+    else if (OPSI_SARING.test(x) && j + 1 < args.length) { saring.push(args[j + 1]); nilaiOpsi.add(j + 1); }
+  });
+  const positif = saring.filter((g) => !g.startsWith("!"));
+  // berkas env yang lolos saringan; null = tanpa saringan yang bisa dinilai (semua berkas dibaca)
+  const lolosSaring = positif.length && positif.every((g) => !g.includes("/") && !g.includes("\\"))
+    ? (nama) => positif.some((g) => globNama(g).test(nama)) : null;
+  const tanpaPola = (xs) => { const o = xs.filter((x, j) => !x.startsWith("-") && !(xs === args && nilaiOpsi.has(j))); return polaLewatOpsi ? o : o.slice(1); };
   if (rekursif) {
     const tanpaIgnore = (grepProg && (w[i].includes("/") || pembungkus.some((x) => x === "command") || args.some((x) => /^(-[A-Za-z]*Z|--null)$/.test(x))))
       || /^(ag|ack|egrep|fgrep)$/.test(prog) || args.some((x) => /^(-uu+|--no-ignore.*|--unrestricted|--untracked|--no-index)$/.test(x)) || osLogis() === "win32";
@@ -1174,7 +1203,7 @@ export function envSegmen(s, K, ctx, semua = s.teks, dalam = 0) {
       if (!mode) continue;   // rg tanpa -u/--hidden melewati berkas tersembunyi; git grep hanya berkas terlacak
       for (const c of folder ?? []) {
         const daftar = /[*?[]/.test(a) ? globDaftar(a, c) : [path.resolve(c, rumah(a))];
-        for (const d of daftar) { const t = pohonEnv(d, K, mode); if (t) return hasil(t, "pencarian rekursif atas folder berisi berkas env"); }
+        for (const d of daftar) { const t = pohonEnv(d, K, mode, lolosSaring); if (t) return hasil(t, "pencarian rekursif atas folder berisi berkas env"); }
       }
     }
     return null;
@@ -1304,7 +1333,13 @@ function envPerintah(cmd, input, K) {
   const ctx = { cwd: input.cwd ? rumah(input.cwd) : HOME };
   ctx.awal = ctx.cwd;
   ctx.mungkin = ctx.cwd ? [ctx.cwd] : null;
-  for (const s of urai(bersih).segmen) {
+  const u = urai(bersih);
+  // `cd x && …`: bila cd gagal, rantai && sesudahnya tidak berjalan → selama rantai itu folder lama tidak mungkin aktif
+  // (pencarian `cd sub && grep -r .` tidak lagi dinilai atas folder awal). Folder lama disimpan di `cadangan` dan kembali
+  // berlaku begitu rantai putus (;, ||, &, baris baru, akhir). Tidak dipersempit bila ada subshell/substitusi (kompleks):
+  // `(cd x && a) && grep -r .` berjalan di folder awal.
+  let cadangan = [];
+  for (const s of u.segmen) {
     const h = envSegmen(s, K, ctx, bersih);
     if (h) return h;
     const k0 = s.kata[0]?.nilai ?? "";
@@ -1314,9 +1349,18 @@ function envPerintah(cmd, input, K) {
       const tujuan = arg.length === 0 ? HOME : arg.length === 1 && ctx.cwd && !arg[0].ekspansi && !arg[0].glob && arg[0].nilai !== "-" ? rumah(arg[0].nilai) : null;
       ctx.cwd = tujuan && ctx.cwd ? path.resolve(ctx.cwd, tujuan) : null;
       if (!tujuan || !ctx.mungkin) ctx.mungkin = null;
-      else ctx.mungkin = [...new Set([...ctx.mungkin, ...ctx.mungkin.flatMap((c) => [path.resolve(c, tujuan), jalurFisik(c, tujuan)])])];
+      else {
+        const baru = [...new Set(ctx.mungkin.flatMap((c) => [path.resolve(c, tujuan), jalurFisik(c, tujuan)]))];
+        if (s.sesudah === "&&" && !u.kompleks) { cadangan = [...new Set([...cadangan, ...ctx.mungkin])]; ctx.mungkin = baru; }
+        else ctx.mungkin = [...new Set([...ctx.mungkin, ...baru])];
+      }
+    }
+    if (cadangan.length && !["&&", "|", "|&"].includes(s.sesudah)) {
+      if (ctx.mungkin) ctx.mungkin = [...new Set([...ctx.mungkin, ...cadangan])];
+      cadangan = [];
     }
   }
+  if (ctx.mungkin && cadangan.length) ctx.mungkin = [...new Set([...ctx.mungkin, ...cadangan])];
   const ctxSub = { cwd: ctx.awal, mungkin: ctx.mungkin ?? (ctx.awal ? [ctx.awal] : null) };
   for (const t of substitusi(bersih).flatMap((x) => urai(x).segmen)) { const h = envSegmen(t, K, ctxSub, bersih, 1); if (h) return h; }
   return null;
@@ -1570,8 +1614,12 @@ export function putuskan(input, K) {
     const sesiEnv = kenaliSesi(input, K);
     if (sesiEnv.rudisOne) {
       const nama = path.basename(String(k.env.berkas));
+      // pencarian kode yang tertolak hanya karena ada .env di pohonnya: beri bentuk yang lolos agar agent tidak menebak-nebak
+      const saranCari = /pencarian rekursif/.test(k.env.sebab)
+        ? ` Mencari kode? Batasi ke berkas kode: grep -rn --include='*.go' --include='*.ts*' <pola> <folder>, cari di subfolder tanpa .env, atau pindah folder dengan \`cd <folder> && grep …\` (bukan \`;\`) — atau pakai alat Grep.`
+        : "";
       return { keputusan: "deny", sesi: sesiEnv, aksi: [], env: k.env, ringkasan: k.ringkasan,
-        alasan: `RudisOne · membaca isi ${nama} ditolak (${k.env.sebab}) — nilai rahasia tidak boleh masuk transkrip. Cek kunci tanpa nilai: ${ROOT}/bin/env-kunci.sh [--wajib K1,K2 | --salah-satu K1,K2] <berkas>. Aplikasi/tes/skrip proyek yang memuat .env sendiri tetap boleh dijalankan; isi yang memang perlu dilihat → minta pengguna membukanya sendiri.` };
+        alasan: `RudisOne · membaca isi ${nama} ditolak (${k.env.sebab}) — nilai rahasia tidak boleh masuk transkrip.${saranCari} Cek kunci tanpa nilai: ${ROOT}/bin/env-kunci.sh [--wajib K1,K2 | --salah-satu K1,K2] <berkas>. Aplikasi/tes/skrip proyek yang memuat .env sendiri tetap boleh dijalankan; isi yang memang perlu dilihat → minta pengguna membukanya sendiri.` };
     }
   }
   if (ALAT_BACA.has(input.tool_name)) return { keputusan: null, alasan: "bukan pembacaan berkas env", sesi: null };

@@ -48,6 +48,28 @@ test("skema: register valid lolos; kolom salah ditolak dengan galat yang jelas",
   assert.deepEqual(R.validasi(null), ["register bukan objek JSON"]);
 });
 
+test("T-20261102-4: ID tidak terulang setelah register dikosongkan (pasang ulang) — nomor terakhir device & folder handoff", () => {
+  const l = lokasi();
+  assert.equal(jalankan(l, "tambah", "--judul", "A").stdout.trim(), `T-${hariIni}-1`);
+  assert.equal(jalankan(l, "tambah", "--judul", "B").stdout.trim(), `T-${hariIni}-2`);
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(l.dir, ".id-terakhir.json"), "utf8")), { tanggal: hariIni, n: 2 });
+  // pasang ulang: register & md hilang, nomor terakhir device tetap → lanjut, bukan kembali ke 1
+  fs.rmSync(l.json); fs.rmSync(l.md);
+  assert.equal(jalankan(l, "tambah", "--judul", "C").stdout.trim(), `T-${hariIni}-3`);
+  // folder handoff/<ID>/ yang tersisa juga dihitung (mis. nomor terakhir device hilang)
+  fs.rmSync(path.join(l.dir, ".id-terakhir.json"));
+  fs.mkdirSync(path.join(l.dir, `T-${hariIni}-7`));
+  assert.equal(jalankan(l, "tambah", "--judul", "D").stdout.trim(), `T-${hariIni}-8`);
+  // nomor terakhir hari lain tidak berlaku; berkas rusak diabaikan; ID eksplisit lebih kecil tidak menurunkan nomor
+  assert.equal(R.idBaru({ tugas: [] }, new Date(), { handoff: path.join(tmp, "tidak-ada"), terakhir: { tanggal: "19990101", n: 9 } }), `T-${hariIni}-1`);
+  fs.writeFileSync(path.join(l.dir, ".id-terakhir.json"), "{rusak");
+  R.catatIdTerakhir(`T-${hariIni}-4`, path.join(l.dir, ".id-terakhir.json"));
+  R.catatIdTerakhir(`T-${hariIni}-2`, path.join(l.dir, ".id-terakhir.json"));
+  assert.equal(JSON.parse(fs.readFileSync(path.join(l.dir, ".id-terakhir.json"), "utf8")).n, 4);
+  // register device sendiri → berkas di rumah pengguna (di luar folder RudisOne)
+  assert.equal(R.berkasIdTerakhir(path.join(path.dirname(SKRIP), "..", "handoff", "register-tugas.json")).startsWith(os.homedir()), !process.env.RUDISONE_ID_TERAKHIR);
+});
+
 test("tambah: ID baru berurutan untuk tanggal hari ini, ID eksplisit & sub-tugas, ID ganda ditolak", () => {
   const l = lokasi();
   const a = jalankan(l, "tambah", "--judul", "Pertama");
@@ -297,7 +319,8 @@ test("penulisan bersamaan: 12 proses tambah paralel → semua tugas ada, JSON va
   assert.deepEqual(reg.tugas.map((t) => t.judul).sort(), Array.from({ length: N }, (_, i) => `Paralel ${i}`).sort());
   assert.deepEqual(kode.map((h) => h.out).sort(), reg.tugas.map((t) => t.id).sort());          // ID yang dicetak = ID yang tersimpan
   assert.equal(bacaRegister(fs.readFileSync(l.md, "utf8")).length, N);                        // MD terakhir memuat semuanya
-  assert.deepEqual(fs.readdirSync(l.dir).sort(), ["register-tugas.json", "register-tugas.md"]); // tanpa .lock / .tmp tersisa
+  assert.deepEqual(fs.readdirSync(l.dir).sort(), [".id-terakhir.json", "register-tugas.json", "register-tugas.md"]); // tanpa .lock / .tmp tersisa
+  assert.equal(JSON.parse(fs.readFileSync(path.join(l.dir, ".id-terakhir.json"), "utf8")).n, N);                 // nomor terakhir tidak turun
 });
 
 test("bin/register.sh meneruskan ke register.mjs", () => {

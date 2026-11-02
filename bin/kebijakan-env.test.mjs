@@ -285,6 +285,26 @@ test("tinjauan silang T-2.3 & replay 30 hari: positif palsu → tanpa keputusan"
   for (const c of ["echo [$", "ls t[j-200", "cat a]b", "echo {a,b", "grep x [^]"]) assert.doesNotThrow(() => putuskan(bash(c), K), c);
 });
 
+test("T-20261102-4: `cd sub && grep -r` dinilai di sub saja; saringan --include/-g yang tidak mengenai env → tanpa keputusan", () => {
+  // tiruan run Gudangku: sesi di folder induk non-git yang memuat proyek ber-.env; agent mencari di subfolder kode
+  const W = path.join(ROOT, "ruang", "wadah"), PR = path.join(W, "proj"), API = path.join(PR, "apps", "api"), PG = path.join(PR, "apps", "web", "src", "pages");
+  for (const d of [API, PG]) fs.mkdirSync(d, { recursive: true });
+  fs.writeFileSync(path.join(PR, ".env"), `X=${NILAI}\n`);
+  fs.writeFileSync(path.join(API, "main.go"), "package main\n");
+  fs.writeFileSync(path.join(PG, "a.tsx"), "x\n");
+  harap(["cd proj/apps/api && grep -rn DB .", "cd proj/apps/api && grep -rl DB --include=*.go . | head",
+    "cd proj && cd apps/api && grep -rn DB .", "cd proj/apps/web/src/pages && grep -rn x ../ | grep -v y",
+    "grep -rn --include=*.go DB .", "grep -rn --include '*.go' DB .", "grep -rn --include=*.go --include=*.ts* DB proj",
+    "cd proj/apps/web/src/pages && grep -rn x ../ --include=*.ts*", "rg -uu -g '*.go' DB .", "rg -uu --glob=*.{go,ts} DB ."], "—", W);
+  harap(["cd proj/apps/api ; grep -rn DB .", "cd proj/apps/api || grep -rn DB .", "cd proj/apps/api && true ; grep -rn DB .",
+    "cd proj/apps/api && true || grep -rn DB .", "(cd proj/apps/api && true) && grep -rn DB .", "cd proj/apps/api & grep -rn DB .",
+    "cd proj && grep -rn DB .", "cd proj/apps/api && grep -rn DB ../..", "grep -rn DB .",
+    "grep -rn --include=*.env DB .", "grep -rn --include=* DB .", "grep -rn --include=.env* DB .", "grep -rn --include='*.{go,env}' DB .",
+    "grep -rn --include=*.go DB proj/.env", "grep -rn --include=proj/*.go DB .", "rg -uu -g '*.{go,env}' DB .", "rg -uu -g '!*.md' DB .",
+    "rg -uu -g '*.go' -g '.env' DB ."], "deny", W);
+  fs.rmSync(W, { recursive: true, force: true });
+});
+
 test("tinjauan silang T-2.3: A6 bentuk tambahan → ask", () => {
   harap(["git checkout -f main", "git switch -f main", "git switch --discard-changes main", "git restore --staged --worktree a.txt",
     "git clean --force -d", "git checkout HEAD .", "git branch --delete --force x"], "ask");

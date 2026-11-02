@@ -20,7 +20,8 @@ Linux sungguhan** (baru simulasi + `claude` tiruan). Windows 11 native (Claude C
   `Set-Location -LiteralPath '<folder>'; claude`; cmd `cd /d "<folder>" && claude`; Git Bash `cd '/d/…' && claude`.
   Salin baris dari `sesi.sh cek` apa adanya; jangan menulis ulang dengan `&&` untuk PowerShell.
 - Folder ditolak dan pengguna tidak mau/bisa → **jalur subagent** (`agents/coo.md` › Tech Lead sebagai subagent),
-  ditawarkan COO sejak awal bersama konsekuensinya.
+  ditawarkan COO sejak awal bersama konsekuensinya — sekali per device: pilihan pengguna dicatat sebagai
+  `preferensi jalur Tech Lead: …` di `catatan/coo.md` dan diikuti tanpa bertanya lagi (`agents/coo.md` › Tech Lead sebagai subagent).
 
 ## Kepercayaan folder (Windows 11, Claude Code 2.1.302)
 Perilaku `claude --bg` yang **terbukti**:
