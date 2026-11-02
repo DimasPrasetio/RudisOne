@@ -365,7 +365,7 @@ test("fase_sejak: diisi saat fase berubah (tambah & ubah), tetap saat kolom lain
   const { kemajuanFase } = await import("../kantor/server.mjs");
   const mulai = Date.parse("2026-11-02T01:00:00Z");
   assert.deepEqual(kemajuanFase({ fase: "Konstruksi B", fase_sejak: "2026-11-02T01:00:00Z" }, mulai + 30 * 60000), { menit: 30, anggaran: 25, lewat: true });
-  assert.deepEqual(kemajuanFase({ fase: "Analisis", fase_sejak: "2026-11-02T01:00:00Z" }, mulai + 5 * 60000), { menit: 5, anggaran: 8, lewat: false });
+  assert.deepEqual(kemajuanFase({ fase: "Analisis", fase_sejak: "2026-11-02T01:00:00Z" }, mulai + 5 * 60000), { menit: 5, anggaran: 11, lewat: false });
   assert.equal(kemajuanFase({ fase: "—" }), null);
   assert.equal(kemajuanFase({ fase: "Konstruksi" }), null, "tanpa fase_sejak tidak ditebak");
 });

@@ -449,7 +449,7 @@ const waktuLokal = (iso) => { const d = new Date(iso); return Number.isNaN(+d) ?
  *  Fase dicocokkan dari awal teks kolom Fase register (mis. "Konstruksi B …" → konstruksi). */
 export const ANGGARAN_FASE = [
   [/^(inisiasi|penyelarasan|selaras)/i, 5],
-  [/^(analisis|rancangan|desain)/i, 8],
+  [/^(analisis|rancangan|desain)/i, 11],
   [/^(konstruksi|rakit|pasang)/i, 25],
   [/^(pengujian|gerbang|tinjau)/i, 10],
   [/^(rilis|penerapan|deploy)/i, 15],

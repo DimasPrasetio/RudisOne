@@ -95,12 +95,21 @@ Jalur cadangan COO saat sesi Tech Lead tidak bisa dibentuk (`agents/coo.md` › 
    Aplikasi Mode A: ikuti skill `rudis-sdlc` › Jalur Rakit Paralel — pasang dengan `rakit`/resep (satu perintah), kerangka
    modul kustom dengan `npm run new:module` (di-commit sebelum membagi), lalu satu SE per folder modul.
 2. **Rencana** — kebutuhan kabur, skema/API/batas modul → subagent BSA (kebutuhan + spesifikasi + analisis dampak);
-   drafnya ke `handoff/<ID>/`.
+   drafnya ke `handoff/<ID>/`. **Aplikasi baru / fitur yang menambah atau mengubah layar** (bukan perbaikan bug tanpa
+   perubahan alur): panggil **juga** subagent `rudis-research-analyst` **paralel** dengan BSA yang menyusun tabel perakitan,
+   untuk **riset alur** (`templat/riset-alur.md`; pustaka `recipes/alur/<kategori>.md` dipakai ulang bila belum
+   kedaluwarsa: riset penuh ± 5–8 mnt, pakai ulang ± 1–2 mnt). Dua subagent tidak saling menunggu: begitu
+   `handoff/<ID>/riset-alur.md` ada, kamu memanggil BSA **sekali lagi** (putaran kedua) khusus untuk menulis
+   `templat/alur-tugas.md` dari hasilnya; ③ baru setelah itu. Ringkasan alur ikut paket Persetujuan Rancangan (tanpa
+   keputusan tambahan bagi pengguna). Riset visual back-office tetap dilewati; riset alur tidak. Jalur ekspres (semua
+   baris *pasang*) dikecualikan dari riset alur dan alur tugas baru; uji alurnya hanya bila pustaka punya alurnya (skill
+   `rudis-sdlc` › Jalur Rakit Paralel).
 3. **Pecah** — bagian dengan **kepemilikan berkas yang tidak tumpang tindih**; kontrak bersama (tipe, API) ditetapkan
    dulu di branch tugas sebelum paralel.
 4. **Bagi** — subagent `rudis-software-engineer` dengan `isolation: "worktree"`; brief `[Tugas dari Tech Lead]`
    (`templat/brief-tugas.md`): ID, berkas yang boleh disentuh, kontrak, perintah tes, kriteria selesai, dan arahan
-   commit di branch worktree-nya.
+   commit di branch worktree-nya. SE web menerima bagian `alur-tugas.md` yang relevan dengan foldernya (langkah, bawaan
+   isian, teks pesan galat, layar kosong) — bukan seluruh dokumen.
 5. **Tinjau & gabung** — baca diff branch subagent (`git diff rudis/<ID>...refs/heads/<branch-subagent>`), cek konvensi
    & tes. Kurang → lanjutkan subagent itu dengan `[Revisi]` (SendMessage ke subagent) atau perbaiki sendiri dan sebut.
    Cukup → `git merge --no-ff refs/heads/<branch-subagent>` di worktree-mu. Konflik → selesaikan atau kembalikan.
@@ -112,6 +121,16 @@ Jalur cadangan COO saat sesi Tech Lead tidak bisa dibentuk (`agents/coo.md` › 
    diminta hanya temuan yang memengaruhi kebenaran) atau Tech Lead proyek lain; kecocokan spesifikasi oleh subagent BSA
    bila ada spesifikasi tingkat 2 (tingkat 1: kriteria di spek ringkas menjadi daftar tinjauan peninjau — skill
    `rudis-sdd` › Tingkat SDD). Saring temuannya; `PERLU REVISI` yang sah → perbaiki dulu.
+   **Uji jalan alur** (aplikasi baru / fitur yang menambah atau mengubah layar; tidak untuk bug tanpa perubahan alur):
+   setelah `npm run gate` lulus dan aplikasi berjalan lokal (seed akun tiap peran, database lokal siap), panggil subagent BSA
+   **paralel** dengan peninjau kode: BSA menguji alur dari sisi pengguna (`templat/uji-alur.md`; **mode CEPAT bawaan** — tugas inti yang ditandai BSA di `alur-tugas.md`, HP saja, kasus gagal utama, ± 10 mnt; **mode PENUH** semua tugas + komputer hanya bila brief COO mengutip permintaan pengguna; jangan memotong cakupan diam-diam, BSA menyatakan cakupan)
+   memakai kit `templat/uji-alur-kit/` (bukan skrip dari nol), dan menulis `handoff/<ID>/uji-alur.md` dengan putusan `LULUS` / `PERLU PERBAIKAN` untuk sha tertentu. Bukan pembuat dan
+   bukan peninjau kode. Tindak lanjut: temuan **kritis dan sedang yang tidak mengubah alur** → ikut putaran perbaikan di atas
+   (pemilik folder, maks. 2 putaran; kodemu sendiri lewat peninjau berkonteks bersih), lalu BSA menguji ulang **hanya** butir
+   itu; perbaikan yang **mengubah alur yang sudah disetujui** → bagian keputusan laporan (dampak dulu, `Rincian:`), bukan
+   diputuskan sendiri; kosmetik → daftar di laporan, dikerjakan bila murah; temuan di modul pustaka → usulan perbaikan
+   pustaka (tugas terpisah), tidak diperbaiki diam-diam. Aplikasi tidak bisa dijalankan → alur ber-data *belum terverifikasi*,
+   dilaporkan apa adanya, tidak `[Terhambat]`.
 7. **Lapor** — `[Laporan divisi Engineering · Tim <n>] <ID> · <judul>` ke COO: branch `rudis/<ID>` + sha, ringkasan
    diff (`git diff --stat <base>...HEAD`), bukti tes. Hasil tetap di branch tugas sampai pengguna memutuskan.
 
@@ -146,6 +165,8 @@ Jalur cadangan COO saat sesi Tech Lead tidak bisa dibentuk (`agents/coo.md` › 
 2. **Pembagian kerja & tinjauan** — siapa mengerjakan apa (sendiri, subagent) dan siapa meninjau.
 3. **Perubahan** — branch `rudis/<ID>` + sha, berkas utama, status serah (belum / staged / commit).
 4. **Verifikasi gabungan** — perintah + hasil; verifikasi visual bila UI; proyek Rudis: Final Checklist skill (tiap
-   butir ✓/✗ + alasan) dan versi perkakas.
+   butir ✓/✗ + alasan) dan versi perkakas. **Uji alur** (aplikasi baru / fitur ber-layar): hasil per alur tugas —
+   peran × tugas × HP/komputer (LULUS / SELESAI-MENYIMPANG / GAGAL / belum terverifikasi), **mode + cakupan** ("cepat: N dari M tugas, HP saja"), putusan `uji-alur.md` + sha, temuan per tingkat dan penyelesaiannya,
+   yang belum terverifikasi; tanpa `uji-alur.md` pada sha terakhir → sebut sebabnya.
 5. **Risiko / sisa / keputusan pengguna** — tiap keputusan: satu kalimat dampak dan pilihannya, mis. "Hasil kerja siap;
    gabungkan ke versi utama di komputer ini atau biarkan terpisah?", lalu `Rincian:` (serah ke branch utama, commit, push, deploy).

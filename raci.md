@@ -19,6 +19,9 @@ identitas; "TL / BSA / SE" = tim proyek yang bersangkutan.
 | Fitur, bug fix, refactor, tes | G | **R** | C⁴ | S | I | — | — | C¹ | — | — | I | — |
 | Tinjauan silang kode | — | **R** | S⁴ | S | — | — | — | — | — | — | — | — |
 | Desain/tampilan (skill `rudis-riset-desain`) | G | **R** | C | S | — | — | — | — | S | — | — | — |
+| Riset alur pemakaian (sumber bertanggal; aplikasi baru / fitur ber-layar) | G | C | C | — | — | — | — | — | **R** | — | — | — |
+| Alur tugas utama per peran (dari riset alur) | G | C | **R** | I | I | — | — | — | S | — | — | — |
+| Uji jalan alur di gerbang akhir (aplikasi berjalan; bawaan cepat: HP; penuh atas permintaan: HP & komputer) | G | C | **R** | S⁹ | I | — | — | — | — | — | — | — |
 | Serah ke branch utama / commit (atas permintaan pengguna) | G | **R** | — | S | I | — | — | — | — | — | — | — |
 | Rencana, status, risiko lintas proyek, cutover | G | C | C | — | **R** | S | C | — | — | — | C | — |
 | Dokumen untuk dibaca orang | G | C | C | — | **R** | S | C | C | C | C | C | — |
@@ -47,6 +50,7 @@ identitas; "TL / BSA / SE" = tim proyek yang bersangkutan.
 6. Hotfix: Head of IT Operations meminta ke Tech Lead tim proyek itu; Tech Lead menugaskan engineer.
 7. Peninjau wajib skrip koreksi: Business Systems Analyst tim proyek itu; Financial Controller bila data keuangan.
 8. Research Analyst menyusun draf brief desain (Desain) paralel dengan tabel perakitan; keduanya diputuskan di Persetujuan Rancangan.
+9. Software Engineer memperbaiki temuan uji alur di folder miliknya (putaran perbaikan gerbang akhir); BSA menguji ulang butir itu.
 
 ## Wewenang per peran
 
