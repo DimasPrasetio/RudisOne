@@ -1118,10 +1118,10 @@ const kataDari = (t) => urai(t).segmen;
  *  --ignore-files: hanya berkas `.gitignore` DI DALAM pohon pencarian yang dihormati — bukan .gitignore induk,
  *  .git/info/exclude, atau excludes global) · "git" (rg & alat Grep: semua aturan ignore git → `git check-ignore`).
  *  `lolos(nama)` = saringan nama berkas pencarian (grep --include, rg -g): berkas env yang tidak lolos tidak terbaca. */
-function pohonEnv(akar, K, mode = "semua", lolos = null) {
+function pohonEnv(akar, K, mode = "semua", lolos = null, ikut = false) {
   try { if (fs.statSync(akar).isFile()) return namaEnv(path.basename(akar), K) ? akar : null; } catch { return null; }
   let n = 0;
-  const temu = [];
+  const temu = [], kunjung = new Set();
   const jalan = (d, k, aturan) => {
     if (k > 6 || n > 5000) return;
     let isi = [];
@@ -1136,6 +1136,14 @@ function pohonEnv(akar, K, mode = "semua", lolos = null) {
     for (const e of isi) {
       if (++n > 5000) return;
       const p = path.join(d, e.name);
+      // pencarian yang mengikuti tautan (grep -R, rg -L): symlink/junction ditelusuri ke tujuannya (penjaga loop: kunjung)
+      if (ikut && e.isSymbolicLink()) {
+        let nyata, st;
+        try { nyata = fs.realpathSync.native(p); st = fs.statSync(nyata); } catch { continue; }
+        if (st.isDirectory()) { const kk = nyata.toLowerCase(); if (!kunjung.has(kk)) { kunjung.add(kk); jalan(nyata, k + 1, lokal); } }
+        else if ((namaEnv(e.name, K) || namaEnv(path.basename(nyata), K)) && (!lolos || lolos(e.name))) temu.push(nyata);
+        continue;
+      }
       if (e.isDirectory()) { if (!/^(node_modules|\.git)$/.test(e.name)) jalan(p, k + 1, lokal); }
       else if (namaEnv(e.name, K) && (!lolos || lolos(e.name)) && !(mode === "pohon" && diabaikan(p, lokal))) temu.push(p);
     }
@@ -1303,6 +1311,9 @@ export function envSegmen(s, K, ctx, semua = s.teks, dalam = 0) {
       || /^(ag|ack|egrep|fgrep)$/.test(prog) || args.some((x) => /^(-uu+|--no-ignore.*|--unrestricted|--untracked|--no-index)$/.test(x)) || osLogis() === "win32"
       || rgGlob;
     const rgTersembunyi = args.some((x) => /^(-u|--hidden|-\.)$/.test(x));
+    // mengikuti tautan saat menelusuri: grep -R/--dereference-recursive, rg -L/--follow
+    const ikutTautan = grepProg ? args.some((x) => /^--dereference-recursive$|^-[A-Za-z]*R/.test(x))
+      : prog === "rg" && args.some((x) => /^--follow$|^-[A-Za-z]*L/.test(x));
     const mode = tanpaIgnore ? "semua" : grepProg ? "pohon" : prog === "rg" && rgTersembunyi ? "git" : null;
     const akar = tanpaPola(prog === "git" ? args.slice(1) : args);
     for (const a of akar.length ? akar : ["."]) {
@@ -1310,7 +1321,7 @@ export function envSegmen(s, K, ctx, semua = s.teks, dalam = 0) {
       if (!mode) continue;   // rg tanpa -u/--hidden melewati berkas tersembunyi; git grep hanya berkas terlacak
       for (const c of folder ?? []) {
         const daftar = /[*?[]/.test(a) ? globDaftar(a, c) : [path.resolve(c, rumah(a))];
-        for (const d of daftar) { const t = pohonEnv(d, K, mode, lolosSaring); if (t) return hasil(t, "pencarian rekursif atas folder berisi berkas env"); }
+        for (const d of daftar) { const t = pohonEnv(d, K, mode, lolosSaring, ikutTautan); if (t) return hasil(t, "pencarian rekursif atas folder berisi berkas env"); }
       }
     }
     return null;

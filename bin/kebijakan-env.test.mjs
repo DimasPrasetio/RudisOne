@@ -324,6 +324,16 @@ test("T-20261102-4: `cd sub && grep -r` dinilai di sub saja; saringan --include/
     // putaran 6: hanya turun ke subfolder; naik / pindah / `..` → tanpa penyempitan
     "cd proj/apps/api/.. && grep -rn DB ../..", "cd proj/apps/api && cd ../../.. && grep -rn DB .",
     `cd ${path.dirname(W).replaceAll("\\", "/")} && grep -rn DB .`, "cd ~ && grep -rn DB ."], "deny", W);
+  // putaran 7: pencarian yang mengikuti tautan (grep -R, rg -L) menelusuri symlink/junction ke tujuannya
+  const NAIK = path.join(PR, "apps", "web", "naik");
+  let adaTautan = true;
+  try { fs.symlinkSync(PR, NAIK, "junction"); } catch { adaTautan = false; }
+  if (adaTautan) {
+    harap(["cd proj/apps/web && grep -Rn DB .", "cd proj/apps/web && grep -rn --dereference-recursive DB .", "grep -Rn DB proj/apps/web",
+      "cd proj/apps/web && rg -L -uu DB .", "cd proj/apps/web && rg --follow -uu DB ."], "deny", W);
+    harap(["cd proj/apps/web && grep -rn DB .", "cd proj/apps/web && grep -Rn --include=*.go DB ."], "—", W);   // -r tidak mengikuti tautan
+    fs.unlinkSync(NAIK);
+  }
   // `..` di tujuan: tetap dinilai atas folder awal juga (tidak dipersempit)
   harap([`cd ${PR.replaceAll("\\", "/")}/../proj/apps/api && grep -rn DB .`], "deny", W);
   // Windows: path mount Git Bash (/tmp, /usr, /Users/… tanpa huruf drive) ≠ path Windows yang dihitung hook → tanpa penyempitan
