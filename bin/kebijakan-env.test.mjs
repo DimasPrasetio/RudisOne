@@ -314,7 +314,11 @@ test("T-20261102-4: `cd sub && grep -r` dinilai di sub saja; saringan --include/
     "grep() { command grep --exclude=a \"$@\"; }; grep -r --include=*.go DB .", "function grep { command grep --exclude=a \"$@\"; }; grep -r --include=*.go DB .",
     "alias grep='grep --exclude=a'\ngrep -r --include=*.go DB .", "alias rg='rg -g=*'\nrg -uu -g '*.go' DB .",
     "P=POSIXLY; export ${P}_CORRECT=1; grep -r DB . --include=*.go", "G=GREP; export ${G}_OPTIONS=--exclude=a; grep -r --include=*.go DB .",
-    "alias cd=true\ncd proj/apps/api && grep -rn DB .", "function cd { :; }; cd proj/apps/api && grep -rn DB ."], "deny", W);
+    "alias cd=true\ncd proj/apps/api && grep -rn DB .", "function cd { :; }; cd proj/apps/api && grep -rn DB .",
+    // putaran 4: rg --pre, kata glob yang berkembang menjadi nama berkas berbentuk opsi, perintah polos tidak menulis berkas
+    "echo 'cat .env' > x.go; rg --pre sh -g '*.go' '' .", "echo 'cat .env' > x.go; rg -uu --pre=sh -g '*.go' '' .",
+    "echo > ./--exclude=a; grep -r * --include=*.go -e DB .", "grep -r * --include=*.go -e DB .", "rg -uu -g '*.go' DB *",
+    "echo '!.env' > .gitignore; cd proj/apps/api && grep -rn DB ../../.."], "deny", W);
   harap(["cd proj/apps/api && grep -rn DB . | head -20; ls", "cd proj/apps/api && cat main.go | sed -n 1,40p",
     "cd proj/apps/api && grep -rn DB --include=*.go . 2>/dev/null | cut -c1-200 | head"], "—", W);
   harap(["grep -rn --include=*.{go,ts} DB .", "grep -rn DB . --include=*.go"], "—", W);

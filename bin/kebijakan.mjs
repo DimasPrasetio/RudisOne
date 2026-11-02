@@ -1064,6 +1064,10 @@ export function perintahPolos(teks) {
   const ok = !u.kompleks && !u.ekspansi && u.segmen.length > 0 && u.segmen.every((s) => {
     const w = s.kata.map((k) => k.nilai);
     if (!w.length || s.kata.some((k) => k.ekspansi)) return false;
+    // tanpa menulis berkas (skrip untuk --pre, berkas bernama opsi, .gitignore baru): hanya /dev/null, dup fd, baca
+    if (s.alih.some((a) => !alihAman(a))) return false;
+    // rg --pre / --pre-glob menjalankan program atas setiap berkas
+    if (w[0] === "rg" && w.some((x) => /^--pre(-glob)?(=|$)/.test(x))) return false;
     // sed hanya bentuk cetak baris: sed -n 1,40p <berkas…> (skrip sed lain bisa menjalankan perintah: `e`)
     if (w[0] === "sed") return w[1] === "-n" && /^\d+(,(\d+|\$))?p$/.test(w[2] ?? "") && w.slice(3).every((x) => !x.startsWith("-"));
     return PROG_POLOS.has(w[0]);
@@ -1282,7 +1286,10 @@ export function envSegmen(s, K, ctx, semua = s.teks, dalam = 0) {
   if (opsi.saring.length) {
     const iAkhir = args.indexOf("--") < 0 ? args.length : args.indexOf("--");
     const kurawalSah = prog === "rg" ? /^(--i?glob=|-g)/ : /^--include=/;
-    if (kataArgs.slice(0, iAkhir).some((k, j) => k.ekspansi || (k.kurawal && !kurawalSah.test(k.nilai)) || (k.glob && opsi.nilaiSaring.has(j)))
+    // kata ber-glob di luar nilai saringan yang menempel bisa berkembang menjadi nama berkas berbentuk opsi (`--exclude=a`,
+    // `-g…`); rg: posisi mana pun (glob -g belakangan tetap berlaku)
+    const kataCek = prog === "rg" ? kataArgs : kataArgs.slice(0, iAkhir);
+    if (kataCek.some((k, j) => k.ekspansi || (k.kurawal && !kurawalSah.test(k.nilai)) || (k.glob && (opsi.nilaiSaring.has(j) || !kurawalSah.test(k.nilai))))
       || /POSIXLY_CORRECT|GREP_OPTIONS|RIPGREP_CONFIG_PATH|nullglob/.test(semua)
       || ["POSIXLY_CORRECT", "GREP_OPTIONS", "RIPGREP_CONFIG_PATH"].some((v) => process.env[v] !== undefined)) opsi.ragu = true;
   }
@@ -1442,7 +1449,7 @@ function envPerintah(cmd, input, K) {
   // Shell bersarang / eval (`bash -c "cd ..; grep -r ."`, `xargs sh -c`, `find -exec sh -c`): cd di dalam teksnya tidak dilacak
   // → tanpa penyempitan sama sekali (kembali ke penilaian lama: semua folder yang mungkin).
   // Ditambah syarat perintah polos (perintahPolos): alias/fungsi `cd`, penugasan, $-ekspansi → tanpa penyempitan.
-  const bersarang = !perintahPolos(bersih) || u.segmen.some((s) => s.kata.some((k) => /^(sh|bash|zsh|dash|ksh|mksh|fish|eval)(\.exe)?$/i.test(path.basename(k.nilai))));
+  const bersarang = !perintahPolos(bersih) || process.env.CDPATH !== undefined || u.segmen.some((s) => s.kata.some((k) => /^(sh|bash|zsh|dash|ksh|mksh|fish|eval)(\.exe)?$/i.test(path.basename(k.nilai))));
   let cadangan = [], sebelum;
   for (const s of u.segmen) {
     const h = envSegmen(s, K, ctx, bersih);
