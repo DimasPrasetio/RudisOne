@@ -1466,8 +1466,17 @@ function envPerintah(cmd, input, K) {
         const baru = [...new Set(ctx.mungkin.flatMap((c) => [path.resolve(c, tujuan), jalurFisik(c, tujuan)]))];
         // tujuan harus pasti: folder ada menurut hook, dan di Windows bukan path mount Git Bash yang tidak diterjemahkan
         // (`/tmp`, `/usr`, `/` = folder lain daripada `D:\tmp`); `/c/…` & `C:\…` diterjemahkan → boleh
+        // dan hanya TURUN ke subfolder folder yang mungkin aktif (kasus yang dibutuhkan: `cd apps/api && grep -r .`); tanpa `..`
+        // (normalisasi `..` bash bisa berbeda: `/c/../tmp` = mount /tmp, bukan C:\tmp). Naik/pindah ke folder lain → tidak.
+        // dibandingkan dalam bentuk fisik (Windows: nama pendek DIMASP~1 vs nama panjang, symlink/junction)
+        const fisik = (p) => { try { return fs.realpathSync.native(p); } catch { return path.resolve(p); } };
+        const turunan = (d) => ctx.mungkin.some((c) => {
+          const r = path.relative(fisik(c), fisik(d));
+          return r && !r.startsWith("..") && !path.isAbsolute(r);
+        });
         const pasti = !(osLogis() === "win32" && /^\//.test(tujuan) && !/^\/[A-Za-z](\/|$)/.test(tujuan))
-          && baru.filter(Boolean).every((d) => { try { return fs.statSync(d).isDirectory(); } catch { return false; } });
+          && !String(tujuan).split(/[\\/]/).includes("..")
+          && baru.filter(Boolean).every((d) => { try { return fs.statSync(d).isDirectory() && turunan(d); } catch { return false; } });
         if (pasti && s.sesudah === "&&" && !u.kompleks && !bersarang && !["||", "|", "|&"].includes(sebelum)) { cadangan = [...new Set([...cadangan, ...ctx.mungkin])]; ctx.mungkin = baru; }
         else ctx.mungkin = [...new Set([...ctx.mungkin, ...baru])];
       }

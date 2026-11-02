@@ -320,7 +320,12 @@ test("T-20261102-4: `cd sub && grep -r` dinilai di sub saja; saringan --include/
     "echo > ./--exclude=a; grep -r * --include=*.go -e DB .", "grep -r * --include=*.go -e DB .", "rg -uu -g '*.go' DB *",
     "echo '!.env' > .gitignore; cd proj/apps/api && grep -rn DB ../../..",
     // putaran 5: tujuan cd yang tidak pasti (tidak ada menurut hook) → tanpa penyempitan
-    "cd tidak-ada/x && grep -rn DB ."], "deny", W);
+    "cd tidak-ada/x && grep -rn DB .",
+    // putaran 6: hanya turun ke subfolder; naik / pindah / `..` → tanpa penyempitan
+    "cd proj/apps/api/.. && grep -rn DB ../..", "cd proj/apps/api && cd ../../.. && grep -rn DB .",
+    `cd ${path.dirname(W).replaceAll("\\", "/")} && grep -rn DB .`, "cd ~ && grep -rn DB ."], "deny", W);
+  // `..` di tujuan: tetap dinilai atas folder awal juga (tidak dipersempit)
+  harap([`cd ${PR.replaceAll("\\", "/")}/../proj/apps/api && grep -rn DB .`], "deny", W);
   // Windows: path mount Git Bash (/tmp, /usr, /Users/… tanpa huruf drive) ≠ path Windows yang dihitung hook → tanpa penyempitan
   if (process.platform === "win32" && (process.env.RUDISONE_OS ?? "win32") === "win32")
     harap([`cd ${API.slice(2).replaceAll("\\", "/")} && grep -rn DB .`], "deny", W);
@@ -328,7 +333,9 @@ test("T-20261102-4: `cd sub && grep -r` dinilai di sub saja; saringan --include/
   harap(["cd proj/apps/api && grep -rn DB . | head -20; ls", "cd proj/apps/api && cat main.go | sed -n 1,40p",
     "cd proj/apps/api && grep -rn DB --include=*.go . 2>/dev/null | cut -c1-200 | head"], "—", W);
   harap(["grep -rn --include=*.{go,ts} DB .", "grep -rn DB . --include=*.go"], "—", W);
-  harap(["grep -rn DB .", "cd ../.. && cd apps/api && grep -rn DB ."], "—", API);
+  harap(["grep -rn DB ."], "—", API);
+  // naik lalu turun lagi: tujuan pertama memuat `..` → tidak dipersempit (penilaian ketat seperti sebelumnya)
+  harap(["cd ../.. && cd apps/api && grep -rn DB ."], "deny", API);
   harap(["command cd ../.. && grep -r DB .", "builtin cd ../.. ; grep -r DB .", "cd ../.. && grep -rn DB ."], "deny", API);
   harap(["cd proj/apps/api ; grep -rn DB .", "cd proj/apps/api || grep -rn DB .", "cd proj/apps/api && true ; grep -rn DB .",
     "cd proj/apps/api && true || grep -rn DB .", "(cd proj/apps/api && true) && grep -rn DB .", "cd proj/apps/api & grep -rn DB .",
