@@ -30,9 +30,18 @@ function repoMini(ubah = () => {}) {
   return r;
 }
 function periksa(r, ...arg) {
-  // RUDISONE_PEMETAAN dikosongkan: repo mini memakai tabelnya sendiri (handoff/pemetaan/), bukan tabel device pengembang
+  // RUDISONE_PEMETAAN dikosongkan: dengan --pemetaan repo mini memakai tabelnya sendiri (handoff/pemetaan/), bukan tabel device pengembang
   const p = spawnSync(process.execPath, [SKRIP, "--repo", "--json", ...arg], { env: { ...process.env, RUDISONE_ROOT: r, RUDISONE_PEMETAAN: "" }, encoding: "utf8" });
   return { kode: p.status, temuan: JSON.parse(p.stdout || "[]") };
+}
+/** Pemeriksaan tabel pemetaan migrasi hanya berjalan atas permintaan (`--pemetaan`). */
+const periksaPemetaan = (r, ...arg) => periksa(r, "--pemetaan", ...arg);
+/** Tabel pemetaan rusak (jangkar tak ada) di folder sementara — untuk membuktikan tabel device tidak memengaruhi hasil bawaan. */
+function tabelRusak() {
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), "pemetaan-rusak-"));
+  const isi = "Ref: `0000000`\n\n| Kode | Aturan lama | Lokasi baru | Jangkar | Status |\n|---|---|---|---|---|\n| P-001 | x | protokol.md | Teks yang tidak ada | tetap |\n";
+  for (const n of ["pemetaan-aturan-v5.md", "pemetaan-aturan-v6.md"]) fs.writeFileSync(path.join(d, n), isi);
+  return d;
 }
 const kodeTemuan = (h) => h.temuan.filter((t) => t.tingkat === "galat").map((t) => t.kode).sort();
 
@@ -72,24 +81,38 @@ test("skill: name ≠ folder → galat", () => {
   assert.deepEqual(kodeTemuan(h), ["skill-nama"]);
 });
 
-test("pemetaan: jangkar tidak ada, lokasi tidak ada, dihapus tanpa alasan → galat", () => {
-  const h = periksa(repoMini((t) => t("handoff/pemetaan/pemetaan-aturan-v5.md", "| Kode | Aturan lama | Lokasi baru | Jangkar | Status |\n|---|---|---|---|---|\n| P-001 | x | protokol.md | Teks yang tidak ada | tetap |\n| P-002 | y | skills/hantu.md | z | tetap |\n| P-003 | z | dihapus |  | dihapus |\n")));
-  assert.deepEqual(kodeTemuan(h), ["pemetaan", "pemetaan", "pemetaan"]);
+test("pemetaan (--pemetaan): jangkar tidak ada, lokasi tidak ada, dihapus tanpa alasan → galat; tanpa --pemetaan tabel tidak dibaca", () => {
+  const r = repoMini((t) => t("handoff/pemetaan/pemetaan-aturan-v5.md", "| Kode | Aturan lama | Lokasi baru | Jangkar | Status |\n|---|---|---|---|---|\n| P-001 | x | protokol.md | Teks yang tidak ada | tetap |\n| P-002 | y | skills/hantu.md | z | tetap |\n| P-003 | z | dihapus |  | dihapus |\n"));
+  assert.deepEqual(kodeTemuan(periksaPemetaan(r)), ["pemetaan", "pemetaan", "pemetaan"]);
+  const bawaan = periksa(r);
+  assert.deepEqual(bawaan.temuan.filter((t) => /pemetaan/.test(t.kode)), []);
+  assert.equal(bawaan.kode, 0);
 });
 
 test("pemetaan: jangkar dengan \\| dan baris baru di sumber tetap cocok", () => {
-  const h = periksa(repoMini((t) => {
+  const h = periksaPemetaan(repoMini((t) => {
     t("protokol.md", "# Protokol inti\n\n## Model sesi\n| a | b |\n|---|---|\n| LULUS \\| PERLU | baris\nlanjut |\n");
     t("handoff/pemetaan/pemetaan-aturan-v5.md", "| Kode | Aturan lama | Lokasi baru | Jangkar | Status |\n|---|---|---|---|---|\n| P-001 | x | protokol.md | LULUS \\\\| PERLU \\| baris lanjut | tetap |\n");
   }));
   assert.deepEqual(kodeTemuan(h), []);
 });
 
-test("repo ini: --repo bersih (rujukan, path, skill, inti, subagent, pemetaan 100% terhadap 3b1c888)", () => {
-  const p = spawnSync(process.execPath, [SKRIP, "--repo", "--json", "--ref", "3b1c888"], { cwd: REPO, env: { ...process.env, RUDISONE_ROOT: REPO }, encoding: "utf8" });
-  const t = JSON.parse(p.stdout || "[]");
-  assert.deepEqual(t.filter((x) => x.tingkat !== "info"), []);
-  assert.equal(p.status, 0);
+test("repo ini: --repo bersih (rujukan, path, skill, inti, subagent) — hasil sama dengan atau tanpa tabel pemetaan per device", () => {
+  const jalan = (pemetaan) => {
+    const env = { ...process.env, RUDISONE_ROOT: REPO };
+    if (pemetaan !== undefined) env.RUDISONE_PEMETAAN = pemetaan;
+    const p = spawnSync(process.execPath, [SKRIP, "--repo", "--json"], { cwd: REPO, env, encoding: "utf8" });
+    return { kode: p.status, temuan: JSON.parse(p.stdout || "[]") };
+  };
+  // apa adanya (device pengembang bisa punya handoff/pemetaan/) · tabel rusak · folder kosong → semuanya identik dan bersih
+  const hasil = [jalan(), jalan(tabelRusak()), jalan(fs.mkdtempSync(path.join(os.tmpdir(), "pemetaan-kosong-")))];
+  for (const h of hasil) {
+    assert.deepEqual(h.temuan.filter((x) => x.tingkat !== "info"), []);
+    assert.deepEqual(h.temuan.filter((x) => /pemetaan/.test(x.kode)), []);
+    assert.equal(h.kode, 0);
+  }
+  assert.deepEqual(hasil[1], hasil[0]);
+  assert.deepEqual(hasil[2], hasil[0]);
 });
 
 test("pencocokan bagian tidak longgar: judul satu kata + kata palsu, dan judul di dalam pagar kode", () => {
@@ -106,6 +129,31 @@ test("rujukan bagian ke berkas per device (TEAM.md) tidak diperiksa, walau berka
     t("agents/coo.md", "---\nname: coo\ndescription: d\n---\nLihat `TEAM.md` › Engineering · Tim <n>.\n");
   }));
   assert.deepEqual(kodeTemuan(h), []);
+});
+
+test("--repo tidak membaca isi berkas per device (TEAM.md, konfigurasi/, uji/*.md — yang di-.gitignore): isi basi di sana tidak membuat galat/peringatan", () => {
+  const basi = "# Basi\n\nPakai `rudis-hantu`, `bin/hilang.sh`, dan `protokol.md` › Bagian Fiktif.\n\n<!-- ke-pengguna -->\nSilakan merge branch ini.\n<!-- /ke-pengguna -->\n";
+  const h = periksa(repoMini((t) => { t("TEAM.md", basi); t("konfigurasi/infra.md", basi); }));
+  assert.deepEqual(h.temuan, []);
+  assert.equal(h.kode, 0);
+  // pembanding: isi yang sama di berkas repo memang ditangkap
+  assert.deepEqual(kodeTemuan(periksa(repoMini((t) => t("templat/basi.md", basi)))), ["path", "rujukan", "skill-rujukan"]);
+  // repo git: semua .md yang di-.gitignore (laporan uji device, konfigurasi lain) juga tidak dibaca — .gitignore sumbernya
+  const r = repoMini();
+  const g = (...a) => execFileSync("git", ["-C", r, "-c", "user.email=u@contoh.test", "-c", "user.name=u", "-c", "commit.gpgsign=false", ...a], { stdio: "ignore" });
+  fs.writeFileSync(path.join(r, ".gitignore"), "/handoff/\n/TEAM.md\n/uji/*.md\n/konfigurasi/*\n");
+  g("init", "-q"); g("add", "-A"); g("commit", "-q", "-m", "awal");
+  for (const rel of ["TEAM.md", "uji/laporan-uji-device.md", "konfigurasi/catatan-server.md"]) {
+    fs.mkdirSync(path.dirname(path.join(r, rel)), { recursive: true });
+    fs.writeFileSync(path.join(r, rel), basi);
+  }
+  // repo mini tanpa commit acuan lama (3b1c888) → satu-satunya temuan yang wajar: peringatan "ref … tidak terbaca"
+  const hg = periksa(r);
+  assert.deepEqual(hg.temuan.filter((t) => !/^ref \w+ tidak terbaca/.test(t.pesan)), []);
+  // berkas baru yang belum di-commit tetapi tidak di-ignore tetap isi repo → diperiksa
+  fs.mkdirSync(path.join(r, "templat"), { recursive: true });
+  fs.writeFileSync(path.join(r, "templat", "baru.md"), basi);
+  assert.deepEqual(kodeTemuan(periksa(r)), ["path", "rujukan", "skill-rujukan"]);
 });
 
 // ---------- device: kesehatan hook kebijakan (X15) & kebersihan catatan/ (X12) ----------
@@ -316,36 +364,41 @@ test("pemetaan v6 (T-20261031-2.3): unit lama tetap/pindah otomatis; yang beruba
   tulis("skills/rudis-contoh/SKILL.md", "---\nname: rudis-contoh\ndescription: contoh\n---\n# Contoh\n## Langkah\n1. a\n\nAturan A: sesi inti.\n");
   tulis("handoff/pemetaan/pemetaan-aturan-v5.md", "| Kode | Aturan lama | Lokasi baru | Jangkar | Status |\n|---|---|---|---|---|\n| P-001 | x | skills/rudis-contoh/SKILL.md | Aturan A: sesi inti. | tetap |\n| P-002 | y | dihapus | kalimat persona | dihapus |\n");
   tulis("handoff/pemetaan/pemetaan-aturan-v6.md", kepala);
-  bangun(); let h = periksa(r);
+  bangun(); let h = periksaPemetaan(r);
   assert.deepEqual(kodeTemuan(h), [], JSON.stringify(h.temuan));
   assert.ok(h.temuan.some((t) => /pindah 1 · di tabel 0 · hilang 0/.test(t.pesan)), JSON.stringify(h.temuan));
   // aturan diubah tanpa baris → hilang (galat); dengan baris mekanisme yang judul tesnya ada → bersih
   tulis("skills/rudis-contoh/SKILL.md", "---\nname: rudis-contoh\ndescription: contoh\n---\n# Contoh\n## Langkah\n1. a\n");
-  bangun(); h = periksa(r);
+  bangun(); h = periksaPemetaan(r);
   assert.deepEqual(kodeTemuan(h), ["pemetaan", "pemetaan-v6"]);
   tulis("handoff/pemetaan/pemetaan-aturan-v5.md", "| Kode | Aturan lama | Lokasi baru | Jangkar | Status |\n|---|---|---|---|---|\n| P-001 | x | dihapus | jadi mekanisme | dihapus |\n| P-002 | y | dihapus | kalimat persona | dihapus |\n");
   tulis("bin/contoh.test.mjs", "test(\"aturan A ditegakkan\", () => {});\n");
   tulis("handoff/pemetaan/pemetaan-aturan-v6.md", `${kepala}| P-001 | protokol › Model sesi: aturan A | bin/contoh.test.mjs | aturan A ditegakkan | mekanisme |\n`);
-  bangun(); h = periksa(r);
+  bangun(); h = periksaPemetaan(r);
   assert.deepEqual(kodeTemuan(h), [], JSON.stringify(h.temuan));
   tulis("handoff/pemetaan/pemetaan-aturan-v6.md", `${kepala}| P-001 | x | bin/contoh.test.mjs | tes yang tidak ada | mekanisme |\n`);
-  bangun(); assert.deepEqual(kodeTemuan(periksa(r)), ["pemetaan-v6"]);
+  bangun(); assert.deepEqual(kodeTemuan(periksaPemetaan(r)), ["pemetaan-v6"]);
 });
 
-test("clone bersih tanpa tabel pemetaan (alat pengembang per device) → info, bukan galat; RUDISONE_PEMETAAN menunjuk tabel di luar repo", () => {
+test("--pemetaan tanpa tabel (clone bersih) → info, bukan galat; folder di luar repo lewat argumen atau RUDISONE_PEMETAAN; tanpa --pemetaan env diabaikan", () => {
   const r = repoMini((t, akar) => fs.rmSync(path.join(akar, "handoff"), { recursive: true, force: true }));
   fs.mkdirSync(path.join(r, "bin"), { recursive: true });
   fs.writeFileSync(path.join(r, "bin", "inventaris-aturan.mjs"), "");   // seperti repo RudisOne sungguhan
-  let h = periksa(r);
+  let h = periksaPemetaan(r);
   assert.deepEqual(kodeTemuan(h), [], JSON.stringify(h.temuan));
   assert.equal(h.kode, 0);
   assert.deepEqual(h.temuan.filter((t) => /pemetaan/.test(t.kode)).map((t) => t.tingkat), ["info", "info"]);
-  // tabel di luar repo (mis. handoff/pemetaan di checkout utama, diperiksa dari worktree) tetap diperiksa
-  const luar = fs.mkdtempSync(path.join(os.tmpdir(), "pemetaan-"));
-  fs.writeFileSync(path.join(luar, "pemetaan-aturan-v5.md"), "| Kode | Aturan lama | Lokasi baru | Jangkar | Status |\n|---|---|---|---|---|\n| P-001 | x | protokol.md | Teks yang tidak ada | tetap |\n");
-  const p = spawnSync(process.execPath, [SKRIP, "--repo", "--json"], { env: { ...process.env, RUDISONE_ROOT: r, RUDISONE_PEMETAAN: luar }, encoding: "utf8" });
-  h = { kode: p.status, temuan: JSON.parse(p.stdout || "[]") };
-  assert.deepEqual(kodeTemuan(h), ["pemetaan"]);
+  // tabel di luar repo (mis. handoff/pemetaan di checkout utama, diperiksa dari worktree) tetap diperiksa bila diminta
+  const luar = tabelRusak();
+  const jalan = (env, ...arg) => {
+    const p = spawnSync(process.execPath, [SKRIP, "--repo", "--json", ...arg], { env: { ...process.env, RUDISONE_ROOT: r, ...env }, encoding: "utf8" });
+    return { kode: p.status, temuan: JSON.parse(p.stdout || "[]") };
+  };
+  assert.deepEqual(kodeTemuan(jalan({ RUDISONE_PEMETAAN: "" }, "--pemetaan", luar)), ["pemetaan", "pemetaan-v6"]);
+  assert.deepEqual(kodeTemuan(jalan({ RUDISONE_PEMETAAN: luar }, "--pemetaan")), ["pemetaan", "pemetaan-v6"]);
+  h = jalan({ RUDISONE_PEMETAAN: luar });
+  assert.deepEqual(h.temuan, []);
+  assert.equal(h.kode, 0);
 });
 
 test("kebersihan (R9): ID tugas / laporan uji device di berkas terlacak → galat bersih; tes ber-ID lolos", () => {

@@ -11,6 +11,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const INI = fileURLToPath(import.meta.url);
@@ -178,15 +179,34 @@ export function catatIdTerakhir(id, file = berkasIdTerakhir()) {
   if ((j.tanggal > m[1] && j.tanggal <= hari) || (j.tanggal === m[1] && Number(j.n) >= Number(m[2]))) return;
   try { tulisAtomik(file, `${JSON.stringify({ tanggal: m[1], n: Number(m[2]) })}\n`); } catch { /* best effort */ }
 }
+/** Repo git yang riwayatnya ikut dibaca pembuat ID: repo RudisOne ini untuk register device ini; register lain (tes,
+ *  `lokasi`, RUDISONE_REGISTER_JSON) tidak membaca git kecuali RUDISONE_ID_GIT diberikan ("" = matikan). */
+export const repoIdGit = (json = berkasJson()) => process.env.RUDISONE_ID_GIT
+  ?? (path.resolve(json) === path.join(ROOT, "handoff", "register-tugas.json") ? ROOT : "");
+/** Nomor ID tugas tanggal `tgl` (YYYYMMDD) yang sudah dipakai di riwayat git `repo`: pesan commit dan nama ref (branch
+ *  `rudis/<ID>`, lokal & remote-tracking, semua worktree). Menangkap ID dari device lain yang sudah di-merge/ditarik —
+ *  register, `handoff/`, dan nomor terakhir device tidak mengenalnya, apalagi sesudah `bersih-riwayat`. Best effort: bukan
+ *  repo git / git tidak ada / lewat batas waktu → []. */
+export function nomorDariGit(tgl, repo) {
+  if (!repo) return [];
+  const keluar = (args) => {
+    const p = spawnSync("git", ["-C", repo, ...args], { encoding: "utf8", timeout: 10000, maxBuffer: 16 << 20, stdio: ["ignore", "pipe", "ignore"] });
+    return p.status === 0 ? p.stdout : "";
+  };
+  const teks = `${keluar(["log", "--all", "--fixed-strings", `--grep=T-${tgl}-`, "--format=%s%n%b"])}\n${keluar(["for-each-ref", "--format=%(refname)"])}`;
+  return [...teks.matchAll(new RegExp(`T-${tgl}-(\\d+)`, "g"))].map((m) => Number(m[1]));
+}
 /** ID berikut untuk tanggal lokal hari ini: T-YYYYMMDD-(n terbesar + 1), n terbesar dari register, folder handoff/<ID>/,
- *  dan nomor terakhir device (`berkasIdTerakhir`). */
-export function idBaru(reg, d = new Date(), { handoff = path.dirname(berkasJson()), terakhir = bacaIdTerakhir(berkasIdTerakhir(path.join(handoff, "register-tugas.json"))) } = {}) {
+ *  nomor terakhir device (`berkasIdTerakhir`), dan riwayat git repo RudisOne (`nomorDariGit`). */
+export function idBaru(reg, d = new Date(), { handoff = path.dirname(berkasJson()), terakhir = bacaIdTerakhir(berkasIdTerakhir(path.join(handoff, "register-tugas.json"))),
+  git = repoIdGit(path.join(handoff, "register-tugas.json")) } = {}) {
   const tgl = tanggalLokal(d).replace(/-/g, "");
   const re = new RegExp(`^T-${tgl}-(\\d+)`);
   let folder = [];
   try { folder = fs.readdirSync(handoff); } catch { /* belum ada */ }
   const pakai = [...reg.tugas.map((t) => t.id), ...folder].map((x) => x.match(re)?.[1]).filter(Boolean).map(Number);
   if (terakhir?.tanggal === tgl && Number.isInteger(Number(terakhir.n))) pakai.push(Number(terakhir.n));
+  pakai.push(...nomorDariGit(tgl, git));
   return `T-${tgl}-${pakai.length ? Math.max(...pakai) + 1 : 1}`;
 }
 const urutPrioritas = (p) => { const i = PRIORITAS.indexOf(p); return i < 0 ? PRIORITAS.length : i; };

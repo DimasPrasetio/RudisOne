@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { spawn, spawnSync } from "node:child_process";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { jalankanSh } from "./lib/uji-util.mjs";
 
@@ -74,6 +74,37 @@ test("T-20261102-4: ID tidak terulang setelah register dikosongkan (pasang ulang
   assert.deepEqual(JSON.parse(fs.readFileSync(path.join(l.dir, ".id-terakhir.json"), "utf8")), { tanggal: hariIni, n: 5 });
   // register device sendiri → berkas di rumah pengguna (di luar folder RudisOne)
   assert.equal(R.berkasIdTerakhir(path.join(path.dirname(SKRIP), "..", "handoff", "register-tugas.json")).startsWith(os.homedir()), !process.env.RUDISONE_ID_TERAKHIR);
+});
+
+test("ID tidak terulang bila sudah dipakai di riwayat git (merge dari device lain) walau register & handoff sudah dibersihkan", () => {
+  // kasus nyata: device lain mengerjakan T-<hari>-1 dan merge-nya sudah ditarik; di device ini register sudah dibersihkan
+  // bersih-riwayat dan nomor terakhir device tidak mengenalnya → dulu `tambah --id baru` memberi T-<hari>-1 lagi
+  const repo = fs.mkdtempSync(path.join(tmp, "git-"));
+  const git = (...a) => execFileSync("git", ["-C", repo, "-c", "user.email=u@contoh.test", "-c", "user.name=u", "-c", "commit.gpgsign=false", ...a], { stdio: "ignore" });
+  git("init", "-q");
+  git("commit", "-q", "--allow-empty", "-m", `Merge T-${hariIni}-1: perbaiki tes`, "-m", "badan pesan tanpa ID");
+  git("commit", "-q", "--allow-empty", "-m", "T-19990101-9: hari lain tidak dihitung");
+  const l = lokasi();
+  const jalankanGit = (...argv) => spawnSync(process.execPath, [SKRIP, ...argv],
+    { encoding: "utf8", env: { ...process.env, RUDISONE_REGISTER_JSON: l.json, RUDISONE_REGISTER_MD: l.md, RUDISONE_ID_GIT: repo } });
+  let a = jalankanGit("tambah", "--judul", "Sesudah bersih-riwayat", "--id", "baru");
+  assert.equal(a.status, 0, a.stderr);
+  assert.equal(a.stdout.trim(), `T-${hariIni}-2`);
+  // ID di badan pesan dan nama branch tugas (lokal, belum di-merge) juga dihitung
+  git("commit", "-q", "--allow-empty", "-m", "Merge branch", "-m", `Menggabungkan T-${hariIni}-4 dan T-${hariIni}-3.1`);
+  assert.equal(jalankanGit("tambah", "--judul", "Lagi").stdout.trim(), `T-${hariIni}-5`);
+  git("branch", `rudis/T-${hariIni}-9`);
+  assert.equal(jalankanGit("tambah", "--judul", "Lagi 2").stdout.trim(), `T-${hariIni}-10`);
+  // tanpa repo git (bukan repo / dimatikan) → perilaku lama, tidak gagal
+  assert.deepEqual(R.nomorDariGit(hariIni, path.join(tmp, "bukan-repo")), []);
+  assert.deepEqual(R.nomorDariGit(hariIni, ""), []);
+  assert.equal(R.idBaru({ tugas: [] }, new Date(), { handoff: path.join(tmp, "tidak-ada"), terakhir: {}, git: repo }), `T-${hariIni}-10`);
+  assert.equal(R.idBaru({ tugas: [] }, new Date(), { handoff: path.join(tmp, "tidak-ada"), terakhir: {}, git: "" }), `T-${hariIni}-1`);
+  // register device sendiri membaca riwayat repo RudisOne ini; register lain hanya bila RUDISONE_ID_GIT diberikan
+  if (process.env.RUDISONE_ID_GIT === undefined) {
+    assert.equal(R.repoIdGit(path.join(path.dirname(SKRIP), "..", "handoff", "register-tugas.json")), path.resolve(path.dirname(SKRIP), ".."));
+    assert.equal(R.repoIdGit(l.json), "");
+  }
 });
 
 test("tambah: ID baru berurutan untuk tanggal hari ini, ID eksplisit & sub-tugas, ID ganda ditolak", () => {

@@ -10,3 +10,8 @@
   berkas produk — tempatnya `handoff/` (per device). Penjaga:
   `bin/cek-konsistensi.sh --repo` (kode `bersih`) dan hook pre-commit `.githooks/pre-commit` (diaktifkan `install.sh`
   lewat `core.hooksPath`). Tes, fixture, dan alat pengembang (`*.test.mjs`, `uji/suite/`, `uji/simulasi-linux/`, CI) dikecualikan.
+- Tes yang di-commit dan pemeriksaan bawaan (`bin/cek-konsistensi.sh --repo`) hanya bergantung pada isi repo, tidak pada
+  data per device (`handoff/`, `catatan/`, `TEAM.md`, `konfigurasi/`, `~/.claude`): hasilnya harus sama di setiap device
+  dan OS. Tes yang butuh data seperti itu membuat fixture sendiri di folder sementara dan mengarahkan env ke sana
+  (`RUDISONE_ROOT`, `RUDISONE_REGISTER_JSON`, …); alat pengembang per device (mis. tabel pemetaan migrasi di
+  `handoff/pemetaan/`) hanya berjalan atas permintaan eksplisit (`--pemetaan`).
