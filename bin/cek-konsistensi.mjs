@@ -46,14 +46,26 @@ export const perintahKeluarIndeks = (daftar) => `git rm -q --cached -- ${daftar.
 const temuan = [];
 const catat = (tingkat, kode, pesan) => temuan.push({ tingkat, kode, pesan });
 
-/** Berkas .md isi repo yang diperiksa R4–R6 & R10. Berkas per device (TEAM.md, konfigurasi/infra.md, …) tidak ikut: isinya
- *  beda per device, dan pemeriksaan repo harus sama di setiap device (docs/aturan-repo.md). */
+/** Berkas .md isi repo yang diperiksa R4–R6 & R10. Berkas per device (TEAM.md, konfigurasi/infra.md, uji/*.md, … — yang
+ *  di-.gitignore) tidak ikut: isinya beda per device, dan pemeriksaan repo harus sama di setiap device (docs/aturan-repo.md).
+ *  Di repo git daftarnya dari git (dilacak + belum dilacak yang tidak di-ignore), jadi .gitignore satu-satunya sumber
+ *  "per device"; bukan repo git (repo mini di tes) → telusuri folder. */
+const FOLDER_LEWAT = /^(\.git|node_modules|handoff|catatan|agen|\.claude|docs)$/;
 function berkasMd(root) {
   const hasil = [];
+  const atas = spawnSync("git", ["rev-parse", "--show-toplevel"], { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+  if (atas.status === 0 && samaPath(atas.stdout.trim(), root)) {
+    const ls = spawnSync("git", ["ls-files", "-z", "-co", "--exclude-standard", "--", "*.md"], { cwd: root, encoding: "utf8", maxBuffer: 64 << 20, stdio: ["ignore", "pipe", "ignore"] });
+    if (ls.status === 0) {
+      for (const rel of new Set(ls.stdout.split("\0").filter(Boolean)))
+        if (!rel.split("/").slice(0, -1).some((d) => FOLDER_LEWAT.test(d)) && !PER_DEVICE.test(rel) && fs.existsSync(path.join(root, rel))) hasil.push(rel);
+      return hasil.sort();
+    }
+  }
   const jalan = (d) => {
     for (const e of fs.readdirSync(path.join(root, d), { withFileTypes: true })) {
       const rel = d ? `${d}/${e.name}` : e.name;
-      if (e.isDirectory()) { if (!/^(\.git|node_modules|handoff|catatan|agen|\.claude|docs)$/.test(e.name)) jalan(rel); }
+      if (e.isDirectory()) { if (!FOLDER_LEWAT.test(e.name)) jalan(rel); }
       else if (e.name.endsWith(".md") && !PER_DEVICE.test(rel)) hasil.push(rel);
     }
   };

@@ -131,13 +131,29 @@ test("rujukan bagian ke berkas per device (TEAM.md) tidak diperiksa, walau berka
   assert.deepEqual(kodeTemuan(h), []);
 });
 
-test("--repo tidak membaca isi berkas per device (TEAM.md, konfigurasi/infra.md): isi basi di sana tidak membuat galat/peringatan", () => {
+test("--repo tidak membaca isi berkas per device (TEAM.md, konfigurasi/, uji/*.md — yang di-.gitignore): isi basi di sana tidak membuat galat/peringatan", () => {
   const basi = "# Basi\n\nPakai `rudis-hantu`, `bin/hilang.sh`, dan `protokol.md` › Bagian Fiktif.\n\n<!-- ke-pengguna -->\nSilakan merge branch ini.\n<!-- /ke-pengguna -->\n";
   const h = periksa(repoMini((t) => { t("TEAM.md", basi); t("konfigurasi/infra.md", basi); }));
   assert.deepEqual(h.temuan, []);
   assert.equal(h.kode, 0);
   // pembanding: isi yang sama di berkas repo memang ditangkap
   assert.deepEqual(kodeTemuan(periksa(repoMini((t) => t("templat/basi.md", basi)))), ["path", "rujukan", "skill-rujukan"]);
+  // repo git: semua .md yang di-.gitignore (laporan uji device, konfigurasi lain) juga tidak dibaca — .gitignore sumbernya
+  const r = repoMini();
+  const g = (...a) => execFileSync("git", ["-C", r, "-c", "user.email=u@contoh.test", "-c", "user.name=u", "-c", "commit.gpgsign=false", ...a], { stdio: "ignore" });
+  fs.writeFileSync(path.join(r, ".gitignore"), "/handoff/\n/TEAM.md\n/uji/*.md\n/konfigurasi/*\n");
+  g("init", "-q"); g("add", "-A"); g("commit", "-q", "-m", "awal");
+  for (const rel of ["TEAM.md", "uji/laporan-uji-device.md", "konfigurasi/catatan-server.md"]) {
+    fs.mkdirSync(path.dirname(path.join(r, rel)), { recursive: true });
+    fs.writeFileSync(path.join(r, rel), basi);
+  }
+  // repo mini tanpa commit acuan lama (3b1c888) → satu-satunya temuan yang wajar: peringatan "ref … tidak terbaca"
+  const hg = periksa(r);
+  assert.deepEqual(hg.temuan.filter((t) => !/^ref \w+ tidak terbaca/.test(t.pesan)), []);
+  // berkas baru yang belum di-commit tetapi tidak di-ignore tetap isi repo → diperiksa
+  fs.mkdirSync(path.join(r, "templat"), { recursive: true });
+  fs.writeFileSync(path.join(r, "templat", "baru.md"), basi);
+  assert.deepEqual(kodeTemuan(periksa(r)), ["path", "rujukan", "skill-rujukan"]);
 });
 
 // ---------- device: kesehatan hook kebijakan (X15) & kebersihan catatan/ (X12) ----------
