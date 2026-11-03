@@ -48,6 +48,19 @@ let n = 0;
 const bash = (command, cwd = P) => ({ session_id: `e${++n}`, cwd, tool_name: "Bash", tool_input: { command }, hook_event_name: "PreToolUse" });
 const kep = (i) => putuskan(i, K).keputusan ?? "—";
 const harap = (daftar, hasil, cwd = P) => { for (const c of daftar) assert.equal(kep(bash(c, cwd)), hasil, `${c} (cwd ${path.relative(tmp, cwd)})`); };
+// Path yang disisipkan ke teks perintah Bash ditulis seperti pengguna Git Bash menulisnya: garis miring ke depan dan dikutip —
+// path native Windows (`C:\Users\…`) dibaca shell sebagai escape (backslash hilang), dan folder sementara bisa memuat spasi
+// (nama pengguna "Nama Depan" → C:\Users\Nama Depan\…).
+const sp = (p) => `'${String(p).replaceAll("\\", "/")}'`;
+// grep -r bawaan Claude Code di macOS/Linux menghormati .gitignore (ugrep) sehingga rg/git grep/grep -r atas repo yang meng-ignore
+// .env tidak membuka berkasnya; di Windows (Git Bash) tidak ada pembungkus itu → penjaga sengaja menolak grep -r bila ada env di
+// pohonnya (bin/kebijakan.mjs: `osLogis() === "win32"`). Uji semantik .gitignore dijalankan sebagai OS POSIX lewat RUDISONE_OS.
+const sebagaiPosix = (fn) => {
+  const asal = process.env.RUDISONE_OS;
+  process.env.RUDISONE_OS = "linux";
+  try { return fn(); } finally { if (asal === undefined) delete process.env.RUDISONE_OS; else process.env.RUDISONE_OS = asal; }
+};
+const WIN_ASLI = process.platform === "win32" && (process.env.RUDISONE_OS ?? "win32") === "win32";
 
 test("nama berkas env: rahasia vs contoh", () => {
   for (const f of [".env", ".env.local", ".env.production", ".env.development.local", "prod.env", ".envrc"]) assert.ok(namaEnv(f, K), f);
@@ -76,9 +89,21 @@ test("Grep/Glob tool", () => {
 test("Bash: pengeluar isi → deny", () => {
   harap(["cat .env", "head -n3 .env.local", "tail .env.production", "sed -n 1p .env", "awk -F= '{print $2}' .env",
     "cut -d= -f2 < .env", "grep DB_ .env", "grep -n DB_ .env", "grep -o '=.*' .env", "less .env", "base64 .env", "xxd .env",
-    "diff .env.example .env", `cat ${path.join(P, ".env")}`, "cat ./sub/../.env", "jq -R . .env", "while read l; do echo $l; done < .env",
+    "diff .env.example .env", `cat ${sp(path.join(P, ".env"))}`, "cat ./sub/../.env", "jq -R . .env", "while read l; do echo $l; done < .env",
     "sudo cat .env", "env FOO=1 cat .env", "timeout 5 cat .env", "bash -c 'cat .env'", "sh -c \"head .env\"", "eval 'cat .env'",
     "cat .env | head -1", "true && cat .env"], "deny");
+});
+
+test("Bash: path bertanda kutip yang memuat spasi (folder rumah Windows berspasi) → deny bila berkasnya ada; kalimat berspasi bukan berkas", () => {
+  const dir = path.join(P, "dir spasi");
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, ".env"), `X=${NILAI}\n`);
+  const abs = sp(path.join(dir, ".env"));
+  harap([`cat ${abs}`, `head -n1 ${abs}`, `cat "${path.join(dir, ".env").replaceAll("\\", "/")}"`, "cat 'dir spasi/.env'", `git show ${abs}`,
+    `awk '{print}' ${abs}`, `case x in ${abs}) ;; esac`], "deny");
+  harap(["grep -n 'lihat .env di sini' README.md", `echo 'baca ${path.join(dir, ".env").replaceAll("\\", "/")} nanti'`, "cat 'dir spasi/tidak ada/.env.contoh'",
+    `cat ${sp(path.join(dir, ".env.example"))}`], "—");
+  fs.rmSync(dir, { recursive: true, force: true });
 });
 
 test("Bash: cd, symlink, glob, ekspansi, salinan", () => {
@@ -98,8 +123,12 @@ test("Bash: source, kode sebaris, pemuat yang membuang lingkungan → deny", () 
 
 test("Bash: git & pencarian", () => {
   harap(["git diff --no-index .env.example .env", "git show stash@{0}:.env", "git log -p .env"], "deny");
-  harap(["git check-ignore -q .env", "git status .env", "git ls-files .env", "git grep DB_PASS", "rg DB_PASS"], "—");
-  harap(["grep -rn DB_PASS ."], "—");                             // repo git, .env di-ignore: grep bawaan melewatinya
+  harap(["git check-ignore -q .env", "git status .env", "git ls-files .env"], "—");
+  // repo git, .env di-ignore: grep bawaan (macOS/Linux) melewatinya; git grep & rg hanya membuka berkas terlacak/tak-ter-ignore
+  sebagaiPosix(() => harap(["git grep DB_PASS", "rg DB_PASS", "grep -rn DB_PASS ."], "—"));
+  // Windows: kebijakan sengaja menolak pencarian rekursif bila ada env di pohonnya (lihat catatan sebagaiPosix); perilaku
+  // sekarang dikunci di sini agar perubahan ke arah lebih longgar menjadi keputusan yang disengaja, bukan kebetulan
+  if (WIN_ASLI) harap(["grep -rn DB_PASS .", "git grep DB_PASS", "rg DB_PASS"], "deny");
   harap(["grep -rn DB_PASS ."], "deny", NONGIT);                  // folder non-git: terbaca
   harap(["command grep -r DB .", "/usr/bin/grep -r DB .", "rg --no-ignore DB", "rg -uu DB", "rg DB .env",
     "find . -name .env -exec cat {} \\;"], "deny");
@@ -116,13 +145,13 @@ test("Bash: tanpa isi / kapabilitas tetap → tanpa keputusan baru", () => {
 
 test("Bash: perkakas env-kunci asli → allow; tiruan → deny", () => {
   const sh = path.join(ROOT, "bin", "env-kunci.sh");
-  for (const c of [`${sh} .env`, `${sh} --salah-satu DB_DSN,DATABASE_URL .env`, `node ${path.join(ROOT, "bin", "env-kunci.mjs")} --wajib DB_DSN .env`]) {
+  for (const c of [`${sp(sh)} .env`, `${sp(sh)} --salah-satu DB_DSN,DATABASE_URL .env`, `node ${sp(path.join(ROOT, "bin", "env-kunci.mjs"))} --wajib DB_DSN .env`]) {
     const p = putuskan(bash(c), K);
     assert.equal(p.keputusan, "allow", `${c}: ${p.alasan}`);
   }
   fs.mkdirSync(path.join(tmp, "palsu"), { recursive: true });
   fs.writeFileSync(path.join(tmp, "palsu", "env-kunci.sh"), "#!/bin/sh\ncat \"$1\"\n", { mode: 0o755 });
-  assert.equal(kep(bash(`${path.join(tmp, "palsu", "env-kunci.sh")} .env`)), "deny");
+  assert.equal(kep(bash(`${sp(path.join(tmp, "palsu", "env-kunci.sh"))} .env`)), "deny");
 });
 
 test("gabungan dengan perintah yang biasanya allow → tetap deny; sesi pribadi tanpa keputusan", () => {
@@ -183,7 +212,7 @@ test("pasang lewat CLI: idempoten, cadangan hanya saat berubah; installer RudisO
   assert.equal(fs.readFileSync(S, "utf8"), isi1);
   assert.equal(cadangan(), c1, "tanpa cadangan baru bila tidak berubah");
   fs.writeFileSync(path.join(ROOT, "install.sh"), "#!/bin/sh\n");
-  for (const c of ["./install.sh", "node install.mjs --tanpa-perkakas", `${ROOT}/install.sh`]) assert.equal(kep(bash(c, ROOT)), "ask", c);
+  for (const c of ["./install.sh", "node install.mjs --tanpa-perkakas", sp(path.join(ROOT, "install.sh"))]) assert.equal(kep(bash(c, ROOT)), "ask", c);
   assert.equal(kep(bash("./install.sh", P)), "—", "install.sh proyek lain bukan installer RudisOne");
   fs.rmSync(S);
 });
@@ -202,7 +231,7 @@ test("jalur Tech Lead-subagent: SE lapis-2 (induk = sesi COO) tidak diblokir ker
   fs.writeFileSync(path.join(ROOT, "bin", "gerbang-tl.sh"), "#!/bin/sh\n", { mode: 0o755 });
   execFileSync("git", ["-C", ROOT, "add", "bin/gerbang-tl.sh"]);
   execFileSync("git", ["-C", ROOT, "-c", "user.email=u@contoh.test", "-c", "user.name=u", "-c", "commit.gpgsign=false", "commit", "-q", "-m", "gerbang"]);
-  assert.equal(kep(bash(`${path.join(ROOT, "bin", "gerbang-tl.sh")} T-20261031-9`, ROOT)), "allow");
+  assert.equal(kep(bash(`${sp(path.join(ROOT, "bin", "gerbang-tl.sh"))} T-20261031-9`, ROOT)), "allow");
 });
 
 test("A6: git yang menimpa/menghapus kerja di sesi RudisOne → ask; git baca & kerja biasa tanpa keputusan", () => {
@@ -258,10 +287,13 @@ test("tinjauan silang T-2.3: substitusi perintah, heredoc interpreter, pemuat ot
 test("tinjauan silang T-2.3: grep -r bawaan hanya menghormati .gitignore di dalam pohon pencarian", () => {
   // P: .gitignore di akar memuat .env; apps/api/.env tidak di-ignore oleh .gitignore apa pun di bawah apps/api
   fs.writeFileSync(path.join(P, "apps", "api", ".env"), `X=${NILAI}\n`);
-  harap(["grep -rn DB .", "rg DB apps/api"], "—");
-  harap(["grep -rn DB apps/api", "grep -rn DB apps", "cd apps/api && grep -rn DB .", "grep -r DB *"], "deny");
+  if (WIN_ASLI) harap(["grep -rn DB .", "grep -rn DB apps/api"], "deny");   // Windows: tanpa pembungkus ugrep, semua env terbaca (lihat sebagaiPosix)
+  sebagaiPosix(() => {
+    harap(["grep -rn DB .", "rg DB apps/api"], "—");
+    harap(["grep -rn DB apps/api", "grep -rn DB apps", "cd apps/api && grep -rn DB .", "grep -r DB *"], "deny");
+  });
   fs.writeFileSync(path.join(P, "apps", "api", ".gitignore"), ".env\n");
-  harap(["grep -rn DB apps/api", "cd apps/api && grep -rn DB ."], "—");
+  sebagaiPosix(() => harap(["grep -rn DB apps/api", "cd apps/api && grep -rn DB ."], "—"));
   // hanya di .git/info/exclude: git check-ignore = ya, tetapi ugrep tetap membaca → deny
   const X = path.join(ROOT, "ruang", "exclude");
   fs.mkdirSync(X, { recursive: true });
@@ -323,7 +355,7 @@ test("T-20261102-4: `cd sub && grep -r` dinilai di sub saja; saringan --include/
     "cd tidak-ada/x && grep -rn DB .",
     // putaran 6: hanya turun ke subfolder; naik / pindah / `..` → tanpa penyempitan
     "cd proj/apps/api/.. && grep -rn DB ../..", "cd proj/apps/api && cd ../../.. && grep -rn DB .",
-    `cd ${path.dirname(W).replaceAll("\\", "/")} && grep -rn DB .`, "cd ~ && grep -rn DB ."], "deny", W);
+    `cd ${sp(path.dirname(W))} && grep -rn DB .`, "cd ~ && grep -rn DB ."], "deny", W);
   // putaran 7: pencarian yang mengikuti tautan (grep -R, rg -L) menelusuri symlink/junction ke tujuannya
   const NAIK = path.join(PR, "apps", "web", "naik");
   let adaTautan = true;
@@ -335,11 +367,11 @@ test("T-20261102-4: `cd sub && grep -r` dinilai di sub saja; saringan --include/
     fs.unlinkSync(NAIK);
   }
   // `..` di tujuan: tetap dinilai atas folder awal juga (tidak dipersempit)
-  harap([`cd ${PR.replaceAll("\\", "/")}/../proj/apps/api && grep -rn DB .`], "deny", W);
+  harap([`cd ${sp(`${PR}/../proj/apps/api`)} && grep -rn DB .`], "deny", W);
   // Windows: path mount Git Bash (/tmp, /usr, /Users/… tanpa huruf drive) ≠ path Windows yang dihitung hook → tanpa penyempitan
   if (process.platform === "win32" && (process.env.RUDISONE_OS ?? "win32") === "win32")
-    harap([`cd ${API.slice(2).replaceAll("\\", "/")} && grep -rn DB .`], "deny", W);
-  harap([`cd ${API.replaceAll("\\", "/")} && grep -rn DB .`], "—", W);
+    harap([`cd ${sp(API.slice(2))} && grep -rn DB .`], "deny", W);
+  harap([`cd ${sp(API)} && grep -rn DB .`], "—", W);
   harap(["cd proj/apps/api && grep -rn DB . | head -20; ls", "cd proj/apps/api && cat main.go | sed -n 1,40p",
     "cd proj/apps/api && grep -rn DB --include=*.go . 2>/dev/null | cut -c1-200 | head"], "—", W);
   harap(["grep -rn --include=*.{go,ts} DB .", "grep -rn DB . --include=*.go"], "—", W);

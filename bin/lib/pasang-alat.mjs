@@ -51,7 +51,8 @@ export function cariAlat(bin, { os = osLogis(), home, override } = {}) {
   const v = versiDari(override || bin);
   if (v) return { versi: v, lokasi: "path", cmd: override || bin };
   const dir = path.join(home, ".local", "bin");
-  for (const n of windows(os) ? [`${bin}.exe`, `${bin}.cmd`] : [bin]) {
+  // nama berkas mengikuti sistem berkas mesin ini (Windows asli selalu berekstensi), bukan OS logis yang disimulasikan
+  for (const n of windows(os) || process.platform === "win32" ? [`${bin}.exe`, `${bin}.cmd`] : [bin]) {
     const kandidat = path.join(dir, n);
     const v2 = fs.existsSync(kandidat) ? versiDari(kandidat) : null;
     if (v2) return { versi: v2, lokasi: kandidat, cmd: kandidat };

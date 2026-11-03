@@ -80,8 +80,8 @@ test("banding versi", () => {
 });
 
 for (const o of ["darwin", "linux", "wsl", "win32"]) {
-  // OS asing bagi mesin ini hanya bisa disimulasikan di POSIX (biner palsu .exe tidak jalan di Windows asli)
-  test(`pastikanAlat (${o}): uv/uvx & claude belum ada → dipasang otomatis dari URL resmi, versi dikonfirmasi`, { skip: WIN && o !== "win32" }, () => {
+  // OS logis asing disimulasikan lewat parameter `os`; biner palsu mengikuti sistem berkas mesin ini (.cmd di Windows)
+  test(`pastikanAlat (${o}): uv/uvx & claude belum ada → dipasang otomatis dari URL resmi, versi dikonfirmasi`, () => {
     const home = baru("home"), dir = baru("alat");
     const logis = o === "wsl" ? "linux" : o;
     const versi = (b) => ({ uv: "uv 9.9.9 (palsu)", uvx: "uvx 9.9.9 (palsu)", claude: "9.9.9 (Claude Code)" })[b];
@@ -170,7 +170,7 @@ test("pastikanAlat: pemasang 'sukses' tetapi biner tak ditemukan → peringatan 
   assert.ok(m.gagal.some((t) => /claude --version gagal sesudah pemasangan — manual: curl -fsSL https:\/\/claude\.ai\/install\.sh \| bash/.test(t)));
 });
 
-test("pastikanAlat: Linux tanpa curl/wget → peringatan + perintah manual, tanpa mencoba", { skip: WIN }, () => {
+test("pastikanAlat: Linux tanpa curl/wget → peringatan + perintah manual, tanpa mencoba", () => {
   const home = baru("home");
   const { m, lapor } = catat();
   const asli = process.env.PATH; process.env.PATH = baru("kosong");
@@ -210,7 +210,7 @@ test("cariAlat: tidak ada di PATH maupun ~/.local/bin → null", () => {
   try { assert.equal(cariAlat("uv", { os: "linux", home: baru("home") }), null); } finally { process.env.PATH = asli; }
 });
 
-test("install.mjs end-to-end (HOME sementara, pemasang tiruan): memasang uv & claude, lalu idempoten di jalan kedua", { skip: WIN }, () => {
+test("install.mjs end-to-end (HOME sementara, pemasang tiruan): memasang uv & claude, lalu idempoten di jalan kedua", () => {
   const home = baru("home"), dir = baru("alat"), pathKosong = baru("path");
   // PATH minimal: node dipanggil lewat process.execPath; git/bash dari sistem agar langkah lain install.mjs jalan
   const sistem = ["/usr/bin", "/bin"].join(path.delimiter);
@@ -223,8 +223,9 @@ test("install.mjs end-to-end (HOME sementara, pemasang tiruan): memasang uv & cl
   const jalan = (args) => spawnSync(process.execPath, [path.join(REPO, "install.mjs"), "--tanpa-perkakas", "--tanpa-hook", ...args], { encoding: "utf8", env });
   if (spawnSync("uv", ["--version"], { env, stdio: "ignore" }).status === 0) return;   // uv sistem di /usr/bin: uji tidak bermakna
   const r1 = jalan([]);
-  assert.match(r1.stdout, /\[\.\.\]\s+uv\/uvx tidak ditemukan — memasang otomatis dari https:\/\/astral\.sh\/uv\/install\.sh/, r1.stdout);
-  assert.match(r1.stdout, /\[\.\.\]\s+Claude Code CLI tidak ditemukan — memasang otomatis dari https:\/\/claude\.ai\/install\.sh/);
+  const skrip = WIN ? "ps1" : "sh";   // sumber resmi mengikuti OS yang menjalankan: PowerShell di Windows, sh/bash selain itu
+  assert.match(r1.stdout, new RegExp(`\\[\\.\\.\\]\\s+uv\\/uvx tidak ditemukan — memasang otomatis dari https:\\/\\/astral\\.sh\\/uv\\/install\\.${skrip}`), r1.stdout);
+  assert.match(r1.stdout, new RegExp(`\\[\\.\\.\\]\\s+Claude Code CLI tidak ditemukan — memasang otomatis dari https:\\/\\/claude\\.ai\\/install\\.${skrip}`));
   assert.match(r1.stdout, /\[ok\]\s+claude --version → 8\.8\.8 \(Claude Code\)/);
   assert.match(r1.stdout, /\[ok\]\s+uvx --version → uvx 8\.8\.8/);
   fs.rmSync(uv.jejak); fs.rmSync(cl.jejak);
@@ -234,6 +235,7 @@ test("install.mjs end-to-end (HOME sementara, pemasang tiruan): memasang uv & cl
   // --tanpa-unduh: tidak memasang walau belum ada
   fs.rmSync(path.join(home, ".local"), { recursive: true });
   const r3 = jalan(["--tanpa-unduh"]);
-  assert.match(r3.stdout, /\[!!\]\s+uv\/uvx tidak ditemukan — pemasangan dilewati \(--tanpa-unduh\)\. Manual: curl -LsSf/);
+  assert.match(r3.stdout, WIN ? /\[!!\]\s+uv\/uvx tidak ditemukan — pemasangan dilewati \(--tanpa-unduh\)\. Manual: powershell -ExecutionPolicy ByPass/
+    : /\[!!\]\s+uv\/uvx tidak ditemukan — pemasangan dilewati \(--tanpa-unduh\)\. Manual: curl -LsSf/);
   assert.ok(!ada(uv.jejak) && !ada(cl.jejak));
 });

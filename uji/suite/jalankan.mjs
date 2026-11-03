@@ -14,6 +14,7 @@ import path from "node:path";
 import { execFileSync, spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { muatTugas, ekstrakRencana, nilaiJalan, metrikRencana } from "./rubrik.mjs";
+import { tarZip } from "../../bin/lib/platform.mjs";
 
 const SINI = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(SINI, "..", "..");
@@ -92,9 +93,18 @@ export const ALAT_DILARANG = ["Bash", "Agent", "Task", "SendMessage", "WebFetch"
   "PushNotification", "RemoteTrigger", "CronCreate", "CronDelete", "ScheduleWakeup", "Workflow", "Monitor",
   "Artifact", "ArtifactComments", "ArtifactData", "DesignSync", "EnterWorktree", "ShareOnboardingGuide", "NotebookEdit"];
 
+/** Path absolut → bentuk path di aturan izin Claude Code: awalan "//" = akar sistem berkas. Di Windows aturan dicocokkan pada
+ *  bentuk POSIX bertanda drive (`C:\Users\x` → `/c/Users/x`, dokumentasi izin Claude Code), jadi `C:\a\b` → `//c/a/b`. */
+export function pathIzin(p) {
+  let s = String(p).replaceAll("\\", "/");
+  const d = s.match(/^([A-Za-z]):(?:\/|$)/);
+  if (d) s = `/${d[1].toLowerCase()}/${s.slice(d[0].length)}`;
+  return `/${s.replace(/\/+$/, "")}`;
+}
+
 /** Argumen claude -p untuk satu jalan (cwd = proyek-contoh). */
 export function argumenClaude({ prompt, rudisone, model, anggaran, simpanTranskrip }) {
-  const izin = `/${path.join(rudisone, "handoff")}/**`; // awalan "//" = path absolut di aturan izin
+  const izin = `${pathIzin(rudisone)}/handoff/**`;
   // --setting-sources project,local: skill/hook/izin/memori PENGGUNA (~/.claude) tidak termuat — varian hanya diuji dengan
   // skill-nya sendiri (.claude/skills di proyek-contoh). Login tetap dipakai (bukan setting source). T-20261030-6.
   const a = ["-p", prompt, "--output-format", "json", "--strict-mcp-config", "--setting-sources", "project,local", "--permission-mode", "dontAsk",
@@ -116,7 +126,8 @@ function siapkanDasar({ ref, label, ruang }) {
   const rudis = path.join(dasar, "RudisOne");
   fs.mkdirSync(rudis, { recursive: true });
   const tar = execFileSync("git", ["-C", REPO, "archive", "--format=tar", sha], { maxBuffer: 1 << 28 });
-  execFileSync("tar", ["-x", "-C", rudis], { input: tar });
+  // tarZip(): di Windows bsdtar bawaan sistem — `tar` di PATH Git Bash adalah GNU tar yang membaca `C:\…` sebagai host:path
+  execFileSync(tarZip(), ["-x", "-C", rudis], { input: tar });
   // fixture: TEAM.md & register selalu dari fixture; catatan/coo.md hanya bila ref tidak punya
   const fx = path.join(SINI, "fixture");
   fs.copyFileSync(path.join(fx, "TEAM.md"), path.join(rudis, "TEAM.md"));
