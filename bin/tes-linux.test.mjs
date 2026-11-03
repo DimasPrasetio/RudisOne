@@ -78,7 +78,7 @@ test("docker run: repo dan riwayat git dipasang read-only, berkas uji hanya seba
   assert.equal(a[0], "run");
   assert.ok(a.some((x) => /:\/src:ro$/.test(x)), a.join(" "));
   for (const x of a.filter((y) => /^[^\s]+:\/(src|gitsrc)/.test(y))) assert.ok(x.endsWith(":ro"), x);
-  assert.deepEqual(a.slice(-3), ["bash", "bash", "bin/x.test.mjs"].slice(-3));
+  assert.deepEqual(a.slice(-2), ["bash", "bin/x.test.mjs"]);   // $0 = "bash", lalu berkas sebagai "$@"
   assert.equal(a.at(-1), "bin/x.test.mjs");
   assert.equal(a[a.indexOf("-c") + 1], SKRIP_KONTAINER);
 });
