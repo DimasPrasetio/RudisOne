@@ -63,7 +63,10 @@ export function uraiEnv(teks, { paksaFallback = false } = {}) {
   try { utama = util.parseEnv(teks); } catch { return cadangan; }
   const ada = (k) => Object.prototype.hasOwnProperty.call(utama, k);
   const hasil = new Map();
-  for (const [k, v] of cadangan) hasil.set(k, ada(k) ? String(utama[k]) : v);
+  // v === "": baris `K=   ` (hanya spasi di belakang `=`). util.parseEnv Node 24.x melahap spasi itu sampai melewati baris baru,
+  // sehingga K diberi isi baris BERIKUTNYA (mis. "Z=1") → status palsu "terisi". Baris kosong menurut parser baris-per-baris
+  // adalah kosong; status yang benar lebih penting daripada menyamai quirk parseEnv.
+  for (const [k, v] of cadangan) hasil.set(k, ada(k) && v !== "" ? String(utama[k]) : v);
   for (const [k, v] of Object.entries(utama)) if (POLA_KUNCI.test(k) && !hasil.has(k)) hasil.set(k, String(v));
   return hasil;
 }

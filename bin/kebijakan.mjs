@@ -1210,6 +1210,17 @@ export function envSegmen(s, K, ctx, semua = s.teks, dalam = 0) {
   const pembungkus = w.slice(0, i);
   const masukan = s.alih.filter((a) => /^\d*<$/.test(a.op)).map((a) => a.target);
   const kena = (x) => berkasEnv(x, folder, K);
+  // Nilai bertanda kutip yang memuat spasi bisa berupa path asli ('C:/Users/Nama Depan/app/.env' — folder rumah Windows sering
+  // berspasi) atau kalimat/pola ("lihat .env"). Kalimat tidak boleh memicu penolakan; path asli wajib: nilai berspasi dianggap
+  // berkas env bila berkas itu memang ada di disk.
+  const kenaTeks = (x) => {
+    const b = kena(x);
+    if (!b || !/\s/.test(x)) return b;
+    for (const c of [null, ...(folder ?? [])]) {
+      try { if (fs.statSync(c ? path.resolve(c, b) : b).isFile()) return b; } catch { /* belum/tidak ada di folder ini */ }
+    }
+    return null;
+  };
   const hasil = (berkas, sebab) => ({ berkas, sebab });
   const viaXargs = pembungkus.some((x) => path.basename(x) === "xargs");
   // pengalihan masukan dari berkas env: `cut -d= -f2 < .env`, `$(<.env)`, `xargs echo < .env`, `tee < .env`
@@ -1334,10 +1345,10 @@ export function envSegmen(s, K, ctx, semua = s.teks, dalam = 0) {
     while (j < args.length && args[j].startsWith("-")) j += ["-C", "-c", "--git-dir", "--work-tree"].includes(args[j]) ? 2 : 1;
     if (ENV_GIT_TANPA_ISI.test(args[j] ?? "")) return null;
     // git show rev:.env, git diff --no-index .env.example .env, git log -p .env
-    const b = args.slice(j + 1).filter((x) => !/\s/.test(x)).map((x) => kena(x.includes(":") ? x.slice(x.lastIndexOf(":") + 1) : x)).find(Boolean);
+    const b = args.slice(j + 1).map((x) => kenaTeks(x) ?? (/\s/.test(x) ? null : kena(x.includes(":") ? x.slice(x.lastIndexOf(":") + 1) : x))).find(Boolean);
     return b ? hasil(b, "git mengeluarkan isi berkas env") : null;
   }
-  if (prog === "case") { const b = args.slice(2).filter((x) => !/\s/.test(x)).map(kena).find(Boolean); return b ? hasil(b, "cabang case membaca berkas env") : null; }
+  if (prog === "case") { const b = args.slice(2).map(kenaTeks).find(Boolean); return b ? hasil(b, "cabang case membaca berkas env") : null; }
   if (ENV_TANPA_ISI.has(prog) || ENV_KATA_KUNCI.test(prog)) return null;
   // grep yang hanya menghitung/menguji (tanpa baris): -c -q -l -L -s …
   if (grepProg) {
@@ -1368,7 +1379,7 @@ export function envSegmen(s, K, ctx, semua = s.teks, dalam = 0) {
   for (const x of sisa) {
     const nilai = x.startsWith("--") ? (x.includes("=") ? [x.slice(x.indexOf("=") + 1)] : [])
       : x.startsWith("-") ? [x.slice(2), x.slice(1)] : [x, x.replace(/^@/, ""), ...(/^\w+=/.test(x) ? [x.slice(x.indexOf("=") + 1)] : [])];
-    const b = nilai.filter((v) => v && !/\s/.test(v)).map(kena).find(Boolean);
+    const b = nilai.filter(Boolean).map(kenaTeks).find(Boolean);
     if (b) return hasil(b, `${prog} membaca berkas env`);
   }
   // glob/ekspansi yang bisa menunjuk berkas env: cat .e*, F=.env; cat $F, cat $(echo .env)

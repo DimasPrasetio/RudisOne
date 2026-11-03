@@ -9,3 +9,4 @@ sesi berikutnya. Sesi inti yang sedang berjalan: minta COO mengirim instruksi "b
 ## Uji
 Uji: `node --test bin/*.test.mjs kantor/*.test.mjs uji/suite/*.test.mjs` (Kantor, perkakas, register, kebijakan,
   pemeriksa, suite). Suite perilaku organisasi (berbiaya, memanggil `claude -p`): `uji/suite/README.md`.
+  Tes khusus Linux/macOS yang di Windows dilewati dijalankan di kontainer Linux: `bin/tes-linux.sh` (Docker; prasyarat diperiksa otomatis).

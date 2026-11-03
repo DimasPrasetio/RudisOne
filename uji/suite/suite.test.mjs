@@ -7,7 +7,7 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { ekstrakRencana, nilaiJalan, cocokJabatan, evaluasi, muatTugas, metrikRencana } from "./rubrik.mjs";
-import { tulisUlangPath, tulisUlangFolder, claudeMdAsing, skillBentrok, bangunPrompt, argumenClaude, uraiArgumen, MODE_UJI } from "./jalankan.mjs";
+import { tulisUlangPath, tulisUlangFolder, claudeMdAsing, skillBentrok, bangunPrompt, argumenClaude, pathIzin, uraiArgumen, MODE_UJI } from "./jalankan.mjs";
 import { ringkas, markdownRingkasan, markdownBanding } from "./nilai.mjs";
 
 const SINI = path.dirname(fileURLToPath(import.meta.url));
@@ -158,6 +158,10 @@ test("prompt & argumen claude: ekspansi slash command, izin path absolut //, ala
   assert.ok(a.includes("Edit(//v/jalan/RudisOne/handoff/**)"));
   const dis = a.slice(a.indexOf("--disallowedTools") + 1, a.indexOf("--append-system-prompt"));
   for (const x of ["Bash", "Agent", "SendMessage", "WebFetch", "WebSearch"]) assert.ok(dis.includes(x), x);
+  // Windows: aturan izin memakai bentuk POSIX bertanda drive (//c/…), bukan "/C:\…"
+  assert.equal(pathIzin("C:\\Users\\a b\\RudisOne"), "//c/Users/a b/RudisOne");
+  assert.equal(pathIzin("D:/x/y/"), "//d/x/y");
+  assert.equal(pathIzin("/Users/a/RudisOne"), "//Users/a/RudisOne");
   assert.equal(a[a.indexOf("--permission-mode") + 1], "dontAsk");
   assert.ok(a.includes("--strict-mcp-config") && a.includes("--no-session-persistence"));
   assert.equal(a[a.indexOf("--append-system-prompt") + 1], MODE_UJI());

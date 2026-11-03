@@ -22,6 +22,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { aktif, baca, perbarui } from "./register.mjs";
+import { posix } from "./lib/platform.mjs";
 
 const INI = fileURLToPath(import.meta.url);
 export const ROOT_BAWAAN = path.resolve(path.dirname(INI), "..");
@@ -124,7 +125,9 @@ function daftarWorktree(root) {
 }
 
 const dalam = (anak, induk) => { const r = path.relative(induk, anak); return !!r && !r.startsWith("..") && !path.isAbsolute(r); };
-const nyata = (p) => { try { return fs.realpathSync(p); } catch { return path.resolve(p); } };
+// realpathSync.native: di Windows juga memperluas nama pendek 8.3 (C:\Users\NAMAPE~1 → nama panjang) seperti yang dicetak
+// `git worktree list`; realpathSync JS biasa membiarkannya sehingga dua bentuk path folder yang sama dianggap berbeda.
+const nyata = (p) => { try { return fs.realpathSync.native(p); } catch { return path.resolve(p); } };
 
 /** Sha merge: commit merge pertama (jalur first-parent) yang memasukkan `tip` ke `base`; fast-forward → tip itu sendiri. */
 function shaMerge(root, tip, base) {
@@ -182,8 +185,10 @@ export function rencanaGit(root, { base, kini, cwd = process.cwd(), layak }) {
 export function perintahUsulan(root, e) {
   const q = (s) => (/^[\w@%+=:,./-]+$/.test(s) ? s : `'${s.replace(/'/g, `'\\''`)}'`);
   const out = [];
-  if (e.worktree) out.push(`git -C ${q(root)} worktree remove ${q(e.worktree)}`);
-  out.push(`git -C ${q(root)} branch -d ${q(e.cabang)}`);
+  // garis miring ke depan: git mencetak path worktree begitu, dan bentuk ini aman ditempel ke Git Bash/PowerShell di Windows
+  const r = posix(root);
+  if (e.worktree) out.push(`git -C ${q(r)} worktree remove ${q(posix(e.worktree))}`);
+  out.push(`git -C ${q(r)} branch -d ${q(e.cabang)}`);
   return out;
 }
 

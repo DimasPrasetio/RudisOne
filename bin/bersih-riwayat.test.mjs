@@ -8,6 +8,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { kandidat, terlindung, waktuTutup, rencanakan } from "./bersih-riwayat.mjs";
+import { samaPath } from "./lib/lokasi.mjs";
 
 const SKRIP = path.join(path.dirname(fileURLToPath(import.meta.url)), "bersih-riwayat.mjs");
 const tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "bersih-riwayat-")));
@@ -146,7 +147,7 @@ test("git: hanya branch ter-merge + worktree bersih diusulkan; semua lainnya dit
   assert.ok(!("rudis/T-20260101-10" in ditahan) && !usulan.includes("rudis/T-20260101-10"), "pemilik aktif tidak muncul");
   assert.ok(!JSON.stringify(rc.git).includes("fitur/lain"));
   const e1 = rc.git.usulan.find((e) => e.cabang === "rudis/T-20260101-1");
-  assert.equal(e1.worktree, a.dir);
+  assert.ok(samaPath(e1.worktree, a.dir), "path worktree sama (git mencetak garis miring ke depan & nama panjang; uji memakai bentuk native)");
   assert.match(e1.merge, /^[0-9a-f]{12}$/);
   assert.notEqual(e1.merge, e1.tip, "sha merge = commit merge, bukan ujung branch");
 
@@ -161,12 +162,17 @@ test("git: hanya branch ter-merge + worktree bersih diusulkan; semua lainnya dit
 
   const u = jalankan(root, json, ["--usulan-git"]);
   const baris = u.stdout.trim().split("\n");
-  assert.ok(baris.includes(`git -C ${root} worktree remove ${a.dir}`));
-  assert.ok(baris.includes(`git -C ${root} branch -d rudis/T-20260101-1`));
-  assert.ok(baris.every((l) => /^git -C \S+ (worktree remove \S+|branch -d rudis\/T-\d{8}-\d+\S*)$/.test(l)), baris.join("\n"));
+  // baris usulan ditempel ke shell: path berspasi/berkarakter khusus dikutip tunggal, garis miring ke depan di semua OS
+  const TOKEN = String.raw`(?:[^\s']+|'[^']*')`;
+  const token = (l) => [...l.matchAll(new RegExp(TOKEN, "g"))].map((m) => m[0].replace(/^'|'$/g, ""));
+  // path dibandingkan sebagai lokasi (bukan teks): git mencetak nama panjang, uji memegang bentuk native/pendek
+  const hapusWt = baris.map(token).find((t) => t[3] === "worktree" && t[4] === "remove");
+  assert.ok(hapusWt && samaPath(hapusWt[2], root) && samaPath(hapusWt[5], a.dir) && !hapusWt[2].includes("\\") && !hapusWt[5].includes("\\"), baris.join("\n"));
+  assert.ok(baris.some((l) => token(l).slice(3).join(" ") === "branch -d rudis/T-20260101-1" && samaPath(token(l)[2], root)));
+  assert.ok(baris.every((l) => new RegExp(`^git -C ${TOKEN} (worktree remove ${TOKEN}|branch -d rudis\\/T-\\d{8}-\\d+\\S*)$`).test(l)), baris.join("\n"));
   assert.ok(!u.stdout.includes("fitur/lain") && !u.stdout.includes("--force") && !u.stdout.includes("-D "));
   // menjalankan usulan (sebagai pelaksana) memang menghapusnya dengan pengaman git sendiri
-  for (const l of baris) { const p = l.split(" "); const r2 = spawnSync("git", p.slice(1), { encoding: "utf8" }); assert.equal(r2.status, 0, `${l}: ${r2.stderr}`); }
+  for (const l of baris) { const r2 = spawnSync("git", token(l).slice(1), { encoding: "utf8" }); assert.equal(r2.status, 0, `${l}: ${r2.stderr}`); }
   assert.ok(!cabangAda(root, "rudis/T-20260101-1") && cabangAda(root, "rudis/T-20260101-2") && cabangAda(root, "fitur/lain"));
   // setelah dibersihkan: pemilik sudah tak di register tetapi judul masih ada di audit; tidak ada usulan baru
   assert.equal(jalankan(root, json, ["--usulan-git"]).stdout.trim(), "");
@@ -187,7 +193,8 @@ test("keamanan folder handoff: symlink tidak diikuti dan tidak dihapus; entri re
   const { root, json } = bangun([tugas("T-20260101-1"), tugas("T-20260101-2")]);
   const luar = fs.mkdtempSync(path.join(tmp, "luar-")); fs.writeFileSync(path.join(luar, "penting.txt"), "p");
   fs.rmSync(path.join(root, "handoff", "T-20260101-1"), { recursive: true });
-  fs.symlinkSync(luar, path.join(root, "handoff", "T-20260101-1"));
+  // Windows tanpa izin symlink: junction (tanpa hak admin) juga reparse point yang dilaporkan lstat sebagai symlink
+  fs.symlinkSync(luar, path.join(root, "handoff", "T-20260101-1"), process.platform === "win32" ? "junction" : "dir");
   const r = jalankan(root, json, ["--jalankan"]);
   assert.equal(r.status, 1);
   assert.match(r.stdout, /GAGAL 1: T-20260101-1 \(folder handoff tidak aman dihapus \(symlink\)\)/);
