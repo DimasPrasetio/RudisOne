@@ -131,6 +131,15 @@ test("rujukan bagian ke berkas per device (TEAM.md) tidak diperiksa, walau berka
   assert.deepEqual(kodeTemuan(h), []);
 });
 
+test("--repo tidak membaca isi berkas per device (TEAM.md, konfigurasi/infra.md): isi basi di sana tidak membuat galat/peringatan", () => {
+  const basi = "# Basi\n\nPakai `rudis-hantu`, `bin/hilang.sh`, dan `protokol.md` › Bagian Fiktif.\n\n<!-- ke-pengguna -->\nSilakan merge branch ini.\n<!-- /ke-pengguna -->\n";
+  const h = periksa(repoMini((t) => { t("TEAM.md", basi); t("konfigurasi/infra.md", basi); }));
+  assert.deepEqual(h.temuan, []);
+  assert.equal(h.kode, 0);
+  // pembanding: isi yang sama di berkas repo memang ditangkap
+  assert.deepEqual(kodeTemuan(periksa(repoMini((t) => t("templat/basi.md", basi)))), ["path", "rujukan", "skill-rujukan"]);
+});
+
 // ---------- device: kesehatan hook kebijakan (X15) & kebersihan catatan/ (X12) ----------
 /** Pemeriksaan mode device pada repo mini, terisolasi dari ~/.claude dan sesi Desktop. */
 function periksaDevice(r) {

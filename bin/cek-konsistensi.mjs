@@ -46,13 +46,15 @@ export const perintahKeluarIndeks = (daftar) => `git rm -q --cached -- ${daftar.
 const temuan = [];
 const catat = (tingkat, kode, pesan) => temuan.push({ tingkat, kode, pesan });
 
+/** Berkas .md isi repo yang diperiksa R4–R6 & R10. Berkas per device (TEAM.md, konfigurasi/infra.md, …) tidak ikut: isinya
+ *  beda per device, dan pemeriksaan repo harus sama di setiap device (docs/aturan-repo.md). */
 function berkasMd(root) {
   const hasil = [];
   const jalan = (d) => {
     for (const e of fs.readdirSync(path.join(root, d), { withFileTypes: true })) {
       const rel = d ? `${d}/${e.name}` : e.name;
       if (e.isDirectory()) { if (!/^(\.git|node_modules|handoff|catatan|agen|\.claude|docs)$/.test(e.name)) jalan(rel); }
-      else if (e.name.endsWith(".md")) hasil.push(rel);
+      else if (e.name.endsWith(".md") && !PER_DEVICE.test(rel)) hasil.push(rel);
     }
   };
   jalan("");
