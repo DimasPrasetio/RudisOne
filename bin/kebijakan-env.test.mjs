@@ -126,7 +126,9 @@ test("Bash: git & pencarian", () => {
   harap(["git check-ignore -q .env", "git status .env", "git ls-files .env"], "—");
   // repo git, .env di-ignore: grep bawaan (macOS/Linux) melewatinya; git grep & rg hanya membuka berkas terlacak/tak-ter-ignore
   sebagaiPosix(() => harap(["git grep DB_PASS", "rg DB_PASS", "grep -rn DB_PASS ."], "—"));
-  if (WIN_ASLI) harap(["grep -rn DB_PASS ."], "deny");           // Windows: grep Git Bash membaca semua → ditolak (lihat catatan sebagaiPosix)
+  // Windows: kebijakan sengaja menolak pencarian rekursif bila ada env di pohonnya (lihat catatan sebagaiPosix); perilaku
+  // sekarang dikunci di sini agar perubahan ke arah lebih longgar menjadi keputusan yang disengaja, bukan kebetulan
+  if (WIN_ASLI) harap(["grep -rn DB_PASS .", "git grep DB_PASS", "rg DB_PASS"], "deny");
   harap(["grep -rn DB_PASS ."], "deny", NONGIT);                  // folder non-git: terbaca
   harap(["command grep -r DB .", "/usr/bin/grep -r DB .", "rg --no-ignore DB", "rg -uu DB", "rg DB .env",
     "find . -name .env -exec cat {} \\;"], "deny");

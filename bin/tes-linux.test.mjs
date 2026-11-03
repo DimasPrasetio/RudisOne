@@ -2,7 +2,7 @@
 // node --test bin/tes-linux.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { BERKAS_BAWAAN, imageBawaan, main, pastikanDocker, perintahPasangDocker, SKRIP_KONTAINER, uraiArgumen } from "./tes-linux.mjs";
+import { argumenRun, BERKAS_BAWAAN, imageBawaan, main, pastikanDocker, perintahPasangDocker, SKRIP_KONTAINER, uraiArgumen } from "./tes-linux.mjs";
 
 /** Pelari tiruan: `ada` = peta "cmd arg1 arg2" → status; yang tidak terdaftar gagal (status 1). Mencatat semua panggilan. */
 function tiruan(ada, { infoSetelah = 0 } = {}) {
@@ -69,8 +69,18 @@ test("argumen: bawaan = tiga berkas bercabang-OS; --semua; berkas ngawur/path ke
   assert.deepEqual(BERKAS_BAWAAN, ["bin/pasang-alat.test.mjs", "bin/peran.test.mjs", "bin/kebijakan.test.mjs"]);
   assert.deepEqual(uraiArgumen(["--semua", "--tanpa-mulai", "--tanpa-unduh", "--image", "node:22-bookworm", "bin/x.test.mjs"]),
     { semua: true, image: "node:22-bookworm", mulai: false, unduh: false, berkas: ["bin/x.test.mjs"] });
-  for (const buruk of [["--ngawur"], ["--image"], ["../x.test.mjs"], ["/etc/passwd"], ["a;b"]]) assert.throws(() => uraiArgumen(buruk), buruk.join(" "));
+  for (const buruk of [["--ngawur"], ["--image"], ["--image", "-v"], ["../x.test.mjs"], ["/etc/passwd"], ["a;b"], ["-x"]]) assert.throws(() => uraiArgumen(buruk), buruk.join(" "));
   assert.equal(main(["--ngawur"]), 2);
+});
+
+test("docker run: repo dan riwayat git dipasang read-only, berkas uji hanya sebagai argumen posisi skrip", () => {
+  const a = argumenRun({ root: process.cwd(), image: "node:24-bookworm", berkas: ["bin/x.test.mjs"] });
+  assert.equal(a[0], "run");
+  assert.ok(a.some((x) => /:\/src:ro$/.test(x)), a.join(" "));
+  for (const x of a.filter((y) => /^[^\s]+:\/(src|gitsrc)/.test(y))) assert.ok(x.endsWith(":ro"), x);
+  assert.deepEqual(a.slice(-3), ["bash", "bash", "bin/x.test.mjs"].slice(-3));
+  assert.equal(a.at(-1), "bin/x.test.mjs");
+  assert.equal(a[a.indexOf("-c") + 1], SKRIP_KONTAINER);
 });
 
 test("skrip kontainer: repo read-only disalin tanpa .git, tidak ada tulis ke /src, menjalankan node --test atas argumen", () => {

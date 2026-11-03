@@ -31,13 +31,15 @@ export function perintahPasangDocker(os = osLogis()) {
   return "lihat https://docs.docker.com/engine/install/ (butuh hak admin)";
 }
 
-/** Skrip di dalam kontainer: salin repo (tanpa .git/node_modules), commit, lalu jalankan node --test. */
+/** Skrip di dalam kontainer: riwayat git (bila /gitsrc dipasang; beberapa uji merujuk commit lama) + isi kerja /src disalin
+ *  tanpa .git/node_modules, di-commit di atasnya, lalu node --test. */
 export const SKRIP_KONTAINER = `set -u
-mkdir -p /work && cd /src
+if [ -d /gitsrc ] && git -c safe.directory='*' clone -q --no-checkout /gitsrc /work 2>/dev/null; then :; else mkdir -p /work && git -C /work init -q -b main; fi
+cd /src
 tar cf - --exclude=./.git --exclude=./node_modules --exclude=./.claude/worktrees . | tar xf - -C /work
 cd /work
-git init -q -b main && git config user.email u@contoh.test && git config user.name u && git config commit.gpgsign false
-git add -A >/dev/null 2>&1 && git commit -q -m salinan
+git config user.email u@contoh.test && git config user.name u && git config commit.gpgsign false
+git add -A >/dev/null 2>&1 && git commit -q --allow-empty -m salinan
 echo "tes-linux: node $(node --version) | $(uname -sr) | git $(git --version | cut -d' ' -f3)"
 exec node --test "$@"`;
 
@@ -84,8 +86,8 @@ export function uraiArgumen(argv) {
     else if (a.startsWith("--")) throw new Error(`opsi tidak dikenal: ${a}`);
     else o.berkas.push(a);
   }
-  if (!o.image) throw new Error("--image butuh nilai");
-  for (const b of o.berkas) if (!/^[\w./*-]+$/.test(b) || b.startsWith("/") || b.includes("..")) throw new Error(`berkas uji tidak valid: ${b}`);
+  if (!/^[A-Za-z0-9][\w./:@-]*$/.test(o.image)) throw new Error(`--image tidak valid: ${o.image || "(kosong)"}`);
+  for (const b of o.berkas) if (!/^[\w][\w./*-]*$/.test(b) || b.includes("..")) throw new Error(`berkas uji tidak valid: ${b}`);
   return o;
 }
 
@@ -100,9 +102,18 @@ export function main(argv, { root = ROOT } = {}) {
     return 3;
   }
   const berkas = o.berkas.length ? o.berkas : o.semua ? BERKAS_SEMUA : BERKAS_BAWAAN;
-  const r = spawnSync("docker", ["run", "--rm", "-v", `${path.resolve(root)}:/src:ro`, o.image, "bash", "-c", SKRIP_KONTAINER, "bash", ...berkas],
+  const r = spawnSync("docker", argumenRun({ root, image: o.image, berkas }),
     { stdio: "inherit", timeout: 1_800_000, windowsHide: true, env: { ...process.env, MSYS_NO_PATHCONV: "1" } });
   return r.status === 0 ? 0 : 1;
+}
+
+/** Argumen `docker run`: repo & riwayat git dipasang read-only (/src, /gitsrc bila ada). */
+export function argumenRun({ root, image, berkas }) {
+  const g = spawnSync("git", ["-C", root, "rev-parse", "--path-format=absolute", "--git-common-dir"], { encoding: "utf8", windowsHide: true });
+  const gitDir = g.status === 0 ? g.stdout.trim() : "";
+  const mount = ["-v", `${path.resolve(root)}:/src:ro`];
+  if (gitDir) mount.push("-v", `${path.resolve(gitDir)}:/gitsrc:ro`);
+  return ["run", "--rm", ...mount, image, "bash", "-c", SKRIP_KONTAINER, "bash", ...berkas];
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === INI) process.exitCode = main(process.argv.slice(2));
