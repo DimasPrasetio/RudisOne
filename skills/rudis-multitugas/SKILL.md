@@ -10,7 +10,8 @@ banyak tugas sekaligus di proyek atau folder berbeda yang tidak saling terkait; 
 
 ## 1. ID tugas
 COO memberi ID `T-YYYYMMDD-n` saat menerima tugas (`bin/register.sh tambah` memberi nomor berikut — dari register, folder
-`handoff/<ID>/`, dan nomor terakhir device di `~/.rudisone/id-terakhir.json`, sehingga tidak terulang setelah pasang ulang); sub-tugas dari
+`handoff/<ID>/`, nomor terakhir device di `~/.rudisone/id-terakhir.json`, dan riwayat git repo RudisOne (pesan commit &
+branch `rudis/<ID>`), sehingga tidak terulang setelah pasang ulang, `bersih-riwayat`, atau merge dari device lain); sub-tugas dari
 leader `T-YYYYMMDD-n.k`. ID ada di baris pertama **setiap** pesan, di `handoff/<ID>/…`, dan di laporan. Pesan tanpa
 ID → minta pengirim menyebutkan ID-nya dulu.
 

@@ -1,11 +1,13 @@
 // Pemeriksa konsistensi RudisOne — READ-ONLY. Menangkap drift antara dokumen, berkas yang dirujuk, dan yang terpasang.
-//   node bin/cek-konsistensi.mjs [--repo] [--json] [--ref <ref-lama>] · --serah <branch>  (cek sebelum merge branch itu)
+//   node bin/cek-konsistensi.mjs [--repo] [--json] [--pemetaan [folder]] [--ref <ref-lama>] · --serah <branch>  (cek sebelum merge branch itu)
 //   --repo  hanya cek isi repo (deterministik; dipakai tes/CI). Tanpa --repo: juga cek device (skill & subagent
 //           terpasang, hook + kesehatannya, TEAM.md vs sesi hidup, register, kebersihan catatan/).
 //   --proyek <folder> [--serah <branch>] [--json]  kartu proyek vs deteksi mesin (templat/kartu-proyek.md); dengan
 //           --serah: spec yang mungkin basi karena kode yang dirujuknya berubah di branch itu.
-// Tabel pemetaan migrasi (R7) adalah alat pengembang per device, bukan bagian repo: dibaca dari RUDISONE_PEMETAAN atau
-// <root>/handoff/pemetaan/ (worktree repo rumah: handoff/pemetaan/ checkout utama); tidak ada → dilewati (info).
+//   --pemetaan [folder]  juga periksa tabel pemetaan migrasi (R7, alat pengembang per device) — HANYA bila diminta:
+//           migrasi v5/v6 sudah selesai, sesudahnya aturan berkembang normal, dan hasil bawaan tidak boleh bergantung pada
+//           data per device. Folder: argumen · RUDISONE_PEMETAAN · <root>/handoff/pemetaan/ (worktree repo rumah:
+//           handoff/pemetaan/ checkout utama); tabel tidak ada → dilewati (info). `--ref <ref>` + tabel v5 = cakupan 100%.
 // Exit: 0 bersih · 1 hanya peringatan · 2 ada galat (--serah tanpa --proyek: 0 · 2).
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -167,10 +169,13 @@ export function cekRepo(root = ROOT, opsi = {}) {
     }
   } catch { /* bukan repo git */ }
 
-  // R7 — pemetaan aturan lama → lokasi baru (100%) — tabel per device (alat pengembang), lihat folderPemetaan
-  cekPemetaan(root, ref);
-  // R7b — pemetaan v6: setiap unit aturan ref lama ada di HEAD (otomatis) atau di tabel
-  cekPemetaanV6(root);
+  // R7 — pemetaan migrasi (tabel per device, alat pengembang) hanya atas permintaan (`--pemetaan`): pemeriksaan bawaan
+  // harus sama di setiap device, dan tabel migrasi yang sudah ditutup tidak mengikat aturan yang berkembang sesudahnya
+  if (opsi.pemetaan != null) {
+    const folder = folderPemetaan(root, opsi.pemetaan);
+    cekPemetaan(root, ref, folder);    // R7  — aturan lama → lokasi baru (100% bila --ref)
+    cekPemetaanV6(root, folder);       // R7b — setiap unit aturan ref lama ada di HEAD (otomatis) atau di tabel
+  }
 
   // R9 — kebersihan: berkas produk bebas laporan uji device, ID tugas, kutipan keputusan bertanggal, nama sistem lain
   for (const t of periksaTerlacak(root) ?? []) catat("galat", "bersih", `${t.rel}${t.baris ? `:${t.baris}` : ""} [${t.jenis}] ${t.cuplikan} — bin/bersih.mjs`);
@@ -232,10 +237,11 @@ function berkasInstruksi(root) {
   return out;
 }
 
-/** Folder tabel pemetaan migrasi — alat pengembang per device, bukan bagian repo (repo adalah sumber instalasi klien). */
-/** Urutan: RUDISONE_PEMETAAN · <root>/handoff/pemetaan · bila root worktree repo di lokasi rumah (sesi Tech Lead), tabel
- *  di checkout utama <rumah>/handoff/pemetaan — agar aturan yang diubah di worktree tetap diperiksa tanpa env. */
-export function folderPemetaan(root = ROOT) {
+/** Folder tabel pemetaan migrasi — alat pengembang per device, bukan bagian repo (repo adalah sumber instalasi klien).
+ *  Hanya dipakai bila `--pemetaan` diminta. Urutan: argumen `--pemetaan <folder>` · RUDISONE_PEMETAAN ·
+ *  <root>/handoff/pemetaan · bila root worktree repo di lokasi rumah (sesi Tech Lead), <rumah>/handoff/pemetaan. */
+export function folderPemetaan(root = ROOT, pilihan = "") {
+  if (pilihan) return path.resolve(pilihan);
   if (process.env.RUDISONE_PEMETAAN) return process.env.RUDISONE_PEMETAAN;
   const sendiri = path.join(root, "handoff", "pemetaan");
   if (fs.existsSync(sendiri) || samaPath(root, rumahRepo())) return sendiri;
@@ -243,15 +249,15 @@ export function folderPemetaan(root = ROOT) {
   const diRumah = path.join(rumahRepo(), "handoff", "pemetaan");
   return umum && samaPath(umum, path.join(rumahRepo(), ".git")) && fs.existsSync(diRumah) ? diRumah : sendiri;
 }
-const tampilPemetaan = (root, nama) => { const f = path.join(folderPemetaan(root), nama); const r = path.relative(root, f); return r && !r.startsWith("..") && !path.isAbsolute(r) ? r.split(path.sep).join("/") : f; };
+const tampilPemetaan = (root, nama, folder = folderPemetaan(root)) => { const f = path.join(folder, nama); const r = path.relative(root, f); return r && !r.startsWith("..") && !path.isAbsolute(r) ? r.split(path.sep).join("/") : f; };
 
 /** Tabel pemetaan v6 (`pemetaan-aturan-v6.md` di folderPemetaan, kepala `Ref: <sha>`). Unit aturan ref lama (bin/inventaris-aturan.mjs,
  *  sumber v6) yang teksnya — spasi dinormalkan — masih ada persis di berkas yang sama = `tetap` otomatis, di berkas
  *  instruksi lain = `pindah` otomatis; sisanya WAJIB punya baris tabel: jangkar di lokasi baru, `mekanisme` = judul tes
  *  persis di berkas tes, atau `dihapus` + alasan. Mengembalikan ringkasan (juga dicatat sebagai info). */
-export function cekPemetaanV6(root = ROOT) {
-  const f = path.join(folderPemetaan(root), "pemetaan-aturan-v6.md");
-  const nf = tampilPemetaan(root, "pemetaan-aturan-v6.md");
+export function cekPemetaanV6(root = ROOT, folder = folderPemetaan(root)) {
+  const f = path.join(folder, "pemetaan-aturan-v6.md");
+  const nf = tampilPemetaan(root, "pemetaan-aturan-v6.md", folder);
   if (!fs.existsSync(f)) {
     // clone bersih (device klien) tidak punya tabelnya: pemeriksaan migrasi hanya berjalan di device pengembang
     if (fs.existsSync(path.join(root, "bin", "inventaris-aturan.mjs"))) catat("info", "pemetaan-v6", `${nf} tidak ada di device ini (alat pengembang) — pemetaan v6 dilewati`);
@@ -299,9 +305,9 @@ export function cekPemetaanV6(root = ROOT) {
 }
 
 /** Tabel pemetaan: | Kode | Aturan lama | Lokasi baru | Jangkar | — jangkar harus ada (persis, spasi dinormalkan) di lokasi baru. */
-export function cekPemetaan(root = ROOT, ref = null) {
-  const f = path.join(folderPemetaan(root), "pemetaan-aturan-v5.md");
-  if (!fs.existsSync(f)) { catat("info", "pemetaan", `${tampilPemetaan(root, "pemetaan-aturan-v5.md")} tidak ada di device ini (alat pengembang) — pemetaan v5 dilewati`); return; }
+export function cekPemetaan(root = ROOT, ref = null, folder = folderPemetaan(root)) {
+  const f = path.join(folder, "pemetaan-aturan-v5.md");
+  if (!fs.existsSync(f)) { catat("info", "pemetaan", `${tampilPemetaan(root, "pemetaan-aturan-v5.md", folder)} tidak ada di device ini (alat pengembang) — pemetaan v5 dilewati`); return; }
   const baris = fs.readFileSync(f, "utf8").split("\n").filter((l) => /^\|\s*[A-Z]+-\d+/.test(l));
   const kode = new Set();
   const isiBerkas = new Map();
@@ -643,7 +649,9 @@ function utama(argv) {
   }
   const repoSaja = argv.includes("--repo");
   const iRef = argv.indexOf("--ref");
-  cekRepo(ROOT, { refLama: iRef >= 0 ? argv[iRef + 1] : null });
+  const iPem = argv.indexOf("--pemetaan");
+  const pemetaan = iPem < 0 ? null : argv[iPem + 1] && !argv[iPem + 1].startsWith("--") ? argv[iPem + 1] : "";
+  cekRepo(ROOT, { refLama: iRef >= 0 ? argv[iRef + 1] : null, pemetaan });
   if (!repoSaja) cekDevice(ROOT);
   cetak(argv.includes("--json"), repoSaja ? " (hanya repo)" : "");
   return kodeKeluar();
