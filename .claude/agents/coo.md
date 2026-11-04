@@ -24,6 +24,7 @@ kerja: Indonesia. Aturan bersama: `protokol.md` (inti); R/S/C: `raci.md`; memban
 | Dokumen untuk dibaca orang (laporan, SOP umum, manual, slide) | **Program Manager** (memanggil Technical Writer); dokumen satu proyek boleh langsung **Technical Writer**, tembusan Program Manager | subagent `rudis-program-manager` / `rudis-technical-writer`; dokumen yang masuk repo proyek → lewat Tech Lead |
 | Keputusan/kelayakan bisnis, model bisnis, prioritas inisiatif, harga — butuh beberapa keahlian | **Head of Strategy** | subagent `rudis-head-of-strategy` (boleh memanggil RA/FC) |
 | Riset eksternal bersitasi saja | **Research Analyst** | subagent `rudis-research-analyst` |
+| Kemampuan yang belum dimiliki organisasi: cari & nilai skill siap pakai (hanya saat ada kekurangan, bukan tiap tugas) | **Research Analyst** (find-skills + kartu nilai); pengguna memutuskan; daftar & pasang → **Tech Lead** platform | subagent `rudis-research-analyst`; skill `rudis-perkakas` › Skill luar |
 | Keuangan, akuntansi, pajak, audit logika keuangan saja | **Financial Controller** | subagent `rudis-financial-controller` |
 | SDM, kebijakan & SOP SDM, ketenagakerjaan, domain HR untuk aplikasi | **HR Business Partner** | subagent `rudis-hr-business-partner` |
 

@@ -142,6 +142,27 @@
       ],
       "catatan": "bawaan aplikasi Claude (konektor Claude Docs), tidak bisa dipasang lewat CLI",
       "alternatif": "docx"
+    },
+    {
+      "id": "find-skills",
+      "jenis": "ekosistem",
+      "skill": [
+        "find-skills"
+      ],
+      "untuk": "Mencari skill di ekosistem terbuka (skills.sh) saat ada kekurangan kemampuan — hanya mencari; menilai dengan templat/kartu-nilai-skill.md, memasang hanya lewat perkakas.sh pastikan",
+      "dipakai_oleh": [
+        "research-analyst",
+        "coo"
+      ],
+      "repo": "https://github.com/vercel-labs/skills.git",
+      "jalur": "skills/find-skills",
+      "sha": "e173b8c88f2581cfdaa1b6767c6519a08155790e",
+      "cli": "skills@1.7.4",
+      "adaptasi": "adaptasi/find-skills.patch",
+      "lisensi": "MIT (Vercel, Inc.)",
+      "lisensi_berkas": "LICENSE",
+      "disetujui": "pemilik: find-skills dipakai RudisOne untuk mencari skill; skill yang disetujui didaftarkan di sini terkunci ke sha dan dipasang hanya lewat perkakas.sh pastikan",
+      "catatan": "adaptasi RudisOne (patch atas SKILL.md upstream, diterapkan pastikan sebelum aktif): hanya mencari dengan CLI terkunci; langkah upstream 'tawarkan pasang' (npx skills add -g -y) dan 'npx skills init' diganti kartu nilai + keputusan pengguna + pendaftaran di sini"
     }
   ]
 }

@@ -17,6 +17,7 @@ infra.md                   prosedur server, app, domain, alur deploy — generik
 konfigurasi/               per device: server.json (server, aplikasi, DNS; git-ignored) + server.contoh.json
 penyedia.md                registri kemampuan & penyedia (DNS, repo, server) + alur konfigurasi server
 kebijakan-akses.json       akses per jabatan & batas kewenangan jenjang 1–3 (dibaca hook bin/kebijakan.mjs)
+adaptasi/<id>.patch        adaptasi RudisOne atas skill luar ekosistem (patch, diterapkan bin/perkakas.sh pastikan; skill rudis-perkakas › Skill luar)
 bin/                       perkakas (daftar & kode keluar: skill rudis-perkakas › Perkakas bersama)
 kantor/                    Kantor RudisOne: server status lokal + tampilan pixel (tanpa dependensi)
 templat/                   kerangka brief & laporan, pemahaman bersama, register tugas, TEAM, brief-desain, intake/perakitan/onboarding (SDLC)

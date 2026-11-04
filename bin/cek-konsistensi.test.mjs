@@ -158,13 +158,34 @@ test("--repo tidak membaca isi berkas per device (TEAM.md, konfigurasi/, uji/*.m
 
 // ---------- device: kesehatan hook kebijakan (X15) & kebersihan catatan/ (X12) ----------
 /** Pemeriksaan mode device pada repo mini, terisolasi dari ~/.claude dan sesi Desktop. */
-function periksaDevice(r) {
+function periksaDevice(r, skills = null) {
   const kosong = fs.mkdtempSync(path.join(os.tmpdir(), "cek-dev-"));
   const p = spawnSync(process.execPath, [SKRIP, "--json"], { encoding: "utf8", env: { ...process.env, RUDISONE_ROOT: r,
-    RUDISONE_SKILLS_USER: kosong, RUDISONE_AGENTS_USER: kosong, RUDISONE_KANTOR_DESKTOP: kosong } });
+    RUDISONE_SKILLS_USER: skills ?? kosong, RUDISONE_AGENTS_USER: kosong, RUDISONE_KANTOR_DESKTOP: kosong } });
   return { kode: p.status, temuan: JSON.parse(p.stdout || "[]") };
 }
 const dengan = (h, awal) => h.temuan.filter((t) => t.kode.startsWith(awal));
+
+test("skill luar tak terdaftar di ~/.claude/skills → peringatan (juga berawalan rudis); skill tim, perkakas resmi, skill_luar terdaftar, synced, folder sementara lolos", () => {
+  const r = repoMini((t) => t("perkakas.json", JSON.stringify({ perkakas: [{ id: "rudis-monorepo", jenis: "skill" }],
+    skill_luar: [{ id: "document-skills", jenis: "plugin", skill: ["docx"] }, { id: "find-skills", jenis: "ekosistem", skill: ["find-skills"] }] })));
+  const S = fs.mkdtempSync(path.join(os.tmpdir(), "cek-skill-user-"));
+  const luar = fs.mkdtempSync(path.join(os.tmpdir(), "cek-skill-luar-"));
+  for (const n of ["rudis-contoh", "rudis-monorepo", "find-skills", "docx", "synced", ".find-skills.rudisone-baru", "liar", "rudis-asing"])
+    fs.mkdirSync(path.join(S, n), { recursive: true });
+  fs.writeFileSync(path.join(S, ".DS_Store"), ""); fs.writeFileSync(path.join(S, "berkas.txt"), "");
+  let tautan = true;
+  try { fs.symlinkSync(luar, path.join(S, "liar-tautan"), "junction"); } catch { tautan = false; }
+  const h = periksaDevice(r, S);
+  const p = dengan(h, "skill-tak-terdaftar");
+  assert.deepEqual(p.map((t) => t.tingkat), tautan ? ["peringatan", "peringatan", "peringatan"] : ["peringatan", "peringatan"]);
+  // awalan rudis bukan pengecualian: hanya skill tim yang ada di skills/ repo
+  assert.deepEqual(p.map((t) => t.pesan.match(/skills\/(\S+) tidak terdaftar/)[1]).sort(), tautan ? ["liar", "liar-tautan", "rudis-asing"] : ["liar", "rudis-asing"]);
+  assert.match(p[0].pesan, /perkakas\.sh pastikan/);
+  // terdaftar → tidak diperingatkan lagi
+  fs.writeFileSync(path.join(r, "perkakas.json"), JSON.stringify({ perkakas: [{ id: "rudis-monorepo" }], skill_luar: [{ id: "liar", skill: ["liar", "liar-tautan", "docx", "find-skills", "rudis-asing"] }] }));
+  assert.deepEqual(dengan(periksaDevice(r, S), "skill-tak-terdaftar"), []);
+});
 
 /** kebijakan.mjs palsu. `fitur`: penanda yang dicari pemeriksa (".denyut", "--verifikasi"). */
 function kebijakanPalsu({ fitur = [".denyut", "--verifikasi"], majemuk = "deny", audit = 0, ujiRusak = false } = {}) {
