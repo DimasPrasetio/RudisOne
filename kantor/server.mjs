@@ -159,6 +159,21 @@ const clip = (s, n = BATAS_DETAIL) => {
 };
 const host = (u) => { try { return new URL(u).hostname; } catch { return ""; } };
 
+/** Perintah terminal lain → kata kerja yang lebih bermakna, dari deskripsi singkat agent lalu awal perintahnya. Hanya
+ *  label yang dipilih; perintah itu sendiri tidak pernah dikirim. */
+const JENIS_PERINTAH = [
+  ["Menjalankan tes", /\b(run|runs|running|jalankan|menjalankan|execute)\b[^.]*\b(tests?|tes|uji|suite)\b|^\s*(tes|uji)\b/i, null],
+  ["Memeriksa riwayat kode", /\bgit\s+(log|status|diff|show)\b|\b(riwayat|history)\b/i, /^\s*git\s+(-C\s+\S+\s+)?(log|status|diff|show|rev-parse|ls-files|blame)\b/],
+  ["Menyimpan versi kode", /\b(commit|merge|rebase|worktree|branch)\b/i, /^\s*git\s+(-C\s+\S+\s+)?(commit|merge|rebase|switch|checkout|branch|worktree|tag|add|cherry-pick)\b/],
+  ["Memotret tampilan", /\b(screenshots?|tangkapan|potret|playwright)\b/i, /playwright|screenshot/],
+  ["Memasang dependensi", /\b(install|pasang|dependenc|dependensi)/i, /^\s*(npm|pnpm|yarn)\s+(ci|i|install|add)\b|^\s*brew\s+install\b/],
+  ["Mengubah berkas", /\b(write|edit|apply|update|replace|rewrite|fix|ubah|ganti|tulis|perbaiki|tambah|add)\b/i, /^\s*(perl\s+-[^\n]*i|sed\s+-i|cp|mv|mkdir|printf\b.*>|cat\s*>)/],
+  ["Memeriksa berkas", /\b(read|show|list|check|inspect|find|search|count|view|baca|lihat|cek|periksa|cari|tampilkan)\b/i, /^\s*(cat|head|tail|sed\s+-n|grep|rg|ls|find|wc|diff|stat|tree)\b/],
+];
+function jenisPerintah(cmd, deskripsi) {
+  for (const [label, polaDesk, polaCmd] of JENIS_PERINTAH) if ((deskripsi && polaDesk.test(deskripsi)) || (polaCmd && polaCmd.test(cmd))) return label;
+  return "Menjalankan perintah";
+}
 /** {label, detail, icon, waiting} untuk satu pemanggilan alat. */
 export function describeTool(name, input = {}, resolveAgent = () => null) {
   const cmd = String(input.command ?? "");
@@ -169,9 +184,9 @@ export function describeTool(name, input = {}, resolveAgent = () => null) {
       if (/deploy\.sh/.test(cmd)) return { label: "Men-deploy rilis", detail, icon: "server" };
       if (/\bssh\s/.test(cmd)) return { label: "Bekerja di server", detail, icon: "server" };
       if (/\bgit\s+(push|commit|merge|pull)\b|\bgh\s/.test(cmd)) return { label: "Mengurus Git", detail, icon: "git" };
-      if (/vitest|jest|\bgo\s+test|\btsc\b|npm\s+(run\s+)?(test|verify|lint)|eslint|pytest/.test(cmd))
+      if (/vitest|jest|\bgo\s+test|\btsc\b|npm\s+(run\s+)?(test|verify|lint)|eslint|pytest|node\s+--test/.test(cmd))
         return { label: "Menjalankan tes", detail, icon: "tes" };
-      return { label: "Menjalankan perintah", detail, icon: "terminal" };
+      return { label: jenisPerintah(cmd, String(input.description ?? "")), detail, icon: "terminal" };
     }
     case "Read": case "Grep": case "Glob": case "NotebookRead":
       return { label: "Membaca kode", detail: clip(base(input.file_path) || input.pattern || input.path || ""), icon: "baca" };

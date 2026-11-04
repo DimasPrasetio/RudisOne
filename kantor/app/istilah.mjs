@@ -43,7 +43,7 @@ export const URUT_STATUS = ["menunggu", "bekerja", "berpikir", "selesai", "siap"
 /** Status register (kata pertama, huruf kecil) → kata biasa. */
 export const STATUS_TUGAS = {
   baru: "Baru", penyelarasan: "Menyamakan persepsi", berjalan: "Dikerjakan", ditinjau: "Ditinjau", antre: "Antre",
-  diparkir: "Dijeda", terhambat: "Terhambat", selesai: "Selesai", dibatalkan: "Dibatalkan",
+  diparkir: "Ditunda", terhambat: "Terhambat", selesai: "Selesai", dibatalkan: "Dibatalkan",
 };
 export const kataStatusTugas = (st) => STATUS_TUGAS[st] ?? (st ? st[0].toUpperCase() + st.slice(1) : "Baru");
 /** Tahap kerja Engineering (urutan SDLC); kolom Fase register dicocokkan dari awal teksnya. */
@@ -85,6 +85,12 @@ const KERJA_AKTIVITAS = [
   [/^Bekerja di server$/, (n) => (n > 1 ? `bekerja di server (${n} langkah)` : "bekerja di server")],
   [/^Mengurus Git$/, (n) => (n > 1 ? `menyimpan versi kode (${n} langkah)` : "menyimpan versi kode")],
   [/^Menjalankan perintah$/, (n) => (n > 1 ? `menjalankan ${n} perintah` : "menjalankan perintah")],
+  [/^Memeriksa riwayat kode$/, (n) => (n > 1 ? `memeriksa riwayat kode (${n} langkah)` : "memeriksa riwayat kode")],
+  [/^Menyimpan versi kode$/, (n) => (n > 1 ? `menyimpan versi kode (${n} langkah)` : "menyimpan versi kode")],
+  [/^Memotret tampilan$/, (n) => (n > 1 ? `memotret tampilan (${n}×)` : "memotret tampilan")],
+  [/^Memasang dependensi$/, () => "memasang dependensi"],
+  [/^Mengubah berkas$/, (n) => (n > 1 ? `mengubah berkas (${n} langkah)` : "mengubah berkas")],
+  [/^Memeriksa berkas$/, (n) => (n > 1 ? `memeriksa berkas (${n} langkah)` : "memeriksa berkas")],
   [/^Membaca kode$/, (n) => (n > 1 ? `membaca ${n} berkas` : "membaca berkas")],
   [/^Menulis$/, (n) => (n > 1 ? `mengubah ${n} berkas` : "mengubah berkas")],
   [/^Riset di web$/, (n) => (n > 1 ? `mencari di web (${n}×)` : "mencari di web")],

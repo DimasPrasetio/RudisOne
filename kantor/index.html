@@ -79,9 +79,9 @@
   /* ---------- tata letak ---------- */
   .tata {
     display: grid; gap: 16px; padding-bottom: 20px;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 372px;
-    grid-template-areas: "perhatian perhatian perhatian" "denah denah samping" "aktivitas linimasa samping";
-    grid-template-rows: auto auto 1fr; align-items: start;
+    grid-template-columns: minmax(0, 1fr) 372px;
+    grid-template-areas: "perhatian perhatian" "denah samping" "aktivitas samping" "linimasa samping";
+    grid-template-rows: auto auto auto 1fr; align-items: start;
   }
   .tata > * { min-width: 0; }
   .kartu { background: var(--permukaan); border-radius: 14px; box-shadow: 0 1px 0 var(--garis), 0 8px 24px rgba(16, 32, 48, .06); }
@@ -220,10 +220,10 @@
   .tugas .waktu .lewat { color: var(--menunggu-teks); font-weight: 600; }
   .selesai-hari-ini { margin-top: 12px; }
   .selesai-hari-ini h3 { font: 650 14px var(--judul); margin: 0 0 6px; color: var(--redup); }
-  .selesai-hari-ini ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 150px; overflow: auto; }
+  .selesai-hari-ini ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
   .selesai-hari-ini li { display: grid; grid-template-columns: 46px minmax(0, 1fr); gap: 0 8px; font-size: 13.5px; }
   .selesai-hari-ini time { color: var(--selesai); font-variant-numeric: tabular-nums; font-weight: 600; }
-  .selesai-hari-ini .judul { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .selesai-hari-ini .judul { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
 
   /* ---------- Tim ---------- */
   .tim { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; }
@@ -302,12 +302,12 @@
   .tentang dd { margin: 0; }
 
   @media (max-width: 1180px) {
-    .tata { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "perhatian perhatian" "denah denah" "samping samping" "aktivitas linimasa"; grid-template-rows: auto; }
+    .tata { grid-template-columns: minmax(0, 1fr); grid-template-areas: "perhatian" "denah" "samping" "aktivitas" "linimasa"; grid-template-rows: auto; }
     .samping { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
     .lebar { padding-left: 16px; padding-right: 16px; }
   }
   @media (max-width: 760px) {
-    .tata { grid-template-columns: minmax(0, 1fr); grid-template-areas: "perhatian" "denah" "samping" "aktivitas" "linimasa"; gap: 12px; }
+    .tata { gap: 12px; }
     .samping { display: flex; gap: 12px; align-items: stretch; }
     .jalur { grid-template-columns: 68px minmax(200px, 1fr); gap: 5px 8px; }
     /* HP: "Menunggu Anda" selebar layar (dengan kalimatnya); tiga angka lain sebaris: angka di atas, nama di bawah */

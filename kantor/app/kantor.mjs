@@ -567,8 +567,10 @@ function renderTugas(s, keadaan) {
   document.getElementById("hitung-tugas").textContent = tugas.length ? `${tugas.length}` : "";
   const elS = document.getElementById("selesai-hari-ini");
   elS.hidden = !selesai.length;
-  elS.querySelector("ul").innerHTML = selesai.map((t) => `<li><time${t.ts ? ` datetime="${new Date(t.ts).toISOString()}"` : ""}>${t.ts ? fmtJam(t.ts) : "✓"}</time>
-      <span class="judul" title="${esc(t.id)} · ${esc(t.tugas)}">${esc(t.tugas)}</span></li>`).join("");
+  const MAKS_SELESAI = 6;
+  elS.querySelector("ul").innerHTML = selesai.slice(0, MAKS_SELESAI).map((t) => `<li><time${t.ts ? ` datetime="${new Date(t.ts).toISOString()}"` : ""}>${t.ts ? fmtJam(t.ts) : "✓"}</time>
+      <span class="judul" title="${esc(t.id)} · ${esc(t.tugas)}">${esc(t.tugas)}</span></li>`).join("")
+    + (selesai.length > MAKS_SELESAI ? `<li class="lain"><span></span><span class="kosong">dan ${selesai.length - MAKS_SELESAI} tugas lainnya</span></li>` : "");
   elS.querySelector(".hitung").textContent = selesai.length ? `${selesai.length}` : "";
   const tampil = SEMUA_TUGAS ? tugas : tugas.slice(0, MAKS_KARTU_TUGAS);
   tombolSemuaTugas.hidden = tugas.length <= MAKS_KARTU_TUGAS;
@@ -679,7 +681,7 @@ function renderRingkasan(s, keadaan) {
   isi("angka-bekerja", r.bekerja.length, r.bekerja.length ? daftar(r.bekerja) : "Tidak ada yang bekerja");
   isi("angka-tugas", r.tugas.semua, r.tugas.semua ? [r.tugas.berjalan && `${r.tugas.berjalan} dikerjakan`, r.tugas.lain && `${r.tugas.lain} lainnya`].filter(Boolean).join(" · ") : "Belum ada tugas");
   const akhir = (s.selesaiHariIni ?? [])[0];
-  isi("angka-selesai", r.selesai, akhir ? `Terakhir: ${akhir.tugas}` : "Belum ada");
+  isi("angka-selesai", r.selesai, akhir ? `Terakhir: ${akhir.tugas}` : "Belum ada").title = akhir ? `Terakhir selesai: ${akhir.tugas}` : "";
   document.getElementById("angka-menunggu").setAttribute("href", r.menunggu.length ? "#perhatian" : "#judul-tim");
   const kalimat = `${r.menunggu.length} menunggu Anda, ${r.bekerja.length} sedang bekerja, ${r.tugas.semua} tugas berjalan, ${r.selesai} selesai hari ini.`;
   if (kalimat !== kalimatRingkasLama) { kalimatRingkasLama = kalimat; document.getElementById("ringkas-kalimat").textContent = kalimat; }
