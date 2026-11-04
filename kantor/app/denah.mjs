@@ -113,13 +113,16 @@ export function bangunDenah() {
   p("rak-buku", 0.3, 0.6, 0.5, 2.6, { h: 1.9, sumbu: "y" });
   p("sofa-tunggal", 6.4, 1.2, 1.1, 1.0, { sandaran: "x+" });
   tanaman(0.45, 4.2, 1.1); tanaman(7.1, 0.4, 1.1);
+  p("lampu-lantai", 7.62, 2.32, 0.36, 0.36);
+  // papan tugas di dinding kiri: tugas & status dari register (jejak kerja nyata, hanya ID + judul)
+  dekor.push({ jenis: "papan-tugas", id: "tugas", dinding: "kiri", a: 4.95, b: 7.4, z0: 0.85, z1: 2.2 });
   partisi(8.1, 0.25, 8.4, 7.9, true);
   partisi(0.25, 7.6, 6.0, 7.9, true); partisi(7.5, 7.6, 8.1, 7.9, true);   // pintu kaca x 6–7,5
 
   // ---- Engineering (tiga pod) ----
   for (const n of NOMOR_TIM) {
     const ox = OX_TIM[n];
-    dekor.push({ jenis: "papan-tulis", dinding: "belakang", a: ox + 0.8, b: ox + 3.6, z0: 0.9, z1: 1.9 });
+    dekor.push({ jenis: "papan-tulis", id: `tim${n}`, dinding: "belakang", a: ox + 0.8, b: ox + 3.6, z0: 0.9, z1: 1.9 });
     mejaPimpinan(kursiTim("Tech Lead", n), 2.6);
     mejaBantuan(`tim${n}`, ox + 7.4, 1.35, 2.0, [[ox + 7.9, 2.45], [ox + 8.9, 2.45]], Math.PI);
     for (const peran of ["Business Systems Analyst", "Software Engineer #1", "Software Engineer #2"]) mejaAnggota(kursiTim(peran, n));
@@ -129,7 +132,7 @@ export function bangunDenah() {
   }
 
   // ---- Corporate Strategy ----
-  dekor.push({ jenis: "papan-strategi", dinding: "kiri", a: 11.6, b: 15.0, z0: 0.9, z1: 2.2 });
+  dekor.push({ jenis: "papan-strategi", id: "corp", dinding: "kiri", a: 11.6, b: 15.0, z0: 0.9, z1: 2.2 });
   mejaPimpinan("Head of Strategy", 2.6);
   for (const n of ["Financial Controller", "Research Analyst", "HR Business Partner"]) mejaAnggota(n);
   mejaBantuan("umum", 3.5, 19.4, 5.0, [[4.1, 18.9], [5.3, 18.9], [6.5, 18.9], [7.7, 18.9]], 0);
@@ -171,6 +174,7 @@ export function bangunDenah() {
   p("meja-bundar", 35.6, 16.3, 1.2, 1.2);
   for (const [x, y] of [[35.15, 17.55], [37.25, 17.0]]) p("kursi", x - 0.28, y - 0.28, 0.56, 0.56, { lewat: true, hadap: 0, bulat: true });
   p("bangku", 36.0, 19.3, 3.4, 0.5, { lewat: true });
+  p("lampu-lantai", 26.2, 12.05, 0.36, 0.36);
   tanaman(39.3, 14.4, 1.2); tanaman(34.7, 20.2, 0.9);
   const t = (x, y, jenis, hadap) => tempat.push({ x, y, jenis, hadap, dipakai: null });
   for (const x of [35.9, 37.4, 38.9]) t(x, 12.25, "bar", Math.PI);

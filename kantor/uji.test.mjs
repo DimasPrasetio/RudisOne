@@ -144,11 +144,15 @@ asisten("s-coo", "pm1", { description: "Rekap rilis", finished: false },
 asisten("s-coo", "gp1", { agentType: "general-purpose", description: "Asisten riset", finished: false },
   [pembuka(6e3, "Kamu adalah Research Analyst di RudisOne."), pakaiAlat(1e3, "gp1", "WebSearch", { query: "x" })]);
 
+// subagent peran yang selesai 15 menit lalu: tidak lagi "baru selesai"
+asisten("s-coo", "fc-lama", { agentType: "rudis-financial-controller", description: "Cek jurnal", finished: true },
+  [pakaiAlat(16 * 60e3, "fc1", "Read", { file_path: "/x/jurnal.md" }), hasilAlat(15 * 60e3, "fc1")]);
+
 const kepalaRegister = ["## Aktif", "", "| ID | Tugas | Folder | Divisi | Pemilik | Prioritas | Status | Diperbarui |", "|---|---|---|---|---|---|---|---|"];
 fs.writeFileSync(path.join(tmp, "register-tugas.md"), [...kepalaRegister,
   "| T-20261024-7 | Harga toko | `~/Documents/toko` | Engineering · Tim 3 | Tech Lead · toko | normal | berjalan | 2026-10-24 10:00 |"].join("\n"));
 
-const { scan, buildState, describeTool, hostDiizinkan, VERSI, jenisPesan, KURSI, bacaRegister, berkasStatis, CSP } = await import("./server.mjs");
+const { scan, buildState, describeTool, hostDiizinkan, VERSI, jenisPesan, KURSI, bacaRegister, berkasStatis, CSP, selesaiDariJson, BARU_SELESAI_MS } = await import("./server.mjs");
 scan();
 const st = buildState();
 const ag = (n) => st.agents.find((a) => a.name === n);
@@ -349,6 +353,32 @@ test("keadaan peran: aktif / siaga / katalog (dipanggil saat perlu) / absen hany
   assert.equal(ag("Tech Lead · Tim 3").tetap, true);                  // tim 3 punya proyek
   for (const a of st.agents) assert.ok(["aktif", "siaga", "katalog", "absen"].includes(a.mode), a.name);
   assert.ok(st.agents.filter((a) => a.mode === "absen").every((a) => a.tetap));
+});
+
+test("baru selesai: dari pekerjaan nyata yang berakhir < 10 menit lalu (subagent peran selesai, sesi yang berhenti setelah memakai alat)", () => {
+  const hr = ag("HR Business Partner");
+  assert.equal(hr.present, false);                                     // kursi kembali katalog …
+  assert.ok(hr.selesai && Math.abs(hr.selesai.ts - (now - 190e3)) < 2000, JSON.stringify(hr.selesai));   // … tetapi baru selesai
+  assert.equal(ag("Financial Controller").selesai, null);              // selesai 15 menit lalu → sudah lewat
+  assert.ok(ag("COO").selesai, "COO berhenti setelah mengirim pesan (memakai alat)");
+  assert.equal(ag("Program Manager").selesai, null);                   // hanya menjawab teks, tanpa alat → bukan "selesai bekerja"
+  assert.equal(ag("System Administrator").selesai, null);              // sedang bekerja → tidak pernah "selesai"
+  for (const a of st.agents) if (a.selesai) assert.ok(now - a.selesai.ts < BARU_SELESAI_MS && a.status !== "bekerja", a.name);
+});
+
+test("selesai hari ini dari register JSON: hanya status selesai, tanggal lokal hari ini, tanpa bukti/isi", () => {
+  const kini = Date.now(), kemarin = kini - 36 * 3600e3;
+  const t = (id, status, ts, extra = {}) => ({ id, judul: `Judul ${id}`, pemilik: "Research Analyst", status, diperbarui: new Date(ts).toISOString(),
+    bukti: "keluaran perintah rahasia", folder: "/x", ...extra });
+  const reg = { tugas: [t("T-20260101-1", "selesai", kini - 60e3), t("T-20260101-2", "selesai", kemarin), t("T-20260101-3", "dibatalkan", kini),
+    t("T-20260101-4", "berjalan", kini), t("T-20260101-5", "selesai", kini, { diperbarui: "rusak", selesai_pada: new Date(kini).toLocaleDateString("sv") }),
+    { id: "bukan-id", status: "selesai" }] };
+  const hasil = selesaiDariJson(reg, kini);
+  assert.deepEqual(hasil.map((x) => x.id), ["T-20260101-1", "T-20260101-5"]);
+  for (const x of hasil) assert.deepEqual(Object.keys(x).sort(), ["id", "pemilik", "ts", "tugas"]);
+  assert.ok(!JSON.stringify(hasil).includes("rahasia"));
+  assert.deepEqual(selesaiDariJson(null), []);
+  assert.ok(Array.isArray(st.selesaiHariIni));                         // selalu ada di state (register MD lama → kosong)
 });
 
 test.after(() => fs.rmSync(tmp, { recursive: true, force: true }));

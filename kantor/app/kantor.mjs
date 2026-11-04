@@ -1,13 +1,14 @@
 // Kantor RudisOne — halaman pemantauan: data dari server (SSE /events), panel samping, dan denah 3D (adegan.mjs).
 // Perilaku orang mengikuti status & pesan (DESAIN.md › Cerita gerak); jalur dihitung di grid lantai (denah.mjs).
 import { CHIEF, DIVISI, KURSI, NOMOR_TIM, PINTU, TIM, URUT, atasanDari, bangunGrid, cariJalur, hadapMeja, kursiTim, pusat, selBebas } from "./denah.mjs";
+import { berkasMeja, faseDariParam, faseWaktu, jamWIB, keadaanTampil, keteranganSiap, kursiPemilik, papanDivisi, papanTugas, statusTugas, teksSelesai } from "./jejak.mjs";
 
-const SIMBOL = { bekerja: "▶", berpikir: "…", menunggu: "!", santai: "–", absen: "", katalog: "" };
-const LABEL_STATUS = { bekerja: "Bekerja", berpikir: "Berpikir", menunggu: "Menunggu Anda", santai: "Siaga", absen: "Belum masuk", katalog: "Katalog, dipanggil saat perlu" };
+// Keadaan tampil (jejak.mjs › keadaanTampil): bekerja/berpikir/menunggu hanya dari sesi/subagent yang berjalan;
+// "selesai" = pekerjaan nyata berakhir < 10 menit lalu; selain itu "siap" (Siap dipanggil). "kosong" = tim tanpa proyek.
+const SIMBOL = { bekerja: "▶", berpikir: "…", menunggu: "!", selesai: "✓", siap: "–", kosong: "" };
+const LABEL_STATUS = { bekerja: "Bekerja", berpikir: "Berpikir", menunggu: "Menunggu Anda", selesai: "Baru selesai", siap: "Siap dipanggil", kosong: "Tim tanpa proyek" };
 /** Keadaan peran dari server (aktif · siaga · katalog · absen); server lama/mode demo tanpa `mode` → diturunkan dari status. */
 const modeDari = (ag) => ag.mode ?? (!ag.present ? "absen" : ag.status === "santai" ? "siaga" : "aktif");
-/** Kelas tampilan: status kerja saat hadir; peran katalog dibedakan dari sesi tetap yang belum masuk. */
-const kelasDari = (ag) => (ag.present ? ag.status : modeDari(ag) === "katalog" ? "katalog" : "absen");
 const PARAM = new URLSearchParams(location.search);
 let HEMAT_GERAK = matchMedia("(prefers-reduced-motion: reduce)").matches;
 try { if (localStorage.getItem("kantor-jeda") === "1") HEMAT_GERAK = true; } catch { /* penyimpanan tidak tersedia */ }
@@ -99,7 +100,7 @@ function buatOrang(nama, t, skala = 1) {
   const o = {
     nama, m, kepala, ucapan, simbolEl: kepala.querySelector(".simbol"), ucapanTeks: ucapan.querySelector(".isi"),
     x: PINTU[0], y: PINTU[1], rute: [], kunci: null, arah: Math.PI / 2, arahDiam: null,
-    kecepatan: acak(1.25, 1.45), tampak: false, status: "absen", ikon: null, skrip: [], tunggu: 0, pose: "berdiri",
+    kecepatan: acak(1.25, 1.45), tampak: false, status: "kosong", ikon: null, skrip: [], tunggu: 0, pose: "berdiri", istirahat: null, istirahatBerikut: performance.now() + acak(20e3, 240e3),
     bawa: null, tempat: null, tamu: null, jeda: acak(10, 20), ngopiSampai: 0, sudahNgopi: false, ucapSampai: 0,
     fase: Math.random() * 10, terakhirKirim: 0, skala, warna: t.warna,
   };
@@ -135,6 +136,15 @@ function tampakkan(o, ya) {
 }
 
 const sedangKerja = (st) => st === "bekerja" || st === "berpikir" || st === "menunggu";
+/** Siap dipanggil: kebanyakan di meja; sesekali beberapa orang istirahat ke lounge (paling banyak MAKS_ISTIRAHAT bersamaan). */
+const MAKS_ISTIRAHAT = 3;
+const jedaIstirahat = () => acak(180e3, 480e3);
+function mulaiIstirahat(o, now) { o.istirahat = { sampai: now + acak(30e3, 70e3) }; o.sudahNgopi = false; o.kunci = null; }
+function akhiriIstirahat(o, now) {
+  if (!o.istirahat) return;
+  o.istirahat = null; lepasTempat(o); o.kunci = null; o.ngopiSampai = 0;
+  o.istirahatBerikut = now + jedaIstirahat();
+}
 const diKursi = (o) => { const [x, y] = KURSI[o.nama].duduk; return Math.hypot(o.x - x, o.y - y) < 0.06 && !o.rute.length; };
 function lepasTempat(o) { if (o.tempat) { o.tempat.dipakai = null; o.tempat = null; } }
 function pesanTempat(o, jenis) {
@@ -143,11 +153,12 @@ function pesanTempat(o, jenis) {
   const t = pilihAcak(bebas); t.dipakai = o.nama; o.tempat = t;
   return t;
 }
-/** Tujuan bawaan sesuai status: meja saat bekerja; lounge saat santai (ngopi dulu di bar, lalu duduk). */
+/** Tujuan bawaan: meja (bekerja, baru selesai, siap dipanggil); saat istirahat ke lounge (ngopi dulu di bar, lalu duduk);
+ *  tim tanpa proyek → keluar lewat pintu. */
 function tujuanBawaan(o, now) {
-  if (o.status === "absen") { lepasTempat(o); return { kunci: "pintu", xy: PINTU }; }
+  if (o.status === "kosong") { lepasTempat(o); return { kunci: "pintu", xy: PINTU }; }
   const meja = { kunci: "meja", xy: KURSI[o.nama].duduk };
-  if (o.nama === CHIEF || sedangKerja(o.status) || o.siapKerjaSampai > now) { lepasTempat(o); return meja; }
+  if (!o.istirahat || o.siapKerjaSampai > now) { lepasTempat(o); return meja; }
   if (!o.tempat) pesanTempat(o, o.sudahNgopi ? ["sofa", "pouf", "meja", "bangku", "berdiri"] : ["bar"]) || pesanTempat(o);
   return o.tempat ? { kunci: `t${DENAH.tempat.indexOf(o.tempat)}`, xy: [o.tempat.x, o.tempat.y] } : meja;
 }
@@ -219,16 +230,17 @@ function serahBerkas(dari, ke) {
   const l = adegan.tambahLabel(el, dari.x, 1.3, dari.y);
   berkasTerbang.push({ l, dari, ke, mulai: performance.now(), lama: 650 });
 }
-const OBROLAN = [["Kopinya enak", "Baru diganti bijinya"], ["Deploy lancar?", "Aman, hijau semua"], ["Sudah makan?", "Nanti, habis ini"],
-  ["Tesnya lulus?", "Lulus semua"], ["Rapat jam berapa?", "Habis makan siang"], ["Capek juga ya", "Istirahat dulu"]];
+// obrolan ringan saat istirahat — sengaja tanpa klaim pekerjaan (status kerja hanya dari data nyata)
+const OBROLAN = [["Kopinya enak", "Baru diganti bijinya"], ["Sudah makan?", "Nanti, habis ini"], ["Mau kopi lagi?", "Satu cukup"],
+  ["Capek juga ya", "Istirahat dulu"], ["Tanamannya segar", "Baru disiram"], ["Gulanya habis?", "Ada di laci"]];
 function obrolSantai(o) {
-  const teman = Object.values(ORANG).find((p) => p !== o && p.tampak && p.tempat && !p.rute.length && p.status === "santai"
+  const teman = Object.values(ORANG).find((p) => p !== o && p.tampak && p.tempat && !p.rute.length && p.istirahat
     && Math.hypot(p.x - o.x, p.y - o.y) < 4.2);
   if (!teman) return false;
   const [a, b] = pilihAcak(OBROLAN);
   hadapKe(o, teman); hadapKe(teman, o);
   ucap(o, a, 1700);
-  setTimeout(() => { if (teman.status === "santai" && teman.tempat && !teman.rute.length) ucap(teman, b, 1700); }, 1300);
+  setTimeout(() => { if (teman.istirahat && teman.tempat && !teman.rute.length) ucap(teman, b, 1700); }, 1300);
   return true;
 }
 
@@ -254,10 +266,17 @@ function majukan(o, dt, now) {
   // 2) perilaku bawaan
   const bebas = !o.skrip.length && o.tunggu <= 0 && !(o.tahanSampai > now);
   if (bebas) {
+    // istirahat: hanya yang siap dipanggil, tidak saat hemat gerak, COO tetap di mejanya
+    if (o.istirahat && (o.status !== "siap" || HEMAT_GERAK)) akhiriIstirahat(o, now);
+    else if (o.istirahat && now > o.istirahat.sampai && !(o.tempat?.jenis === "bar" && !o.sudahNgopi)) akhiriIstirahat(o, now);
+    else if (!o.istirahat && o.status === "siap" && !HEMAT_GERAK && o.nama !== CHIEF && now > o.istirahatBerikut && diKursi(o)) {
+      if (Object.values(ORANG).filter((p) => p.istirahat).length < MAKS_ISTIRAHAT) mulaiIstirahat(o, now);
+      else o.istirahatBerikut = now + acak(30e3, 90e3);
+    }
     const tujuan = tujuanBawaan(o, now);
     if (o.kunci !== tujuan.kunci) { o.kunci = tujuan.kunci; jalanKe(o, tujuan.xy); }
     else if (!o.rute.length) {
-      if (o.status === "absen" && o.kunci === "pintu") tampakkan(o, false);
+      if (o.status === "kosong" && o.kunci === "pintu") tampakkan(o, false);
       else if (o.tempat?.jenis === "bar" && !o.sudahNgopi) {
         if (!o.ngopiSampai) o.ngopiSampai = now + acak(4500, 7500);
         else if (now > o.ngopiSampai) { o.sudahNgopi = true; o.ngopiSampai = 0; lepasTempat(o); o.kunci = null; }
@@ -278,14 +297,15 @@ function majukan(o, dt, now) {
   const diTamu = !bergerak && o.tamu && Math.hypot(o.x - o.tamu[0], o.y - o.tamu[1]) < 0.06;
   let pose = bergerak ? "jalan" : "berdiri", arah = o.arahTuju ?? o.arah;
   if (diMeja) {
-    pose = o.status === "menunggu" ? "angkat" : o.status === "berpikir" ? "pikir" : o.status === "bekerja" ? (["baca", "web"].includes(o.ikon) ? "baca" : "ketik") : "duduk";
+    pose = o.status === "menunggu" ? "angkat" : o.status === "berpikir" ? "pikir" : o.status === "bekerja" ? (["baca", "web"].includes(o.ikon) ? "baca" : "ketik")
+      : o.status === "selesai" ? "selesai" : "siap";
     arah = hadapMeja(o.nama);
   } else if (tp) {
     pose = tp.jenis === "bar" || tp.jenis === "berdiri" ? "minum" : "duduk-santai";
     arah = tp.hadap;
   } else if (diTamu) { pose = o.tamu[2] ? "duduk" : "berdiri"; arah = Math.PI; }   // kursi tamu di depan meja atasan: menghadap −y
   if (!bergerak && o.arahDiam != null) arah = o.arahDiam;
-  if (!o.bawa || o.bawa === "cangkir") setBarang(o, ["minum", "duduk-santai"].includes(pose) || (pose === "jalan" && o.sudahNgopi && o.status === "santai" && !o.skrip.length) ? "cangkir" : null);
+  if (!o.bawa || o.bawa === "cangkir") setBarang(o, ["minum", "duduk-santai"].includes(pose) || (pose === "jalan" && o.sudahNgopi && o.istirahat && !o.skrip.length) ? "cangkir" : null);
   o.pose = pose;
   return gambarOrang(o, now, bergerak, diMeja, arah, dt);
 }
@@ -391,21 +411,23 @@ function majukanAsisten(o, dt, now) {
 }
 
 // ================= penerapan status dari server =================
-function terapkanStatus(ag, awal) {
-  const o = ORANG[ag.name], st = ag.present ? ag.status : "absen", sebelum = o.status;
+/** `st` = keadaan tampil (bekerja · berpikir · menunggu · selesai · siap · kosong). Semua jabatan tim yang dipakai hadir. */
+function terapkanStatus(ag, awal, st) {
+  const o = ORANG[ag.name], sebelum = o.status, now = performance.now();
   o.status = st; o.ikon = ag.icon;
   o.simbolEl.className = `simbol ${st}`; o.simbolEl.textContent = SIMBOL[st];
   o.kepala.dataset.status = st;
   if (o.m) O3.aturCincin(o.m, st === "menunggu");
-  if (st !== "absen" && !o.tampak) {
+  if (st !== "kosong" && !o.tampak) {
     tampakkan(o, true); o.kunci = null;
-    if (awal || HEMAT_GERAK) { const t = tujuanBawaan(o, performance.now()); [o.x, o.y] = t.xy; o.kunci = t.kunci; if (o.tempat?.jenis === "bar") o.sudahNgopi = true; }
+    // muat awal / hemat gerak: langsung di meja; tim yang baru mendapat proyek: masuk lewat pintu
+    if (awal || HEMAT_GERAK) { [o.x, o.y] = KURSI[o.nama].duduk; o.kunci = "meja"; }
     else [o.x, o.y] = PINTU;
     o.rute = [];
   }
-  if (sedangKerja(st) && !sedangKerja(sebelum)) o.sudahNgopi = false;
+  if (st !== "siap") akhiriIstirahat(o, now);
   // selesai satu giliran kerja tanpa laporan eksplisit → bawa laporan ke atasan
-  if (!awal && sedangKerja(sebelum) && st === "santai" && TIM[ag.name].atasan && performance.now() - o.terakhirKirim > 60000)
+  if (!awal && sedangKerja(sebelum) && !sedangKerja(st) && st !== "kosong" && TIM[ag.name].atasan && now - o.terakhirKirim > 60000)
     lapor(ag.name, TIM[ag.name].atasan);
   if (sebelum !== st) adegan?.mintaGambar();
 }
@@ -470,10 +492,12 @@ function isiRincian() {
   const ag = state.agents.find((a) => a.name === dipilih);
   if (!ag) return;
   const akt = state.feed.filter((f) => f.agent === dipilih).slice(0, 6);
+  const berkas = BERKAS[dipilih] ?? [];
   LI[dipilih].querySelector(".rincian").innerHTML = `
     <h3>Sesi</h3>${ag.sessions.length ? `<ul>${ag.sessions.map((s) => `<li>${s.subagent ? `Subagent dari ${esc(s.subagent.dari)}: ` : ""}${esc(s.title)} — ${esc(s.label)}<br><span class="lokasi">${esc(s.cwd)}</span></li>`).join("")}</ul>`
-      : modeDari(ag) === "katalog" ? "<p class=\"kosong\">Peran katalog: tidak punya sesi tetap. Dipanggil sebagai subagent saat dibutuhkan, lalu bekerja di kursi ini.</p>"
-      : "<p class=\"kosong\">Belum ada sesi aktif. COO membentuknya saat kamu memanggil /rudisone.</p>"}
+      : modeDari(ag) === "katalog" ? "<p class=\"kosong\">Siap dipanggil: peran ini tidak punya sesi tetap. Dipanggil sebagai subagent saat dibutuhkan, lalu bekerja di kursi ini.</p>"
+      : "<p class=\"kosong\">Siap dipanggil: belum ada sesi aktif. COO membukanya saat ada tugas.</p>"}
+    ${berkas.length ? `<h3>Berkas di meja · selesai hari ini</h3><ul>${berkas.map((b) => `<li>${esc(b.id)} — ${esc(b.judul)}</li>`).join("")}</ul>` : ""}
     <h3>Aktivitas</h3>${akt.length ? `<ul>${akt.map((f) => `<li>${fmtJam(f.ts)} · ${esc(f.label)}${f.detail ? ` — ${esc(f.detail)}` : ""}</li>`).join("")}</ul>`
       : "<p class=\"kosong\">Belum ada aktivitas dalam 24 jam.</p>"}`;
 }
@@ -482,28 +506,6 @@ const WARNA_STATUS = { berjalan: "var(--bekerja)", antre: "var(--santai)", dipar
   terhambat: "var(--menunggu)", baru: "var(--berpikir)", penyelarasan: "var(--menunggu)" };
 const TUGAS_SOROT = PARAM.get("tugas");
 let sudahSorot = false;
-/** Id teknis di kolom Pemilik register → nama peran. */
-const NAMA_ID = {
-  coo: "COO", "tech-lead": "Tech Lead", "business-systems-analyst": "Business Systems Analyst",
-  "software-engineer": "Software Engineer", "program-manager": "Program Manager", "technical-writer": "Technical Writer",
-  "head-of-strategy": "Head of Strategy", "financial-controller": "Financial Controller", "research-analyst": "Research Analyst",
-  "hr-business-partner": "HR Business Partner", "head-of-it-operations": "Head of IT Operations",
-  "system-administrator": "System Administrator",
-};
-/** Pemilik di register ("Tech Lead · kasir", "Tech Lead · Tim 1", "Head of IT Operations", "COO",
- *  "Software Engineer #2 · toko", atau id teknis seperti "tech-lead") → kursi. */
-function kursiPemilik(pemilik, tim) {
-  if (!pemilik) return null;
-  if (TIM[pemilik]) return pemilik;
-  const [peran0, sisa = ""] = pemilik.split(" · ");
-  const bernomor = /^(.*?)\s*#(\d)$/.exec(peran0.trim());
-  const dasar = bernomor ? bernomor[1] : peran0.trim();
-  const peran = Object.hasOwn(NAMA_ID, dasar) ? NAMA_ID[dasar] : dasar;
-  if (TIM[peran]) return peran;
-  const n = Number(/Tim\s*(\d)/.exec(sisa)?.[1] ?? tim?.find((t) => t.proyek === sisa.trim())?.n ?? 1);
-  const k = kursiTim(peran === "Software Engineer" ? `Software Engineer #${bernomor?.[2] === "2" ? 2 : 1}` : peran, n);
-  return TIM[k] ? k : null;
-}
 /** Tautan `?tugas=<ID>` dari jawaban COO: tandai tugasnya, pilih pemiliknya, dan dekatkan kamera ke mejanya. */
 function sorotTugasDariTautan(s) {
   if (sudahSorot || !TUGAS_SOROT || !s.tugas) return;
@@ -526,11 +528,16 @@ function faseTeks(t) {
   return ` · ${esc(t.fase)} · <span class="${k.lewat ? "lewat" : ""}" title="${k.lewat ? "melewati anggaran waktu fase" : "dalam anggaran waktu fase"}">${angka}${k.lewat ? " ⚠" : ""}</span>`;
 }
 
-function renderTugas(tugas = []) {
+function renderTugas(tugas = [], selesai = []) {
   const el = document.getElementById("tugas");
   document.getElementById("hitung-tugas").textContent = tugas.length ? `${tugas.length}` : "";
+  const elS = document.getElementById("selesai-hari-ini");
+  elS.hidden = !selesai.length;
+  elS.querySelector("ul").innerHTML = selesai.map((t) => `<li><span class="st" style="--warna:var(--selesai)">✓ ${t.ts ? fmtJam(t.ts) : "hari ini"}</span>
+      <span class="judul">${esc(t.tugas)}</span><span class="meta">${esc(t.id)}${t.pemilik ? ` · ${esc(t.pemilik)}` : ""}</span></li>`).join("");
+  elS.querySelector(".hitung").textContent = selesai.length ? `${selesai.length}` : "";
   el.innerHTML = tugas.length ? tugas.map((t) => {
-    const st = (t.status || "baru").split(/[\s(]/)[0].toLowerCase();
+    const st = statusTugas(t.status);
     const folder = t.folder ? t.folder.split("/").filter(Boolean).at(-1) : "";
     return `<li data-id="${esc(t.id)}"${t.id === TUGAS_SOROT ? ' class="sorot"' : ""}><span class="st" style="--warna:${WARNA_STATUS[st] ?? "var(--santai)"}">${esc(t.status || "baru")}</span>
       <span class="judul${t.prioritas === "segera" ? " segera" : ""}">${esc(t.tugas)}</span>
@@ -538,12 +545,21 @@ function renderTugas(tugas = []) {
   }).join("") : `<li><p class="kosong">Tidak ada tugas berjalan. Tugas yang diterima COO muncul di sini.</p></li>`;
 }
 
+/** Tim engineering yang dipakai: punya proyek, atau ada anggotanya yang hadir. Tim lain: meja kosong & redup. */
+function timTerlihat(s) {
+  const hasil = new Set();
+  for (const n of NOMOR_TIM) {
+    const proyek = s.tim?.find((t) => t.n === n)?.proyek;
+    if (proyek || URUT.some((x) => TIM[x].divisi === `tim${n}` && s.agents.find((a) => a.name === x)?.present)) hasil.add(`tim${n}`);
+  }
+  return hasil;
+}
 /** Tim engineering per proyek: papan nama & judul kelompok memakai nama proyek; tim yang belum dipakai disembunyikan. */
-function renderTim(s) {
+function renderTim(s, terlihat) {
   for (const n of NOMOR_TIM) {
     const proyek = s.tim?.find((t) => t.n === n)?.proyek ?? null;
     const anggota = URUT.filter((x) => TIM[x].divisi === `tim${n}`);
-    const aktif = !!proyek || anggota.some((x) => s.agents.find((a) => a.name === x)?.present);
+    const aktif = terlihat.has(`tim${n}`);
     const papan = PAPAN[`tim${n}`], baru = proyek ? `Proyek: ${proyek}` : aktif ? "Proyek belum terdaftar" : "Belum ada proyek";
     if (papan && papan.sub.textContent !== baru) { papan.sub.textContent = baru; adegan?.mintaGambar(); }
     papan?.el.classList.toggle("redup", !aktif);
@@ -552,48 +568,76 @@ function renderTim(s) {
     for (const x of anggota) if (MEJA[x]) MEJA[x].tag.classList.toggle("tim-kosong", !aktif);
   }
 }
+/** Jejak kerja nyata di 3D: papan tulis tiap tim & Corporate Strategy, papan tugas, berkas di meja (hanya ID + judul). */
+let BERKAS = {};
+function renderJejak(s, terlihat) {
+  const perDivisi = papanDivisi(s.tugas, s.tim), isi = { tugas: papanTugas(s.tugas, s.selesaiHariIni ?? []) };
+  for (const n of NOMOR_TIM) {
+    if (!terlihat.has(`tim${n}`)) continue;   // tim tanpa proyek: papan kosong
+    const proyek = s.tim?.find((t) => t.n === n)?.proyek;
+    isi[`tim${n}`] = { judul: `Tim ${n}${proyek ? ` · ${proyek}` : ""} — tugas berjalan`, tugas: perDivisi[`tim${n}`] ?? [] };
+  }
+  isi.corp = { judul: "Corporate Strategy — tugas berjalan", tugas: perDivisi.corp ?? [] };
+  adegan?.aturPapan(isi);
+  BERKAS = Object.fromEntries(Object.entries(berkasMeja(s.selesaiHariIni ?? [], s.tim))
+    .filter(([k]) => !TIM[k].divisi.startsWith("tim") || terlihat.has(TIM[k].divisi)));
+  adegan?.aturBerkas(Object.fromEntries(Object.entries(BERKAS).map(([k, v]) => [k, v.length])));
+}
 
+/** Keadaan tampil semua kursi; kursi tim tanpa proyek = "kosong". */
+function keadaanSemua(s, terlihat, now = Date.now()) {
+  return Object.fromEntries(URUT.map((nama) => {
+    const ag = s.agents.find((a) => a.name === nama), dv = TIM[nama].divisi;
+    return [nama, !dv.startsWith("tim") || terlihat.has(dv) ? keadaanTampil(ag, now) : "kosong"];
+  }));
+}
 function render(s, ulang = false) {
   state = s;
   if (!ulang) diterimaPada = Date.now();
-  const perhatian = [];
+  const perhatian = [], terlihat = timTerlihat(s), now = Date.now(), keadaan = keadaanSemua(s, terlihat, now);
   for (const nama of URUT) {
     const ag = s.agents.find((a) => a.name === nama) ?? { name: nama, present: false, status: "absen", label: "Belum masuk", detail: "", sessions: [], timeline: [] };
-    const st = kelasDari(ag), mode = modeDari(ag), dari = ag.subagent?.dari;
-    terapkanStatus(ag, pertama);
-    adegan?.aturLayar(nama, ag.present ? ag.status : null);
+    const st = keadaan[nama], dari = ag.subagent?.dari;
+    terapkanStatus(ag, pertama, st);
+    adegan?.aturLayar(nama, st === "kosong" ? null : st);
     const m = MEJA[nama];
-    // papan meja ringkas: nama pendek; baris aksi hanya saat menunggu Anda, subagent/asisten, atau saat meja dipilih
+    // papan meja ringkas: nama pendek; baris aksi saat menunggu Anda, baru selesai, subagent/asisten, atau saat meja dipilih
     const jumlahSesi = ag.sessions?.length ?? 0;
     const jumlahAsisten = (s.asisten ?? []).filter((a) => a.induk === nama && a.status === "aktif").length;
     const namaBaru = jumlahSesi > 1 ? `${TIM[nama].pendek} ×${jumlahSesi}` : TIM[nama].pendek;
-    const aksiBaru = st === "menunggu" ? "Menunggu Anda" : dari ? potong(`subagent dari ${TIM[dari]?.pendek ?? dari}`, 30)
-      : jumlahAsisten ? `+${jumlahAsisten} asisten` : dipilih === nama && ag.present
-      ? potong(st === "santai" ? "Di lounge" : ag.detail ? `${ag.label} · ${ag.detail}` : ag.label, 30)
-      : dipilih === nama && mode === "katalog" ? "Dipanggil saat perlu" : "";
+    const kerja = st === "bekerja" || st === "berpikir";
+    const aksiBaru = st === "menunggu" ? "Menunggu Anda" : st === "selesai" ? teksSelesai(ag.selesai.ts, now)
+      : dari && kerja ? potong(`subagent dari ${TIM[dari]?.pendek ?? dari}`, 30)
+      : jumlahAsisten ? `+${jumlahAsisten} asisten`
+      : dipilih === nama && kerja ? potong(ag.detail ? `${ag.label} · ${ag.detail}` : ag.label, 30)
+      : dipilih === nama && st === "siap" ? (ORANG[nama]?.istirahat ? "Siap dipanggil · istirahat" : "Siap dipanggil") : "";
     const kelasTag = `tag ${st}${dipilih === nama ? " dipilih" : ""}${m.tag.classList.contains("tim-kosong") ? " tim-kosong" : ""}`;
     if (m.namaT.textContent !== namaBaru || m.aksiT.textContent !== aksiBaru || m.tag.className !== kelasTag) {
       m.namaT.textContent = namaBaru; m.aksiT.textContent = aksiBaru; m.tag.className = kelasTag;
       m.simbol.className = `simbol ${st}`; m.simbol.textContent = SIMBOL[st];
       adegan?.mintaGambar();
     }
-    m.tag.setAttribute("aria-label", `${nama}, ${LABEL_STATUS[st]}${ag.present ? `: ${ag.label}${ag.detail ? `, ${ag.detail}` : ""}${dari ? `, subagent dari ${dari}` : ""}` : ""}`);
+    const rinciKerja = kerja || st === "menunggu" ? `: ${ag.label}${ag.detail ? `, ${ag.detail}` : ""}${dari ? `, subagent dari ${dari}` : ""}`
+      : st === "selesai" ? `: ${teksSelesai(ag.selesai.ts, now)}` : st === "siap" ? `: ${keteranganSiap(ag)}` : "";
+    m.tag.setAttribute("aria-label", `${nama}, ${LABEL_STATUS[st]}${rinciKerja}`);
     m.tag.setAttribute("aria-pressed", String(dipilih === nama));
     if (st === "menunggu") perhatian.push(ag);
     const li = LI[nama];
     li.className = st;
     li.querySelector(".simbol").className = `simbol ${st}`;
     li.querySelector(".simbol").textContent = SIMBOL[st];
-    li.querySelector(".keadaan").innerHTML = ag.present
+    li.querySelector(".keadaan").innerHTML = kerja || st === "menunggu"
       ? `${dari ? `<span class="sub" title="Subagent dari ${esc(dari)}">subagent · ${esc(TIM[dari]?.pendek ?? dari)}</span> ` : ""}<b>${esc(ag.label)}</b>${ag.detail ? ` · ${esc(ag.detail)}` : ""}${jumlahSesi > 1 ? ` · ${jumlahSesi} sesi` : ""}${jumlahAsisten ? ` · ${jumlahAsisten} asisten` : ""}`
-      : mode === "katalog" ? `Dipanggil saat perlu · ${esc(TIM[nama].peran)}` : `Belum masuk · ${esc(TIM[nama].peran)}`;
+      : st === "selesai" ? `<b>${esc(teksSelesai(ag.selesai.ts, now))}</b> · siap dipanggil lagi`
+      : `Siap dipanggil · ${esc(keteranganSiap(ag))}`;
     li.querySelector(".waktu").textContent = ag.present ? lalu(ag.lastTs) : "";
     let aktif = 0;
     [...SEL[nama].children].forEach((c, i) => { const n = ag.timeline?.[i]?.n ?? 0; if (n) aktif++; c.dataset.n = n >= 4 ? 3 : n >= 2 ? 2 : n; });
     SEL[nama].setAttribute("aria-label", `${nama}: aktif ${aktif} dari 60 menit terakhir`);
   }
-  renderTugas(s.tugas);
-  renderTim(s);
+  renderTugas(s.tugas, s.selesaiHariIni ?? []);
+  renderTim(s, terlihat);
+  renderJejak(s, terlihat);
   terapkanAsisten(s.asisten);
   sorotTugasDariTautan(s);
   elPerhatian.hidden = perhatian.length === 0;
@@ -613,16 +657,29 @@ function render(s, ulang = false) {
     if (f.icon === "pesan" && f.to) ceritakan(f);
   }
   if (!ulang) pertama = false;
-  const hitung = (st) => s.agents.filter((a) => a.present && a.status === st).length;
-  const katalog = s.agents.filter((a) => !a.present && modeDari(a) === "katalog").length;
-  elPanggung.setAttribute("aria-label", `Denah kantor 3D: ${hitung("bekerja")} bekerja, ${hitung("menunggu")} menunggu Anda, ${hitung("berpikir")} berpikir, ${hitung("santai")} siaga, ${katalog} katalog (dipanggil saat perlu), ${s.agents.filter((a) => !a.present).length - katalog} sesi tetap belum masuk. Rincian tiap orang ada di panel Tim per divisi.`);
+  const hitung = (k) => Object.values(keadaan).filter((x) => x === k).length;
+  elPanggung.setAttribute("aria-label", `Denah kantor 3D: ${hitung("bekerja")} bekerja, ${hitung("menunggu")} menunggu Anda, ${hitung("berpikir")} berpikir, ${hitung("selesai")} baru selesai, ${hitung("siap")} siap dipanggil. Papan tulis tim dan papan tugas menampilkan tugas dari register. Rincian tiap orang ada di panel Tim per divisi.`);
 }
 
 // ================= koneksi, jam, kamera, jeda gerak =================
 const elKon = document.getElementById("koneksi"), elKonT = document.getElementById("koneksi-teks");
 let modeDemo = false, putus = false;
+// suasana mengikuti jam WIB (pagi · siang · sore · malam); `?jam=sore` / `?jam=19:30` memaksa fase untuk uji
+const FASE_UJI = faseDariParam(PARAM.get("jam"));
+const NAMA_FASE = { pagi: "pagi", siang: "siang", sore: "sore", malam: "malam" };
+let faseKini = null, terakhirSelesaiCek = 0;
+function perbaruiWaktu() {
+  const f = FASE_UJI ?? faseWaktu(jamWIB());
+  if (f === faseKini) return;
+  faseKini = f;
+  document.documentElement.dataset.waktu = f;
+  adegan?.aturWaktu(f);
+}
 function detik() {
-  document.getElementById("jam").textContent = `${fmtJam(Date.now())} WIB`;
+  perbaruiWaktu();
+  document.getElementById("jam").textContent = `${fmtJam(Date.now())} WIB · ${NAMA_FASE[faseKini]}${FASE_UJI ? " (jam uji)" : ""}`;
+  // "Baru selesai N mnt lalu" berganti menit & berakhir setelah 10 menit tanpa menunggu data baru dari server
+  if (state && Date.now() - terakhirSelesaiCek > 15e3) { terakhirSelesaiCek = Date.now(); render(state, true); }
   if (modeDemo) return;
   const umur = diterimaPada ? Math.round((Date.now() - diterimaPada) / 1000) : null;
   elKon.classList.toggle("putus", putus);
@@ -716,34 +773,43 @@ function demo() {
     !hadirAwal.has(n) ? { status: "absen" }
       : n === PM ? { status: "bekerja", label: "Menyusun rencana", detail: "status lintas proyek", icon: "rencana" }
         : { status: "santai", label: "Santai", detail: "", icon: "santai" }]));
-  let keadaan = awal(), feed = [], terakhir = -1;
+  let keadaan = awal(), feed = [], terakhir = -1, selesaiDemo = {};
   const mulai = performance.now();
   const kirim = () => {
     const now = Date.now();
     const agents = URUT.map((name, i) => {
       const k = keadaan[name], timeline = Array.from({ length: 60 }, (_, m) => ({ n: (m * 7 + i * 13) % 9 < 3 ? ((m + i) % 5) : 0 }));
+      const selesai = selesaiDemo[name] ? { ts: selesaiDemo[name] } : null;
       return k.status === "absen"
         ? { name, present: false, status: "absen", mode: name === CHIEF || name === ITOPS || name.startsWith("Tech Lead") ? "absen" : "katalog",
-            label: "Belum masuk", detail: "", icon: "absen", lastTs: 0, sessions: [], timeline }
-        : { name, present: true, ...k, lastTs: now - i * 30e3, timeline, sessions: [{ title: `${name} · contoh`, label: k.label, cwd: "~/contoh" }] };
+            label: "Belum masuk", detail: "", icon: "absen", lastTs: 0, selesai, sessions: [], timeline }
+        : { name, present: true, ...k, mode: k.status === "santai" ? "siaga" : "aktif", selesai: k.status === "santai" ? selesai : null,
+            lastTs: now - i * 30e3, timeline, sessions: [{ title: `${name} · contoh`, label: k.label, cwd: "~/contoh" }] };
     });
     // asisten contoh: Tech Lead Tim 1 menambah dua asisten engineer, Head of Strategy satu asisten riset
     const asisten = [["d1", L1, 20, 42, "Menulis", "kode", "Asisten: tes qty"], ["d2", L1, 22, 46, "Menjalankan tes", "tes", "Asisten: cek regresi"],
       ["d3", STRAT, 33, 50, "Riset di web", "web", "Asisten: harga pesaing"]]
       .filter(([, , a, b]) => terakhir >= a && terakhir < b + 8)
       .map(([id, induk, a, b, label, icon, deskripsi]) => ({ id, induk, status: terakhir >= b ? "selesai" : "aktif", label, icon, deskripsi, jenis: "general-purpose" }));
-    render({ now, agents, feed: [...feed].reverse(), asisten, tim: [{ n: 1, proyek: "kasir" }, { n: 2, proyek: "toko-b" }], tugas: [
+    const selesaiHariIni = [{ id: "T-20260101-1", tugas: "Audit modul kasir terhadap standar", pemilik: "Tech Lead · Tim 1", ts: now - 2 * 3600e3 },
+      { id: "T-20260101-6", tugas: "SOP cuti karyawan", pemilik: "HR Business Partner", ts: now - 3 * 3600e3 },
+      { id: "T-20260101-7", tugas: "Riset harga paket pesaing", pemilik: "Research Analyst", ts: now - 4 * 3600e3 }];
+    render({ now, agents, feed: [...feed].reverse(), asisten, selesaiHariIni, tim: [{ n: 1, proyek: "kasir" }, { n: 2, proyek: "toko-b" }], tugas: [
       { id: "T-20260101-3", tugas: "Insiden stok minus cabang 2", folder: "~/Documents/Neuron/ai-agent/RudisOne/ruang/head-of-it-operations", pemilik: "Head of IT Operations", prioritas: "segera", status: "berjalan" },
       { id: "T-20260101-2", tugas: "Perbaikan cetak SJ paging", folder: "~/Documents/kasir", pemilik: "Tech Lead · Tim 1", prioritas: "normal", status: "berjalan" },
       { id: "T-20260101-4", tugas: "Landing page toko-b", folder: "~/Documents/toko-b", pemilik: "Tech Lead · Tim 2", prioritas: "normal", status: "berjalan" },
       { id: "T-20260101-5", tugas: "Kelayakan paket harga toko-b", folder: "~/Documents/Neuron/ai-agent/RudisOne/ruang/head-of-strategy", pemilik: "Head of Strategy", prioritas: "normal", status: "berjalan" },
+      { id: "T-20260101-8", tugas: "Laporan stok bulanan", folder: "~/Documents/kasir", pemilik: "Tech Lead · Tim 1", prioritas: "normal", status: "antre" },
     ] });
   };
   const putar = (dtk) => {
-    if (dtk < terakhir) { keadaan = awal(); feed = []; }
+    if (dtk < terakhir) { keadaan = awal(); feed = []; selesaiDemo = {}; }
     for (const e of SKEN) if ((e[0] > terakhir && e[0] <= dtk) || (dtk < terakhir && e[0] <= dtk)) {
       if (e[1] === "pesan") feed.push({ ts: Date.now(), agent: e[2], label: `Mengirim pesan ke ${e[3]}`, detail: e[4][0].toUpperCase() + e[4].slice(1), icon: "pesan", to: e[3], jenis: e[4] });
-      else { keadaan[e[1]] = { status: e[2], label: e[3], detail: e[4], icon: e[5] }; feed.push({ ts: Date.now(), agent: e[1], label: e[3], detail: e[4], icon: e[5] }); }
+      else {
+        // demo: yang berhenti bekerja ditandai baru selesai (di data nyata: dari server)
+        if (e[2] === "santai" && keadaan[e[1]]?.status && keadaan[e[1]].status !== "santai" && keadaan[e[1]].status !== "absen") selesaiDemo[e[1]] = Date.now();
+        keadaan[e[1]] = { status: e[2], label: e[3], detail: e[4], icon: e[5] }; feed.push({ ts: Date.now(), agent: e[1], label: e[3], detail: e[4], icon: e[5] }); }
     }
     terakhir = dtk; kirim();
   };
