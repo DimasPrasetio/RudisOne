@@ -118,13 +118,16 @@ const NAMA_SKILL = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
 /** Galat bentuk entri ekosistem (sebelum menyentuh jaringan/disk), atau null. */
 export function galatEkosistem(e) {
-  if (!e.repo) return "repo kosong";
+  if (!e.repo || String(e.repo).startsWith("-")) return `repo kosong atau diawali "-": "${e.repo ?? ""}"`;
   if (!SHA_PENUH.test(String(e.sha ?? ""))) return `sha harus commit penuh 40 hex (bukan cabang/tag/sha pendek): "${e.sha ?? ""}"`;
   if (e.skill?.length !== 1 || !NAMA_SKILL.test(e.skill[0])) return "skill harus tepat satu nama folder yang sah";
   const j = String(e.jalur ?? "");
   if (!j || path.isAbsolute(j) || j.split(/[\\/]/).some((x) => x === ".." || x === "." || x === "") || /\\/.test(j)) return `jalur harus path relatif di repo tanpa ".." (mis. skills/${e.skill[0]}): "${j}"`;
   return null;
 }
+
+/** Segmen nama berkas di folder skill yang aman ditulis di semua OS: bukan ""/"."/".."/".git", tanpa \\ : NUL, bukan penanda. */
+export const segmenAman = (s) => Boolean(s) && s !== "." && s !== ".." && s.toLowerCase() !== ".git" && !/[\\:\0]/.test(s) && s !== PENANDA;
 
 /** Penanda versi skill ekosistem yang terpasang: { repo, sha, jalur } atau null (tidak ada / rusak). */
 export function bacaPenanda(dir, nama) {
@@ -138,15 +141,17 @@ function pasangEkosistem(e, catat, dir) {
   const g = galatEkosistem(e);
   if (g) return catat("!!", `${e.id}: entri tidak sah — ${g}`), false;
   const nama = e.skill[0], tujuan = path.join(dir, "skills", nama);
-  if (fs.existsSync(tujuan) && !bacaPenanda(dir, nama))
+  let adaTujuan = false; try { fs.lstatSync(tujuan); adaTujuan = true; } catch { /* belum ada */ }
+  if (adaTujuan && !bacaPenanda(dir, nama))
     return catat("!!", `${e.id}: ${tujuan} sudah ada tanpa penanda versi RudisOne (dipasang di luar jalur resmi) — tidak ditimpa; pindahkan/hapus folder itu sendiri, lalu jalankan pastikan lagi`), false;
   const kerja = fs.mkdtempSync(path.join(os.tmpdir(), "rudisone-skill-"));
   const git = (...a) => jalankan("git", ["-C", kerja, ...a]);
   try {
     jalankan("git", ["init", "-q", kerja]);
     // sha langsung (protokol v2); server yang menolak → ambil semua cabang lalu cari sha-nya
-    if (!git("fetch", "-q", "--depth", "1", "--no-tags", e.repo, e.sha).ok) {
-      const f = git("fetch", "-q", "--no-tags", e.repo, "+refs/heads/*:refs/remotes/sumber/*");
+    // transfer.fsckObjects: git sendiri menolak tree berisi ".."/".git" dan objek rusak
+    if (!git("-c", "transfer.fsckObjects=true", "fetch", "-q", "--depth", "1", "--no-tags", e.repo, e.sha).ok) {
+      const f = git("-c", "transfer.fsckObjects=true", "fetch", "-q", "--no-tags", e.repo, "+refs/heads/*:refs/remotes/sumber/*");
       if (!f.ok) return catat("!!", `${e.id}: ambil ${e.repo} gagal — ${baris1(f.err)}`), false;
     }
     const sha = git("rev-parse", "--verify", "-q", `${e.sha}^{commit}`);
@@ -158,17 +163,30 @@ function pasangEkosistem(e, catat, dir) {
     if (ls.status !== 0 || !isi.some((x) => x.p === `${awalan}SKILL.md`)) return catat("!!", `${e.id}: ${e.jalur}/SKILL.md tidak ada pada ${e.sha.slice(0, 12)}`), false;
     const aneh = isi.find((x) => x.jenis !== "blob" || x.mode === "120000");
     if (aneh) return catat("!!", `${e.id}: ${aneh.p} berupa ${aneh.mode === "120000" ? "symlink" : aneh.jenis} — ditolak`), false;
+    // nama entri tree tidak dipercaya: tiap segmen harus aman, dan hasilnya tetap di dalam folder baru (semua OS)
+    const salah = isi.find((x) => !x.p.slice(awalan.length).split("/").every(segmenAman));
+    if (salah) return catat("!!", `${e.id}: nama berkas tidak aman di sumber (${JSON.stringify(salah.p)}) — ditolak`), false;
     const baru = path.join(dir, "skills", `.${nama}.rudisone-baru`), lama = path.join(dir, "skills", `.${nama}.rudisone-lama`);
+    const di = path.resolve(baru) + path.sep;
     fs.rmSync(baru, { recursive: true, force: true }); fs.rmSync(lama, { recursive: true, force: true });
-    for (const x of isi) {
-      const f = path.join(baru, ...x.p.slice(awalan.length).split("/"));
-      fs.mkdirSync(path.dirname(f), { recursive: true });
-      fs.writeFileSync(f, execFileSync("git", ["-C", kerja, "cat-file", "blob", x.oid], { maxBuffer: 256 << 20 }));
-      if (x.mode === "100755" && process.platform !== "win32") fs.chmodSync(f, 0o755);
+    try {
+      for (const x of isi) {
+        const f = path.resolve(baru, ...x.p.slice(awalan.length).split("/"));
+        if (!f.startsWith(di)) throw new Error(`${x.p} keluar dari folder skill`);
+        fs.mkdirSync(path.dirname(f), { recursive: true });
+        fs.writeFileSync(f, execFileSync("git", ["-C", kerja, "cat-file", "blob", x.oid], { maxBuffer: 256 << 20 }));
+        if (x.mode === "100755" && process.platform !== "win32") fs.chmodSync(f, 0o755);
+      }
+      fs.writeFileSync(path.join(baru, PENANDA), `${JSON.stringify({ id: e.id, repo: e.repo, sha: e.sha, jalur: e.jalur }, null, 2)}\n`);
+      if (adaTujuan) fs.renameSync(tujuan, lama);
+      fs.renameSync(baru, tujuan);
+    } catch (err) {
+      // gagal di tengah: versi lama dikembalikan bila sudah dipindah, folder sementara dibuang
+      try { let adaLama = false; try { fs.lstatSync(lama); adaLama = true; } catch { /* - */ }
+        if (adaLama) { let adaT = false; try { fs.lstatSync(tujuan); adaT = true; } catch { /* - */ } if (!adaT) fs.renameSync(lama, tujuan); } } catch { /* biarkan */ }
+      fs.rmSync(baru, { recursive: true, force: true });
+      return catat("!!", `${e.id}: pemasangan gagal — ${err.message}`), false;
     }
-    fs.writeFileSync(path.join(baru, PENANDA), `${JSON.stringify({ id: e.id, repo: e.repo, sha: e.sha, jalur: e.jalur }, null, 2)}\n`);
-    if (fs.existsSync(tujuan)) fs.renameSync(tujuan, lama);
-    fs.renameSync(baru, tujuan);
     fs.rmSync(lama, { recursive: true, force: true });
     catat("ok", `${e.id}: ${isi.length} berkas dari ${e.repo} @ ${e.sha.slice(0, 12)} (${e.jalur}) → ${tujuan}`);
     return true;

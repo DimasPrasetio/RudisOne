@@ -152,7 +152,13 @@ test("CLI ekosistem skill (npx skills): cari/lihat tanpa tanya untuk COO & Resea
     "npx skills experimental_install", "npx skills find x -y", "npx skills list -g", "npx skills ls --global", "npx skills find x --yes",
     "skills add x", "pnpm dlx skills add x", "yarn dlx skills update", "bunx skills add x", "npm exec skills add x",
     "npx --package=skills skills add x", "npx -p skills skills find x", "timeout 60 npx skills add x", "nohup npx skills add x",
-    "bash -c \"npx skills add x\"", "echo x | xargs npx skills add", "npx skills find x && npx skills add y"]) {
+    "bash -c \"npx skills add x\"", "echo x | xargs npx skills add", "npx skills find x && npx skills add y",
+    // nama lama CLI (add-skill), bun x, spesifikasi paket git/URL/alias, bin lokal, skrip node_modules, pembungkus berkutip
+    "npx add-skill vercel-labs/agent-skills -g -y", "add-skill x", "command add-skill x", "echo x | xargs add-skill x", "bun x skills add x",
+    "npx vercel-labs/skills add x", "npx github:vercel-labs/skills add x", "npx https://github.com/vercel-labs/skills add x",
+    "npx sk@npm:skills add x", "pnpm skills add x", "yarn skills add x", "node node_modules/skills/bin/cli.mjs add x",
+    "bash -lc 'npx skills add x'", "eval 'npx skills add x'", "sh -xc 'skills add x'", "npx --call 'skills add x'",
+    "sudo skills add x", "env FOO=1 skills add x", "echo x | xargs skills add"]) {
     const h = p(RA, c);
     assert.equal(h.keputusan, "ask", `RA: ${c}`);
     assert.equal(p(COO, c).keputusan, "ask", `COO: ${c}`);
@@ -163,6 +169,9 @@ test("CLI ekosistem skill (npx skills): cari/lihat tanpa tanya untuk COO & Resea
   assert.equal(p(RA, "npx cowsay hi").keputusan, null);
   assert.equal(p(COO, "ls ~/.claude/skills").keputusan, null);
   assert.equal(p(COO, "echo 'npx skills add x'").keputusan, null);   // teks dalam kutip bukan perintah
+  for (const c of ["npx eslint skills", "npx prettier --write skills/", "echo add-skill", "grep -rn add-skill .", "git commit -m \"add-skill notes\"",
+    "ls node_modules/skills/", "du -sh ~/.claude/skills", "git log --oneline -- skills/rudis-perkakas"]) assert.equal(p(COO, c).keputusan, null, c);
+  assert.equal(p(RA, "bun x skills find x").keputusan, "allow");
 });
 
 test("jenjang 3: ubah server, sudo, rahasia, perintah tak dikenal selalu ditanya", () => {

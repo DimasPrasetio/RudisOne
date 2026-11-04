@@ -546,16 +546,27 @@ const BACA_SENDIRI = { kebijakan: ["uji", "cek", "tampil", "audit"], konfig: ["c
 export function lokasiSkills(nama, args) {
   const n = String(nama).toLowerCase().replace(/\.(cmd|exe)$/, "");
   if (n === "skills") return { pkg: "skills", sub: args, aneh: false };
+  if (n === "add-skill") return { pkg: "add-skill", sub: args, pasang: true };   // nama lama CLI ini: setiap pemanggilan = pasang
+  // skrip CLI dari node_modules (setelah npm i skills): bentuk tidak baku
+  if (/^node(js)?$/.test(n) && args.some((a) => SPEK_SKILLS_PATH.test(a))) return { pkg: "skills", sub: [], aneh: true };
   let rest;
   if (["npx", "pnpx", "bunx"].includes(n)) rest = args;
-  else if (n === "npm" && ["exec", "x"].includes(args[0])) rest = args.slice(1);
+  else if ((n === "npm" && ["exec", "x"].includes(args[0])) || (n === "bun" && args[0] === "x")) rest = args.slice(1);
   else if ((n === "pnpm" || n === "yarn") && args[0] === "dlx") rest = args.slice(1);
+  else if ((n === "pnpm" || n === "yarn" || n === "npm") && /^(skills|add-skill)$/.test(args[0] ?? "")) return { pkg: args[0], sub: [], aneh: true };   // bin lokal
   else return null;
   let i = 0, aneh = false;
   while (i < rest.length && rest[i].startsWith("-")) { if (!/^(-y|--yes|-q|--quiet|--)$/.test(rest[i])) aneh = true; i++; }
   if (/^skills(@\S*)?$/.test(rest[i] ?? "")) return { pkg: rest[i], sub: rest.slice(i + 1), aneh };
-  return rest.some((a) => /^(--package=)?skills(@\S*)?$/.test(a)) ? { pkg: "skills", sub: [], aneh: true } : null;
+  if (/^add-skill(@\S*)?$/.test(rest[i] ?? "")) return { pkg: rest[i], sub: rest.slice(i + 1), pasang: true };
+  // paket lewat spesifikasi lain (owner/skills, github:…/skills, URL, alias@npm:skills, --package=…) → bentuk tidak baku
+  // hanya posisi paket: argumen posisi pertama, --package=…, nilai -p/--package (bukan argumen milik program lain)
+  const paket = [rest[i], ...rest.filter((x) => x.startsWith("--package=")), ...rest.flatMap((x, k) => (/^(-p|--package)$/.test(x) ? [rest[k + 1]] : []))];
+  return paket.some((x) => x && SPEK_SKILLS.test(x)) ? { pkg: "skills", sub: [], aneh: true } : null;
 }
+/** Spesifikasi paket yang menunjuk CLI skill selain `skills[@versi]` biasa (nama lama `add-skill`, repo git/URL, alias npm). */
+const SPEK_SKILLS = /^(--package=)?(?:(?:[^\s@]+@)?npm:)?(?:\S*[/:])?(?:skills|add-skill)(?:\.git)?(?:[@#]\S*)?$/i;
+const SPEK_SKILLS_PATH = /(^|[\\/])node_modules[\\/](skills|add-skill)([\\/]|$)/i;
 /** Aksi kebijakan untuk CLI skill (kebijakan-akses.json › skills_cli): subperintah baca (cari/daftar) & info = jenjang 1;
  *  selain itu (add/install/update/remove/init/use/sync/check/…), opsi tulis (-g/-y/--global/--yes), atau bentuk aneh = jenjang 3.
  *  Satu-satunya jalur pasang: bin/perkakas.sh pastikan (skill terdaftar di perkakas.json › skill_luar). */
@@ -564,6 +575,7 @@ function klasifikasiSkills(lok, aman, K) {
   const perintah = lok.sub[0] ?? "";
   const teks = `${lok.pkg} ${lok.sub.join(" ")}`.trim().slice(0, 80);
   const tanya = (alasan) => ({ aman: false, skills: true, aksi: [{ kemampuan: S.kemampuan, jenjang: 3, aksi: `${teks} — ${alasan}` }] });
+  if (lok.pasang) return tanya("add-skill (nama lama CLI skill) selalu memasang — jalur resmi: bin/perkakas.sh pastikan");
   if (lok.aneh) return tanya("bentuk pemanggilan CLI skill tidak dikenali");
   if (lok.sub.some((a) => new RegExp(S.opsi_tulis).test(a))) return tanya("opsi pasang/global (-g/-y) — pasang skill hanya lewat bin/perkakas.sh pastikan");
   if (!perintah || new RegExp(S.baca).test(perintah) || new RegExp(S.info).test(perintah))
@@ -572,7 +584,8 @@ function klasifikasiSkills(lok, aman, K) {
 }
 /** `skills <subperintah tulis>` di posisi perintah, termasuk lewat pelari (npx/dlx/exec) — untuk menangkap bentuk yang
  *  tidak diurai sebagai segmen CLI skill (bash -c, xargs, $( ) …). */
-const SKILLS_TULIS_MENTAH = /(?:(?:^|[;&|(\n`])\s*(?:\S*\/)?skills|\b(?:npx|pnpx|bunx|dlx|exec)\s+(?:-\S+\s+)*skills)(?:@[^\s'"]*)?\s+(?:add|install|i|a|remove|rm|r|update|upgrade|init|use|sync|check|experimental_\w+)(?![\w.-])/;
+const ADD_SKILL_MENTAH = /(?:(?:^|[;&|(\n`])\s*(?:\S*[/:])?add-skill|\b(?:npx|pnpx|bunx|dlx|exec|bun\s+x|xargs|sudo|env|command|nohup|nice|time|stdbuf|caffeinate|g?timeout\s+\S+)\s+(?:(?:-\S+|\w+=\S*)\s+)*(?:\S*[/:])?add-skill|\bnode(?:js)?\s+(?:-\S+\s+)*\S*node_modules[\\/](?:skills|add-skill)[\\/])/;
+const SKILLS_TULIS_MENTAH = /(?:(?:^|[;&|(\n`])\s*(?:\S*\/)?skills|\b(?:npx|pnpx|bunx|dlx|exec|bun\s+x|xargs|sudo|env|command|nohup|nice|time|stdbuf|caffeinate|g?timeout\s+\S+)\s+(?:(?:-\S+|\w+=\S*)\s+)*(?:\S*\/)?skills)(?:@[^\s'"]*)?\s+(?:add|install|i|a|remove|rm|r|update|upgrade|init|use|sync|check|experimental_\w+)(?![\w.-])/;
 
 function klasifikasiSegmen(s, K, ctx) {
   const w = [...s.kata];
@@ -738,7 +751,7 @@ export function teksKode(t) {
     let j = i + 1;
     while (j < t.length && t[j] !== c) j += c === '"' && t[j] === "\\" ? 2 : 1;
     const isi = t.slice(i + 1, j);
-    if (/-c\s*$/.test(out)) out += ` ; ${isi} ;`;
+    if (/(^|[\s;&|(])(-[A-Za-z]*c|--call|eval)\s*$/.test(out)) out += ` ; ${isi} ;`;
     else if (c === '"') out += ` ${[...isi.matchAll(/\$\(([^)]*)\)?|`([^`]*)`?/g)].map((m) => `; ${m[1] ?? m[2] ?? ""}`).join(" ")} `;
     else out += " ";
     i = j;
@@ -1616,7 +1629,7 @@ function analisisBash(input, K) {
     aksi.push({ kemampuan: "sesi", jenjang: 3, aksi: "perintah claude untuk sesi latar dalam bentuk yang tidak dikenali" });
   // CLI skill: pasang/ubah (`skills add …`) dalam bentuk yang tidak diurai sebagai segmen CLI skill → ditanya
   if (K.skills_cli) {
-    const tulisMentah = (k) => [...k.matchAll(new RegExp(SKILLS_TULIS_MENTAH.source, "g"))].length;
+    const tulisMentah = (k) => [...k.matchAll(new RegExp(SKILLS_TULIS_MENTAH.source, "g"))].length + [...k.matchAll(new RegExp(ADD_SKILL_MENTAH.source, "gi"))].length;
     if (tulisMentah(teksKode(cmd)) > u.segmen.reduce((n, s, i) => n + (hasil[i].skills ? tulisMentah(teksKode(s.teks)) : 0), 0))
       aksi.push({ kemampuan: K.skills_cli.kemampuan, jenjang: 3, aksi: "pasang/ubah skill lewat CLI skill dalam bentuk yang tidak dikenali — jalur resmi: bin/perkakas.sh pastikan" });
   }

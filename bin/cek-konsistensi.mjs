@@ -379,7 +379,7 @@ function sesiDesktop() {
   return m;
 }
 
-/** Nama folder skill yang sah di ~/.claude/skills: skill tim (skills/ repo ini, juga awalan `rudis`), perkakas resmi
+/** Nama folder skill yang sah di ~/.claude/skills: skill tim (skills/ repo ini — tanpa pengecualian awalan), perkakas resmi
  *  (perkakas.json › perkakas), dan skill luar terdaftar (perkakas.json › skill_luar › skill). */
 export function skillTerdaftar(root = ROOT) {
   const nama = new Set();
@@ -389,7 +389,7 @@ export function skillTerdaftar(root = ROOT) {
     for (const p of m.perkakas ?? []) nama.add(p.id);
     for (const e of m.skill_luar ?? []) for (const s of e.skill ?? []) nama.add(String(s).split(":").pop());
   } catch { /* opsional */ }
-  return { has: (n) => nama.has(n) || /^rudis/.test(n) };
+  return { has: (n) => nama.has(n) };
 }
 
 export function cekDevice(root = ROOT) {

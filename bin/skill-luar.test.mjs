@@ -147,3 +147,36 @@ test("jenis ekosistem: dipasang dari repo git pada sha terkunci (tanpa menjalank
     assert.ok(!fs.existsSync(path.join(C, "skills", "cari")));
   }
 });
+
+test("jenis ekosistem: tree sumber berisi '..', '.git', atau nama ber-backslash ditolak — tidak ada berkas tertulis di luar folder skill", async () => {
+  const { segmenAman, PENANDA } = await import("./skill-luar.mjs");
+  for (const s of ["", ".", "..", ".git", ".GIT", "..\\..\\x", "a:b", "a\0b", PENANDA]) assert.equal(segmenAman(s), false, JSON.stringify(s));
+  for (const s of ["SKILL.md", ".hidden", "a..b", "scripts"]) assert.equal(segmenAman(s), true, s);
+  const C = path.join(tmp, "claude-jahat"); fs.mkdirSync(path.join(C, "skills"), { recursive: true });
+  const R = path.join(tmp, "ekosistem-jahat"); fs.mkdirSync(R);
+  const gr = (a, input) => execFileSync("git", ["-C", R, "-c", "user.name=u", "-c", "user.email=u@x", "-c", "commit.gpgsign=false", ...a], { encoding: "utf8", input }).trim();
+  gr(["init", "-q", "-b", "main"]);
+  const blob = (isi) => gr(["hash-object", "-w", "--stdin"], isi);
+  const pohon = (baris) => gr(["mktree"], baris.map(([m, j, o, n]) => `${m} ${j} ${o}\t${n}`).join("\n") + "\n");
+  const skill = blob("---\nname: cari\n---\n"), jahat = blob("JAHAT\n");
+  const kasus = {
+    dotdot: [["040000", "tree", pohon([["100644", "blob", jahat, "pwn.txt"]]), ".."]],
+    backslash: [["100644", "blob", jahat, "..\\..\\pwn2.txt"]],
+    dotgit: [["040000", "tree", pohon([["100644", "blob", jahat, "config"]]), ".git"]],
+  };
+  for (const [nama, tambahan] of Object.entries(kasus)) {
+    const cari = pohon([["100644", "blob", skill, "SKILL.md"], ...tambahan]);
+    const akar = pohon([["040000", "tree", pohon([["040000", "tree", cari, "cari"]]), "skills"]]);
+    const sha = gr(["commit-tree", akar, "-m", nama]);
+    gr(["update-ref", `refs/heads/${nama}`, sha]);
+    const log = [];
+    const e = [{ id: "cari", jenis: "ekosistem", skill: ["cari"], repo: R, sha, jalur: "skills/cari" }];
+    assert.equal(pastikan(e, "cari", { dir: C, log: (s) => log.push(s) }), 1, `${nama}: ${log.join("\n")}`);
+    assert.deepEqual(fs.readdirSync(path.join(C, "skills")), [], nama);       // tidak ada folder skill / sisa sementara
+    assert.ok(!fs.existsSync(path.join(C, "pwn.txt")) && !fs.existsSync(path.join(C, "pwn2.txt")) && !fs.existsSync(path.join(tmp, "pwn2.txt")), nama);
+  }
+  // repo diawali "-" (injeksi opsi ke git) ditolak sebelum git dijalankan
+  const log = [];
+  assert.equal(pastikan([{ id: "cari", jenis: "ekosistem", skill: ["cari"], repo: "--upload-pack=touch /tmp/x", sha: "0".repeat(40), jalur: "skills/cari" }], "cari", { dir: C, log: (s) => log.push(s) }), 1);
+  assert.match(log.join("\n"), /diawali "-"/);
+});
