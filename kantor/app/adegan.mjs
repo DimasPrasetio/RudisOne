@@ -857,13 +857,15 @@ export class Adegan {
     (at.glif ??= {})[z.id] = (px * (glif.naik + glif.turun)) / 100 / PPM;   // tinggi glif (m) — untuk alat ukur keterbacaan
     const dasar = t.py + t.h / 2 + (px * (glif.naik - glif.turun) / 100) / 2, tengah = dasar - px * glif.naik / 200;   // garis dasar & tengah glif
     g.save();
+    g.beginPath(); g.rect(t.px, t.py, t.w, t.h); g.clip();   // tidak pernah merembes ke sel atlas tetangga
     if (penuh) {
       g.fillStyle = w.tepi; kotakBulat(g, t.px, t.py, t.w, t.h, 0.1 * PPM); g.fill();
       g.fillStyle = w.pelat; kotakBulat(g, t.px + 3, t.py + 3, t.w - 6, t.h - 6, 0.1 * PPM - 3); g.fill();
       g.fillStyle = z.warna; g.fillRect(t.px + 3, t.py + t.h - 3 - 0.05 * PPM, t.w - 6, 0.05 * PPM);   // garis warna zona di bawah
     } else {
       g.globalAlpha = 0.92; g.fillStyle = w.pelat;
-      kotakBulat(g, x0 - padX * 0.7, tengah - px * 0.72, lebarTeks + padX * 1.4, px * 1.44, px * 0.3); g.fill();
+      const hp = Math.min(px * 1.44, t.h), yp = Math.min(Math.max(tengah - hp / 2, t.py), t.py + t.h - hp);   // pelat di dalam selnya
+      kotakBulat(g, x0 - padX * 0.7, yp, lebarTeks + padX * 1.4, hp, Math.min(px * 0.3, hp / 2)); g.fill();
       g.globalAlpha = 1;
     }
     g.fillStyle = z.warna; kotakBulat(g, x0, tengah - px * 0.29, px * 0.58, px * 0.58, px * 0.13); g.fill();
