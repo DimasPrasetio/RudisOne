@@ -133,6 +133,21 @@ export function rincianAman(detail, label = "") {
   return d.length > BATAS_RINCIAN ? `${d.slice(0, BATAS_RINCIAN - 1)}…` : d;
 }
 
+/** Label server yang bermakna sama → satu kunci, agar satu kalimat gabungan tidak menyebut kata kerja yang sama dua kali
+ *  ("mengubah berkas (5 langkah), mengubah 3 berkas"): perintah terminal yang mengubah/memeriksa berkas ikut Edit/Read. */
+const SATU_MAKNA = { "Mengubah berkas": "Menulis", "Memeriksa berkas": "Membaca kode", "Mengurus Git": "Menyimpan versi kode",
+  "Menunggu keputusan Anda": "Menunggu jawaban Anda" };
+export const kunciLabel = (label) => SATU_MAKNA[label] ?? label;
+/** Langkah berkas: kata kerja + jumlah berkas berbeda (nama berkas Read/Edit) + jumlah langkah bila lebih banyak. */
+const KERJA_BERKAS = { "Menulis": "mengubah", "Membaca kode": "membaca" };
+/** Frasa satu kata kerja dalam kalimat gabungan; `berkas` = nama berkas berbeda (hanya dihitung, tidak ditampilkan). */
+export function frasaKerja(kunci, n = 1, berkas = new Set()) {
+  const kk = KERJA_BERKAS[kunci];
+  if (!kk) return kerjaAktivitas({ label: kunci }, n);
+  const k = berkas.size;
+  if (k <= 1) return n > 1 ? `${kk} berkas (${n} langkah)` : `${kk} berkas`;
+  return `${kk} ${k} berkas${n > k ? ` (${n} langkah)` : ""}`;
+}
 /** Kejadian yang selalu satu baris sendiri (tidak digabung dengan langkah kerja lain). */
 const SENDIRI = /^(Mengirim pesan ke |Menerima pesan dari |Menunggu (jawaban|keputusan) Anda|Men-deploy rilis|Memanggil agent|Menyerahkan hasil)/;
 /** Jeda maksimum antar-langkah dalam satu baris gabungan. */
@@ -150,16 +165,19 @@ export function kelompokAktivitas(feed = [], judulTugas = {}, { maksBaris = Infi
   let total = 0;
   const terbuka = new Map();   // pelaku|tugas → baris gabungan yang masih bisa ditambah (langkah paralel saling menyela)
   const kalimat = (run) => {
-    const bagian = [...run.label.entries()].map(([label, n]) => kerjaAktivitas({ label }, n));
+    const bagian = [...run.label.entries()].map(([kunci, x]) => frasaKerja(kunci, x.n, x.berkas));
     run.baris.kerja = bagian.length > 3 ? `${bagian.slice(0, 3).join(", ")}, dan langkah lain`
       : bagian.length > 1 ? `${bagian.slice(0, -1).join(", ")} dan ${bagian.at(-1)}` : bagian[0];
   };
   for (const f of feed) {
     if (!f || f.label === "Menyiapkan alat" || f.label === "Santai") continue;
     const id = kunciTugas(f.tugas), r = rincianAman(f.detail, f.label), sendiri = SENDIRI.test(String(f.label ?? ""));
-    const k = `${f.agent}|${id}`, run = terbuka.get(k);
+    const k = `${f.agent}|${id}`, run = terbuka.get(k), kunci = kunciLabel(f.label);
+    const namaBerkas = ["Membaca kode", "Menulis"].includes(f.label) && f.detail ? f.detail : null;   // Read/Edit: nama berkas saja
     if (run && !sendiri && run.baris.tsAwal - f.ts <= JEDA_GABUNG_MS) {
-      run.label.set(f.label, (run.label.get(f.label) ?? 0) + 1);
+      const x = run.label.get(kunci) ?? { n: 0, berkas: new Set() };
+      x.n++; if (namaBerkas) x.berkas.add(namaBerkas);
+      run.label.set(kunci, x);
       run.baris.n++; run.baris.tsAwal = f.ts;
       if (r && !run.baris.rincian.includes(r) && run.baris.rincian.length < 4) run.baris.rincian.push(r);
       kalimat(run);
@@ -172,7 +190,7 @@ export function kelompokAktivitas(feed = [], judulTugas = {}, { maksBaris = Infi
     if (!g) { g = { id, judul: id ? judulTugas[id] ?? null : null, baris: [] }; kelompok.set(id, g); urut.push(g); }
     const baris = { ts: f.ts, tsAwal: f.ts, agent: f.agent, kerja: kerjaAktivitas(f, 1), rincian: r ? [r] : [], n: 1 };
     g.baris.push(baris);
-    if (!sendiri) terbuka.set(k, { label: new Map([[f.label, 1]]), baris });
+    if (!sendiri) terbuka.set(k, { label: new Map([[kunci, { n: 1, berkas: new Set(namaBerkas ? [namaBerkas] : []) }]]), baris });
   }
   return urut;
 }
@@ -194,5 +212,6 @@ export function ringkasan(keadaan = {}, tugas = [], selesaiHariIni = [], statusT
 export const TERLARANG = [
   /\bngopi\b/i, /\bsubagent\b/i, /\bleader\b/i, /\bsesi\b/i, /\bSubagentHandback\b/, /\bmcp__/, /\bToolSearch\b/,
   /\bLead T\d\b/, /\b(?:Strategy|Finance|Research)\b(?! Analyst)(?<!Head of Strategy)(?<!Corporate Strategy)/,
+  /\bSelesai (?:baru saja|\d+ mnt lalu)\b/,   // status "Baru selesai" ditulis satu cara (STATUS.selesai.label)
   /(?:^|\s)(?:perl|sed|git|cat|curl|npx?|bash)\s+-/, /\bbin\/[\w-]+\.(?:sh|mjs)\b/, /\b[\w-]+\.(?:sh|mjs|py)\b/,
 ];

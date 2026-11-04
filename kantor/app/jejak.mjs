@@ -1,7 +1,8 @@
 // Logika murni Kantor (tanpa DOM/three): keadaan tampil tiap kursi, jejak kerja dari register (papan tulis tim, papan
 // tugas, berkas di meja), dan fase waktu untuk cahaya. Dipakai kantor.mjs dan diuji Node (kantor/jejak.test.mjs).
 // Prinsip DESAIN.md: "Bekerja" hanya dari aktivitas nyata; papan & berkas hanya ID + judul + status tugas dari register.
-import { TIM, kursiTim } from "./denah.mjs";
+import { TIM, atasanDari, kursiTim } from "./denah.mjs";
+import { STATUS } from "./istilah.mjs";
 
 /** Status kerja nyata dari server (sesi/subagent yang sedang berjalan). */
 export const KERJA = new Set(["bekerja", "berpikir", "menunggu"]);
@@ -18,10 +19,21 @@ export function keadaanTampil(ag, now = Date.now()) {
   if (Number.isFinite(ts) && ts > 0 && now - ts > -60e3 && now - ts < BARU_SELESAI_MS) return "selesai";
   return "siap";
 }
-/** "Selesai baru saja" / "Selesai 3 mnt lalu". */
-export function teksSelesai(ts, now = Date.now()) {
+/** Kapan pekerjaan berakhir: "baru saja" / "3 mnt lalu". */
+export function waktuSelesai(ts, now = Date.now()) {
   const m = Math.floor(Math.max(0, now - ts) / 60e3);
-  return m < 1 ? "Selesai baru saja" : `Selesai ${m} mnt lalu`;
+  return m < 1 ? "baru saja" : `${m} mnt lalu`;
+}
+/** "Baru selesai · 3 mnt lalu" — label status satu sumber (istilah.mjs › STATUS) + waktunya. */
+export const teksSelesai = (ts, now = Date.now()) => `${STATUS.selesai.label} · ${waktuSelesai(ts, now)}`;
+/**
+ * "Dibantu" di kartu tugas: hanya anggota di bawah pemilik tugas (rantai atasan, mis. BSA/SE tim untuk Tech Lead) atau
+ * peran yang dipanggil pemilik sebagai subagent (`dari` = pemilik, mis. Research Analyst). Pemberi tugas/atasan (COO) yang
+ * memeriksa atau mengoordinasi bukan pembantu. `kandidat` = [{ nama, dari }] orang yang sedang bekerja untuk tugas itu.
+ */
+export function pembantuTugas(pemilik, kandidat = []) {
+  if (!pemilik) return [];
+  return kandidat.filter(({ nama, dari }) => nama !== pemilik && (dari === pemilik || atasanDari(pemilik, nama))).map(({ nama }) => nama);
 }
 /** Keterangan jujur untuk "Siap dipanggil" menurut keadaan sesi di server (siaga · katalog · absen). */
 export function keteranganSiap(ag) {

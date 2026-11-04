@@ -110,7 +110,7 @@ Berkas ini memuat prinsip, denah, cerita gerak, kamera, dan token yang berlaku �
 | `[Tinjau]` | Peninjau dipanggil ke meja pemberi tinjauan |
 | Sesama `[Konsultasi]`/`[Jawaban]`/`[Info]` | Pengirim menghampiri meja penerima, gelembung tanya-jawab, kembali |
 | Siap dipanggil | Duduk bersandar di mejanya, layar sangat redup. Sesekali (tiap 3–8 menit, maks. 3 orang bersamaan) istirahat ±1 menit: ke bar kopi (memegang cangkir), lalu duduk di lounge; bila ada teman, mengobrol ringan — obrolan tidak pernah mengklaim pekerjaan. COO tetap di mejanya; hemat gerak = semua di meja |
-| Pekerjaan nyata berakhir (sesi berhenti setelah memakai alat, subagent peran selesai) | Tetap di mejanya 10 menit sebagai **Baru selesai**: bersandar, dua lengan terentang ke atas, label "Selesai N mnt lalu", lalu kembali Siap dipanggil |
+| Pekerjaan nyata berakhir (sesi berhenti setelah memakai alat, subagent peran selesai) | Tetap di mejanya 10 menit sebagai **Baru selesai**: bersandar, dua lengan terentang ke atas, label "Baru selesai · N mnt lalu", lalu kembali Siap dipanggil |
 | Tim mendapat proyek / kehilangan proyek | Anggota tim masuk lewat pintu ke mejanya / keluar lewat pintu |
 | Subagent umum (asisten) | Asisten muncul di samping pemanggil, bekerja di meja berdiri tim, lalu menyerahkan hasil dan pergi |
 
@@ -242,7 +242,8 @@ tiga angka lain sebaris (angka di atas, nama di bawah, tanpa kalimat); linimasa 
   percakapan “<judul>” di Claude untuk menjawab."
 - **Kartu tugas:** status kata biasa + "Segera", ID · proyek (folder `ruang/<peran>` bukan proyek), judul, tahap (Fase register →
   `istilah.mjs` › `TAHAP`, 5 segmen; tugas tanpa tahap tidak menampilkannya), pemilik (+ status bila langkah terakhirnya
-  untuk tugas ini) dan "dibantu <singkatan>" (orang lain yang sedang bekerja dan aktivitas terakhirnya ber-ID tugas ini),
+  untuk tugas ini) dan "dibantu <singkatan>" (yang sedang bekerja, aktivitas terakhirnya ber-ID tugas ini, **dan** berada di bawah
+  pemilik dalam rantai komando atau dipanggilnya sebagai subagent — `jejak.mjs` › `pembantuTugas`; COO/pemberi tugas bukan pembantu),
   "Berjalan <durasi>" (sejak `dibuat` register), kalimat waktu tahap ("Tahap ini 12 mnt dari perkiraan 25 mnt" / "⏱ Melewati
   perkiraan tahap 6 mnt"; anggaran = `server.mjs` › `ANGGARAN_FASE`). Maks. 4 kartu + "Lihat semua tugas (n)"; tautan
   `?tugas=` ke kartu di luar empat teratas membuka semuanya.
@@ -252,7 +253,9 @@ tiga angka lain sebaris (angka di atas, nama di bawah, tanpa kalimat); linimasa 
   Keadaan, Sedang dikerjakan, Selesai hari ini, Aktivitas terakhir (kalimat + rincian aman).
 - **Aktivitas:** dikelompokkan per tugas (ID + judul; tanpa ID → "Di luar tugas terdaftar"), terbaru dulu. Langkah kerja
   seorang pelaku untuk tugas yang sama digabung menjadi satu kalimat selama jedanya ≤ 10 menit, walau diselingi pelaku lain
-  ("Tech Lead · Tim 1 menjalankan 26 perintah, membaca 9 berkas dan mengubah 2 berkas"); pesan, menunggu Anda, penerapan,
+  ("Tech Lead · Tim 1 menjalankan 26 perintah, membaca 9 berkas dan mengubah 2 berkas (5 langkah)"). Satu kata kerja hanya
+  sekali per kalimat: label bermakna sama digabung (`kunciLabel`: perintah terminal yang mengubah/memeriksa berkas ikut
+  Edit/Read; Mengurus Git = Menyimpan versi kode) dan berkas dihitung dari nama yang berbeda; pesan, menunggu Anda, penerapan,
   dan penyerahan hasil selalu satu baris. 10 baris + "Lihat semua aktivitas (n)". Rincian teknis (deskripsi singkat agent,
   nama berkas, host web; ≤ 50 karakter, maks. 4) di "rincian" per baris — `rincianAman` membuang apa pun yang mirip perintah
   atau nama alat internal.
@@ -272,7 +275,8 @@ resmi bahasa Inggris seperti di organisasi.
   diuji sama). "Sedang bekerja" (ringkasan) = Bekerja + Berpikir.
 - **Status tugas:** Baru · Menyamakan persepsi · Dikerjakan · Ditinjau · Antre · Ditunda · Terhambat · Selesai.
   **Tahap:** Inisiasi · Analisis · Konstruksi · Pengujian · Rilis.
-- **Waktu:** mnt · dtk · jam; "Berjalan 1 jam 4 mnt", "Selesai 3 mnt lalu", jam "17.21 WIB".
+- **Waktu:** mnt · dtk · jam; "Berjalan 1 jam 4 mnt", "Baru selesai · 3 mnt lalu" (label status + waktu, satu bentuk di panel,
+  kartu sentuh, dan aria), jam "17.21 WIB".
 - **Kata kerja aktivitas** (`kerjaAktivitas`): menjalankan perintah / tes · memeriksa berkas · mengubah berkas · membaca
   berkas · memeriksa riwayat kode · menyimpan versi kode · memotret tampilan · memasang dependensi · mencari di web · membaca
   halaman web · memeriksa tampilan di peramban · bekerja di server · memasang rilis ke server · mengirim tugas / laporan /

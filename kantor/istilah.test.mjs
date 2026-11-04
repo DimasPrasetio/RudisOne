@@ -6,9 +6,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { TIM, URUT } from "./app/denah.mjs";
-import { keteranganSiap, teksSelesai } from "./app/jejak.mjs";
+import { keteranganSiap, pembantuTugas, teksSelesai, waktuSelesai } from "./app/jejak.mjs";
 import {
-  BATAS_RINCIAN, DAFTAR_SINGKATAN, JEDA_GABUNG_MS, STATUS, STATUS_TUGAS, TAHAP, TERLARANG, URUT_STATUS, durasi, kalimatWaktuTahap,
+  BATAS_RINCIAN, DAFTAR_SINGKATAN, frasaKerja, kunciLabel, JEDA_GABUNG_MS, STATUS, STATUS_TUGAS, TAHAP, TERLARANG, URUT_STATUS, durasi, kalimatWaktuTahap,
   kataStatusTugas, kelompokAktivitas, kerjaAktivitas, pimpinan, rincianAman, ringkasan, singkatan, tahapTugas,
 } from "./app/istilah.mjs";
 
@@ -175,4 +175,48 @@ test("ringkasan atas: menunggu, sedang bekerja (bekerja + berpikir), tugas berja
 test("keterangan siap dipanggil & baru selesai bebas istilah internal", () => {
   for (const mode of ["siaga", "katalog", "absen"]) assert.deepEqual(terlarang(keteranganSiap({ mode })), [], mode);
   assert.deepEqual(terlarang(teksSelesai(Date.now() - 3 * 60e3)), []);
+});
+
+test("kartu tugas: 'dibantu' hanya anggota pemilik atau peran yang dipanggilnya — bukan COO/pemberi tugas", () => {
+  const TL = "Tech Lead · Tim 1";
+  const k = [{ nama: "COO", dari: null }, { nama: "Business Systems Analyst · Tim 1", dari: null }, { nama: "Research Analyst", dari: TL },
+    { nama: "Financial Controller", dari: "COO" }, { nama: "Software Engineer #1 · Tim 2", dari: null }, { nama: TL, dari: null }];
+  assert.deepEqual(pembantuTugas(TL, k), ["Business Systems Analyst · Tim 1", "Research Analyst"]);
+  assert.deepEqual(pembantuTugas("Head of IT Operations", [{ nama: "System Administrator", dari: null }, { nama: "COO", dari: null }]), ["System Administrator"]);
+  assert.deepEqual(pembantuTugas(null, k), []);
+});
+
+test("aktivitas: satu kata kerja hanya sekali per kalimat (label bermakna sama digabung, berkas dihitung berbeda)", () => {
+  const t0 = 1_800_000_000_000;
+  const f = (i, label, detail = "") => ({ ts: t0 - i * 1000, agent: "Tech Lead · Tim 1", label, detail, tugas: "T-20260101-2" });
+  const feed = [
+    ...["a.mjs", "b.mjs", "a.mjs", "c.mjs"].map((d, i) => f(i, "Menulis", d)),                       // 3 berkas berbeda, 4 langkah
+    ...Array.from({ length: 5 }, (_, i) => f(10 + i, "Mengubah berkas", "Apply edits")),              // perintah terminal yang mengubah berkas
+    ...Array.from({ length: 3 }, (_, i) => f(20 + i, i ? "Memeriksa berkas" : "Membaca kode", i ? "Read notes" : "x.md")),
+    f(30, "Mengurus Git"), f(31, "Menyimpan versi kode"), f(32, "Menjalankan tes"), f(33, "Menjalankan tes"),
+  ];
+  const kerja = kelompokAktivitas(feed, { "T-20260101-2": "x" })[0].baris[0].kerja;
+  assert.equal(kerja, "mengubah 3 berkas (9 langkah), membaca berkas (3 langkah), menyimpan versi kode (2 langkah), dan langkah lain");
+  // setiap kombinasi label server: kata kerja pertama tiap frasa unik
+  const label = ["Menjalankan perintah", "Menjalankan tes", "Mengubah berkas", "Memeriksa berkas", "Membaca kode", "Menulis", "Mengurus Git",
+    "Menyimpan versi kode", "Memeriksa riwayat kode", "Memotret tampilan", "Riset di web", "Membaca halaman web", "Memeriksa di browser"];
+  for (let a = 0; a < label.length; a++) for (let b = 0; b < label.length; b++) {
+    const k2 = kelompokAktivitas([f(1, label[a], "p.mjs"), f(2, label[b], "q.mjs"), f(3, label[a], "r.mjs")], { "T-20260101-2": "x" })[0].baris[0].kerja;
+    const frasa = k2.split(/, dan |, | dan /).map((s) => s.replace(/\s*\(.*\)$/, "").replace(/ \d+ /, " "));
+    assert.equal(new Set(frasa).size, frasa.length, `${label[a]} + ${label[b]} → ${k2}`);
+  }
+  assert.equal(kunciLabel("Mengubah berkas"), "Menulis");
+  assert.equal(frasaKerja("Membaca kode", 6, new Set(["a", "b", "c", "d", "e", "f"])), "membaca 6 berkas");
+  assert.equal(frasaKerja("Menulis", 1), "mengubah berkas");
+});
+
+test("status 'Baru selesai' ditulis satu cara di semua tempat (label STATUS + waktu)", () => {
+  const kini = 1_800_000_000_000;
+  assert.equal(teksSelesai(kini - 20e3, kini), `${STATUS.selesai.label} · baru saja`);
+  assert.equal(teksSelesai(kini - 61e3, kini), "Baru selesai · 1 mnt lalu");
+  assert.equal(waktuSelesai(kini - 3 * 60e3, kini), "3 mnt lalu");
+  const sumber = ["app/kantor.mjs", "app/jejak.mjs", "app/label.mjs", "app/adegan.mjs", "index.html"].map((b) => fs.readFileSync(path.join(HERE, b), "utf8")).join("\n");
+  assert.doesNotMatch(sumber, /Selesai (baru saja|\$\{|\d+ mnt)/, "tidak ada bentuk 'Selesai …' kedua");
+  assert.ok(terlarang("Selesai baru saja").length && terlarang("Selesai 4 mnt lalu").length);
+  assert.deepEqual(terlarang("Baru selesai · 4 mnt lalu"), []);
 });

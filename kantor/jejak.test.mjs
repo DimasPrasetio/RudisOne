@@ -35,8 +35,8 @@ test("'Baru selesai' selama 10 menit setelah pekerjaan nyata berakhir, lalu kemb
   assert.equal(keadaanTampil(ag(30e3, { present: true, status: "bekerja" }), KINI), "bekerja");
   assert.equal(keadaanTampil({ present: true, status: "santai", selesai: null }, KINI), "siap");
   assert.equal(keadaanTampil({ selesai: { ts: "bukan angka" } }, KINI), "siap");
-  assert.equal(teksSelesai(KINI - 20e3, KINI), "Selesai baru saja");
-  assert.equal(teksSelesai(KINI - 3 * 60e3 - 5e3, KINI), "Selesai 3 mnt lalu");
+  assert.equal(teksSelesai(KINI - 20e3, KINI), "Baru selesai · baru saja");
+  assert.equal(teksSelesai(KINI - 3 * 60e3 - 5e3, KINI), "Baru selesai · 3 mnt lalu");
 });
 
 test("pemilik register → kursi (nama, id teknis, nomor tim, proyek)", () => {

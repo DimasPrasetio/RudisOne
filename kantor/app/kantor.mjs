@@ -1,7 +1,7 @@
 // Kantor RudisOne — halaman pemantauan: data dari server (SSE /events), panel samping, dan denah 3D (adegan.mjs).
 // Perilaku orang mengikuti status & pesan (DESAIN.md › Cerita gerak); jalur dihitung di grid lantai (denah.mjs).
 import { CHIEF, DIVISI, WARNA_LOUNGE, KURSI, NOMOR_TIM, PINTU, TIM, URUT, atasanDari, bangunGrid, cariJalur, hadapMeja, kursiTim, pusat, selBebas } from "./denah.mjs";
-import { barisTersembunyi, berkasMeja, faseDariParam, faseWaktu, jamWIB, keadaanTampil, keteranganSiap, kursiPemilik, papanDivisi, papanTugas, statusTugas, teksSelesai } from "./jejak.mjs";
+import { barisTersembunyi, berkasMeja, pembantuTugas, waktuSelesai, faseDariParam, faseWaktu, jamWIB, keadaanTampil, keteranganSiap, kursiPemilik, papanDivisi, papanTugas, statusTugas, teksSelesai } from "./jejak.mjs";
 import { KUNCI_SIMPAN_LABEL, MODE_LABEL, isiPapanZona, modeLabelDari, tampilanOrang, tingkatRincian, tulisanZona, ucapanTampil } from "./label.mjs";
 import { DAFTAR_SINGKATAN, STATUS, durasi, kalimatWaktuTahap, kataStatusTugas, kelompokAktivitas, kerjaAktivitas, pimpinan, rincianAman, ringkasan, singkatan, tahapTugas } from "./istilah.mjs";
 
@@ -552,7 +552,9 @@ function pelakuTugas(t, s, keadaan) {
   const terakhir = new Map();
   for (const f of s.feed) if (!terakhir.has(f.agent)) terakhir.set(f.agent, f.tugas ?? null);
   const milik = (id) => id && (id === t.id || id.startsWith(`${t.id}.`));
-  const bantu = URUT.filter((n) => n !== pemilik && ["bekerja", "berpikir", "menunggu"].includes(keadaan[n]) && milik(terakhir.get(n)));
+  const kandidat = URUT.filter((n) => n !== pemilik && ["bekerja", "berpikir", "menunggu"].includes(keadaan[n]) && milik(terakhir.get(n)))
+    .map((nama) => ({ nama, dari: s.agents.find((a) => a.name === nama)?.subagent?.dari ?? null }));
+  const bantu = pembantuTugas(pemilik, kandidat);
   const idPemilik = pemilik ? terakhir.get(pemilik) : null;
   const pemilikDiSini = !!pemilik && (milik(idPemilik) || (!idPemilik && statusTugas(t.status) === "berjalan"));
   return { pemilik, bantu, pemilikDiSini };
@@ -738,7 +740,7 @@ function render(s, ulang = false) {
     }
     const rinciAman = rincianAman(ag.detail, ag.label);
     const rinciKerja = kerja || st === "menunggu" ? `: ${kalimatKerja(ag)}${rinciAman ? `, ${rinciAman}` : ""}${dari ? `, dipanggil oleh ${dari}` : ""}`
-      : st === "selesai" ? `: ${teksSelesai(ag.selesai.ts, now)}` : st === "siap" ? `: ${keteranganSiap(ag)}` : "";
+      : st === "selesai" ? `: ${waktuSelesai(ag.selesai.ts, now)}` : st === "siap" ? `: ${keteranganSiap(ag)}` : "";
     m.tag.setAttribute("aria-label", `${nama}, ${LABEL_STATUS[st]}${rinciKerja}`);
     m.tag.setAttribute("aria-pressed", String(dipilih === nama));
     if (st === "menunggu") perhatian.push(ag);
@@ -881,7 +883,7 @@ function isiKartu(nama) {
   if (!KARTU || !state) return;
   const ag = state.agents.find((a) => a.name === nama) ?? { name: nama }, st = ORANG[nama]?.status ?? "siap", now = Date.now();
   const rinci = st === "bekerja" || st === "berpikir" ? (ag.label ? ` · ${potong(kalimatKerja(ag), 46)}` : "")
-    : st === "selesai" ? ` · ${teksSelesai(ag.selesai?.ts, now)}` : st === "siap" ? ` · ${keteranganSiap(ag)}` : "";
+    : st === "selesai" ? ` · ${waktuSelesai(ag.selesai?.ts, now)}` : st === "siap" ? ` · ${keteranganSiap(ag)}` : "";
   const el = KARTU.el, dari = ag.subagent?.dari;
   el.style.setProperty("--warna", TIM[nama].warna);
   el.querySelector(".k-nama").textContent = nama;
