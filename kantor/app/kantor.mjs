@@ -278,9 +278,8 @@ function majukan(o, dt, now) {
   } else if (tp) {
     pose = tp.jenis === "bar" || tp.jenis === "berdiri" ? "minum" : "duduk-santai";
     arah = tp.hadap;
-  } else if (diTamu) { pose = o.tamu[2] ? "duduk" : "berdiri"; arah = Math.atan2(KURSI[o.tamu.atasan ?? CHIEF]?.duduk[0] - o.x, -1); }
+  } else if (diTamu) { pose = o.tamu[2] ? "duduk" : "berdiri"; arah = Math.PI; }   // kursi tamu di depan meja atasan: menghadap −y
   if (!bergerak && o.arahDiam != null) arah = o.arahDiam;
-  if (diTamu && o.arahDiam == null) arah = Math.PI;   // menghadap meja atasan (di belakang/−y)
   if (!o.bawa || o.bawa === "cangkir") setBarang(o, ["minum", "duduk-santai"].includes(pose) || (pose === "jalan" && o.sudahNgopi && o.status === "santai" && !o.skrip.length) ? "cangkir" : null);
   o.pose = pose;
   return gambarOrang(o, now, bergerak, diMeja, arah, dt);
@@ -338,7 +337,7 @@ function terapkanAsisten(daftar = []) {
       const induk = ORANG[a.induk];
       [o.x, o.y] = HEMAT_GERAK ? [titik.x, titik.y] : bebasDekat(induk.x + 0.7, induk.y + 0.6);
       tampakkan(o, true); o.status = "bekerja"; o.simbolEl.className = "simbol bekerja"; o.simbolEl.textContent = SIMBOL.bekerja;
-      o.kepala.classList.add("asisten");
+      o.kepala.classList.add("asisten"); o.kepala.dataset.status = "bekerja";
       if (!HEMAT_GERAK) { ucap(induk, "Tolong bantu ya", 1500); jalanKe(o, [titik.x, titik.y]); }
       ASISTEN[a.id] = o;
     }
@@ -391,6 +390,7 @@ function terapkanStatus(ag, awal) {
   o.status = st; o.ikon = ag.icon;
   o.simbolEl.className = `simbol ${st}`; o.simbolEl.textContent = SIMBOL[st];
   o.kepala.dataset.status = st;
+  if (o.m) O3.aturCincin(o.m, st === "menunggu");
   if (st !== "absen" && !o.tampak) {
     tampakkan(o, true); o.kunci = null;
     if (awal || HEMAT_GERAK) { const t = tujuanBawaan(o, performance.now()); [o.x, o.y] = t.xy; o.kunci = t.kunci; if (o.tempat?.jenis === "bar") o.sudahNgopi = true; }
@@ -745,7 +745,8 @@ function demo() {
 try { await siapkanAdegan(); } catch (e) { tampilkanTanpa3d(e?.message === "WebGL2 tidak tersedia" ? null : `Grafis 3D gagal dimuat (${e?.message ?? e}).`); }
 DENAH = adegan?.denah ?? (await import("./denah.mjs")).bangunDenah();
 BLOK = bangunGrid(DENAH.perabot);
-if (adegan) { bangunMeja(); PAPAN = papanZona(); adegan.onKamera = perbaruiTombolZoom; }
+bangunMeja();   // tanpa WebGL pun: tag meja tetap ada (tidak ditampilkan) agar render panel tidak bergantung pada denah
+if (adegan) { PAPAN = papanZona(); adegan.onKamera = perbaruiTombolZoom; }
 for (const nama of URUT) bangunOrang(nama);
 bangunPanel();
 aturJeda();

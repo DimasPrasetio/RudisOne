@@ -79,6 +79,10 @@
   .papan-zona small { display: block; font: 500 11.5px/1.2 var(--teks); color: var(--redup); }
   .papan-zona.redup { opacity: .55; }
   .jauh .papan-zona small { display: none; }
+  @media (max-width: 600px) {
+    .jauh .papan-zona .isi { padding: 2px 7px 3px 6px; gap: 5px; } .jauh .papan-zona b { font-size: 11.5px; }
+    .jauh .tag .nama-meja { font-size: 10.5px; } .jauh .tag .isi { padding: 1px 5px 2px; }
+  }
 
   /* tag meja (tombol: klik = rincian) */
   .tag { pointer-events: auto; background: none; border: 0; padding: 0; cursor: pointer; }
@@ -124,6 +128,11 @@
   .legenda .kendali button:hover, .legenda .jeda:hover { background: color-mix(in srgb, var(--tinta) 5%, transparent); }
   .legenda .kendali button:disabled { opacity: .4; cursor: default; }
   .petunjuk { width: 100%; font-size: 12.5px; }
+  .untuk-sentuh { display: none; }
+  @media (pointer: coarse) { .untuk-sentuh { display: inline; } .untuk-tetikus { display: none; } }
+  .panggung:focus-visible { outline: 2px solid var(--berpikir); outline-offset: -2px; }
+  .petunjuk-sentuh { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 2; pointer-events: none; max-width: 80%; text-align: center;
+    font: 600 13px/1.35 var(--teks); color: #fff; background: rgba(20, 30, 40, .78); padding: 8px 12px; border-radius: 10px; }
   .simbol { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; color: #fff;
     font-size: 11px; font-weight: 600; line-height: 1; flex: none; }
   .simbol.bekerja { background: var(--bekerja); } .simbol.berpikir { background: var(--berpikir); }
@@ -223,7 +232,7 @@
 <main class="tata">
   <section class="denah kartu" aria-labelledby="judul-denah">
     <h2 id="judul-denah" class="sr">Denah kantor</h2>
-    <div class="panggung" id="panggung" role="img" aria-label="Denah kantor 3D RudisOne. Rincian setiap orang ada di panel Tim per divisi.">
+    <div class="panggung" id="panggung" role="group" aria-roledescription="denah 3D" aria-describedby="petunjuk" aria-label="Denah kantor 3D RudisOne. Rincian setiap orang ada di panel Tim per divisi.">
       <canvas id="kanvas"></canvas>
       <div class="lapis-label" id="lapis-label"></div>
     </div>
@@ -248,7 +257,7 @@
         <button type="button" id="zoom-pas">Seluruh denah</button>
       </span>
       <button type="button" class="jeda" id="jeda" aria-pressed="false">Jeda gerak</button>
-      <span class="petunjuk" id="petunjuk">Seret untuk menggeser · klik kanan + seret untuk memutar · gulir untuk memperbesar · klik meja atau orang untuk rincian.</span>
+      <span class="petunjuk" id="petunjuk"><span class="untuk-tetikus">Seret untuk menggeser · klik kanan + seret untuk memutar · gulir untuk memperbesar · klik meja atau orang untuk rincian · keyboard (klik denah dulu): panah geser, Shift + panah putar, + / − perbesar, 0 seluruh denah.</span><span class="untuk-sentuh">Satu jari menggulir halaman · dua jari menggeser & memperbesar denah · ⟲ ⟳ memutar · ketuk meja atau orang untuk rincian.</span></span>
     </div>
   </section>
 

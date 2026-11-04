@@ -340,7 +340,7 @@ export class Adegan {
     this.wadah = wadah; this.lapis = lapis; this.onPilih = onPilih; this.hemat = hemat;
     this.gelap = matchMedia("(prefers-color-scheme: dark)").matches;
     this.renderer = new THREE.WebGLRenderer({ canvas: el, antialias: true, alpha: true, powerPreference: "high-performance" });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, matchMedia("(pointer: coarse)").matches ? 1.5 : 2));   // HP: 1,5 (brief desain 3D)
     this.renderer.toneMapping = THREE.NeutralToneMapping;
     this.renderer.toneMappingExposure = 1.0;
     this.renderer.shadowMap.enabled = true;
@@ -356,6 +356,7 @@ export class Adegan {
     this.label = [];          // { el, pos: Vector3, tampil: () => bool }
     this.orang = new Set();   // karakter (diatur kantor.mjs) — dipakai untuk bayangan & pemilihan
     this.perlu = true;
+    this.blobM = new THREE.Matrix4();
     this.ukur = { bingkai: 0, gambar: 0, msGambar: 0, mulai: performance.now() };
 
     this.bangunMaterial();
@@ -409,7 +410,7 @@ export class Adegan {
     this.hemi.color.set(p.langit); this.hemi.groundColor.set(p.tanah); this.hemi.intensity = p.hemi;
     this.matahari.color.set(p.matahari); this.matahari.intensity = p.kuatMatahari;
     this.scene.environmentIntensity = p.env;
-    for (const nama of Object.keys(this.layar)) this.aturLayar(nama, this.statusLayar?.[nama] ?? null);
+    for (const nama of Object.keys(this.layar)) this.aturLayar(nama, this.statusLayar?.[nama] ?? null, true);
     this.perbaruiBayangan();
   }
 
@@ -454,20 +455,20 @@ export class Adegan {
     // dinding belakang & kiri dengan jendela dan pintu
     gambarDinding(b, "x", NX, JENDELA.belakang.map(([a, c]) => ({ a, b: c, z0: 0.95, z1: 2.15 })));
     gambarDinding(b, "y", NY, [...JENDELA.kiri.map(([a, c]) => ({ a, b: c, z0: 0.95, z1: 2.15 })), { a: PINTU[1] - 0.8, b: PINTU[1] + 0.8, z0: 0, z1: 2.1 }]);
-    // kusen jendela + kaca; bercak cahaya jendela di lantai
-    const jendela = new THREE.Group();
-    const kaca = (x, y, w, h, ry) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), this.mat.jendela); m.position.set(x, 1.55, y); m.rotation.y = ry; jendela.add(m); };
+    // kusen jendela + kaca; bercak cahaya jendela di lantai (semua digabung: satu draw call per material)
+    const kaca = (x, y, w, h, ry) => b.tambah("jendela", new THREE.PlaneGeometry(w, h), x, 1.55, y, { ry, bayang: false });
+    const bercak = (q) => b.tambah("cahayaJendela", this.bercakCahaya(q), 0, 0, 0, { bayang: false });
     for (const [a, c] of JENDELA.belakang) {
       kaca((a + c) / 2, -0.12, c - a, 1.2, 0);
       b.kotak("dindingAtas", (a + c) / 2 - 0.03, -0.2, 0.95, 0.06, 0.16, 1.2);
       b.kotak("dindingAtas", a, -0.24, 0.9, c - a, 0.3, 0.05);
-      this.bercakCahaya(jendela, [[a + 0.3, 0.3], [c + 0.3, 0.3], [c + 2.2, 3.6], [a + 2.2, 3.6]]);
+      bercak([[a + 0.3, 0.3], [c + 0.3, 0.3], [c + 2.2, 3.6], [a + 2.2, 3.6]]);
     }
     for (const [a, c] of JENDELA.kiri) {
       kaca(-0.12, (a + c) / 2, c - a, 1.2, Math.PI / 2);
       b.kotak("dindingAtas", -0.2, (a + c) / 2 - 0.03, 0.95, 0.16, 0.06, 1.2);
       b.kotak("dindingAtas", -0.24, a, 0.9, 0.3, c - a, 0.05);
-      this.bercakCahaya(jendela, [[0.3, a + 0.3], [0.3, c + 0.3], [3.3, c + 1.9], [3.3, a + 1.9]]);
+      bercak([[0.3, a + 0.3], [0.3, c + 0.3], [3.3, c + 1.9], [3.3, a + 1.9]]);
     }
     // pintu masuk: kusen, daun pintu, tanda keluar
     const py = PINTU[1];
@@ -475,8 +476,8 @@ export class Adegan {
     b.kotak("kayuGelap", -0.26, py - 0.9, 2.1, 0.3, 1.8, 0.1);
     b.kotak("kayuTerang", -0.18, py - 0.8, 0, 0.06, 1.6, 2.08);
     b.kotak("logam", -0.1, py + 0.5, 0.95, 0.04, 0.16, 0.04, { bayang: false });
-    const keluar = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.2, 0.62), new THREE.MeshBasicMaterial({ color: "#2fa86b", toneMapped: false }));
-    keluar.position.set(0.02, 2.38, py); jendela.add(keluar);
+    b.kotak("keluar", -0.0, py - 0.31, 2.28, 0.04, 0.62, 0.2, { bayang: false });
+    this.mat.keluar = new THREE.MeshBasicMaterial({ color: "#2fa86b", toneMapped: false });
     // dekor dinding: papan tulis tiap pod, papan strategi
     for (const dk of this.denah.dekor) {
       if (dk.jenis === "papan-tulis") {
@@ -499,16 +500,25 @@ export class Adegan {
     const layar = [];
     for (const o of this.denah.perabot) gambarPerabot(b, o, layar);
     this.statis = b.bentuk(pakaiMat);
-    this.scene.add(this.statis, jendela);
-    // layar monitor per meja (material sendiri: warna = status), panel grafik
-    const gLayar = new THREE.PlaneGeometry(1, 1);
-    for (const l of layar) {
-      const m = new THREE.Mesh(gLayar, l.statis ? this.mat.grafik : new THREE.MeshBasicMaterial({ color: "#3a4652", toneMapped: false }));
-      m.position.set(l.x, l.h, l.y); m.rotation.y = l.ry; m.scale.set(l.w, l.tinggi, 1);
-      m.matrixAutoUpdate = false; m.updateMatrix();
+    this.scene.add(this.statis);
+    // layar monitor semua meja = satu InstancedMesh (warna per layar = status); panel grafik IT Operations terpisah
+    const gLayar = new THREE.PlaneGeometry(1, 1), mejaLayar = layar.filter((l) => l.agen), o3 = new THREE.Object3D();
+    this.layarInst = new THREE.InstancedMesh(gLayar, new THREE.MeshBasicMaterial({ toneMapped: false }), mejaLayar.length);
+    mejaLayar.forEach((l, i) => {
+      o3.position.set(l.x, l.h, l.y); o3.rotation.set(0, l.ry, 0); o3.scale.set(l.w, l.tinggi, 1); o3.updateMatrix();
+      this.layarInst.setMatrixAt(i, o3.matrix); this.layarInst.setColorAt(i, new THREE.Color("#3a4652"));
+      this.layar[l.agen] = i;
+    });
+    this.layarInst.computeBoundingSphere();
+    this.scene.add(this.layarInst);
+    for (const l of layar.filter((q) => q.statis)) {
+      const m = new THREE.Mesh(gLayar, this.mat.grafik);
+      m.position.set(l.x, l.h, l.y); m.rotation.y = l.ry; m.scale.set(l.w, l.tinggi, 1); m.matrixAutoUpdate = false; m.updateMatrix();
       this.scene.add(m);
-      if (l.agen) this.layar[l.agen] = m;
     }
+    // bayangan kontak semua orang = satu InstancedMesh (diperbarui saat menggambar)
+    this.blob = new THREE.InstancedMesh(new THREE.PlaneGeometry(0.75, 0.75).rotateX(-Math.PI / 2), this.mat.blob, 48);
+    this.blob.count = 0; this.blob.frustumCulled = false; this.scene.add(this.blob);
     // sorot & sasaran klik per meja
     const gSorot = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), gSasaran = new THREE.BoxGeometry(1, 1, 1);
     const tak = new THREE.MeshBasicMaterial({ visible: false });
@@ -524,21 +534,25 @@ export class Adegan {
       this.scene.add(h); this.sasaran.push(h);
     }
   }
-  bercakCahaya(grup, [[ax, ay], [bx, by], [cx, cy], [dx, dy]]) {
+  bercakCahaya([[ax, ay], [bx, by], [cx, cy], [dx, dy]]) {
     const g = new THREE.BufferGeometry();
     g.setAttribute("position", new THREE.Float32BufferAttribute([ax, 0.02, ay, bx, 0.02, by, cx, 0.02, cy, ax, 0.02, ay, cx, 0.02, cy, dx, 0.02, dy], 3));
+    g.setAttribute("normal", new THREE.Float32BufferAttribute(Array(18).fill(0).map((_, i) => (i % 3 === 1 ? 1 : 0)), 3));
     g.setAttribute("uv", new THREE.Float32BufferAttribute([0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1], 2));
-    grup.add(new THREE.Mesh(g, this.mat.cahayaJendela));
+    return g;
   }
 
   /** Warna layar monitor sesuai status: bekerja = menyala warna peran; berpikir/menunggu = redup; lainnya mati. */
-  aturLayar(nama, status) {
-    (this.statusLayar ??= {})[nama] = status;
-    const m = this.layar[nama]; if (!m) return;
-    const p = PALET[this.gelap ? "gelap" : "terang"], warna = new THREE.Color(TIM[nama].warna);
-    if (status === "bekerja") m.material.color.copy(warna).lerp(new THREE.Color("#ffffff"), 0.35);
-    else if (status === "berpikir" || status === "menunggu") m.material.color.set(p.layarMati).lerp(warna, 0.45);
-    else m.material.color.set(p.layarMati);
+  aturLayar(nama, status, paksa = false) {
+    this.statusLayar ??= {};
+    if (!paksa && nama in this.statusLayar && this.statusLayar[nama] === status) return;   // tidak berubah: tanpa gambar ulang
+    this.statusLayar[nama] = status;
+    const i = this.layar[nama]; if (i === undefined) return;
+    const p = PALET[this.gelap ? "gelap" : "terang"], warna = new THREE.Color(TIM[nama].warna), c = new THREE.Color();
+    if (status === "bekerja") c.copy(warna).lerp(new THREE.Color("#ffffff"), 0.35);
+    else if (status === "berpikir" || status === "menunggu") c.set(p.layarMati).lerp(warna, 0.45);
+    else c.set(p.layarMati);
+    this.layarInst.setColorAt(i, c); this.layarInst.instanceColor.needsUpdate = true;
     this.mintaGambar();
   }
   aturSorot(nama, tingkat) {   // 0 tidak ada · 1 hover · 2 dipilih
@@ -560,10 +574,39 @@ export class Adegan {
     k.minDistance = 9; k.rotateSpeed = 0.6; k.zoomSpeed = 0.9; k.panSpeed = 0.8;
     // seperti peta: seret = geser, klik kanan + seret = putar; HP: satu jari geser, dua jari cubit/putar
     k.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE };
-    k.touches = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_ROTATE };
+    // sentuh "kooperatif" (seperti peta tertanam): satu jari menggulir HALAMAN, dua jari menggeser & mencubit denah
+    k.touches = { ONE: -1, TWO: THREE.TOUCH.DOLLY_PAN };
+    this.renderer.domElement.style.touchAction = "pan-y";
+    this.pasangPetunjukSentuh();
+    // keyboard (fokus di denah): panah = geser, Shift + panah = putar (OrbitControls), + / − = perbesar, 0 = seluruh denah
+    this.wadah.tabIndex = 0;
+    k.keyPanSpeed = 40;
+    k.listenToKeyEvents(this.wadah);
+    this.wadah.addEventListener("keydown", (e) => {
+      if (e.key === "+" || e.key === "=") this.zoom(0.75);
+      else if (e.key === "-" || e.key === "_") this.zoom(1.33);
+      else if (e.key === "0") this.seluruhDenah();
+      else if (e.key === "Escape") this.onPilih(null);
+      else return;
+      e.preventDefault();
+    });
     k.addEventListener("change", () => { this.batasiGeser(); this.mintaGambar(); this.onKamera?.(); });
     k.addEventListener("start", () => { this.digeser = false; this.kameraDiubah = true; this.awalGeser = this.camera.position.clone(); });
     k.addEventListener("end", () => { if (this.awalGeser && this.awalGeser.distanceTo(this.camera.position) > 0.05) { this.digeser = true; setTimeout(() => { this.digeser = false; }, 0); } });
+  }
+  /** Satu jari digeser di atas denah (HP) → petunjuk singkat "pakai dua jari" (halaman tetap bisa digulir). */
+  pasangPetunjukSentuh() {
+    const el = this.renderer.domElement, sentuh = new Map();
+    const petunjuk = document.createElement("div"); petunjuk.className = "petunjuk-sentuh"; petunjuk.hidden = true;
+    petunjuk.textContent = "Pakai dua jari untuk menggeser & memperbesar denah"; this.wadah.append(petunjuk);
+    let tutup = 0;
+    el.addEventListener("pointerdown", (e) => { if (e.pointerType === "touch") sentuh.set(e.pointerId, { x: e.clientX, y: e.clientY }); });
+    const lepas = (e) => sentuh.delete(e.pointerId);
+    el.addEventListener("pointerup", lepas); el.addEventListener("pointercancel", (e) => {
+      // peramban mengambil alih (menggulir halaman) saat satu jari bergerak → tampilkan petunjuk
+      if (sentuh.size === 1) { petunjuk.hidden = false; clearTimeout(tutup); tutup = setTimeout(() => { petunjuk.hidden = true; }, 1800); }
+      lepas(e);
+    });
   }
   batasiGeser() {
     const t = this.kontrol.target, sebelum = t.clone();
@@ -598,6 +641,7 @@ export class Adegan {
         if (b.x1 - b.x0 < 1.9 && b.y1 - b.y0 < 1.86) hi = m; else lo = m;
       }
       jarak = hi; tempat(jarak);
+      this._batasPas = batas();
       // geser titik pandang agar pusat kotak proyeksi di tengah layar
       const b = batas(), cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2;
       const tinggiDunia = 2 * jarak * Math.tan(THREE.MathUtils.degToRad(cam.fov / 2)), lebarDunia = tinggiDunia * cam.aspect;
@@ -648,13 +692,21 @@ export class Adegan {
   ubahUkuran() {
     const w = this.wadah.clientWidth, h = this.wadah.clientHeight;
     if (!w || !h) return;
-    const tegak = w / h < 0.9;
+    const tegak = w / h < 0.9 || w < 700;   // HP: sudut lebih tegak (tetap meski tinggi kanvas disesuaikan)
     this.AZ = tegak ? Math.PI / 4 + 0.5 : Math.PI / 4;
     this.POLAR = tegak ? 0.8 : 1.01;
     this.kontrol.minAzimuthAngle = Math.PI / 4 - 0.52; this.kontrol.maxAzimuthAngle = Math.PI / 4 + 0.52;
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h; this.camera.updateProjectionMatrix();
     this.kontrol.maxDistance = this.jarakPas() * 1.2;
+    // layar sempit: tinggi kanvas mengikuti tinggi denah (tanpa ruang kosong besar di atas/bawah) — sekali per lebar
+    if (w < 700 && this._lebarTinggi !== w) {
+      this._pas = null; this.pandangPas();
+      const b = this._batasPas, isi = (b.y1 - b.y0) / 2;
+      const ideal = Math.round(THREE.MathUtils.clamp(h * isi * 1.06, 320, innerHeight * 0.72));
+      this._lebarTinggi = w;
+      if (Math.abs(ideal - h) > 6) { this.wadah.style.height = `${ideal}px`; return; }   // ResizeObserver memanggil lagi
+    } else if (w >= 700 && this._lebarTinggi) { this._lebarTinggi = null; this.wadah.style.height = ""; return; }
     if (!this.kameraDiubah) this.seluruhDenah(false);   // belum disentuh pengguna: tetap "Seluruh denah" untuk ukuran baru
     this.mintaGambar();
   }
@@ -674,7 +726,7 @@ export class Adegan {
   posisikanLabel() {
     const w = this.wadah.clientWidth, h = this.wadah.clientHeight, v = new THREE.Vector3();
     // tingkat rincian: tag meja ringkas saat jauh (HP / seluruh denah) — diatur sebelum ukuran label dibaca
-    this.lapis.classList.toggle("jauh", this.skalaLantai() <= 26);
+    this.lapis.classList.toggle("jauh", this.skalaLantai() <= 26 || w < 600);   // HP selalu ringkas
     const tampil = [];
     for (const l of this.label) {
       if (l.el.hidden || (l.ikut && !l.ikut.visible)) continue;
@@ -687,16 +739,21 @@ export class Adegan {
     }
     // baca semua ukuran dulu (satu kali tata letak), lalu tulis posisi
     for (const l of tampil) if (l.prioritas || l.prioritasFn) { const r = l.isi.getBoundingClientRect(); l.w = r.width; l.h = r.height; }
-    // tabrakan: label berprioritas lebih tinggi (lalu lebih dekat ke kamera) menang; yang kalah disembunyikan
-    const terpakai = [];
-    const urut = tampil.filter((l) => l.prioritas || l.prioritasFn).sort((p, q) => ((q.prioritasFn?.() ?? q.prioritas) - (p.prioritasFn?.() ?? p.prioritas)) || p.jarak - q.jarak);
-    const kalah = new Set();
+    // tabrakan: papan zona SELALU tampil (struktur organisasi); label lain menurut prioritas (lalu jarak) mencoba
+    // posisinya sendiri, lalu digeser sedikit ke atas/bawah; bila tetap bertumpuk baru disembunyikan.
+    const terpakai = [], kalah = new Set();
+    const prio = (l) => (l.el.classList.contains("papan-zona") ? Infinity : l.prioritasFn?.() ?? l.prioritas);   // zona ditempatkan lebih dulu
+    const urut = tampil.filter((l) => prio(l) > 0).sort((p, q) => (prio(q) - prio(p)) || p.jarak - q.jarak);
+    const tumpuk = (r) => terpakai.some((q) => r.x0 < q.x1 - 1 && r.x1 > q.x0 + 1 && r.y0 < q.y1 - 1 && r.y1 > q.y0 + 1);
     for (const l of urut) {
       l.px = THREE.MathUtils.clamp(l.px, l.w / 2 + 4, Math.max(l.w / 2 + 4, w - l.w / 2 - 4));   // jangan terpotong tepi kanvas
       const bawah = l.el.classList.contains("tag");               // tag meja: jangkar di atas-tengah; lainnya bawah-tengah
-      const r = { x0: l.px - l.w / 2, x1: l.px + l.w / 2, y0: bawah ? l.py : l.py - l.h, y1: bawah ? l.py + l.h : l.py };
-      if (terpakai.some((q) => r.x0 < q.x1 - 1 && r.x1 > q.x0 + 1 && r.y0 < q.y1 - 1 && r.y1 > q.y0 + 1)) { kalah.add(l); continue; }
-      terpakai.push(r);
+      const kotak = (dy) => ({ x0: l.px - l.w / 2, x1: l.px + l.w / 2, y0: (bawah ? l.py : l.py - l.h) + dy, y1: (bawah ? l.py + l.h : l.py) + dy });
+      const zona = l.el.classList.contains("papan-zona");
+      const coba = zona ? [0] : bawah ? [0, l.h + 2, -(l.h + 2)] : [0, -(l.h + 2), -2 * (l.h + 2)];
+      const dy = coba.find((d) => !tumpuk(kotak(d)));
+      if (dy === undefined && !zona) { kalah.add(l); continue; }
+      l.py += dy ?? 0; terpakai.push(kotak(0));
     }
     for (const l of tampil) {
       l.el.style.visibility = kalah.has(l) ? "hidden" : "";
@@ -742,8 +799,6 @@ export class Adegan {
 
   /** Daftarkan karakter: bayangan kontak + sasaran klik ikut objek. */
   daftarOrang(o, nama) {
-    const blob = new THREE.Mesh(new THREE.PlaneGeometry(0.75, 0.75).rotateX(-Math.PI / 2), this.mat.blob);
-    blob.position.y = 0.015; o.akar.add(blob);
     o.sasaran = new THREE.Mesh(new THREE.BoxGeometry(0.6, 1.8, 0.6).translate(0, 0.9, 0), new THREE.MeshBasicMaterial({ visible: false }));
     o.sasaran.userData.agen = nama; o.akar.add(o.sasaran);
     this.scene.add(o.akar); this.orang.add(o);
@@ -766,6 +821,12 @@ export class Adegan {
     if (!this.perlu && !adaGerak) return false;
     this.perlu = false;
     const t0 = performance.now();
+    let n = 0;
+    for (const o of this.orang) if (o.akar.visible && n < this.blob.instanceMatrix.count) {
+      this.blobM.makeScale(o.akar.scale.x, 1, o.akar.scale.x).setPosition(o.akar.position.x, 0.016, o.akar.position.z);
+      this.blob.setMatrixAt(n++, this.blobM);
+    }
+    this.blob.count = n; this.blob.instanceMatrix.needsUpdate = true;
     this.renderer.render(this.scene, this.camera);
     this.posisikanLabel();
     this.ukur.gambar++; this.ukur.msGambar += performance.now() - t0;
