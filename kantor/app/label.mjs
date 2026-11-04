@@ -110,29 +110,34 @@ export function tulisanZona(divisi, { tim = [], sempit = false, warnaLounge = "#
 // ---------------- papan nama zona (bidang tegak menghadap depan) ----------------
 /**
  * Papan nama zona: bidang tegak menghadap depan (+y), tanpa cahaya (pelat buram, kontras tetap di semua tema & jam).
- * [x0, x1, y, z0, z1] meter. Zona baris belakang: menempel di sekat depan zonanya (tidak menutup pintu); zona baris depan:
- * berdiri di lis depan (puncak 1,26 m). Puncak ≤ 1,4 m: dari kamera bawaan hanya menutup sekat & lantai di belakangnya, tidak meja atau
- * orang (dijaga `kantor/label.test.mjs`). Lebar papan tim = sekat kiri pod (5,35 m), sebelum pintunya.
+ * [x0, x1, y, z0, z1] meter. Zona baris belakang: papan di ATAS dinding belakang (seperti papan judul diorama) — di
+ * belakangnya tidak ada apa pun, jadi papan bisa tinggi & selebar zonanya tanpa menutupi apa pun; kepala orang di baris
+ * belakang tergambar di depannya. Zona baris depan: papan berdiri di lis depan (puncak 1,26 m) — dari kamera bawaan
+ * (perspektif nyata, `kamera.mjs`) hanya menutup lis; meja, kursi, orang, dan cincin "Menunggu Anda" tetap terlihat
+ * (dijaga `kantor/label.test.mjs`).
  */
+export const PAPAN_ATAS_DINDING = { z0: 2.7, z1: 3.7, y: 0 };
+const atas = (x0, x1) => [x0, x1, PAPAN_ATAS_DINDING.y, PAPAN_ATAS_DINDING.z0, PAPAN_ATAS_DINDING.z1];
 export const PAPAN_ZONA = {
-  pimpinan: [0.4, 5.95, 7.97, 0.15, 1.4],
-  tim1: [8.55, 13.65, 7.97, 0.15, 1.4], tim2: [19.05, 24.15, 7.97, 0.15, 1.4], tim3: [29.55, 34.65, 7.97, 0.15, 1.4],
-  corp: [0.8, 10.4, 21.75, LIS_DEPAN.z, LIS_DEPAN.z + 1.3], bersama: [11.4, 17.1, 21.75, LIS_DEPAN.z, LIS_DEPAN.z + 1.3],
+  pimpinan: atas(0.4, 7.85), tim1: atas(8.6, 18.4), tim2: atas(19.1, 28.9), tim3: atas(29.6, 39.4),
+  corp: [0.8, 10.4, 21.75, LIS_DEPAN.z, LIS_DEPAN.z + 1.3], bersama: [10.75, 17.45, 21.75, LIS_DEPAN.z, LIS_DEPAN.z + 1.3],
   ops: [17.8, 25.2, 21.75, LIS_DEPAN.z, LIS_DEPAN.z + 1.3], lounge: [27.0, 35.0, 21.75, LIS_DEPAN.z, LIS_DEPAN.z + 1.3],
 };
 /**
  * Isi papan: satu baris dari beberapa bagian `{ teks, skala, tebal }` — tim = "Tim n" besar + " · <proyek>" lebih kecil
- * (muat di sekat 5,35 m dengan huruf terbesar). Kembalian: [{ id, warna, redup, bagian }].
+ * (tanpa proyek: "Tim n" saja, redup bila tim belum dipakai). Kembalian: [{ id, warna, redup, bagian }].
  */
 export function isiPapanZona(divisi, { tim = [], warnaLounge = "#d39a5b" } = {}) {
   return [...divisi, { id: "lounge", nama: "Lounge", warna: warnaLounge }].filter((dv) => PAPAN_ZONA[dv.id]).map((dv) => {
     if (!dv.tim) return { id: dv.id, warna: dv.warna, redup: false, bagian: [{ teks: dv.nama, skala: 1, tebal: true }] };
     const t = tim.find((x) => x.n === dv.tim) ?? {};
-    const sub = t.proyek ?? (t.aktif ? "proyek belum terdaftar" : "belum ada proyek");
-    return { id: dv.id, warna: dv.warna, redup: !t.aktif, bagian: [{ teks: `Tim ${dv.tim}`, skala: 1, tebal: true }, { teks: ` · ${sub}`, skala: 0.8, tebal: false }] };
+    // keterangan hanya nama proyek (dipotong 16 huruf) agar huruf tetap besar; "belum ada proyek" = papan redup (rincian di panel)
+    const proyek = t.proyek ? (t.proyek.length > 16 ? `${t.proyek.slice(0, 15)}…` : t.proyek) : null;
+    return { id: dv.id, warna: dv.warna, redup: !t.aktif, bagian: [{ teks: `Tim ${dv.tim}`, skala: 1, tebal: true },
+      ...(proyek ? [{ teks: ` · ${proyek}`, skala: 0.8, tebal: false }] : [])] };
   });
 }
-/** Papan menghadap depan terbaca bila kamera ≤ 62° dari depan; lebih ke samping (HP 74°, putar jauh) → tulisan lantai. */
+/** Papan menghadap depan terbaca bila azimut kamera ≤ 62° (laptop bawaan 45°); lebih ke samping (HP bawaan 74°) → tulisan lantai. */
 export const AZIMUT_PAPAN = (62 * Math.PI) / 180;
 export const penandaZona = (azimut) => (azimut <= AZIMUT_PAPAN ? "papan" : "lantai");
 /** Warna pelat & tinta papan (dan pelat tulisan lantai) per tema — rasio kontras dijaga tes (≥ 4,5:1, redup ≥ 3:1). */

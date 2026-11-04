@@ -7,7 +7,8 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { DIVISI, JENDELA, KURSI, NOMOR_TIM, NX, NY, OX_TIM, PINTU, TINGGI_DINDING, TIM, WARNA_LOUNGE, ZONA, bangunDenah } from "./denah.mjs";
-import { KOTAK_TULISAN, LIS_DEPAN, PAPAN_ZONA, WARNA_PAPAN, penandaZona, tempatkanLabel } from "./label.mjs";
+import { hitungPas } from "./kamera.mjs";
+import { KOTAK_TULISAN, LIS_DEPAN, PAPAN_ATAS_DINDING, PAPAN_ZONA, WARNA_PAPAN, penandaZona, tempatkanLabel } from "./label.mjs";
 
 /** WebGL2 tersedia? (three.js r186 hanya mendukung WebGL2). */
 export function adaWebGL2() {
@@ -845,11 +846,16 @@ export class Adegan {
     const bagian = z.bagian ?? z.baris.map((x) => ({ ...x, tebal: true }));
     const huruf = (b, px) => `${b.tebal ? 700 : 560} ${px * b.skala}px ${b.tebal ? HURUF_JUDUL : HURUF}`;
     const padX = 0.16 * PPM, padY = penuh ? 0.1 * t.h : 0.08 * PPM;
-    let px = Math.min((t.h - 2 * padY) / 1.2, 1.0 * PPM);
-    g.textBaseline = "middle"; g.textAlign = "left";
+    g.textBaseline = "alphabetic"; g.textAlign = "left";
+    // ukuran huruf dari tinggi glif sebenarnya (naik + turun) pada 100 px, bukan tinggi baris — papan rendah tetap berhuruf besar
+    const glif = bagian.reduce((m, b) => { g.font = huruf(b, 100); const u = g.measureText(b.teks);
+      return { naik: Math.max(m.naik, u.actualBoundingBoxAscent * b.skala / b.skala), turun: Math.max(m.turun, u.actualBoundingBoxDescent) }; }, { naik: 72, turun: 0 });
+    let px = Math.min((t.h - 2 * padY) / ((glif.naik + glif.turun) / 100), 1.0 * PPM);
     const lebarPada = (p) => bagian.reduce((s, b) => { g.font = huruf(b, p); return s + g.measureText(b.teks).width; }, p * 0.84);
     px = Math.min(px, px * (t.w - 2 * padX) / lebarPada(px));
-    const lebarTeks = lebarPada(px), x0 = t.px + (t.w - lebarTeks) / 2, tengah = t.py + t.h / 2;
+    const lebarTeks = lebarPada(px), x0 = t.px + (t.w - lebarTeks) / 2;
+    (at.glif ??= {})[z.id] = (px * (glif.naik + glif.turun)) / 100 / PPM;   // tinggi glif (m) — untuk alat ukur keterbacaan
+    const dasar = t.py + t.h / 2 + (px * (glif.naik - glif.turun) / 100) / 2, tengah = dasar - px * glif.naik / 200;   // garis dasar & tengah glif
     g.save();
     if (penuh) {
       g.fillStyle = w.tepi; kotakBulat(g, t.px, t.py, t.w, t.h, 0.1 * PPM); g.fill();
@@ -865,7 +871,7 @@ export class Adegan {
     for (const b of bagian) {
       g.font = huruf(b, px);
       g.fillStyle = z.redup || !b.tebal ? w.redup : w.tinta;
-      g.fillText(b.teks, x, tengah + px * 0.04);
+      g.fillText(b.teks, x, dasar);
       x += g.measureText(b.teks).width;
     }
     g.restore();
@@ -896,7 +902,7 @@ export class Adegan {
     at.kunci = kunci; at.ada = daftar.length > 0;
     this.gambarAtlas(at, daftar, true);
   }
-  /** Papan saat kamera dari depan (≤ 62°), tulisan lantai saat dari samping — dipanggil tiap gambar (murah). */
+  /** Papan saat kamera dari depan (azimut ≤ 62°), tulisan lantai saat dari samping (HP) — dipanggil tiap gambar (murah). */
   aturPenandaZona() {
     if (!this.tulisan) return;
     const c = this.camera.position, t = this.kontrol.target;
@@ -998,34 +1004,12 @@ export class Adegan {
     return hasil;
   }
   hitungPas(az, polar) {
-    const target = new THREE.Vector3(NX / 2, 0, NY / 2), titik = [];
-    for (const x of [-0.25, NX]) for (const z of [-0.25, LIS_DEPAN.y1]) for (const y of [-0.45, TINGGI_DINDING]) titik.push(new THREE.Vector3(x, y, z));
-    const arah = new THREE.Vector3().setFromSphericalCoords(1, polar, az), cam = this.camera.clone(), v = new THREE.Vector3();
-    const tempat = (d) => { cam.position.copy(target).addScaledVector(arah, d); cam.lookAt(target); cam.updateMatrixWorld(); cam.updateProjectionMatrix(); };
-    const batas = () => {
-      const b = { x0: Infinity, x1: -Infinity, y0: Infinity, y1: -Infinity };
-      for (const p of titik) { v.copy(p).project(cam); b.x0 = Math.min(b.x0, v.x); b.x1 = Math.max(b.x1, v.x); b.y0 = Math.min(b.y0, v.y); b.y1 = Math.max(b.y1, v.y); }
-      return b;
-    };
-    let jarak = 60;
-    for (let putaran = 0; putaran < 4; putaran++) {
-      let lo = 5, hi = 400;
-      for (let i = 0; i < 28; i++) {
-        const m = (lo + hi) / 2; tempat(m); const b = batas();
-        if (b.x1 - b.x0 < 1.9 && b.y1 - b.y0 < 1.86) hi = m; else lo = m;
-      }
-      jarak = hi; tempat(jarak);
-      this._batasPas = batas();
-      // geser titik pandang agar pusat kotak proyeksi di tengah layar
-      const b = batas(), cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2;
-      const tinggiDunia = 2 * jarak * Math.tan(THREE.MathUtils.degToRad(cam.fov / 2)), lebarDunia = tinggiDunia * cam.aspect;
-      const kanan = new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld, 0), atas = new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld, 1);
-      const geser = kanan.multiplyScalar(cx * lebarDunia / 2).add(atas.multiplyScalar(cy * tinggiDunia / 2));
-      // proyeksikan geseran ke lantai (sepanjang arah pandang) agar titik pandang tetap di y = 0
-      const t = geser.y / arah.y; geser.addScaledVector(arah, -t);
-      target.add(geser);
-    }
-    return { jarak, target };
+    // laptop: papan nama di atas dinding belakang ikut masuk layar (HP memakai tulisan lantai, tanpa papan)
+    const ekstra = this.tegak ? [] : [[-0.25, PAPAN_ATAS_DINDING.z1, -0.25], [NX, PAPAN_ATAS_DINDING.z1, -0.25]];
+    const h = hitungPas(THREE, { aspect: this.camera.aspect, fov: this.camera.fov, az, polar,
+      kotak: { x: [-0.25, NX], y: [-0.45, TINGGI_DINDING], z: [-0.25, LIS_DEPAN.y1] }, ekstra });
+    this._batasPas = h.batas;
+    return { jarak: h.jarak, target: h.target };
   }
   /** "Seluruh denah": kembali ke sudut & jarak bawaan. */
   seluruhDenah(halus = !this.hemat()) {
@@ -1067,6 +1051,7 @@ export class Adegan {
     const w = this.wadah.clientWidth, h = this.wadah.clientHeight;
     if (!w || !h) return;
     const tegak = w / h < 0.9 || w < 700;   // HP: sudut lebih tegak (tetap meski tinggi kanvas disesuaikan)
+    if (tegak !== this.tegak) { this.tegak = tegak; this._pas = null; }
     this.AZ = tegak ? Math.PI / 4 + 0.5 : Math.PI / 4;
     this.POLAR = tegak ? 0.8 : 1.01;
     this.kontrol.minAzimuthAngle = Math.PI / 4 - 0.52; this.kontrol.maxAzimuthAngle = Math.PI / 4 + 0.52;

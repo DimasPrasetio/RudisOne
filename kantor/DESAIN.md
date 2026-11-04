@@ -89,7 +89,7 @@ Berkas ini memuat prinsip, denah, cerita gerak, kamera, dan token yang berlaku �
 - `PerspectiveCamera` FOV 30°. Bawaan **atas-miring dari depan-kanan** (azimut 45°, 58° dari vertikal) = sudut denah
   isometrik lama; layar sempit (< 700 px) memakai azimut 74° dan 46° dari vertikal agar sisi panjang denah mengisi layar
   tegak. Batas: azimut 15°–75°, polar 28°–64°, jarak 9 m – 1,2 × jarak pas; titik pandang dijepit ke lantai.
-- **Seluruh denah** = jarak & titik pandang agar lantai + dinding tepat masuk dan terpusat (dihitung dari proyeksi).
+- **Seluruh denah** = jarak & titik pandang agar lantai + dinding (laptop: juga papan nama di atas dinding belakang) tepat masuk dan terpusat (dihitung dari proyeksi, `kantor/app/kamera.mjs`).
   Selama pengguna belum menggerakkan kamera, ukuran kanvas berubah → tetap "Seluruh denah".
 - Tetikus: seret = geser, klik kanan + seret = putar, gulir = perbesar. Sentuh: satu jari = gulir halaman, dua jari =
   geser & cubit. Tombol: ⟲ ⟳ (±15°), − +, **Seluruh denah** (≥ 32 px). Keyboard (fokus di denah): panah = geser,
@@ -162,15 +162,19 @@ digambar ulang saat fase berganti. Uji: `?jam=pagi|siang|sore|malam` atau `?jam=
 ## Label & keterbacaan
 Denah bersih: tidak ada label yang menutupi orang atau meja kecuali "Menunggu Anda". Aturan murni di `kantor/app/label.mjs`
 (diuji `kantor/label.test.mjs`); tulisan lantai di `adegan.mjs`, label HTML di `kantor.mjs`.
-- **Nama zona = papan nama berdiri** (`label.mjs` › `PAPAN_ZONA`, satu mesh + satu kanvas atlas, 1 draw call, tanpa peta
-  bayangan): zona belakang = papan di sekat depan zonanya (Ruang Pimpinan di dinding kaca; Tim n di sekat kiri pod, tidak
-  menutup pintu), zona depan = papan berdiri di **lis depan** diorama. Bidang tegak menghadap depan, **tanpa cahaya** (pelat
-  buram `WARNA_PAPAN`: tinta ≥ 7:1, teks redup ≥ 4,5:1, sama di pagi–malam), garis warna zona di bawah + kotak warna zona.
-  Isi satu baris: nama zona; tim = "Tim n" tebal + " · <proyek>" (0,8×, redup; tim tanpa proyek: seluruhnya redup).
-  Puncak ≤ 1,4 m (depan 1,26 m): dari kamera bawaan papan hanya menutup sekat & lantai di belakangnya — meja, kursi, dan
-  orang tetap terlihat (dijaga tes geometri + raycast di peramban). Di layar laptop 1440 px tinggi papan ±20–28 px.
-- **Tulisan lantai berpelat** (`KOTAK_TULISAN`) menggantikan papan saat kamera dari samping (azimut > 62°: HP bawaan 74°,
-  atau diputar jauh) — papan yang menghadap depan terlalu miring dari sana. Zona belakang di lorong depan pintunya
+- **Nama zona = papan nama** (`label.mjs` › `PAPAN_ZONA`, satu mesh + satu kanvas atlas, 1 draw call, tanpa peta bayangan),
+  seperti papan judul diorama: zona belakang (Ruang Pimpinan, Tim 1–3) = papan di **atas dinding belakang**, selebar zonanya —
+  di belakangnya tidak ada apa pun, jadi tidak menutupi apa pun (kepala orang di baris belakang tergambar di depannya);
+  zona depan = papan berdiri di **lis depan** (puncak 1,26 m). Bidang tegak menghadap depan, **tanpa cahaya** (pelat buram
+  `WARNA_PAPAN`: tinta ≥ 7:1, teks redup ≥ 4,5:1, sama di pagi–malam), garis + kotak warna zona. Isi satu baris: nama zona;
+  tim = "Tim n" tebal + " · <proyek>" (0,8×, redup; tanpa proyek: "Tim n" saja, papan redup bila tim belum dipakai). Huruf
+  dipaskan ke tinggi glif sebenarnya. Dari kamera perspektif bawaan (`kamera.mjs`, juga diputar 15°–62°) papan tidak menutupi
+  meja, kursi, orang, atau cincin "Menunggu Anda" (tes sinar nyata + raycast di peramban). "Seluruh denah" laptop ikut
+  memasukkan papan atas dinding. Tinggi glif di laptop 1440 px ±10–18 px (panel ±1000 px ±9–17 px).
+  Papan di sekat depan zona belakang ditolak: kursi & cincin anggota tepat di belakang sekat membatasi tinggi papan ±0,7 m
+  (glif ±8 px).
+- **Tulisan lantai berpelat** (`KOTAK_TULISAN`) menggantikan papan saat kamera dari samping (azimut > 62°: HP bawaan 74°)
+  — papan yang menghadap depan terlalu miring dari sana. Zona belakang di lorong depan pintunya
   (HP: "Tim n · <proyek>"), zona depan di lis depan; pelat di belakang teks menjaga kontras di atas pola lantai. Di HP
   (±7 px/m) tulisannya ±9–14 px — terbaca, lebih jelas saat diperbesar dua jari.
 - **Orang = titik status** (14 px, warna + simbol, bingkai warna permukaan) di atas kepala, tanpa teks. **"Menunggu Anda"**

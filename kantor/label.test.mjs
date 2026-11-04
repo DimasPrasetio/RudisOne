@@ -2,8 +2,8 @@
 // lantai zona. Jalankan: node --test kantor/
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { DIVISI, KURSI, ZONA, bangunDenah } from "./app/denah.mjs";
-import { AMBANG_DEKAT, AZIMUT_PAPAN, KOTAK_TULISAN, LIS_DEPAN, PAPAN_ZONA, WARNA_PAPAN, isiPapanZona, kontras, penandaZona, PRIO_WAJIB, tempatkanLabel, MODE_LABEL, modeLabelDari, tampilanOrang, tingkatRincian, tulisanZona, ucapanTampil } from "./app/label.mjs";
+import { DIVISI, KURSI, TINGGI_DINDING, ZONA, bangunDenah } from "./app/denah.mjs";
+import { AMBANG_DEKAT, AZIMUT_PAPAN, KOTAK_TULISAN, LIS_DEPAN, PAPAN_ATAS_DINDING, PAPAN_ZONA, WARNA_PAPAN, isiPapanZona, kontras, penandaZona, PRIO_WAJIB, tempatkanLabel, MODE_LABEL, modeLabelDari, tampilanOrang, tingkatRincian, tulisanZona, ucapanTampil } from "./app/label.mjs";
 
 const STATUS = ["bekerja", "berpikir", "menunggu", "selesai", "siap"];
 
@@ -147,34 +147,46 @@ test("tulisan lantai: satu baris — nama zona, proyek tim, tim tanpa proyek dir
   assert.equal(hp.tim3.baris[0].teks, "Tim 3");
 });
 
-test("papan zona: zona belakang menempel di sekat depannya tanpa menutup pintu; zona depan berdiri di lis depan", () => {
-  const { perabot } = bangunDenah();
+test("papan zona: zona belakang di atas dinding belakang (selebar zonanya), zona depan berdiri di lis depan", () => {
   for (const [id, [x0, x1, y, z0, z1]] of Object.entries(PAPAN_ZONA)) {
     const z = ZONA[id];
-    assert.ok(x0 < x1 && z0 < z1 && z1 <= 1.4, id);
+    assert.ok(x0 < x1 && z0 < z1, id);
     if (z[1] === 0) {
-      const sekat = perabot.find((p) => ["partisi", "kaca"].includes(p.jenis) && Math.abs(p.y - 7.6) < 0.05 && p.x <= x0 && p.x + p.w >= x1);
-      assert.ok(sekat, `${id}: papan seluruhnya di depan satu bagian sekat (tidak di pintu)`);
-      assert.ok(y > sekat.y + sekat.d && y < 8.1, `${id}: tepat di depan sekat`);
-    } else {
-      assert.ok(y > LIS_DEPAN.y0 && y < LIS_DEPAN.y1 && z0 === LIS_DEPAN.z, `${id}: berdiri di lis depan`);
+      assert.ok(y === PAPAN_ATAS_DINDING.y && z0 > TINGGI_DINDING && z1 - z0 >= 0.9, `${id}: di atas dinding belakang, tinggi ≥ 0,9 m`);
       assert.ok(x0 >= z[0] && x1 <= z[2], `${id}: sejajar zonanya`);
+    } else {
+      assert.ok(z1 <= 1.3, `${id}: rendah`);
+      assert.ok(y > LIS_DEPAN.y0 && y < LIS_DEPAN.y1 && z0 === LIS_DEPAN.z, `${id}: berdiri di lis depan`);
+      assert.ok(x0 >= z[0] - 0.6 && x1 <= z[2] + 0.6, `${id}: sejajar zonanya`);
     }
   }
+  const depan = Object.entries(PAPAN_ZONA).filter(([id]) => ZONA[id][1] > 0).map(([, p]) => p).sort((p, q) => p[0] - q[0]);
+  for (let i = 1; i < depan.length; i++) assert.ok(depan[i][0] - depan[i - 1][1] >= 0.3, "papan depan tidak bersambung");
 });
 
-test("papan zona tidak menyembunyikan meja, kursi, atau orang dari kamera bawaan (azimut 45°, 58° dari vertikal)", () => {
-  // sinar yang menyerempet puncak papan turun tan(32°) per meter mendatar; mundur d di sumbu y = d·√2 mendatar (azimut 45°)
-  const turun = Math.tan((32 * Math.PI) / 180) * Math.SQRT2, MAKS = 0.35;   // yang tertutup paling tinggi 0,35 m (kaki kursi)
+test("papan zona tidak menutupi meja, kursi, orang, atau cincin 'Menunggu Anda' dari kamera perspektif nyata", async () => {
+  const THREE = await import("./vendor/three/build/three.module.js");
+  const { hitungPas } = await import("./app/kamera.mjs");
   const { perabot } = bangunDenah();
-  const benda = [...perabot.filter((p) => /^(meja|kursi|meja-pimpinan|kursi-pimpinan|kursi-tamu|meja-bantu)$/.test(p.jenis)),
-    ...Object.entries(KURSI).map(([nama, k]) => ({ jenis: `orang ${nama}`, x: k.duduk[0] - 0.3, y: k.duduk[1] - 0.3, w: 0.6, d: 0.6 }))];
-  for (const [id, [x0, x1, yb, , z1]] of Object.entries(PAPAN_ZONA)) {
-    for (const p of benda) {
-      const d = yb - (p.y + p.d);
-      if (d < 0 || p.x + p.w < x0 - d || p.x > x1) continue;   // tidak di belakang papan (garis pandang bergeser ke kiri)
-      const tinggiSinar = z1 - turun * d;
-      assert.ok(tinggiSinar <= MAKS, `papan ${id} menutupi ${p.jenis} (${p.x}, ${p.y}) sampai ${tinggiSinar.toFixed(2)} m`);
+  // titik yang harus terlihat (koordinat three: x, tinggi, z = y denah)
+  const titik = [];
+  for (const [nama, k] of Object.entries(KURSI)) {
+    const [x, y] = k.duduk;
+    for (let a = -75; a <= 75; a += 15) { const r = (a * Math.PI) / 180; titik.push([`cincin ${nama}`, x + 0.62 * Math.sin(r), 0.03, y + 0.62 * Math.cos(r)]); }
+    for (const dx of [-0.22, 0, 0.22]) titik.push([`kursi ${nama}`, x + dx, 0.45, y]);
+    titik.push([`orang ${nama}`, x, 0.9, y], [`orang ${nama}`, x, 1.6, y]);
+  }
+  for (const p of perabot.filter((q) => /^(meja|meja-pimpinan|meja-bantu)$/.test(q.jenis)))
+    for (const [fx, fy] of [[0.1, 0.9], [0.5, 0.9], [0.9, 0.9], [0.5, 0.5]]) titik.push([`${p.jenis} ${p.agen ?? ""}`, p.x + p.w * fx, 0.76, p.y + p.d * fy]);
+  const der = (x) => (x * Math.PI) / 180;
+  for (const aspek of [1.5, 1.77, 2.0]) for (const az of [15, 30, 45, 62]) {   // rentang azimut tempat papan tampil (≤ 62°)
+    const { posisi: c } = hitungPas(THREE, { aspect: aspek, az: der(az), polar: 1.01, kotak: { x: [-0.25, 40], y: [-0.45, 2.6], z: [-0.25, LIS_DEPAN.y1] },
+      ekstra: [[-0.25, PAPAN_ATAS_DINDING.z1, -0.25], [40, PAPAN_ATAS_DINDING.z1, -0.25]] });
+    for (const [id, [x0, x1, yb, z0, z1]] of Object.entries(PAPAN_ZONA)) for (const [nama, px, py, pz] of titik) {
+      const u = (yb - c.z) / (pz - c.z);           // titik potong ruas kamera→titik dengan bidang papan (z = yb)
+      if (!(u > 0 && u < 1)) continue;
+      const hx = c.x + (px - c.x) * u, hy = c.y + (py - c.y) * u;
+      assert.ok(!(hx > x0 && hx < x1 && hy > z0 && hy < z1), `papan ${id} menutupi ${nama} (aspek ${aspek}, azimut ${az}°, tinggi potong ${hy.toFixed(2)} m)`);
     }
   }
 });
@@ -183,7 +195,9 @@ test("papan zona: isi (Tim n · proyek), kontras pelat ≥ 4,5:1 (teks redup ≥
   const z = Object.fromEntries(isiPapanZona(DIVISI, { tim: [{ n: 1, proyek: "RudisOne", aktif: true }] }).map((x) => [x.id, x]));
   assert.deepEqual(Object.keys(z).sort(), Object.keys(PAPAN_ZONA).sort());
   assert.deepEqual(z.tim1.bagian.map((b) => b.teks), ["Tim 1", " · RudisOne"]);
-  assert.equal(z.tim3.redup, true); assert.equal(z.tim3.bagian[1].teks, " · belum ada proyek");
+  assert.equal(z.tim3.redup, true); assert.deepEqual(z.tim3.bagian.map((b) => b.teks), ["Tim 3"]);
+  const panjang = isiPapanZona(DIVISI, { tim: [{ n: 2, proyek: "sistem-informasi-gudang", aktif: true }] }).find((x) => x.id === "tim2");
+  assert.equal(panjang.bagian[1].teks, " · sistem-informas…");
   assert.equal(z.corp.bagian[0].teks, "Corporate Strategy");
   for (const w of Object.values(WARNA_PAPAN)) {
     assert.ok(kontras(w.tinta, w.pelat) >= 7, "tinta");
