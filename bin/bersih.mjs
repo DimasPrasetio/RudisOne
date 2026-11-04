@@ -16,8 +16,9 @@ import { fileURLToPath } from "node:url";
 const INI = fileURLToPath(import.meta.url);
 const ROOT = process.env.RUDISONE_ROOT || path.resolve(path.dirname(INI), "..");
 
-/** Path alat pengembang & fixture: boleh memuat ID tugas (penanda regresi) dan data uji. */
-const DIKECUALIKAN = /(^|\/)[^/]+\.test\.mjs$|^bin\/lib\/uji-util\.mjs$|^uji\/(suite|simulasi-linux)\/|^\.github\/|^\.claude\/launch\.json$/;
+/** Path alat pengembang & fixture: boleh memuat ID tugas (penanda regresi) dan data uji. Salinan pustaka pihak ketiga
+ *  (`kantor/vendor/`, disalin apa adanya dari paket berversi terkunci; isinya dijaga tes sidik SHA-256) bukan tulisan RudisOne. */
+const DIKECUALIKAN = /(^|\/)[^/]+\.test\.mjs$|^bin\/lib\/uji-util\.mjs$|^uji\/(suite|simulasi-linux)\/|^\.github\/|^\.claude\/launch\.json$|^kantor\/vendor\/(?!README\.md$)/;
 /** Berkas yang tidak boleh ada di repo sama sekali: laporan uji per device (uji/*.md) dan tabel pemetaan migrasi. */
 const BERKAS_TERLARANG = [
   [/^uji\/[^/]+\.md$/, "laporan uji device — simpan di handoff/<ID>/, bukan di repo"],

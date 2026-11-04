@@ -31,6 +31,24 @@ const MCP_DNS = bacaKonfig()?.dns?.mcp_server ?? null;
 // Sidik kode server: bin/kantor.sh membandingkannya dengan file di disk dan memulai ulang server lama.
 export const VERSI = crypto.createHash("sha1").update(fs.readFileSync(fileURLToPath(import.meta.url))).digest("hex").slice(0, 12);
 
+/** Berkas statis halaman: kode 3D (`/app/`) dan pustaka/huruf yang disalin (`/vendor/`) — Kantor tidak memuat apa pun
+ *  dari internet. Hanya ekstensi yang dikenal; path di luar folder (`..`, absolut, encoded) → null. */
+const STATIS = { "/app/": path.join(HERE, "app"), "/vendor/": path.join(HERE, "vendor") };
+const JENIS_STATIS = { ".js": "text/javascript; charset=utf-8", ".mjs": "text/javascript; charset=utf-8", ".woff2": "font/woff2" };
+export const CSP = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; "
+  + "font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'";
+export function berkasStatis(pathname, statis = STATIS) {
+  const awal = Object.keys(statis).find((a) => String(pathname).startsWith(a));
+  if (!awal) return null;
+  let rel; try { rel = decodeURIComponent(pathname.slice(awal.length)); } catch { return null; }
+  if (!rel || rel.includes("\0") || rel.includes("\\") || rel.split("/").some((s) => s === "" || s === "." || s === "..")) return null;
+  const jenis = JENIS_STATIS[path.extname(rel).toLowerCase()];
+  if (!jenis) return null;
+  const dasar = path.resolve(statis[awal]), f = path.resolve(dasar, ...rel.split("/"));
+  if (!f.startsWith(dasar + path.sep)) return null;
+  return { file: f, jenis };
+}
+
 /** Hanya Host lokal yang dilayani — melindungi dari DNS rebinding (situs lain yang mengarahkan namanya ke 127.0.0.1). */
 export function hostDiizinkan(host, port = PORT) {
   return [`127.0.0.1:${port}`, `localhost:${port}`].includes(String(host ?? "").toLowerCase());
@@ -771,8 +789,16 @@ function serve() {
     }
     const url = new URL(req.url ?? "/", "http://127.0.0.1");
     if (url.pathname === "/" || url.pathname === "/index.html") {
-      res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
+      // CSP: halaman hanya boleh memuat & menghubungi server ini sendiri (tanpa CDN/internet)
+      res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "content-security-policy": CSP });
       fs.createReadStream(path.join(HERE, "index.html")).pipe(res);
+    } else if (berkasStatis(url.pathname)) {
+      const { file, jenis } = berkasStatis(url.pathname);
+      fs.stat(file, (err, st) => {
+        if (err || !st.isFile()) { res.writeHead(404, { "content-type": "text/plain" }); res.end("Tidak ditemukan"); return; }
+        res.writeHead(200, { "content-type": jenis, "cache-control": "no-cache", "x-content-type-options": "nosniff" });
+        fs.createReadStream(file).pipe(res);
+      });
     } else if (url.pathname === "/state") {
       scan();
       res.writeHead(200, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
