@@ -2,7 +2,7 @@
 // Perilaku orang mengikuti status & pesan (DESAIN.md › Cerita gerak); jalur dihitung di grid lantai (denah.mjs).
 import { CHIEF, DIVISI, WARNA_LOUNGE, KURSI, NOMOR_TIM, PINTU, TIM, URUT, atasanDari, bangunGrid, cariJalur, hadapMeja, kursiTim, pusat, selBebas } from "./denah.mjs";
 import { berkasMeja, faseDariParam, faseWaktu, jamWIB, keadaanTampil, keteranganSiap, kursiPemilik, papanDivisi, papanTugas, statusTugas, teksSelesai } from "./jejak.mjs";
-import { KUNCI_SIMPAN_LABEL, MODE_LABEL, modeLabelDari, tampilanOrang, tingkatRincian, tulisanZona, ucapanTampil } from "./label.mjs";
+import { KUNCI_SIMPAN_LABEL, MODE_LABEL, isiPapanZona, modeLabelDari, tampilanOrang, tingkatRincian, tulisanZona, ucapanTampil } from "./label.mjs";
 
 // Keadaan tampil (jejak.mjs › keadaanTampil): bekerja/berpikir/menunggu hanya dari sesi/subagent yang berjalan;
 // "selesai" = pekerjaan nyata berakhir < 10 menit lalu; selain itu "siap" (Siap dipanggil). "kosong" = tim tanpa proyek.
@@ -573,10 +573,11 @@ function renderTim(s, terlihat) {
     for (const x of anggota) if (MEJA[x]) MEJA[x].tag.classList.toggle("tim-kosong", !aktif);
   }
 }
-/** Nama zona = tulisan di lantai (adegan 3D): nama divisi, proyek tim; tim tanpa proyek diredupkan. */
+/** Nama zona (adegan 3D): papan berdiri + tulisan lantai — nama divisi, proyek tim; tim tanpa proyek diredupkan. */
 function perbaruiTulisanZona(s, terlihat) {
   const tim = NOMOR_TIM.map((n) => ({ n, proyek: s.tim?.find((t) => t.n === n)?.proyek ?? null, aktif: terlihat.has(`tim${n}`) }));
   adegan?.aturTulisanZona(tulisanZona(DIVISI, { tim, sempit: SEMPIT, warnaLounge: WARNA_LOUNGE }));
+  adegan?.aturPapanZona(isiPapanZona(DIVISI, { tim, warnaLounge: WARNA_LOUNGE }));
 }
 /** Jejak kerja nyata di 3D: papan tulis tiap tim & Corporate Strategy, papan tugas, berkas di meja (hanya ID + judul). */
 let BERKAS = {};

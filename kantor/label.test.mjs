@@ -2,8 +2,8 @@
 // lantai zona. Jalankan: node --test kantor/
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { DIVISI, ZONA, bangunDenah } from "./app/denah.mjs";
-import { AMBANG_DEKAT, KOTAK_TULISAN, LIS_DEPAN, PRIO_WAJIB, tempatkanLabel, MODE_LABEL, modeLabelDari, tampilanOrang, tingkatRincian, tulisanZona, ucapanTampil } from "./app/label.mjs";
+import { DIVISI, KURSI, ZONA, bangunDenah } from "./app/denah.mjs";
+import { AMBANG_DEKAT, AZIMUT_PAPAN, KOTAK_TULISAN, LIS_DEPAN, PAPAN_ZONA, WARNA_PAPAN, isiPapanZona, kontras, penandaZona, PRIO_WAJIB, tempatkanLabel, MODE_LABEL, modeLabelDari, tampilanOrang, tingkatRincian, tulisanZona, ucapanTampil } from "./app/label.mjs";
 
 const STATUS = ["bekerja", "berpikir", "menunggu", "selesai", "siap"];
 
@@ -145,4 +145,54 @@ test("tulisan lantai: satu baris — nama zona, proyek tim, tim tanpa proyek dir
   assert.equal(hp.tim1.baris[0].teks, "Tim 1 · kasir");
   assert.equal(hp.tim2.baris[0].teks, "Tim 2");
   assert.equal(hp.tim3.baris[0].teks, "Tim 3");
+});
+
+test("papan zona: zona belakang menempel di sekat depannya tanpa menutup pintu; zona depan berdiri di lis depan", () => {
+  const { perabot } = bangunDenah();
+  for (const [id, [x0, x1, y, z0, z1]] of Object.entries(PAPAN_ZONA)) {
+    const z = ZONA[id];
+    assert.ok(x0 < x1 && z0 < z1 && z1 <= 1.4, id);
+    if (z[1] === 0) {
+      const sekat = perabot.find((p) => ["partisi", "kaca"].includes(p.jenis) && Math.abs(p.y - 7.6) < 0.05 && p.x <= x0 && p.x + p.w >= x1);
+      assert.ok(sekat, `${id}: papan seluruhnya di depan satu bagian sekat (tidak di pintu)`);
+      assert.ok(y > sekat.y + sekat.d && y < 8.1, `${id}: tepat di depan sekat`);
+    } else {
+      assert.ok(y > LIS_DEPAN.y0 && y < LIS_DEPAN.y1 && z0 === LIS_DEPAN.z, `${id}: berdiri di lis depan`);
+      assert.ok(x0 >= z[0] && x1 <= z[2], `${id}: sejajar zonanya`);
+    }
+  }
+});
+
+test("papan zona tidak menyembunyikan meja, kursi, atau orang dari kamera bawaan (azimut 45°, 58° dari vertikal)", () => {
+  // sinar yang menyerempet puncak papan turun tan(32°) per meter mendatar; mundur d di sumbu y = d·√2 mendatar (azimut 45°)
+  const turun = Math.tan((32 * Math.PI) / 180) * Math.SQRT2, MAKS = 0.35;   // yang tertutup paling tinggi 0,35 m (kaki kursi)
+  const { perabot } = bangunDenah();
+  const benda = [...perabot.filter((p) => /^(meja|kursi|meja-pimpinan|kursi-pimpinan|kursi-tamu|meja-bantu)$/.test(p.jenis)),
+    ...Object.entries(KURSI).map(([nama, k]) => ({ jenis: `orang ${nama}`, x: k.duduk[0] - 0.3, y: k.duduk[1] - 0.3, w: 0.6, d: 0.6 }))];
+  for (const [id, [x0, x1, yb, , z1]] of Object.entries(PAPAN_ZONA)) {
+    for (const p of benda) {
+      const d = yb - (p.y + p.d);
+      if (d < 0 || p.x + p.w < x0 - d || p.x > x1) continue;   // tidak di belakang papan (garis pandang bergeser ke kiri)
+      const tinggiSinar = z1 - turun * d;
+      assert.ok(tinggiSinar <= MAKS, `papan ${id} menutupi ${p.jenis} (${p.x}, ${p.y}) sampai ${tinggiSinar.toFixed(2)} m`);
+    }
+  }
+});
+
+test("papan zona: isi (Tim n · proyek), kontras pelat ≥ 4,5:1 (teks redup ≥ 4,5:1); papan dari depan, lantai dari samping", () => {
+  const z = Object.fromEntries(isiPapanZona(DIVISI, { tim: [{ n: 1, proyek: "RudisOne", aktif: true }] }).map((x) => [x.id, x]));
+  assert.deepEqual(Object.keys(z).sort(), Object.keys(PAPAN_ZONA).sort());
+  assert.deepEqual(z.tim1.bagian.map((b) => b.teks), ["Tim 1", " · RudisOne"]);
+  assert.equal(z.tim3.redup, true); assert.equal(z.tim3.bagian[1].teks, " · belum ada proyek");
+  assert.equal(z.corp.bagian[0].teks, "Corporate Strategy");
+  for (const w of Object.values(WARNA_PAPAN)) {
+    assert.ok(kontras(w.tinta, w.pelat) >= 7, "tinta");
+    assert.ok(kontras(w.redup, w.pelat) >= 4.5, "redup");
+  }
+  assert.ok(Math.abs(kontras("#000000", "#ffffff") - 21) < 1e-9);
+  const der = (x) => (x * Math.PI) / 180;
+  assert.equal(penandaZona(der(45)), "papan");   // laptop bawaan
+  assert.equal(penandaZona(der(15)), "papan");   // batas putar kiri
+  assert.equal(penandaZona(der(74)), "lantai");  // HP bawaan
+  assert.equal(penandaZona(AZIMUT_PAPAN + 1e-9), "lantai");
 });

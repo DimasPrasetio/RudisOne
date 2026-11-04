@@ -21,7 +21,7 @@ Berkas ini memuat prinsip, denah, cerita gerak, kamera, dan token yang berlaku �
    dipanggil" menyebut keadaan sesinya apa adanya (sesi terbuka · dipanggil sebagai subagent · dibuka COO saat ada tugas);
    papan & berkas hanya berisi tugas register (papan kosong = memang tidak ada tugas); data basi atau koneksi putus selalu ditampilkan.
 3. **Struktur organisasi terlihat:** denah mencerminkan rantai komando — atasan memanggil dari mejanya, bawahan
-   menghampiri; laporan dibawa naik. Nama zona **selalu tampil** sebagai tulisan di lantai ruangan.
+   menghampiri; laporan dibawa naik. Nama zona **selalu tampil dan terbaca** di seluruh denah: papan nama berdiri di ruangan.
 4. **Privasi:** hanya metadata aktivitas (nama alat, deskripsi singkat ≤ 50 karakter, nama berkas) — tidak pernah isi
    berkas, pesan, prompt, atau keluaran. Jenis pesan diambil dari tag `[…]` di awal pesan saja.
 5. **Tenang:** lantai & perabot netral; warna kuat hanya untuk status dan identitas peran; tidak ada merah kecuali galat.
@@ -46,7 +46,8 @@ Berkas ini memuat prinsip, denah, cerita gerak, kamera, dan token yang berlaku �
 | Perspektif memberi isyarat kedalaman; FOV kecil menekan distorsi (MathWorks view projections; contoh *ai-office*) | `PerspectiveCamera` FOV 30° |
 | Peta tertanam di halaman yang digulir: satu jari menggulir halaman, dua jari menggerakkan peta (Google Maps `gestureHandling: cooperative`) | HP: **satu jari menggulir halaman, dua jari menggeser & mencubit denah**; petunjuk singkat muncul saat satu jari digeser di denah |
 | Label HTML di atas kanvas (CSS2D): teks tajam & ikut CSS, tidak terbaca sebagai bagian 3D; panel HTML = padanan pembaca layar (forum three.js aksesibilitas) | Status orang = titik HTML kecil yang mengikuti kepala; panel samping = padanan penuh. Kapsul nama mengambang dihapus: menutupi ruangan |
-| Lantai, pola lantai, dan warna aksen per area adalah elemen wayfinding; label bisa menempel di bidang peta, bukan di layar (DHA/MHS Wayfinding Guidelines 2022; Mapbox `text-pitch-alignment: map`) | Nama zona = **tulisan di lantai** (bagian adegan 3D, ikut berputar & mengecil): perabot & orang selalu tergambar di atasnya |
+| Lantai, pola lantai, dan warna aksen per area adalah elemen wayfinding; label bisa menempel di bidang peta, bukan di layar (DHA/MHS Wayfinding Guidelines 2022; Mapbox `text-pitch-alignment: map`) | Nama zona di dalam adegan 3D (ikut berputar & mengecil). Tulisan yang rebah di lantai terlalu kecil & mudah tertutup sekat dari sudut kamera landai → **papan nama berdiri** menghadap depan; tulisan lantai berpelat hanya untuk pandangan dari samping |
+| Kontras teks terhadap latarnya ≥ 4,5:1 (WCAG 1.4.3); teks langsung di atas lantai bertekstur & bercahaya berganti (pagi–malam) kontrasnya tak menentu | Papan berpelat buram tanpa cahaya (warna tetap di semua jam): tinta 14,2:1 / 13,6:1, teks redup 5,0:1 / 6,9:1 (terang / gelap) |
 | Simbol peta: ikon & teks bertabrakan disembunyikan menurut urutan tetap; `text-optional` membuang teks tapi mempertahankan ikon; lapisan punya rentang zoom (Mapbox Style Spec) | Titik status = "ikon", nama = "teks opsional" (kalah lebih dulu); nama baru tampil saat diperbesar |
 | Penanda wajib (`REQUIRED_AND_HIDES_OPTIONAL`) vs. opsional berprioritas (Google Maps Platform, collision behavior) | Kartu sentuh & "Menunggu Anda" = wajib/teratas; titik > nama > gelembung pada urutan tetap |
 | Progressive disclosure: sedikit yang paling sering dibutuhkan dulu, maks. ±2 tingkat (NN/g) | Denah: titik → kartu (hover/klik) → panel rincian; mode bawaan **Ringkas** |
@@ -161,11 +162,17 @@ digambar ulang saat fase berganti. Uji: `?jam=pagi|siang|sore|malam` atau `?jam=
 ## Label & keterbacaan
 Denah bersih: tidak ada label yang menutupi orang atau meja kecuali "Menunggu Anda". Aturan murni di `kantor/app/label.mjs`
 (diuji `kantor/label.test.mjs`); tulisan lantai di `adegan.mjs`, label HTML di `kantor.mjs`.
-- **Nama zona = tulisan di lantai** (satu mesh + satu tekstur atlas, 1 draw call, tidak ikut peta bayangan): Ruang Pimpinan
-  dan Tim 1–3 di lorong tepat di depan pintunya ("Tim n · <proyek>"; tim tanpa proyek redup,
-  "Engineering" tersirat dari warna lantai dan lengkap di panel); zona baris depan di **lis depan** diorama. Kotaknya dipilih
-  di lantai kosong yang tidak tertutup benda tinggi dari kamera bawaan (dijaga tes); huruf terbesar yang muat, Bricolage 700,
-  kotak warna zona di depannya. Tulisan ikut berputar & mengecil bersama ruangan; HP memakai nama tim pendek.
+- **Nama zona = papan nama berdiri** (`label.mjs` › `PAPAN_ZONA`, satu mesh + satu kanvas atlas, 1 draw call, tanpa peta
+  bayangan): zona belakang = papan di sekat depan zonanya (Ruang Pimpinan di dinding kaca; Tim n di sekat kiri pod, tidak
+  menutup pintu), zona depan = papan berdiri di **lis depan** diorama. Bidang tegak menghadap depan, **tanpa cahaya** (pelat
+  buram `WARNA_PAPAN`: tinta ≥ 7:1, teks redup ≥ 4,5:1, sama di pagi–malam), garis warna zona di bawah + kotak warna zona.
+  Isi satu baris: nama zona; tim = "Tim n" tebal + " · <proyek>" (0,8×, redup; tim tanpa proyek: seluruhnya redup).
+  Puncak ≤ 1,4 m (depan 1,26 m): dari kamera bawaan papan hanya menutup sekat & lantai di belakangnya — meja, kursi, dan
+  orang tetap terlihat (dijaga tes geometri + raycast di peramban). Di layar laptop 1440 px tinggi papan ±20–28 px.
+- **Tulisan lantai berpelat** (`KOTAK_TULISAN`) menggantikan papan saat kamera dari samping (azimut > 62°: HP bawaan 74°,
+  atau diputar jauh) — papan yang menghadap depan terlalu miring dari sana. Zona belakang di lorong depan pintunya
+  (HP: "Tim n · <proyek>"), zona depan di lis depan; pelat di belakang teks menjaga kontras di atas pola lantai. Di HP
+  (±7 px/m) tulisannya ±9–14 px — terbaca, lebih jelas saat diperbesar dua jari.
 - **Orang = titik status** (14 px, warna + simbol, bingkai warna permukaan) di atas kepala, tanpa teks. **"Menunggu Anda"**
   = label penuh "! <nama> · Menunggu Anda" berbingkai amber + cincin amber di lantai.
 - **Detail ikut zoom** (`tingkatRincian`: dekat bila jarak kamera ≤ 75 % jarak "Seluruh denah", yaitu satu langkah +):
@@ -217,7 +224,7 @@ Warna halaman = variabel CSS di `kantor/index.html` (`:root` dan blok `prefers-c
 ## Kinerja & keadaan khusus
 - Anggaran: draw call ≤ 100 (terukur ±70 desktop & HP dengan semua jabatan hadir, ±77 di demo dengan asisten; gambar yang
   sekaligus menghitung ulang peta bayangan ±93 / ±99 demo: perabot statis digabung per material ±35, orang 1 per orang, layar,
-  bayangan kontak, map, genangan lampu, tulisan lantai 1 masing-masing, kap lampu 4, papan 5; buku di rak tidak ikut peta bayangan), pixel ratio ≤ 2 (HP 1,5), peta bayangan 2048² (HP 1024²) digambar sekali, tanpa post-processing.
+  bayangan kontak, map, genangan lampu, nama zona (papan atau tulisan lantai) 1 masing-masing, kap lampu 4, papan 5; buku di rak tidak ikut peta bayangan), pixel ratio ≤ 2 (HP 1,5), peta bayangan 2048² (HP 1024²) digambar sekali, tanpa post-processing.
 - Gambar ulang hanya bila perlu: kamera bergerak, orang/benda bergerak atau beranimasi, data berubah, ukuran/tema berubah.
   Diam + Jeda gerak / reduced-motion → 0 gambar per detik. Ukur dengan `?ukur=1` (bingkai/dtk, gambar/dtk, ms/gambar,
   draw call, segitiga).
@@ -254,6 +261,7 @@ Warna halaman = variabel CSS di `kantor/index.html` (`:root` dan blok `prefers-c
 - Google Maps Platform — Advanced Markers collision behavior: https://developers.google.com/maps/documentation/javascript/advanced-markers/collision-behavior
 - NN/g — Progressive Disclosure: https://www.nngroup.com/articles/progressive-disclosure/
 - NN/g — Tooltip Guidelines: https://www.nngroup.com/articles/tooltip-guidelines/
+- W3C — Understanding SC 1.4.3 Contrast (Minimum): https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html
 - W3C — Understanding SC 1.4.1 Use of Color: https://www.w3.org/WAI/WCAG22/Understanding/use-of-color.html
 - W3C — Understanding SC 1.4.11 Non-text Contrast: https://www.w3.org/WAI/WCAG22/Understanding/non-text-contrast.html
 - W3C — Understanding SC 1.4.13 Content on Hover or Focus: https://www.w3.org/WAI/WCAG22/Understanding/content-on-hover-or-focus.html
