@@ -105,6 +105,9 @@ const KERJA_AKTIVITAS = [
   [/^Memeriksa sesi tim$/, () => "memeriksa kemajuan tim"],
   [/^Mengurus domain$/, () => "mengurus domain"],
   [/^Menerima tugas$/, () => "menerima tugas"],
+  [/^Berpikir$/, () => "memikirkan langkah berikutnya"],
+  [/^Menyiapkan alat$/, () => "menyiapkan alat kerja"],
+  [/^Santai$/, () => "siap dipanggil"],
   [/^Menyerahkan hasil$/, () => "menyerahkan hasil kerja"],
 ];
 const JENIS_PESAN = { Tugas: "tugas", Laporan: "laporan", Revisi: "revisi", Diterima: "konfirmasi diterima", Konsultasi: "pertanyaan",

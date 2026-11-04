@@ -31,6 +31,14 @@ export function keteranganSiap(ag) {
   return "Mulai bekerja saat COO memberi tugas";
 }
 
+// ---------------- panel Tim ringkas ----------------
+/** Baris panel Tim yang disembunyikan untuk satu divisi yang tampil: hanya yang "siap" (Siap dipanggil), kecuali divisinya
+ *  dibuka atau orangnya sedang dipilih. Semua anggota lain selalu tampil — dihitung ulang tiap render, jadi orang yang
+ *  berganti dari siap ke bekerja/menunggu/baru selesai langsung muncul lagi. */
+export function barisTersembunyi(anggota = [], keadaan = {}, { buka = false, dipilih = null } = {}) {
+  return new Set(anggota.filter((n) => keadaan[n] === "siap" && !buka && dipilih !== n));
+}
+
 // ---------------- pemilik tugas → kursi ----------------
 /** Id teknis di kolom Pemilik register → nama peran. */
 export const NAMA_ID = {

@@ -1,7 +1,7 @@
 // Kantor RudisOne — halaman pemantauan: data dari server (SSE /events), panel samping, dan denah 3D (adegan.mjs).
 // Perilaku orang mengikuti status & pesan (DESAIN.md › Cerita gerak); jalur dihitung di grid lantai (denah.mjs).
 import { CHIEF, DIVISI, WARNA_LOUNGE, KURSI, NOMOR_TIM, PINTU, TIM, URUT, atasanDari, bangunGrid, cariJalur, hadapMeja, kursiTim, pusat, selBebas } from "./denah.mjs";
-import { berkasMeja, faseDariParam, faseWaktu, jamWIB, keadaanTampil, keteranganSiap, kursiPemilik, papanDivisi, papanTugas, statusTugas, teksSelesai } from "./jejak.mjs";
+import { barisTersembunyi, berkasMeja, faseDariParam, faseWaktu, jamWIB, keadaanTampil, keteranganSiap, kursiPemilik, papanDivisi, papanTugas, statusTugas, teksSelesai } from "./jejak.mjs";
 import { KUNCI_SIMPAN_LABEL, MODE_LABEL, isiPapanZona, modeLabelDari, tampilanOrang, tingkatRincian, tulisanZona, ucapanTampil } from "./label.mjs";
 import { DAFTAR_SINGKATAN, STATUS, durasi, kalimatWaktuTahap, kataStatusTugas, kelompokAktivitas, kerjaAktivitas, pimpinan, rincianAman, ringkasan, singkatan, tahapTugas } from "./istilah.mjs";
 
@@ -655,7 +655,7 @@ function ringkasTim(keadaan, terlihat) {
     const siap = tampil ? anggota.filter((n) => keadaan[n] === "siap") : [];
     jumlahSiap += siap.length;
     const buka = TERBUKA.has(dv.id);
-    for (const n of siap) LI[n].hidden = !buka && dipilih !== n;
+    if (tampil) { const sembunyi = barisTersembunyi(anggota, keadaan, { buka, dipilih }); for (const n of anggota) LI[n].hidden = sembunyi.has(n); }
     const ringkas = siap.filter((n) => dipilih !== n || buka);
     r.hidden = !ringkas.length;
     if (!ringkas.length) continue;

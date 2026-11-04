@@ -93,9 +93,17 @@ test("kalimat aktivitas: setiap label server punya kata kerja; perintah mentah &
   }
   assert.equal(describeTool("mcp__lain__alat_rahasia", {}).detail, "", "nama alat internal tidak dikirim");
   assert.equal(describeTool("SubagentHandback", {}).label, "Menyerahkan hasil");
+  assert.equal(describeTool("SendMessage", { to: "local_6f21bb52-aaaa", message: "[Info] x" }, () => null).label, "Mengirim pesan ke rekan", "alamat sesi mentah tidak tampil");
+  for (const [d, label] of [["Show diff from main to the task branch", "Memeriksa riwayat kode"], ["List worktree branches", "Memeriksa riwayat kode"],
+    ["Commit full build on task branch", "Menyimpan versi kode"], ["Run full test suites", "Menjalankan tes"]])
+    assert.equal(describeTool("Bash", { command: "cd /r && x", description: d }).label, label, d);
   assert.equal(kerjaAktivitas({ label: "Mengirim pesan ke Tech Lead · Tim 1", detail: "Laporan" }), "mengirim laporan ke Tech Lead · Tim 1");
   assert.equal(kerjaAktivitas({ label: "Menerima pesan dari agent lain" }), "menerima pesan dari rekan");
   assert.equal(kerjaAktivitas({ label: "Membaca kode" }, 6), "membaca 6 berkas");
+  // label keadaan sesi (bukan alat) juga berkata kerja sendiri — panel Tim memakai kalimat ini
+  const labelServer = [...fs.readFileSync(path.join(HERE, "server.mjs"), "utf8").matchAll(/label: "([^"]+)"/g)].map((m) => m[1])
+    .filter((l) => !["Bekerja", "Belum masuk", "Dipanggil saat perlu"].includes(l));
+  for (const l of new Set(labelServer)) assert.notEqual(kerjaAktivitas({ label: l }), "memakai alat kerja", `label server "${l}" punya kata kerja`);
 });
 
 test("rincian aman: ≤ 50 karakter, tanpa perintah mentah & nama alat internal", () => {

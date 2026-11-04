@@ -163,8 +163,8 @@ const host = (u) => { try { return new URL(u).hostname; } catch { return ""; } }
  *  label yang dipilih; perintah itu sendiri tidak pernah dikirim. */
 const JENIS_PERINTAH = [
   ["Menjalankan tes", /\b(run|runs|running|jalankan|menjalankan|execute)\b[^.]*\b(tests?|tes|uji|suite)\b|^\s*(tes|uji)\b/i, null],
-  ["Memeriksa riwayat kode", /\bgit\s+(log|status|diff|show)\b|\b(riwayat|history)\b/i, /^\s*git\s+(-C\s+\S+\s+)?(log|status|diff|show|rev-parse|ls-files|blame)\b/],
-  ["Menyimpan versi kode", /\b(commit|merge|rebase|worktree|branch)\b/i, /^\s*git\s+(-C\s+\S+\s+)?(commit|merge|rebase|switch|checkout|branch|worktree|tag|add|cherry-pick)\b/],
+  ["Memeriksa riwayat kode", /\bgit\s+(log|status|diff|show)\b|\b(riwayat|history|diff|branches)\b/i, /^\s*git\s+(-C\s+\S+\s+)?(log|status|diff|show|rev-parse|ls-files|blame)\b/],
+  ["Menyimpan versi kode", /\b(commit|merge|rebase)\b/i, /^\s*git\s+(-C\s+\S+\s+)?(commit|merge|rebase|switch|checkout|branch|worktree|tag|add|cherry-pick)\b/],
   ["Memotret tampilan", /\b(screenshots?|tangkapan|potret|playwright)\b/i, /playwright|screenshot/],
   ["Memasang dependensi", /\b(install|pasang|dependenc|dependensi)/i, /^\s*(npm|pnpm|yarn)\s+(ci|i|install|add)\b|^\s*brew\s+install\b/],
   ["Mengubah berkas", /\b(write|edit|apply|update|replace|rewrite|fix|ubah|ganti|tulis|perbaiki|tambah|add)\b/i, /^\s*(perl\s+-[^\n]*i|sed\s+-i|cp|mv|mkdir|printf\b.*>|cat\s*>)/],
@@ -197,7 +197,7 @@ export function describeTool(name, input = {}, resolveAgent = () => null) {
     case "WebFetch":
       return { label: "Membaca halaman web", detail: host(input.url), icon: "web" };
     case "SendMessage": {
-      const to = resolveAgent(String(input.to ?? "")) || clip(input.to, 30);
+      const to = resolveAgent(String(input.to ?? "")) || "rekan";   // alamat sesi mentah tidak ditampilkan
       const jenis = jenisPesan(input.message);
       return { label: `Mengirim pesan ke ${to}`, detail: LABEL_JENIS[jenis] ?? "", icon: "pesan", to, jenis };
     }
@@ -752,7 +752,7 @@ export function buildState(now = Date.now()) {
       if (!berjalan) { if (selesai) tandaiSelesai(kursi, s.lastTs); continue; }   // selesai → kursi kembali ke katalog
       let st = sessionStatus(s, now);
       if (st.status === "santai") st = { status: "berpikir", label: "Berpikir", detail: "", icon: "pikir", since: s.lastTs };  // subagent berjalan = bekerja
-      byAgent.get(kursi)?.push({ title: deskripsi || "subagent", cwd: s.cwd?.replace(HOME, "~") ?? "", lastTs: s.lastTs, ...st,
+      byAgent.get(kursi)?.push({ title: deskripsi || "Tugas tanpa judul", cwd: s.cwd?.replace(HOME, "~") ?? "", lastTs: s.lastTs, ...st,
         subagent: { dari: induk, id: s.asisten.id, deskripsi } });
       continue;
     }

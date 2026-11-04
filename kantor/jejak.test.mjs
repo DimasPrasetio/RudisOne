@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { URUT } from "./app/denah.mjs";
-import { BARU_SELESAI_MS, berkasMeja, faseDariParam, faseWaktu, jamWIB, keadaanTampil, keteranganSiap, kursiPemilik, papanDivisi, papanTugas, teksSelesai } from "./app/jejak.mjs";
+import { BARU_SELESAI_MS, barisTersembunyi, berkasMeja, faseDariParam, faseWaktu, jamWIB, keadaanTampil, keteranganSiap, kursiPemilik, papanDivisi, papanTugas, teksSelesai } from "./app/jejak.mjs";
 
 const KINI = Date.parse("2026-01-01T07:00:00Z");
 
@@ -94,4 +94,15 @@ test("fase waktu: pagi/siang/sore/malam dari jam WIB; parameter uji ?jam=", () =
   // 07:00 UTC = 14:00 WIB
   assert.equal(jamWIB(KINI), 14);
   assert.equal(faseWaktu(jamWIB(Date.parse("2026-01-01T12:30:00Z"))), "malam");   // 19:30 WIB
+});
+
+test("panel Tim ringkas: hanya 'siap' yang disembunyikan; orang yang mulai bekerja langsung tampil lagi", () => {
+  const corp = ["Head of Strategy", "Financial Controller", "Research Analyst", "HR Business Partner"];
+  const siapSemua = Object.fromEntries(corp.map((n) => [n, "siap"]));
+  assert.deepEqual([...barisTersembunyi(corp, siapSemua)], corp);
+  // Research Analyst berganti ke bekerja / menunggu / baru selesai → tidak tersembunyi lagi (render berikutnya)
+  for (const st of ["bekerja", "berpikir", "menunggu", "selesai"])
+    assert.ok(!barisTersembunyi(corp, { ...siapSemua, "Research Analyst": st }).has("Research Analyst"), st);
+  assert.equal(barisTersembunyi(corp, siapSemua, { buka: true }).size, 0, "divisi dibuka");
+  assert.ok(!barisTersembunyi(corp, siapSemua, { dipilih: "HR Business Partner" }).has("HR Business Partner"), "dipilih dari denah");
 });
