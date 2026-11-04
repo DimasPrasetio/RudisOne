@@ -156,11 +156,13 @@
       ],
       "repo": "https://github.com/vercel-labs/skills.git",
       "jalur": "skills/find-skills",
-      "sha": "773fb2c7bbf16781670a3520affc4abd0c6151ae",
+      "sha": "e173b8c88f2581cfdaa1b6767c6519a08155790e",
       "cli": "skills@1.7.4",
+      "adaptasi": "adaptasi/find-skills.patch",
       "lisensi": "MIT (Vercel, Inc.)",
+      "lisensi_berkas": "LICENSE",
       "disetujui": "pemilik: find-skills dipakai RudisOne untuk mencari skill; skill yang disetujui didaftarkan di sini terkunci ke sha dan dipasang hanya lewat perkakas.sh pastikan",
-      "adaptasi": "skill rudis-perkakas › Skill luar — langkah upstream 'tawarkan pasang' (npx skills add -g -y) diganti kartu nilai + keputusan pengguna + entri di sini"
+      "catatan": "adaptasi RudisOne (patch atas SKILL.md upstream, diterapkan pastikan sebelum aktif): hanya mencari dengan CLI terkunci; langkah upstream 'tawarkan pasang' (npx skills add -g -y) dan 'npx skills init' diganti kartu nilai + keputusan pengguna + pendaftaran di sini"
     }
   ]
 }

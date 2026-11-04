@@ -50,6 +50,13 @@ export function muatKebijakan(file = FILE_KEBIJAKAN, fileKonfig = FILE_KONFIG) {
   K.aplikasi = cfg?.aplikasi ?? {};
   const mcp = cfg?.dns?.mcp_server;
   if (mcp && K.adapter_mcp?.[mcp]) K.penyedia[mcp] = { jenis: "mcp", server: mcp, ...K.adapter_mcp[mcp] };
+  // CLI skill: versi yang dikunci (perkakas.json › skill_luar › cli, di samping berkas kebijakan) — hanya versi ini yang
+  // boleh mencari tanpa ditanya; tanpa versi / versi lain → ditanya
+  if (K.skills_cli) {
+    let kunci = [];
+    try { kunci = (JSON.parse(fs.readFileSync(path.join(path.dirname(file), "perkakas.json"), "utf8")).skill_luar ?? []).map((e) => e.cli).filter((c) => /^skills@\d+\.\d+\.\d+$/.test(String(c))); } catch { /* tanpa perkakas.json: tidak ada versi terkunci */ }
+    K.skills_cli = { ...K.skills_cli, versi_kunci: [...new Set(kunci)] };
+  }
   return K;
 }
 
@@ -578,8 +585,11 @@ function klasifikasiSkills(lok, aman, K) {
   if (lok.pasang) return tanya("add-skill (nama lama CLI skill) selalu memasang — jalur resmi: bin/perkakas.sh pastikan");
   if (lok.aneh) return tanya("bentuk pemanggilan CLI skill tidak dikenali");
   if (lok.sub.some((a) => new RegExp(S.opsi_tulis).test(a))) return tanya("opsi pasang/global (-g/-y) — pasang skill hanya lewat bin/perkakas.sh pastikan");
-  if (!perintah || new RegExp(S.baca).test(perintah) || new RegExp(S.info).test(perintah))
-    return { aman, skills: true, aksi: [{ kemampuan: S.kemampuan, jenjang: 1, aksi: `skills ${perintah || "(info)"} — cari/lihat skill` }] };
+  if (!perintah || new RegExp(S.baca).test(perintah) || new RegExp(S.info).test(perintah)) {
+    if (!(S.versi_kunci ?? []).includes(lok.pkg))
+      return tanya(`versi CLI tidak terkunci — cari hanya dengan ${(S.versi_kunci ?? [])[0] ?? "skills@<versi di perkakas.json › skill_luar › cli>"} (DO_NOT_TRACK=1 npx -y <versi> find …)`);
+    return { aman, skills: true, aksi: [{ kemampuan: S.kemampuan, jenjang: 1, aksi: `${lok.pkg} ${perintah || "(info)"} — cari/lihat skill` }] };
+  }
   return tanya("memasang/mengubah skill — jalur resmi: bin/perkakas.sh pastikan <skill> (terdaftar di perkakas.json › skill_luar)");
 }
 /** `skills <subperintah tulis>` di posisi perintah, termasuk lewat pelari (npx/dlx/exec) — untuk menangkap bentuk yang

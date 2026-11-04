@@ -137,19 +137,28 @@ test("CLI ekosistem skill (npx skills): cari/lihat tanpa tanya untuk COO & Resea
   const RA = path.join(ROOT, "ruang", "research-analyst"), TW = path.join(ROOT, "ruang", "technical-writer");
   const p = (cwd, c) => putuskan(bash(cwd, c), K);
   assert.deepEqual([...K.kemampuan["skill-cari"].akses].sort(), ["coo", "research-analyst"]);
-  // baca: find/search/list (+ alias), info, versi dikunci, npx -y, telemetri dimatikan, npm exec, pipa ke head
-  for (const c of ["npx skills find pdf", "npx -y skills@1.7.4 find react testing", "DO_NOT_TRACK=1 npx -y skills@1.7.4 find changelog",
-    "npx skills search x", "npx skills s x", "npx skills list", "npx skills ls", "npx skills --help", "npx skills --version",
-    "npm exec -- skills find x", "npx skills find x | head -20"]) {
+  // baca hanya dengan versi CLI terkunci (perkakas.json › skill_luar › cli): find/search/list (+ alias), info, npx -y,
+  // telemetri dimatikan, npm exec, bun x, pipa ke head
+  const V = K.skills_cli.versi_kunci[0];
+  assert.match(V, /^skills@\d+\.\d+\.\d+$/);
+  for (const c of [`npx ${V} find pdf`, `npx -y ${V} find react testing`, `DO_NOT_TRACK=1 npx -y ${V} find changelog`,
+    `npx ${V} search x`, `npx ${V} s x`, `npx ${V} list`, `npx ${V} ls`, `npx ${V} --help`, `npx ${V} --version`,
+    `npm exec -- ${V} find x`, `npx ${V} find x | head -20`, `bun x ${V} find x`]) {
     assert.equal(p(RA, c).keputusan, "allow", `RA: ${c}`);
     assert.equal(p(COO, c).keputusan, "allow", `COO: ${c}`);
     assert.equal(p(TW, c).keputusan, "ask", `TW di luar akses: ${c}`);
+  }
+  // tanpa versi, versi lain, tag/rentang, atau biner global → ditanya (hanya versi terkunci yang lolos)
+  for (const c of ["npx skills find pdf", "npx -y skills find x", "npx skills list", "npx skills --help", "npx skills@1.0.0 find x",
+    "npx skills@latest find x", "npx skills@^1.7.4 find x", "skills find x", "npm exec -- skills find x"]) {
+    assert.equal(p(RA, c).keputusan, "ask", `RA: ${c}`);
+    assert.match(p(RA, c).alasan, /versi CLI tidak terkunci/, c);
   }
   // pasang/ubah: selalu ditanya (jenjang 3), juga untuk jabatan berizin dan dalam bentuk terbungkus
   for (const c of ["npx skills add vercel-labs/agent-skills --skill frontend-design -g -a claude-code -y",
     "npx skills add owner/repo", "npx skills install x", "npx skills i x", "npx skills a x", "npx skills@1.7.4 update", "npx skills upgrade",
     "npx skills remove x", "npx skills rm x", "npx skills init my-skill", "npx skills use x", "npx skills sync", "npx skills check",
-    "npx skills experimental_install", "npx skills find x -y", "npx skills list -g", "npx skills ls --global", "npx skills find x --yes",
+    "npx skills experimental_install", "npx skills find x -y", `npx ${V} find x -y`, "npx skills list -g", `npx ${V} ls --global`, "npx skills find x --yes",
     "skills add x", "pnpm dlx skills add x", "yarn dlx skills update", "bunx skills add x", "npm exec skills add x",
     "npx --package=skills skills add x", "npx -p skills skills find x", "timeout 60 npx skills add x", "nohup npx skills add x",
     "bash -c \"npx skills add x\"", "echo x | xargs npx skills add", "npx skills find x && npx skills add y",
@@ -165,14 +174,13 @@ test("CLI ekosistem skill (npx skills): cari/lihat tanpa tanya untuk COO & Resea
   }
   assert.match(p(RA, "npx skills add owner/repo").alasan, /jenjang 3.*|perkakas\.sh pastikan/);
   // awalan env lain tidak ikut diloloskan; npx paket lain & menyebut folder skills bukan urusan aturan ini
-  assert.equal(p(RA, "FOO=1 npx skills find x").keputusan, null);
+  assert.equal(p(RA, `FOO=1 npx ${V} find x`).keputusan, null);
   assert.equal(p(RA, "npx cowsay hi").keputusan, null);
   assert.equal(p(COO, "ls ~/.claude/skills").keputusan, null);
   assert.equal(p(COO, "echo 'npx skills add x'").keputusan, null);   // teks dalam kutip bukan perintah
   for (const c of ["npx eslint skills", "npx prettier --write skills/", "echo add-skill", "grep -rn add-skill .", "git commit -m \"add-skill notes\"",
     "ls node_modules/skills/", "du -sh ~/.claude/skills", "git log --oneline -- skills/rudis-perkakas",
     "grep -rc \"skills add\" skills/", "grep -ic 'add-skill' README.md"]) assert.equal(p(COO, c).keputusan, null, c);
-  assert.equal(p(RA, "bun x skills find x").keputusan, "allow");
 });
 
 test("jenjang 3: ubah server, sudo, rahasia, perintah tak dikenal selalu ditanya", () => {
