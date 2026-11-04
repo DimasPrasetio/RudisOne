@@ -44,6 +44,7 @@ export const NAMA_ID = {
  *  "Software Engineer #2 · toko", atau id teknis seperti "tech-lead") → kursi, atau null. */
 export function kursiPemilik(pemilik, tim) {
   if (!pemilik || typeof pemilik !== "string") return null;
+  pemilik = pemilik.replace(/\s*\([^()]*\)\s*$/, "").trim();   // keterangan "(subagent)", "(kasir)" di akhir diabaikan
   if (Object.hasOwn(TIM, pemilik)) return pemilik;
   const [peran0, sisa = ""] = pemilik.split(" · ");
   const bernomor = /^(.*?)\s*#(\d)$/.exec(peran0.trim());
