@@ -150,7 +150,7 @@ export function versiKunci(e, root = akarRudisone()) {
 }
 /** Penanda terpasang sama dengan versi terkunci (sha sumber, hash adaptasi, cli). */
 export const samaVersi = (p, k) => Boolean(p && k && !k.galat) && p.sha === k.sha && (p.adaptasi?.sha256 ?? null) === (k.adaptasi?.sha256 ?? null) && (p.cli ?? null) === k.cli;
-const ringkasVersi = (v) => `${String(v?.sha ?? "?").slice(0, 12)}${v?.adaptasi ? ` + adaptasi ${v.adaptasi.sha256.slice(0, 8)}` : ""}`;
+const ringkasVersi = (v) => `${String(v?.sha ?? "?").slice(0, 12)}${v?.adaptasi ? ` + adaptasi ${v.adaptasi.sha256.slice(0, 8)}` : ""}${v?.cli ? ` + ${v.cli}` : ""}`;
 
 /** Penanda versi skill ekosistem yang terpasang: { repo, sha, jalur, adaptasi, cli } atau null (tidak ada / rusak). */
 export function bacaPenanda(dir, nama) {
@@ -204,7 +204,8 @@ function pasangEkosistem(e, catat, dir, root = akarRudisone()) {
     }
     // 2) adaptasi RudisOne (wajib cocok dengan sha terkunci) + penampung versi CLI
     if (e.adaptasi) {
-      const a = git("apply", "--directory=staging", "--whitespace=nowarn", path.join(root, e.adaptasi));
+      // LF dipaksa: git apply (tanpa --index) menulis mengikuti core.autocrlf global (Windows: CRLF → merusak frontmatter)
+      const a = git("-c", "core.autocrlf=false", "-c", "core.eol=lf", "apply", "--directory=staging", "--whitespace=nowarn", path.join(root, e.adaptasi));
       if (!a.ok) return catat("!!", `${e.id}: adaptasi ${e.adaptasi} tidak cocok dengan ${e.sha.slice(0, 12)} — ${baris1(a.err || a.out)}; perbarui adaptasinya (skill rudis-perkakas › Skill luar)`), false;
     }
     const semua = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((x) => (x.isDirectory() ? semua(path.join(d, x.name)) : [path.join(d, x.name)]));

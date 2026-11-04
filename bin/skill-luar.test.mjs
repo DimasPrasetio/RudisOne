@@ -221,7 +221,15 @@ test("jenis ekosistem + adaptasi RudisOne: patch diterapkan sebelum aktif, versi
   assert.equal(p.adaptasi.berkas, "adaptasi/cari.patch");
   assert.equal(p.adaptasi.sha256, crypto.createHash("sha256").update(fs.readFileSync(path.join(ROOT, "adaptasi/cari.patch"))).digest("hex"));
   assert.equal(pastikan(entri(), "cari", opsi), 0);
-  assert.match(log.at(-1), /tersedia \(pribadi @ [0-9a-f]{12} \+ adaptasi [0-9a-f]{8}\)/);
+  assert.match(log.at(-1), /tersedia \(pribadi @ [0-9a-f]{12} \+ adaptasi [0-9a-f]{8} \+ skills@1\.2\.3\)/);
+  // core.autocrlf=true global (bawaan Git for Windows) tidak membuat hasil adaptasi ber-CRLF
+  fs.rmSync(path.join(C, "skills", "cari"), { recursive: true });
+  const envLama = { ...process.env };
+  Object.assign(process.env, { GIT_CONFIG_COUNT: "1", GIT_CONFIG_KEY_0: "core.autocrlf", GIT_CONFIG_VALUE_0: "true" });
+  try { assert.equal(pastikan(entri(), "cari", opsi), 0, log.join("\n")); }
+  finally { for (const k of ["GIT_CONFIG_COUNT", "GIT_CONFIG_KEY_0", "GIT_CONFIG_VALUE_0"]) if (envLama[k] === undefined) delete process.env[k]; else process.env[k] = envLama[k]; }
+  assert.doesNotMatch(skillMd(), /\r/);
+  assert.match(skillMd(), /search only \(RudisOne\)/);
 
   // adaptasi diubah (hash beda) atau cli diganti → versi ≠ terkunci → dipasang ulang dengan versi baru
   buatPatch(adaptasi1.replace("search only (RudisOne)", "search only (RudisOne v2)"));
