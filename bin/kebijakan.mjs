@@ -540,6 +540,40 @@ function perkakasUtuh(nama) {
 const BACA_SENDIRI = { kebijakan: ["uji", "cek", "tampil", "audit"], konfig: ["cek", "get", "host", "playbook", "contoh"], inti: ["hook", "cek", "uji"] };
 
 /** Satu segmen → { aksi?, aman, bacaSendiri? }. `aman` = segmen ini boleh ikut dalam perintah yang diloloskan. */
+/** Pemanggilan CLI ekosistem skill (paket npm `skills`, mis. `npx skills find x`, `npm exec -- skills@1.7.4 add …`,
+ *  `pnpm dlx skills …`, atau biner `skills` global) → { pkg, sub, aneh } ; bukan CLI skill → null. `aneh` = bentuk yang
+ *  tidak dikenali pasti (opsi pelari lain, `--package`/`-p skills`, `-c …`) — tidak pernah diloloskan. */
+export function lokasiSkills(nama, args) {
+  const n = String(nama).toLowerCase().replace(/\.(cmd|exe)$/, "");
+  if (n === "skills") return { pkg: "skills", sub: args, aneh: false };
+  let rest;
+  if (["npx", "pnpx", "bunx"].includes(n)) rest = args;
+  else if (n === "npm" && ["exec", "x"].includes(args[0])) rest = args.slice(1);
+  else if ((n === "pnpm" || n === "yarn") && args[0] === "dlx") rest = args.slice(1);
+  else return null;
+  let i = 0, aneh = false;
+  while (i < rest.length && rest[i].startsWith("-")) { if (!/^(-y|--yes|-q|--quiet|--)$/.test(rest[i])) aneh = true; i++; }
+  if (/^skills(@\S*)?$/.test(rest[i] ?? "")) return { pkg: rest[i], sub: rest.slice(i + 1), aneh };
+  return rest.some((a) => /^(--package=)?skills(@\S*)?$/.test(a)) ? { pkg: "skills", sub: [], aneh: true } : null;
+}
+/** Aksi kebijakan untuk CLI skill (kebijakan-akses.json › skills_cli): subperintah baca (cari/daftar) & info = jenjang 1;
+ *  selain itu (add/install/update/remove/init/use/sync/check/…), opsi tulis (-g/-y/--global/--yes), atau bentuk aneh = jenjang 3.
+ *  Satu-satunya jalur pasang: bin/perkakas.sh pastikan (skill terdaftar di perkakas.json › skill_luar). */
+function klasifikasiSkills(lok, aman, K) {
+  const S = K.skills_cli;
+  const perintah = lok.sub[0] ?? "";
+  const teks = `${lok.pkg} ${lok.sub.join(" ")}`.trim().slice(0, 80);
+  const tanya = (alasan) => ({ aman: false, skills: true, aksi: [{ kemampuan: S.kemampuan, jenjang: 3, aksi: `${teks} — ${alasan}` }] });
+  if (lok.aneh) return tanya("bentuk pemanggilan CLI skill tidak dikenali");
+  if (lok.sub.some((a) => new RegExp(S.opsi_tulis).test(a))) return tanya("opsi pasang/global (-g/-y) — pasang skill hanya lewat bin/perkakas.sh pastikan");
+  if (!perintah || new RegExp(S.baca).test(perintah) || new RegExp(S.info).test(perintah))
+    return { aman, skills: true, aksi: [{ kemampuan: S.kemampuan, jenjang: 1, aksi: `skills ${perintah || "(info)"} — cari/lihat skill` }] };
+  return tanya("memasang/mengubah skill — jalur resmi: bin/perkakas.sh pastikan <skill> (terdaftar di perkakas.json › skill_luar)");
+}
+/** `skills <subperintah tulis>` di posisi perintah, termasuk lewat pelari (npx/dlx/exec) — untuk menangkap bentuk yang
+ *  tidak diurai sebagai segmen CLI skill (bash -c, xargs, $( ) …). */
+const SKILLS_TULIS_MENTAH = /(?:(?:^|[;&|(\n`])\s*(?:\S*\/)?skills|\b(?:npx|pnpx|bunx|dlx|exec)\s+(?:-\S+\s+)*skills)(?:@[^\s'"]*)?\s+(?:add|install|i|a|remove|rm|r|update|upgrade|init|use|sync|check|experimental_\w+)(?![\w.-])/;
+
 function klasifikasiSegmen(s, K, ctx) {
   const w = [...s.kata];
   const prefiks = [];
@@ -583,11 +617,20 @@ function klasifikasiSegmen(s, K, ctx) {
   // Backend sesi cli: dikenali dari nama program di path mana pun (agar pembatasan tidak lolos lewat
   // ~/.local/bin/claude), tetapi hanya boleh ikut diloloskan bila dipanggil dengan nama standar.
   if (nama === "claude") { const h = klasifikasiClaude(args, dasarAman, ctx); return { ...h, claude: true, aman: h.aman && programStandar(prog) }; }
+  // CLI ekosistem skill (`npx skills …`): cari/lihat = jenjang 1 (kemampuan skills_cli.kemampuan); pasang/ubah = jenjang 3
+  const lokSkills = K.skills_cli ? lokasiSkills(nama, args) : null;
+  if (lokSkills) {
+    const envBoleh = new RegExp(K.skills_cli.env_boleh ?? "^$");
+    const amanSkills = alihOk && prefiks.every((p) => envBoleh.test(p)) && !w.some((x) => x.ekspansi || x.glob) && programStandar(prog);
+    return klasifikasiSkills(lokSkills, amanSkills, K);
+  }
   // lewat pembungkus (timeout 60 claude …, nohup/env/command/exec/nice claude …): pembatasan tetap berlaku, tidak pernah allow
   if (/^(g?timeout|nohup|command|exec|nice|env|stdbuf|time|caffeinate)$/.test(nama)) {
     let i = 1;
     while (i < w.length && /^(-.*|\d+(\.\d+)?[smhd]?|[A-Za-z_][A-Za-z0-9_]*=.*)$/.test(w[i].nilai)) i++;
     if (path.basename(w[i]?.nilai ?? "") === "claude") return { ...klasifikasiClaude(w.slice(i + 1).map((x) => x.nilai), false, ctx), claude: true, aman: false };
+    const dalam = K.skills_cli && w[i] ? lokasiSkills(path.basename(w[i].nilai), w.slice(i + 1).map((x) => x.nilai)) : null;
+    if (dalam) return { ...klasifikasiSkills(dalam, false, K), aman: false };
   }
   if (!programStandar(prog)) return { aman: false };
   const cli = Object.entries(K.penyedia).find(([, p]) => p.jenis === "cli" && p.perintah === nama);
@@ -1571,6 +1614,12 @@ function analisisBash(input, K) {
     + [...k.matchAll(new RegExp(CLAUDE_BYPASS_MENTAH.source, "gi"))].length;
   if (sesiMentah(teksKode(cmd)) > u.segmen.reduce((n, s, i) => n + (hasil[i].claude ? sesiMentah(teksKode(s.teks)) : 0), 0))
     aksi.push({ kemampuan: "sesi", jenjang: 3, aksi: "perintah claude untuk sesi latar dalam bentuk yang tidak dikenali" });
+  // CLI skill: pasang/ubah (`skills add …`) dalam bentuk yang tidak diurai sebagai segmen CLI skill → ditanya
+  if (K.skills_cli) {
+    const tulisMentah = (k) => [...k.matchAll(new RegExp(SKILLS_TULIS_MENTAH.source, "g"))].length;
+    if (tulisMentah(teksKode(cmd)) > u.segmen.reduce((n, s, i) => n + (hasil[i].skills ? tulisMentah(teksKode(s.teks)) : 0), 0))
+      aksi.push({ kemampuan: K.skills_cli.kemampuan, jenjang: 3, aksi: "pasang/ubah skill lewat CLI skill dalam bentuk yang tidak dikenali — jalur resmi: bin/perkakas.sh pastikan" });
+  }
   const aman = !u.kompleks && !u.ekspansi && hasil.length > 0 && hasil.every((h) => h.aman);
   const terlindung = ubahSendiri ? "pengelola kebijakan/hook (pasang, lepas, installer, …)" : sebut;
   return { aksi, aman, terlindung, ringkasan: cmd, env: envPerintah(cmd, input, K) };

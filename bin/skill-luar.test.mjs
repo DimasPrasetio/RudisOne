@@ -83,3 +83,67 @@ test("jenis plugin: marketplace resmi ditambahkan lalu plugin dipasang; skill pl
   const baris = laporan(DAFTAR, CLAUDE);
   assert.deepEqual(baris.map(([t]) => t), ["ok", "ok", "..", ".."]);
 });
+
+test("jenis ekosistem: dipasang dari repo git pada sha terkunci (tanpa menjalankan kode sumber); sha tak cocok/pendek ditolak; pin baru → versi baru", async () => {
+  const { galatEkosistem, bacaPenanda, PENANDA } = await import("./skill-luar.mjs");
+  const C = path.join(tmp, "claude-eko"); fs.mkdirSync(C, { recursive: true });
+  const R = path.join(tmp, "ekosistem-tiruan");
+  const tulis = (rel, isi, mode) => { const f = path.join(R, rel); fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f, isi); if (mode) fs.chmodSync(f, mode); };
+  const gr = (...a) => execFileSync("git", ["-C", R, "-c", "user.name=u", "-c", "user.email=u@x", "-c", "commit.gpgsign=false", ...a], { encoding: "utf8" }).trim();
+  fs.mkdirSync(R, { recursive: true }); gr("init", "-q", "-b", "main");
+  tulis("skills/cari/SKILL.md", "---\nname: cari\n---\nversi A\n");
+  tulis("skills/cari/scripts/x.sh", "touch dijalankan\n", 0o755);
+  tulis("skills/cari-lain/SKILL.md", "folder lain berawalan sama\n");
+  tulis("src/cli.ts", "kode CLI — tidak ikut\n");
+  gr("add", "-A"); gr("commit", "-qm", "A"); const A = gr("rev-parse", "HEAD");
+  tulis("skills/cari/SKILL.md", "---\nname: cari\n---\nversi B\n"); gr("commit", "-qam", "B"); const B = gr("rev-parse", "HEAD");
+  const entri = (sha, extra = {}) => [{ id: "cari", jenis: "ekosistem", skill: ["cari"], repo: R, sha, jalur: "skills/cari", lisensi: "MIT", ...extra }];
+  const log = []; const catat = { dir: C, log: (s) => log.push(s) };
+  const skillMd = path.join(C, "skills", "cari", "SKILL.md");
+
+  // sha terkunci A (bukan ujung cabang) → isi versi A, penanda, skrip tidak dijalankan, folder lain & kode CLI tidak ikut
+  assert.equal(pastikan(entri(A), "cari", catat), 0, log.join("\n"));
+  assert.match(fs.readFileSync(skillMd, "utf8"), /versi A/);
+  assert.deepEqual(bacaPenanda(C, "cari"), { id: "cari", repo: R, sha: A, jalur: "skills/cari" });
+  assert.deepEqual(fs.readdirSync(path.join(C, "skills", "cari")).sort(), [PENANDA, "SKILL.md", "scripts"].sort());
+  assert.ok(!fs.existsSync(path.join(R, "dijalankan")) && !fs.existsSync(path.join(C, "skills", "cari", "dijalankan")));
+  if (process.platform !== "win32") assert.ok(fs.statSync(path.join(C, "skills", "cari", "scripts", "x.sh")).mode & 0o100);
+  assert.deepEqual(fs.readdirSync(path.join(C, "skills")).filter((x) => x.startsWith(".")), []);   // tanpa sisa folder sementara
+  assert.equal(pastikan(entri(A), "cari", catat), 0);
+  assert.match(log.at(-1), new RegExp(`tersedia \\(pribadi @ ${A.slice(0, 12)}\\)`));
+  assert.deepEqual(laporan(entri(A), C)[0][0], "ok");
+
+  // sha yang tidak ada di repo, sha pendek, cabang, jalur keluar repo → ditolak, versi terpasang tidak berubah
+  for (const [e, pola] of [[entri("0123456789abcdef0123456789abcdef01234567"), /tidak ada di|ambil .* gagal/], [entri(A.slice(0, 7)), /40 hex/],
+    [entri("main"), /40 hex/], [entri(B, { jalur: "../luar" }), /jalur/], [entri(B, { jalur: "skills/tidak-ada" }), /SKILL\.md tidak ada/]]) {
+    log.length = 0;
+    assert.equal(pastikan(e, "cari", catat), 1, JSON.stringify(e));
+    assert.match(log.join("\n"), pola);
+    assert.match(fs.readFileSync(skillMd, "utf8"), /versi A/);
+  }
+  assert.match(galatEkosistem(entri(A, { skill: ["../x"] })[0]), /nama folder/);
+
+  // pin diganti ke B (keputusan pembaruan) → laporan menandai beda versi, pastikan memasang versi terkunci baru
+  assert.match(laporan(entri(B), C)[0][1], /versi terpasang .* ≠ terkunci/);
+  assert.equal(pastikan(entri(B), "cari", catat), 0);
+  assert.match(fs.readFileSync(skillMd, "utf8"), /versi B/);
+  assert.equal(bacaPenanda(C, "cari").sha, B);
+
+  // folder skill bernama sama tanpa penanda (dipasang di luar jalur resmi, mis. npx skills add) → tidak pernah ditimpa
+  fs.rmSync(path.join(C, "skills", "cari", PENANDA));
+  log.length = 0;
+  assert.equal(pastikan(entri(A), "cari", catat), 1);
+  assert.match(log.join("\n"), /di luar jalur RudisOne/);
+  assert.match(fs.readFileSync(skillMd, "utf8"), /versi B/);
+  assert.match(laporan(entri(A), C)[0][1], /di luar jalur RudisOne/);
+
+  // symlink di folder skill → ditolak
+  if (process.platform !== "win32") {
+    fs.rmSync(path.join(C, "skills", "cari"), { recursive: true });
+    fs.symlinkSync("/etc/hosts", path.join(R, "skills", "cari", "tautan")); gr("add", "-A"); gr("commit", "-qm", "C"); const S = gr("rev-parse", "HEAD");
+    log.length = 0;
+    assert.equal(pastikan(entri(S), "cari", catat), 1);
+    assert.match(log.join("\n"), /symlink — ditolak/);
+    assert.ok(!fs.existsSync(path.join(C, "skills", "cari")));
+  }
+});

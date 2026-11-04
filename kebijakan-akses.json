@@ -1,7 +1,7 @@
 {
   "versi": 1,
   "keterangan": "Kebijakan akses & batas kewenangan RudisOne — aturan GENERIK yang dibaca hook bin/kebijakan.mjs. Fakta per device (host ssh, aplikasi deploy, MCP DNS) TIDAK ada di sini: dibaca dari konfigurasi/server.json (bin/konfig.sh), diisi atas persetujuan pengguna. Ringkasan untuk manusia: bin/kebijakan.sh tampil. Prinsip & cara mengubah: protokol.md › Aset, akses & batas kewenangan. Mengubah file ini = mengubah delegasi kewenangan: hanya atas keputusan pemilik (pengguna), kutipannya dicatat di commit.",
-  "disetujui": "Kebijakan bawaan yang disetujui pemilik: jenjang 2 = deploy app terdaftar, tambah subdomain DNS, buat repo GitHub privat; berlaku hanya di sesi RudisOne; akses per jabatan. Backend sesi cli: membentuk/menghentikan sesi latar hanya COO, claude rm/attach/bypassPermissions selalu ditanya. Penjaga .env & cek kunci (otomatis): baca isi .env ditolak otomatis, bin/env-kunci.sh & bin/gerbang-tl.sh berjalan tanpa bertanya. Skill luar terdaftar (perkakas.json › skill_luar): semua jabatan boleh perkakas.sh pastikan/skill tanpa bertanya. Perubahan kebijakan hanya atas keputusan pemilik; kutipan keputusannya dicatat di pesan commit, bukan di berkas ini.",
+  "disetujui": "Kebijakan bawaan yang disetujui pemilik: jenjang 2 = deploy app terdaftar, tambah subdomain DNS, buat repo GitHub privat; berlaku hanya di sesi RudisOne; akses per jabatan. Backend sesi cli: membentuk/menghentikan sesi latar hanya COO, claude rm/attach/bypassPermissions selalu ditanya. Penjaga .env & cek kunci (otomatis): baca isi .env ditolak otomatis, bin/env-kunci.sh & bin/gerbang-tl.sh berjalan tanpa bertanya. Skill luar terdaftar (perkakas.json › skill_luar): semua jabatan boleh perkakas.sh pastikan/skill tanpa bertanya. CLI ekosistem skill (npx skills): cari/lihat (find, list) COO & Research Analyst tanpa bertanya; pasang/ubah (add, update, remove, init, …, opsi -g/-y) selalu ditanya — pasang skill luar hanya lewat perkakas.sh pastikan dari entri skill_luar yang dikunci ke sha. Perubahan kebijakan hanya atas keputusan pemilik; kutipan keputusannya dicatat di pesan commit, bukan di berkas ini.",
 
   "jabatan": {
     "coo": { "nama": "COO" },
@@ -28,7 +28,17 @@
     "sesi": { "nama": "Sesi agent latar (backend cli: claude --bg, stop/kill, respawn, logs)", "akses": ["coo"] },
     "sesi-baca": { "nama": "Baca daftar & status sesi (bin/sesi.sh backend/daftar/cek, claude agents --json)", "akses": ["coo", "head-of-strategy", "financial-controller", "research-analyst", "hr-business-partner", "tech-lead", "business-systems-analyst", "software-engineer", "program-manager", "technical-writer", "head-of-it-operations", "system-administrator"] },
     "env-kunci": { "nama": "Cek kunci .env terisi/kosong tanpa nilai (bin/env-kunci.sh)", "akses": ["coo", "head-of-strategy", "financial-controller", "research-analyst", "hr-business-partner", "tech-lead", "business-systems-analyst", "software-engineer", "program-manager", "technical-writer", "head-of-it-operations", "system-administrator"] },
-    "skill-luar": { "nama": "Skill luar terdaftar (cek & pasang dari sumber resmi)", "akses": ["coo", "head-of-strategy", "financial-controller", "research-analyst", "hr-business-partner", "tech-lead", "business-systems-analyst", "software-engineer", "program-manager", "technical-writer", "head-of-it-operations", "system-administrator"] }
+    "skill-luar": { "nama": "Skill luar terdaftar (cek & pasang dari sumber resmi)", "akses": ["coo", "head-of-strategy", "financial-controller", "research-analyst", "hr-business-partner", "tech-lead", "business-systems-analyst", "software-engineer", "program-manager", "technical-writer", "head-of-it-operations", "system-administrator"] },
+    "skill-cari": { "nama": "Cari skill di ekosistem terbuka (npx skills find/list; menilai: templat/kartu-nilai-skill.md)", "akses": ["coo", "research-analyst"] }
+  },
+
+  "skills_cli": {
+    "keterangan": "CLI ekosistem skill (paket npm `skills`, lewat npx/pnpx/bunx/npm exec/pnpm dlx/yarn dlx atau biner `skills`). Subperintah `baca`/`info` = jenjang 1 (kemampuan di bawah); selain itu, opsi `opsi_tulis`, atau bentuk pemanggilan yang tidak dikenali = jenjang 3. Awalan env yang boleh: `env_boleh` (mematikan telemetri). Pasang skill hanya lewat bin/perkakas.sh pastikan.",
+    "kemampuan": "skill-cari",
+    "baca": "^(find|search|f|s|list|ls)$",
+    "info": "^(--help|-h|--version|-v)$",
+    "opsi_tulis": "^(--global|--yes)(=.*)?$|^-[A-Za-z]*[gy][A-Za-z]*$",
+    "env_boleh": "^(DO_NOT_TRACK|DISABLE_TELEMETRY)=1$"
   },
 
   "jenjang2": {

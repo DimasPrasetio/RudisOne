@@ -5,7 +5,12 @@
 //   plugin    `claude plugin marketplace add <sumber>` + `claude plugin install <plugin>` (lisensi Anthropic:
 //             tidak pernah disalin ke repo sendiri — selalu dari marketplace resmi)
 //   platform  bawaan aplikasi Claude (mis. konektor Claude Docs); tidak bisa dipasang → pakai `alternatif`
+//   ekosistem skill dari ekosistem terbuka (skills.sh): repo git + `jalur` folder skill + `sha` commit penuh yang dikunci.
+//             Diambil dengan git pada sha itu (tanpa menjalankan kode/skrip dari sumber, tanpa `npx skills add`), folder
+//             `jalur` disalin ke ~/.claude/skills/<skill> beserta penanda `.rudisone-sumber.json` (repo, sha, jalur).
+//             Pin berubah → `pastikan` memasang versi terkunci yang baru; folder tanpa penanda tidak pernah ditimpa.
 import { cariBash, jalankan as jalankanProses, posix } from "./lib/platform.mjs";
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -106,20 +111,91 @@ function pasangPlugin(e, catat, dir) {
   return true;
 }
 
+// ---------- jenis ekosistem: repo git + jalur + sha terkunci ----------
+export const PENANDA = ".rudisone-sumber.json";
+const SHA_PENUH = /^[0-9a-f]{40}$/;
+const NAMA_SKILL = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+
+/** Galat bentuk entri ekosistem (sebelum menyentuh jaringan/disk), atau null. */
+export function galatEkosistem(e) {
+  if (!e.repo) return "repo kosong";
+  if (!SHA_PENUH.test(String(e.sha ?? ""))) return `sha harus commit penuh 40 hex (bukan cabang/tag/sha pendek): "${e.sha ?? ""}"`;
+  if (e.skill?.length !== 1 || !NAMA_SKILL.test(e.skill[0])) return "skill harus tepat satu nama folder yang sah";
+  const j = String(e.jalur ?? "");
+  if (!j || path.isAbsolute(j) || j.split(/[\\/]/).some((x) => x === ".." || x === "." || x === "") || /\\/.test(j)) return `jalur harus path relatif di repo tanpa ".." (mis. skills/${e.skill[0]}): "${j}"`;
+  return null;
+}
+
+/** Penanda versi skill ekosistem yang terpasang: { repo, sha, jalur } atau null (tidak ada / rusak). */
+export function bacaPenanda(dir, nama) {
+  const j = bacaJson(path.join(dir, "skills", nama, PENANDA));
+  return j && typeof j === "object" && SHA_PENUH.test(String(j.sha ?? "")) ? j : null;
+}
+
+/** Ambil folder `e.jalur` pada commit `e.sha` dari `e.repo` ke ~/.claude/skills/<skill> (menggantikan versi lama yang
+ *  berpenanda). Tidak menjalankan apa pun dari sumber; symlink & submodul ditolak. */
+function pasangEkosistem(e, catat, dir) {
+  const g = galatEkosistem(e);
+  if (g) return catat("!!", `${e.id}: entri tidak sah — ${g}`), false;
+  const nama = e.skill[0], tujuan = path.join(dir, "skills", nama);
+  if (fs.existsSync(tujuan) && !bacaPenanda(dir, nama))
+    return catat("!!", `${e.id}: ${tujuan} sudah ada tanpa penanda versi RudisOne (dipasang di luar jalur resmi) — tidak ditimpa; pindahkan/hapus folder itu sendiri, lalu jalankan pastikan lagi`), false;
+  const kerja = fs.mkdtempSync(path.join(os.tmpdir(), "rudisone-skill-"));
+  const git = (...a) => jalankan("git", ["-C", kerja, ...a]);
+  try {
+    jalankan("git", ["init", "-q", kerja]);
+    // sha langsung (protokol v2); server yang menolak → ambil semua cabang lalu cari sha-nya
+    if (!git("fetch", "-q", "--depth", "1", "--no-tags", e.repo, e.sha).ok) {
+      const f = git("fetch", "-q", "--no-tags", e.repo, "+refs/heads/*:refs/remotes/sumber/*");
+      if (!f.ok) return catat("!!", `${e.id}: ambil ${e.repo} gagal — ${baris1(f.err)}`), false;
+    }
+    const sha = git("rev-parse", "--verify", "-q", `${e.sha}^{commit}`);
+    if (!sha.ok || sha.out !== e.sha) return catat("!!", `${e.id}: sha terkunci ${e.sha} tidak ada di ${e.repo} — ditolak`), false;
+    const ls = jalankanProses("git", ["-C", kerja, "ls-tree", "-r", "-z", "--full-tree", e.sha, "--", e.jalur], { encoding: "utf8" });
+    const isi = String(ls.stdout ?? "").split("\0").filter(Boolean).map((b) => { const [kepala, p] = b.split("\t"); const [mode, jenis, oid] = kepala.split(" "); return { mode, jenis, oid, p }; })
+      .filter((x) => x.p.startsWith(`${e.jalur}/`));   // pathspec bisa ikut mencocokkan folder bernama awalan sama
+    const awalan = `${e.jalur}/`;
+    if (ls.status !== 0 || !isi.some((x) => x.p === `${awalan}SKILL.md`)) return catat("!!", `${e.id}: ${e.jalur}/SKILL.md tidak ada pada ${e.sha.slice(0, 12)}`), false;
+    const aneh = isi.find((x) => x.jenis !== "blob" || x.mode === "120000");
+    if (aneh) return catat("!!", `${e.id}: ${aneh.p} berupa ${aneh.mode === "120000" ? "symlink" : aneh.jenis} — ditolak`), false;
+    const baru = path.join(dir, "skills", `.${nama}.rudisone-baru`), lama = path.join(dir, "skills", `.${nama}.rudisone-lama`);
+    fs.rmSync(baru, { recursive: true, force: true }); fs.rmSync(lama, { recursive: true, force: true });
+    for (const x of isi) {
+      const f = path.join(baru, ...x.p.slice(awalan.length).split("/"));
+      fs.mkdirSync(path.dirname(f), { recursive: true });
+      fs.writeFileSync(f, execFileSync("git", ["-C", kerja, "cat-file", "blob", x.oid], { maxBuffer: 256 << 20 }));
+      if (x.mode === "100755" && process.platform !== "win32") fs.chmodSync(f, 0o755);
+    }
+    fs.writeFileSync(path.join(baru, PENANDA), `${JSON.stringify({ id: e.id, repo: e.repo, sha: e.sha, jalur: e.jalur }, null, 2)}\n`);
+    if (fs.existsSync(tujuan)) fs.renameSync(tujuan, lama);
+    fs.renameSync(baru, tujuan);
+    fs.rmSync(lama, { recursive: true, force: true });
+    catat("ok", `${e.id}: ${isi.length} berkas dari ${e.repo} @ ${e.sha.slice(0, 12)} (${e.jalur}) → ${tujuan}`);
+    return true;
+  } finally { fs.rmSync(kerja, { recursive: true, force: true }); }
+}
+
 /** Pastikan skill `target` tersedia; pasang dari sumber resminya bila belum. Exit: 0 tersedia · 1 gagal · 2 tak bisa dipasang · 3 tak terdaftar. */
 export function pastikan(daftar, target, { dir = folderClaude(), log = console.log } = {}) {
   const e = cariEntri(daftar, target);
   if (!e) { log(`Skill luar "${target}" tidak terdaftar di perkakas.json › skill_luar — minta COO mendaftarkannya (skill rudis-perkakas › Skill luar).`); return 3; }
   const nama = e.skill.includes(namaPolos(target)) ? namaPolos(target) : e.skill[0];
   const sudah = cariSkill(nama, dir, daftar);
-  if (sudah) { log(`[ok]   ${nama}: tersedia (${sudah.lokasi}) — ${sudah.skillMd}`); return 0; }
   const catat = (t, s) => log(`[${t}]   ${s}`);
+  if (sudah && e.jenis === "ekosistem" && sudah.lokasi === "pribadi") {
+    // ekosistem: tersedia hanya bila versi terpasang = versi terkunci
+    const p = bacaPenanda(dir, nama);
+    if (p?.sha === e.sha) { log(`[ok]   ${nama}: tersedia (pribadi @ ${e.sha.slice(0, 12)}) — ${sudah.skillMd}`); return 0; }
+    if (!p) { catat("!!", `${nama}: ${path.dirname(sudah.skillMd)} terpasang di luar jalur RudisOne (tanpa penanda versi) — tidak ditimpa; pindahkan/hapus folder itu sendiri, lalu jalankan pastikan lagi`); return 1; }
+    catat("..", `${nama}: versi terpasang ${p.sha.slice(0, 12)} ≠ terkunci ${e.sha.slice(0, 12)} — memasang versi terkunci`);
+  } else if (sudah) { log(`[ok]   ${nama}: tersedia (${sudah.lokasi}) — ${sudah.skillMd}`); return 0; }
   if (e.jenis === "platform") {
     catat("!!", `${nama}: ${e.catatan}${e.alternatif ? ` — pakai \`${e.alternatif}\` (\`bin/perkakas.sh pastikan ${e.alternatif}\`)` : ""}`);
     return 2;
   }
-  catat("..", `${nama}: belum terpasang — memasang ${e.id} dari ${e.jenis === "git" ? e.repo : e.marketplace.sumber}`);
-  const ok = e.jenis === "git" ? pasangGit(e, catat, dir) : e.jenis === "plugin" ? pasangPlugin(e, catat, dir) : false;
+  if (!sudah) catat("..", `${nama}: belum terpasang — memasang ${e.id} dari ${e.jenis === "plugin" ? e.marketplace.sumber : e.repo}${e.jenis === "ekosistem" ? ` @ ${String(e.sha).slice(0, 12)}` : ""}`);
+  const ok = e.jenis === "git" ? pasangGit(e, catat, dir) : e.jenis === "plugin" ? pasangPlugin(e, catat, dir)
+    : e.jenis === "ekosistem" ? pasangEkosistem(e, catat, dir) : (catat("!!", `${e.id}: jenis "${e.jenis}" tidak dikenal`), false);
   const hasil = ok && cariSkill(nama, dir, daftar);
   if (!hasil) { if (ok) catat("!!", `${nama}: pemasangan selesai tetapi SKILL.md tidak ditemukan`); return 1; }
   catat("ok", `${nama}: terpasang (${hasil.lokasi}). Berlaku otomatis di sesi baru; di sesi ini baca langsung ${hasil.skillMd}`);
@@ -131,6 +207,12 @@ export function laporan(daftar, dir = folderClaude()) {
   return daftar.map((e) => {
     const k = keadaan(e, dir, daftar);
     const kurang = Object.entries(k.ada).filter(([, v]) => !v).map(([s]) => s);
+    if (k.lengkap && e.jenis === "ekosistem" && k.ada[e.skill[0]].lokasi === "pribadi") {
+      const p = bacaPenanda(dir, e.skill[0]);
+      if (!p) return ["..", `skill ${e.id}: terpasang di luar jalur RudisOne (tanpa penanda versi; terkunci ${String(e.sha).slice(0, 12)}) — tidak ditimpa otomatis`];
+      if (p.sha !== e.sha) return ["..", `skill ${e.id}: versi terpasang ${p.sha.slice(0, 12)} ≠ terkunci ${String(e.sha).slice(0, 12)} — bin/perkakas.sh pastikan ${e.skill[0]}`];
+      return ["ok", `skill ${e.id}: tersedia (pribadi @ ${p.sha.slice(0, 12)})`];
+    }
     if (k.lengkap) return ["ok", `skill ${e.id}: tersedia (${[...new Set(Object.values(k.ada).map((v) => v.lokasi))].join(", ")})`];
     if (e.jenis === "platform") return ["..", `skill ${e.id}: ${kurang.join(", ")} tidak ada di device ini (${e.catatan})${e.alternatif ? ` — alternatif ${e.alternatif}` : ""}`];
     return ["..", `skill ${e.id}: ${kurang.join(", ")} belum terpasang — dipasang saat dibutuhkan (bin/perkakas.sh pastikan ${kurang[0]})`];

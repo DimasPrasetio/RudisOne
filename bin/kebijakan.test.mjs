@@ -133,6 +133,38 @@ test("kebijakan asli: skill luar boleh dicek & dipasang setiap jabatan (disetuju
   assert.equal(kep(bash(path.join(ROOT, "ruang", "technical-writer"), `${ROOT}/bin/perkakas.sh siapkan`)), null);
 });
 
+test("CLI ekosistem skill (npx skills): cari/lihat tanpa tanya untuk COO & Research Analyst; pasang/ubah & -g/-y selalu ditanya", () => {
+  const RA = path.join(ROOT, "ruang", "research-analyst"), TW = path.join(ROOT, "ruang", "technical-writer");
+  const p = (cwd, c) => putuskan(bash(cwd, c), K);
+  assert.deepEqual([...K.kemampuan["skill-cari"].akses].sort(), ["coo", "research-analyst"]);
+  // baca: find/search/list (+ alias), info, versi dikunci, npx -y, telemetri dimatikan, npm exec, pipa ke head
+  for (const c of ["npx skills find pdf", "npx -y skills@1.7.4 find react testing", "DO_NOT_TRACK=1 npx -y skills@1.7.4 find changelog",
+    "npx skills search x", "npx skills s x", "npx skills list", "npx skills ls", "npx skills --help", "npx skills --version",
+    "npm exec -- skills find x", "npx skills find x | head -20"]) {
+    assert.equal(p(RA, c).keputusan, "allow", `RA: ${c}`);
+    assert.equal(p(COO, c).keputusan, "allow", `COO: ${c}`);
+    assert.equal(p(TW, c).keputusan, "ask", `TW di luar akses: ${c}`);
+  }
+  // pasang/ubah: selalu ditanya (jenjang 3), juga untuk jabatan berizin dan dalam bentuk terbungkus
+  for (const c of ["npx skills add vercel-labs/agent-skills --skill frontend-design -g -a claude-code -y",
+    "npx skills add owner/repo", "npx skills install x", "npx skills i x", "npx skills a x", "npx skills@1.7.4 update", "npx skills upgrade",
+    "npx skills remove x", "npx skills rm x", "npx skills init my-skill", "npx skills use x", "npx skills sync", "npx skills check",
+    "npx skills experimental_install", "npx skills find x -y", "npx skills list -g", "npx skills ls --global", "npx skills find x --yes",
+    "skills add x", "pnpm dlx skills add x", "yarn dlx skills update", "bunx skills add x", "npm exec skills add x",
+    "npx --package=skills skills add x", "npx -p skills skills find x", "timeout 60 npx skills add x", "nohup npx skills add x",
+    "bash -c \"npx skills add x\"", "echo x | xargs npx skills add", "npx skills find x && npx skills add y"]) {
+    const h = p(RA, c);
+    assert.equal(h.keputusan, "ask", `RA: ${c}`);
+    assert.equal(p(COO, c).keputusan, "ask", `COO: ${c}`);
+  }
+  assert.match(p(RA, "npx skills add owner/repo").alasan, /jenjang 3.*|perkakas\.sh pastikan/);
+  // awalan env lain tidak ikut diloloskan; npx paket lain & menyebut folder skills bukan urusan aturan ini
+  assert.equal(p(RA, "FOO=1 npx skills find x").keputusan, null);
+  assert.equal(p(RA, "npx cowsay hi").keputusan, null);
+  assert.equal(p(COO, "ls ~/.claude/skills").keputusan, null);
+  assert.equal(p(COO, "echo 'npx skills add x'").keputusan, null);   // teks dalam kutip bukan perintah
+});
+
 test("jenjang 3: ubah server, sudo, rahasia, perintah tak dikenal selalu ditanya", () => {
   for (const c of ["ssh vps-uji 'docker restart app-uji-app'", "ssh vps-uji 'sudo systemctl reload nginx'",
     "ssh vps-uji 'cat ~/app-uji/.env'", "ssh vps-uji 'echo x > /tmp/a'", "ssh vps-uji", "scp a.sql vps-uji:~/",

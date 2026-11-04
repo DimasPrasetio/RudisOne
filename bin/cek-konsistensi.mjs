@@ -379,6 +379,19 @@ function sesiDesktop() {
   return m;
 }
 
+/** Nama folder skill yang sah di ~/.claude/skills: skill tim (skills/ repo ini, juga awalan `rudis`), perkakas resmi
+ *  (perkakas.json › perkakas), dan skill luar terdaftar (perkakas.json › skill_luar › skill). */
+export function skillTerdaftar(root = ROOT) {
+  const nama = new Set();
+  try { for (const s of fs.readdirSync(path.join(root, "skills"))) nama.add(s); } catch { /* opsional */ }
+  try {
+    const m = JSON.parse(baca(root, "perkakas.json"));
+    for (const p of m.perkakas ?? []) nama.add(p.id);
+    for (const e of m.skill_luar ?? []) for (const s of e.skill ?? []) nama.add(String(s).split(":").pop());
+  } catch { /* opsional */ }
+  return { has: (n) => nama.has(n) || /^rudis/.test(n) };
+}
+
 export function cekDevice(root = ROOT) {
   // D1 skill & subagent terpasang (tautan ke repo ini)
   const tautKe = (p) => { try { return fs.realpathSync(p); } catch { return null; } };
@@ -397,10 +410,20 @@ export function cekDevice(root = ROOT) {
   for (const id of daftarPeran(root)) {
     periksaPasang(path.join(AGENTS_USER, `rudis-${id}.md`), "subagent-terpasang", `subagent rudis-${id} di ~/.claude/agents`, "jalankan install.sh");
   }
-  // D2 skill milik sistem lain — tidak disentuh, hanya diberitahukan
+  // D2 skill di ~/.claude/skills yang bukan milik RudisOne: tidak terdaftar (skill tim, perkakas resmi, perkakas.json ›
+  // skill_luar) → peringatan (skill luar hanya lewat pendaftaran + perkakas.sh pastikan); terdaftar tetapi menunjuk ke
+  // sistem lain → info. Tidak pernah disentuh.
+  const terdaftar = skillTerdaftar(root);
   try {
     for (const n of fs.readdirSync(SKILLS_USER)) {
       const p = path.join(SKILLS_USER, n);
+      if (n.startsWith(".") || n === "synced") continue;   // folder sementara · skill aplikasi Claude (disinkronkan akun)
+      let dirOk = false; try { dirOk = fs.statSync(p).isDirectory(); } catch { /* tautan putus */ }
+      if (!dirOk) continue;
+      if (!terdaftar.has(n)) {
+        catat("peringatan", "skill-tak-terdaftar", `~/.claude/skills/${n} tidak terdaftar di perkakas.json › skill_luar — skill luar dipakai hanya lewat kartu nilai + persetujuan pengguna + pendaftaran, dipasang dengan bin/perkakas.sh pastikan (skill rudis-perkakas › Skill luar); tidak disentuh`);
+        continue;
+      }
       if (!fs.lstatSync(p).isSymbolicLink()) continue;
       const t = tautKe(p);
       if (t && !t.startsWith(rootAsli + path.sep)) catat("info", "skill-lain", `~/.claude/skills/${n} milik sistem lain (${t}) — tidak disentuh`);
