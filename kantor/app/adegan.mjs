@@ -814,7 +814,7 @@ export class Adegan {
       const u = Math.min(1, (now - this.terbang.t0) / 650), e = 1 - (1 - u) ** 3;
       this.camera.position.lerpVectors(this.terbang.dari, this.terbang.ke, e);
       this.kontrol.target.lerpVectors(this.terbang.dariT, this.terbang.keT, e);
-      if (u >= 1) this.terbang = null;
+      if (u >= 1) { this.terbang = null; this.kontrol.update(); }   // sinkronkan arah kamera ke titik pandang akhir
       this.perlu = true; this.onKamera?.();
     }
     if (this.kontrol.enableDamping && this.kontrol.update()) this.perlu = true;

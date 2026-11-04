@@ -35,9 +35,11 @@ const elTanpa3d = document.getElementById("tanpa-3d");
 async function siapkanAdegan() {
   const { Adegan, adaWebGL2 } = await import("./adegan.mjs");
   if (PARAM.has("uji-tanpa-webgl") || !adaWebGL2()) throw new Error("WebGL2 tidak tersedia");
-  O3 = await import("./orang.mjs");
-  adegan = new Adegan({ wadah: elPanggung, kanvas: document.getElementById("kanvas"), lapis: elLapis, hemat: () => HEMAT_GERAK,
+  const orang = await import("./orang.mjs");
+  if (PARAM.has("uji-adegan-gagal")) throw new Error("uji: adegan gagal dibuat");   // uji jalur gagal setelah modul dimuat
+  const a = new Adegan({ wadah: elPanggung, kanvas: document.getElementById("kanvas"), lapis: elLapis, hemat: () => HEMAT_GERAK,
     onPilih: (nama) => pilih(nama && dipilih === nama ? null : nama) });
+  adegan = a; O3 = orang;   // keduanya hanya diisi bila adegan benar-benar jadi
   adegan.hilang = () => tampilkanTanpa3d("Grafis 3D berhenti (konteks WebGL hilang). Muat ulang halaman untuk menampilkan denah lagi.");
 }
 function tampilkanTanpa3d(alasan) {
@@ -89,7 +91,7 @@ function papanZona() {
 const ORANG = {};
 /** Satu karakter (anggota tetap atau asisten). `t` = data tampilan: warna, rambut, pendek, gaya, aksesori. */
 function buatOrang(nama, t, skala = 1) {
-  const m = O3 ? O3.buatOrang(t, { skala }) : null;
+  const m = O3 && adegan ? O3.buatOrang(t, { skala }) : null;
   const kepala = div("kepala-label", `<span class="isi"><i class="simbol santai" aria-hidden="true"></i><span class="nama-orang"></span></span>`);
   kepala.style.setProperty("--warna", t.warna);
   kepala.querySelector(".nama-orang").textContent = t.pendek;
@@ -166,6 +168,7 @@ const hadapKe = (o, target) => { o.arahDiam = Math.atan2(target.x - o.x, target.
 
 /** Atasan memanggil dari mejanya; bawahan datang ke kursi tamu, menerima berkas, lalu kembali bekerja. */
 function panggil(atasan, bawahan, label = "Ada tugas") {
+  if (!adegan) return;   // tanpa denah tidak ada cerita gerak (skrip tidak menumpuk)
   const a = ORANG[atasan], b = ORANG[bawahan];
   if (!b?.tampak) return;
   if (!a?.tampak) { b.siapKerjaSampai = performance.now() + 25000; return; }
@@ -183,6 +186,7 @@ function panggil(atasan, bawahan, label = "Ada tugas") {
 }
 /** Bawahan membawa laporan ke kursi tamu atasan. */
 function lapor(bawahan, atasan, kata = "Laporan selesai") {
+  if (!adegan) return;
   const a = ORANG[atasan], b = ORANG[bawahan];
   if (!b?.tampak || !a?.tampak || b.skrip.some((s) => s.lapor)) return;
   b.siapKerjaSampai = 0;
@@ -197,6 +201,7 @@ function lapor(bawahan, atasan, kata = "Laporan selesai") {
 }
 /** Rekan menghampiri meja (atau tempat santai) rekan lain untuk bertanya. */
 function kunjungi(dari, ke) {
+  if (!adegan) return;
   const p = ORANG[dari], q = ORANG[ke];
   if (!p?.tampak || !q?.tampak) return;
   sela(p);
@@ -324,6 +329,7 @@ const ASISTEN = {};   // id → karakter asisten
 const MAKS_ASISTEN = 12;
 function kelompokBantu(induk) { const dv = TIM[induk]?.divisi; return dv && dv.startsWith("tim") ? dv : "umum"; }
 function terapkanAsisten(daftar = []) {
+  if (!adegan) return;   // jumlah asisten tetap tampil di panel & tag meja
   const ada = new Set();
   for (const a of daftar) {
     ada.add(a.id);
@@ -632,7 +638,14 @@ function sambung() {
   es.onerror = () => { putus = true; detik(); };
 }
 const tbKecil = document.getElementById("zoom-kecil"), tbBesar = document.getElementById("zoom-besar"), tbPas = document.getElementById("zoom-pas");
-function perbaruiTombolZoom() { if (adegan) tbPas.disabled = adegan.dekatSeluruh() && !adegan.terbang; }
+/** Tombol kamera "tidak aktif" di batasnya — aria-disabled (bukan disabled) agar fokus keyboard tidak hilang. */
+function perbaruiTombolZoom() {
+  if (!adegan) return;
+  const k = adegan.kontrol, d = adegan.camera.position.distanceTo(k.target);
+  const set = (el, mati) => { el.setAttribute("aria-disabled", String(mati)); el.classList.toggle("mati", mati); };
+  set(tbPas, adegan.dekatSeluruh() && !adegan.terbang);
+  set(tbBesar, d <= k.minDistance + 0.05); set(tbKecil, d >= k.maxDistance - 0.05);
+}
 tbBesar.addEventListener("click", () => adegan?.zoom(0.7));
 tbKecil.addEventListener("click", () => adegan?.zoom(1.4));
 tbPas.addEventListener("click", () => adegan?.seluruhDenah());
@@ -742,11 +755,11 @@ function demo() {
 }
 
 // ================= mulai =================
-try { await siapkanAdegan(); } catch (e) { tampilkanTanpa3d(e?.message === "WebGL2 tidak tersedia" ? null : `Grafis 3D gagal dimuat (${e?.message ?? e}).`); }
+try { await siapkanAdegan(); } catch (e) { adegan = null; O3 = null; tampilkanTanpa3d(e?.message === "WebGL2 tidak tersedia" ? null : `Grafis 3D gagal dimuat (${e?.message ?? e}).`); }
 DENAH = adegan?.denah ?? (await import("./denah.mjs")).bangunDenah();
 BLOK = bangunGrid(DENAH.perabot);
 bangunMeja();   // tanpa WebGL pun: tag meja tetap ada (tidak ditampilkan) agar render panel tidak bergantung pada denah
-if (adegan) { PAPAN = papanZona(); adegan.onKamera = perbaruiTombolZoom; }
+if (adegan) { PAPAN = papanZona(); adegan.onKamera = perbaruiTombolZoom; perbaruiTombolZoom(); }
 for (const nama of URUT) bangunOrang(nama);
 bangunPanel();
 aturJeda();
