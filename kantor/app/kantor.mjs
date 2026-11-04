@@ -54,6 +54,7 @@ function tampilkanTanpa3d(alasan) {
   if (alasan) elTanpa3d.querySelector(".alasan").textContent = alasan;
   document.getElementById("petunjuk").hidden = true;
   for (const id of ["zoom-kecil", "zoom-besar", "zoom-pas", "putar-kiri", "putar-kanan"]) document.getElementById(id).disabled = true;
+  document.getElementById("pilih-label").disabled = true;   // tombol Label hanya berlaku untuk denah 3D
 }
 
 // ================= denah: grid jalan, kursi, tempat santai =================
@@ -137,6 +138,7 @@ function tampakkan(o, ya) {
   if (o.m) o.m.akar.visible = ya;
   segarkanKepala(o);
   if (!ya) o.ucapan.hidden = true;
+  if (!ya && !o.induk && o.nama === SENTUH) perbaruiKartu();   // orang yang kartunya tampil pergi → kartu ikut tutup
   adegan?.mintaGambar();
 }
 
@@ -756,6 +758,7 @@ function bangunKartu() {
   el.addEventListener("mouseenter", () => { kartuDiAtas = true; clearTimeout(tundaHover); });
   el.addEventListener("mouseleave", () => { kartuDiAtas = false; aturHover(null); });
   el.addEventListener("click", () => { if (SENTUH) pilih(SENTUH); });
+  el.addEventListener("pointerdown", (e) => e.preventDefault());   // fokus tetap di tag meja: kartu dari Tab tetap bisa diklik
   KARTU = { el, l: adegan.tambahLabel(el, 0, 0, 0, null, { prioritasFn: () => (el.hidden ? 0 : 6) }) };
 }
 function aturHover(nama) {
@@ -783,6 +786,7 @@ function perbaruiKartu() {
   if (target) segarkanKepala(ORANG[target]);
   if (!KARTU) return;
   KARTU.el.hidden = !target;
+  if (!target) kartuDiAtas = false;   // mouseleave tidak dijamin terkirim untuk elemen yang disembunyikan
   if (target) {
     KARTU.l.ikut = ORANG[target].m.akar; KARTU.l.offset = 1.95 * SKALA_ORANG;
     KARTU.el.classList.toggle("fokus", FOKUS === target);

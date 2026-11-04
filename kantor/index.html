@@ -69,7 +69,7 @@
   .panggung { position: relative; height: clamp(440px, 64vh, 780px); border-radius: 10px; overflow: hidden;
     background: radial-gradient(120% 90% at 30% 10%, var(--panggung-atas), var(--panggung-bawah)); }
   .panggung canvas { display: block; width: 100%; height: 100%; outline: none; }
-  .lapis-label { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 1; isolation: isolate; }
+  .lapis-label { position: absolute; inset: 0; pointer-events: none; overflow: clip; z-index: 1; isolation: isolate; }
   .lapis-label > * { position: absolute; left: 0; top: 0; will-change: transform; }
   .lapis-label > [hidden] { display: none; }
   .tanpa-3d { padding: 28px 24px; min-height: 220px; display: grid; align-content: center; gap: 8px; border-radius: 10px;
@@ -131,6 +131,7 @@
   .pilih-label input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
   .pilih-label label:has(input:checked) { background: color-mix(in srgb, var(--berpikir) 15%, transparent); font-weight: 600; }
   .pilih-label label:has(input:focus-visible) { outline: 2px solid var(--berpikir); outline-offset: -2px; }
+  .pilih-label:disabled { opacity: .4; } .pilih-label:disabled label, .pilih-label:disabled input { cursor: default; }
 
 
   .legenda { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; padding: 8px 16px 14px; font-size: 13px; color: var(--redup); }

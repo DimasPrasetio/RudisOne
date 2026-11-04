@@ -20,6 +20,8 @@ test("detail ikut zoom: seluruh denah = jauh; satu langkah + (×0,7) = dekat", (
   assert.equal(tingkatRincian(60 * 1.2, 60), "jauh");
   assert.equal(tingkatRincian(60 * 0.7, 60), "dekat");
   assert.equal(tingkatRincian(60 * AMBANG_DEKAT, 60), "dekat");
+  assert.equal(tingkatRincian(60 * AMBANG_DEKAT * (1 + 1e-15), 60), "dekat");   // tombol + keyboard (×0,75) dengan galat pembulatan
+  assert.equal(tingkatRincian(60 * 0.8, 60), "jauh");
   assert.equal(tingkatRincian(30, 0), "jauh");   // belum terukur
 });
 

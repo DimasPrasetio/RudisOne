@@ -17,7 +17,8 @@ export function modeLabelDari(param, simpanan) {
 export const AMBANG_DEKAT = 0.75;
 /** Tingkat rincian menurut zoom: "jauh" (seluruh denah) atau "dekat" (diperbesar, mis. satu tim). */
 export function tingkatRincian(jarak, jarakPas) {
-  return jarakPas > 0 && jarak <= jarakPas * AMBANG_DEKAT ? "dekat" : "jauh";
+  // toleransi pembulatan: jarak hasil zoom(0,75) dihitung ulang lewat koordinat bola (≈ 0,75·jarakPas ± 1e-15)
+  return jarakPas > 0 && jarak <= jarakPas * AMBANG_DEKAT * (1 + 1e-6) ? "dekat" : "jauh";
 }
 
 /**

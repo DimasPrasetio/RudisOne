@@ -180,9 +180,10 @@ Denah bersih: tidak ada label yang menutupi orang atau meja kecuali "Menunggu An
 - **Kartu sentuh** (hover/fokus/dipilih): nama jabatan lengkap, simbol + status + rincian singkat, petunjuk "Klik untuk
   rincian"; label kepala orang itu disembunyikan selama kartunya tampil. Padanan pembaca layar: tag meja (tombol tersembunyi,
   `aria-label` = nama + status + rincian), panel Tim, dan `aria-label` denah (jumlah per status); label visual `aria-hidden`.
-- **Tabrakan** (setiap gambar): urut prioritas lalu jarak — kartu 6 (selalu tampil) > menunggu 5,5 > gelembung 5 > titik 3 >
+- **Tabrakan** (setiap gambar): urut prioritas lalu jarak — kartu 6 & menunggu 5,5 (wajib: selalu tampil) > gelembung 5 > titik 3 >
   nama 2; yang bertabrakan dicoba digeser satu baris ke atas/bawah, baru disembunyikan (nama hilang lebih dulu, titik tetap).
-  Label dijepit agar tidak terpotong tepi kanvas; label tak berukuran (display: none) tidak ikut.
+  Label dijepit agar tidak terpotong tepi kanvas; label tak berukuran (display: none) tidak ikut. Lapisan label `overflow: clip`
+  (bukan wadah gulir) agar fokus Tab pada tag meja di tepi kanvas tidak menggeser semua label.
 - Status di 3D diperkuat tanpa animasi: layar monitor menyala warna peran saat bekerja, redup saat berpikir/menunggu,
   mati selainnya; cincin lantai amber hanya untuk "menunggu Anda".
 - Ukuran teks: label menunggu 11,5 px, nama 10 px (500, halo warna permukaan), kartu 13/12/11 px, gelembung 11 px.

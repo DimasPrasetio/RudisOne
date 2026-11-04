@@ -1057,7 +1057,8 @@ export class Adegan {
     const w = this.wadah.clientWidth, h = this.wadah.clientHeight, v = new THREE.Vector3();
     const tampil = [];
     for (const l of this.label) {
-      if (l.el.hidden || (l.ikut && !l.ikut.visible)) continue;
+      if (l.el.hidden) continue;
+      if (l.ikut && !l.ikut.visible) { l.el.style.visibility = "hidden"; continue; }   // orangnya sudah pergi: labelnya ikut hilang
       if (l.ikut) v.set(l.ikut.position.x, l.offset, l.ikut.position.z); else v.copy(l.pos);
       const jarak = v.distanceTo(this.camera.position);
       v.project(this.camera);
@@ -1078,7 +1079,7 @@ export class Adegan {
       l.px = THREE.MathUtils.clamp(l.px, l.w / 2 + 4, Math.max(l.w / 2 + 4, w - l.w / 2 - 4));   // jangan terpotong tepi kanvas
       const bawah = l.el.classList.contains("tag");               // tag meja: jangkar di atas-tengah; lainnya bawah-tengah
       const kotak = (dy) => ({ x0: l.px - l.w / 2, x1: l.px + l.w / 2, y0: (bawah ? l.py : l.py - l.h) + dy, y1: (bawah ? l.py + l.h : l.py) + dy });
-      const wajib = prio(l) >= 6;                                   // kartu sentuh: selalu tampil
+      const wajib = prio(l) >= 5.5;                                 // kartu sentuh & "Menunggu Anda": selalu tampil
       const coba = wajib ? [0] : bawah ? [0, l.h + 2, -(l.h + 2)] : [0, -(l.h + 2), -2 * (l.h + 2)];
       const dy = coba.find((d) => !tumpuk(kotak(d)));
       if (dy === undefined && !wajib) { kalah.add(l); continue; }
