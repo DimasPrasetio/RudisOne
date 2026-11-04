@@ -26,9 +26,9 @@ export function teksSelesai(ts, now = Date.now()) {
 /** Keterangan jujur untuk "Siap dipanggil" menurut keadaan sesi di server (siaga · katalog · absen). */
 export function keteranganSiap(ag) {
   const mode = ag?.mode ?? (ag?.present ? "siaga" : "absen");
-  if (mode === "siaga") return "sesi terbuka, tidak sedang bekerja";
-  if (mode === "katalog") return "dipanggil sebagai subagent saat perlu";
-  return "sesinya dibuka COO saat ada tugas";
+  if (mode === "siaga") return "Ruang kerjanya terbuka, sedang tidak bekerja";
+  if (mode === "katalog") return "Bekerja saat ditugaskan";
+  return "Mulai bekerja saat COO memberi tugas";
 }
 
 // ---------------- pemilik tugas → kursi ----------------

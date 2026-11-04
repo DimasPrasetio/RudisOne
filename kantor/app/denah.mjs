@@ -4,6 +4,8 @@
 // Lantai 40×21: baris belakang (y 0–7,75) Ruang Pimpinan | Engineering Tim 1 | Tim 2 | Tim 3; lorong utama (y 8–10)
 // dengan pintu masuk di dinding kiri; baris depan (y 10,25–21) Corporate Strategy | Layanan bersama | IT Operations | Lounge.
 
+import { singkatan } from "./istilah.mjs";
+
 export const NX = 40, NY = 21, TINGGI_DINDING = 2.6;
 export const NOMOR_TIM = [1, 2, 3];
 export const kursiTim = (peran, n) => `${peran} · Tim ${n}`;
@@ -11,36 +13,38 @@ export const CHIEF = "COO";
 
 export const DIVISI = [
   { id: "pimpinan", nama: "Ruang Pimpinan", sub: "COO", warna: "#c9a47a" },
-  { id: "corp", nama: "Corporate Strategy", sub: "Strategy · Finance · Research · HR", warna: "#1fa3ae" },
+  { id: "corp", nama: "Corporate Strategy", sub: "HoS · FC · RA · HRBP", warna: "#1fa3ae" },
   ...NOMOR_TIM.map((n) => ({ id: `tim${n}`, nama: `Engineering · Tim ${n}`, sub: "Belum ada proyek", warna: "#7c5cd6", tim: n })),
-  { id: "bersama", nama: "Layanan bersama", sub: "Program Manager · Technical Writer", warna: "#e08a2e" },
-  { id: "ops", nama: "IT Operations", sub: "IT Ops · SysAdmin", warna: "#475bd1" },
+  { id: "bersama", nama: "Layanan bersama", sub: "PgM · TW", warna: "#e08a2e" },
+  { id: "ops", nama: "IT Operations", sub: "HITO · SysAdmin", warna: "#475bd1" },
 ];
 export const WARNA_LOUNGE = "#d39a5b";
 
 export const TIM = {
   "COO":                  { warna: "#b8892b", rambut: "#3b2a22", inisial: "CO", pendek: "COO", peran: "Chief Operating Officer", divisi: "pimpinan", gaya: "samping", aksesori: "jas" },
-  "Head of Strategy":     { warna: "#b07a1f", rambut: "#2d1d14", inisial: "HS", pendek: "Strategy", peran: "Pimpinan Corporate Strategy", divisi: "corp", atasan: CHIEF, gaya: "samping", aksesori: "kacamata" },
-  "Financial Controller": { warna: "#3e9e5c", rambut: "#222222", inisial: "FC", pendek: "Finance", peran: "Financial Controller", divisi: "corp", atasan: CHIEF, gaya: "cepak", aksesori: "dasi" },
-  "Research Analyst":     { warna: "#1fa3ae", rambut: "#2d1d14", inisial: "RA", pendek: "Research", peran: "Research Analyst", divisi: "corp", atasan: CHIEF, gaya: "keriting", aksesori: "kacamata" },
+  "Head of Strategy":     { warna: "#b07a1f", rambut: "#2d1d14", inisial: "HS", pendek: "HoS", peran: "Pimpinan Corporate Strategy", divisi: "corp", atasan: CHIEF, gaya: "samping", aksesori: "kacamata" },
+  "Financial Controller": { warna: "#3e9e5c", rambut: "#222222", inisial: "FC", pendek: "FC", peran: "Financial Controller", divisi: "corp", atasan: CHIEF, gaya: "cepak", aksesori: "dasi" },
+  "Research Analyst":     { warna: "#1fa3ae", rambut: "#2d1d14", inisial: "RA", pendek: "RA", peran: "Research Analyst", divisi: "corp", atasan: CHIEF, gaya: "keriting", aksesori: "kacamata" },
   "HR Business Partner":  { warna: "#d35f9a", rambut: "#4a2a1c", inisial: "HR", pendek: "HRBP", peran: "HR Business Partner", divisi: "corp", atasan: CHIEF, gaya: "panjang", aksesori: "lanyard" },
 };
 for (const n of NOMOR_TIM) {
   const rambut = [["#20202a", "#141414", "#1b1b22", "#5a3a22"], ["#5a3a22", "#2d1d14", "#3b2a22", "#1b1b22"], ["#3b2a22", "#4a2a1c", "#141414", "#2d1d14"]][n - 1];
   Object.assign(TIM, {
-    [kursiTim("Tech Lead", n)]:                { warna: "#5b3fb8", rambut: rambut[0], inisial: "TL", pendek: `Lead T${n}`, peran: "Tech Lead (Senior Engineer)", divisi: `tim${n}`, atasan: CHIEF, gaya: ["cepak", "samping", "keriting"][n - 1], aksesori: "kacamata" },
+    [kursiTim("Tech Lead", n)]:                { warna: "#5b3fb8", rambut: rambut[0], inisial: "TL", pendek: `TL T${n}`, peran: "Tech Lead (Senior Engineer)", divisi: `tim${n}`, atasan: CHIEF, gaya: ["cepak", "samping", "keriting"][n - 1], aksesori: "kacamata" },
     [kursiTim("Business Systems Analyst", n)]: { warna: "#3d7bd9", rambut: rambut[1], inisial: "BS", pendek: `BSA T${n}`, peran: "Business Systems Analyst", divisi: `tim${n}`, atasan: kursiTim("Tech Lead", n), gaya: ["samping", "panjang", "kuncir"][n - 1], aksesori: ["kacamata", "lanyard", "kacamata"][n - 1] },
     [kursiTim("Software Engineer #1", n)]:     { warna: "#7c5cd6", rambut: rambut[2], inisial: "E1", pendek: `SE1 T${n}`, peran: "Software Engineer", divisi: `tim${n}`, atasan: kursiTim("Tech Lead", n), gaya: ["keriting", "cepak", "samping"][n - 1], aksesori: "hoodie" },
     [kursiTim("Software Engineer #2", n)]:     { warna: "#9a7be6", rambut: rambut[3], inisial: "E2", pendek: `SE2 T${n}`, peran: "Software Engineer (bila fitur bisa dipecah)", divisi: `tim${n}`, atasan: kursiTim("Tech Lead", n), gaya: ["kuncir", "keriting", "botak"][n - 1], aksesori: n === 3 ? "topi" : "hoodie" },
   });
 }
 Object.assign(TIM, {
-  "Program Manager":       { warna: "#e08a2e", rambut: "#5a3a22", inisial: "PM", pendek: "PM", peran: "Program Manager (lintas proyek)", divisi: "bersama", atasan: CHIEF, gaya: "kuncir", aksesori: "lanyard" },
+  "Program Manager":       { warna: "#e08a2e", rambut: "#5a3a22", inisial: "PM", pendek: "PgM", peran: "Program Manager (lintas proyek)", divisi: "bersama", atasan: CHIEF, gaya: "kuncir", aksesori: "lanyard" },
   "Technical Writer":      { warna: "#c9a227", rambut: "#6a4a2a", inisial: "TW", pendek: "TW", peran: "Technical Writer", divisi: "bersama", atasan: "Program Manager", gaya: "panjang", aksesori: "kacamata" },
-  "Head of IT Operations": { warna: "#475bd1", rambut: "#2a2a33", inisial: "IO", pendek: "IT Ops", peran: "Pimpinan IT Operations", divisi: "ops", atasan: CHIEF, gaya: "cepak", aksesori: "headset" },
+  "Head of IT Operations": { warna: "#475bd1", rambut: "#2a2a33", inisial: "IO", pendek: "HITO", peran: "Pimpinan IT Operations", divisi: "ops", atasan: CHIEF, gaya: "cepak", aksesori: "headset" },
   "System Administrator":  { warna: "#d9534f", rambut: "#1f1a18", inisial: "SA", pendek: "SysAdmin", peran: "System Administrator", divisi: "ops", atasan: "Head of IT Operations", gaya: "botak", aksesori: "topi" },
 });
 export const URUT = Object.keys(TIM);
+// singkatan baku satu sumber (istilah.mjs); nilai literal di atas hanya agar data tetap terbaca
+for (const nama of URUT) TIM[nama].pendek = singkatan(nama);
 
 /** true bila `a` atasan (langsung atau tidak langsung) dari `b`. */
 export function atasanDari(a, b) {

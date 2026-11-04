@@ -16,6 +16,7 @@
   :root {
     --latar: #e8edf2; --permukaan: #ffffff; --tinta: #1d2833; --redup: #5e6e7e; --garis: #d5dde5;
     --bekerja: #1f9d6a; --berpikir: #3b7bd8; --menunggu: #d9930b; --santai: #8a97a6; --selesai: #148a9c; --galat: #d64545;
+    --menunggu-teks: #8a5a00;
     --panggung-atas: #f3f6f9; --panggung-bawah: #dfe6ed;
     --judul: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
     --teks: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -25,6 +26,7 @@
     :root {
       --latar: #0e151d; --permukaan: #141e28; --tinta: #e4ebf2; --redup: #8fa0b1; --garis: #243241;
       --bekerja: #34c38a; --berpikir: #5b97ef; --menunggu: #f0aa2a; --santai: #7d8b99; --selesai: #3fb6c8; --galat: #ef6461;
+      --menunggu-teks: #f6c063;
       --panggung-atas: #121c26; --panggung-bawah: #0b1117;
       color-scheme: dark;
     }
@@ -43,30 +45,56 @@
   html, body { margin: 0; background: var(--latar); color: var(--tinta); font-family: var(--teks); font-size: 15px; line-height: 1.45; }
   button { font: inherit; color: inherit; }
   :focus-visible { outline: 2px solid var(--berpikir); outline-offset: 2px; }
-  .sr { position: absolute; left: -9999px; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  abbr[title] { text-decoration: none; cursor: help; }
+  h2 { font-family: var(--judul); font-weight: 650; font-size: 17px; letter-spacing: -0.2px; margin: 0; }
+  .hitung { font: 500 13px var(--teks); color: var(--redup); margin-left: 6px; font-variant-numeric: tabular-nums; }
+  .kosong { color: var(--redup); font-size: 14px; margin: 0; }
+  .lebar { max-width: 1760px; margin: 0 auto; padding-left: 24px; padding-right: 24px; }
 
-  .atas { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 18px; padding: 22px 24px 6px; max-width: 1760px; margin: 0 auto; }
-  .atas h1 { font-family: var(--judul); font-weight: 650; font-size: 30px; letter-spacing: -0.4px; margin: 0; }
-  .atas .jam { font-variant-numeric: tabular-nums; color: var(--redup); font-size: 16px; }
-  .koneksi { margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--redup); }
-  .koneksi .titik { width: 8px; height: 8px; border-radius: 50%; background: var(--bekerja); }
-  .koneksi.basi .titik { background: var(--menunggu); }
-  .koneksi.putus .titik { background: var(--galat); }
-  .koneksi.putus { color: var(--galat); }
+  /* ---------- kepala ---------- */
+  .atas { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 16px; padding-top: 20px; padding-bottom: 12px; }
+  .atas h1 { font-family: var(--judul); font-weight: 650; font-size: 26px; letter-spacing: -0.4px; margin: 0; }
+  .atas .jam { font-variant-numeric: tabular-nums; color: var(--redup); font-size: 14px; }
+  .koneksi { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--redup);
+    padding: 4px 10px 4px 9px; border-radius: 999px; border: 1px solid var(--garis); background: var(--permukaan); }
+  .koneksi .titik { width: 8px; height: 8px; border-radius: 50%; background: var(--bekerja); flex: none; }
+  .koneksi.basi { border-style: dashed; } .koneksi.basi .titik { background: var(--menunggu); }
+  .koneksi.putus { color: var(--galat); border-color: color-mix(in srgb, var(--galat) 50%, var(--garis)); } .koneksi.putus .titik { background: var(--galat); }
 
+  /* ---------- ringkasan angka ---------- */
+  .ringkas { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; padding-bottom: 14px; }
+  .angka { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; gap: 0 12px; align-items: center; text-decoration: none; color: inherit;
+    background: var(--permukaan); border: 1px solid var(--garis); border-radius: 14px; padding: 12px 16px 13px; min-width: 0; }
+  a.angka:hover { border-color: color-mix(in srgb, var(--tinta) 25%, var(--garis)); }
+  .angka .nilai { grid-row: 1 / span 2; font: 650 30px/1 var(--teks); font-variant-numeric: tabular-nums; letter-spacing: -0.5px; min-width: 1.2ch; text-align: center; }
+  .angka .nama { font-weight: 600; font-size: 14.5px; display: flex; align-items: center; gap: 7px; }
+  .angka .nama .simbol { width: 16px; height: 16px; font-size: 9.5px; }
+  .angka .ket { font-size: 13px; color: var(--redup); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .angka.menunggu.ada { background: color-mix(in srgb, var(--menunggu) 13%, var(--permukaan)); border: 1.5px solid var(--menunggu); }
+  .angka.menunggu.ada .nilai, .angka.menunggu.ada .ket { color: var(--menunggu-teks); }
+  .angka.menunggu.ada .ket { font-weight: 600; }
+  .angka.menunggu:not(.ada) .simbol { background: transparent; border: 1.5px solid var(--santai); color: var(--santai); }
+
+  /* ---------- tata letak ---------- */
   .tata {
-    display: grid; gap: 18px; padding: 12px 24px 28px; max-width: 1760px; margin: 0 auto;
-    grid-template-columns: minmax(0, 1fr) 340px;
-    grid-template-areas: "denah samping" "linimasa samping";
-    grid-template-rows: auto 1fr;
-    align-items: start;
+    display: grid; gap: 16px; padding-bottom: 20px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 372px;
+    grid-template-areas: "perhatian perhatian perhatian" "denah denah samping" "aktivitas linimasa samping";
+    grid-template-rows: auto auto 1fr; align-items: start;
   }
   .tata > * { min-width: 0; }
   .kartu { background: var(--permukaan); border-radius: 14px; box-shadow: 0 1px 0 var(--garis), 0 8px 24px rgba(16, 32, 48, .06); }
+  .bagian { padding: 16px 16px 14px; }
+  .bagian > header { display: flex; align-items: baseline; justify-content: space-between; gap: 4px 12px; flex-wrap: wrap; margin-bottom: 10px; }
+  .bagian > header .sub { font-size: 12.5px; color: var(--redup); }
   .denah { grid-area: denah; padding: 6px 6px 0; overflow: hidden; }
+  .samping { grid-area: samping; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  .aktivitas-bagian { grid-area: aktivitas; }
+  .linimasa { grid-area: linimasa; }
 
-  /* ---------- panggung 3D + lapisan label ---------- */
-  .panggung { position: relative; height: clamp(440px, 64vh, 780px); border-radius: 10px; overflow: hidden;
+  /* ---------- panggung 3D + lapisan label (tidak berubah) ---------- */
+  .panggung { position: relative; height: clamp(440px, 62vh, 760px); border-radius: 10px; overflow: hidden;
     background: radial-gradient(120% 90% at 30% 10%, var(--panggung-atas), var(--panggung-bawah)); }
   .panggung canvas { display: block; width: 100%; height: 100%; outline: none; }
   .lapis-label { position: absolute; inset: 0; pointer-events: none; overflow: clip; z-index: 1; isolation: isolate; }
@@ -123,6 +151,25 @@
   .tanpa-ucapan .ucapan { display: none; }
   .berkas { width: 10px; height: 12px; margin: -6px 0 0 -5px; border-radius: 2px; background: #fff; border: 1.2px solid var(--warna); }
 
+  /* ---------- bilah di bawah denah: legenda · kamera · Label · Jeda gerak · bantuan ---------- */
+  .legenda { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 10px 12px 12px; font-size: 13px; color: var(--redup); }
+  .legenda .arti { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0; padding: 0; list-style: none; }
+  .legenda .arti li { display: inline-flex; align-items: center; gap: 6px; }
+  .legenda .alat { margin-left: auto; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .legenda .kendali { display: inline-flex; gap: 4px; }
+  .tombol { background: none; border: 1px solid var(--garis); border-radius: 8px; padding: 4px 10px; font-size: 13px;
+    color: var(--tinta); cursor: pointer; min-width: 32px; min-height: 32px; }
+  .tombol:hover { background: color-mix(in srgb, var(--tinta) 5%, transparent); }
+  .tombol:disabled, .tombol.mati { opacity: .4; cursor: default; }
+  .tombol[aria-expanded="true"] { background: color-mix(in srgb, var(--berpikir) 15%, transparent); }
+  .bantu { width: 32px; padding: 0; font-weight: 650; border-radius: 50%; }
+  .petunjuk { flex-basis: 100%; margin: 2px 0 0; padding: 10px 12px; border-radius: 10px; background: color-mix(in srgb, var(--tinta) 4%, transparent); color: var(--tinta); }
+  .petunjuk h3 { font: 650 13px var(--judul); margin: 0 0 6px; }
+  .petunjuk dl { display: grid; grid-template-columns: max-content 1fr; gap: 3px 14px; margin: 0; font-size: 13px; }
+  .petunjuk dt { font-weight: 600; } .petunjuk dd { margin: 0; color: var(--redup); }
+  .petunjuk .untuk-sentuh { display: none; }
+  @media (pointer: coarse) { .petunjuk .untuk-sentuh { display: block; } .petunjuk .untuk-tetikus { display: none; } }
+
   /* tombol Label: Ringkas · Lengkap · Tanpa (grup radio) */
   .pilih-label { display: inline-flex; align-items: stretch; border: 1px solid var(--garis); border-radius: 8px; padding: 0; margin: 0; min-height: 32px; overflow: hidden; }
   .pilih-label legend { float: left; align-self: center; padding: 0 8px 0 10px; font-size: 13px; color: var(--redup); }
@@ -132,185 +179,280 @@
   .pilih-label label:has(input:checked) { background: color-mix(in srgb, var(--berpikir) 15%, transparent); font-weight: 600; }
   .pilih-label label:has(input:focus-visible) { outline: 2px solid var(--berpikir); outline-offset: -2px; }
   .pilih-label:disabled { opacity: .4; } .pilih-label:disabled label, .pilih-label:disabled input { cursor: default; }
-
-
-  .legenda { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; padding: 8px 16px 14px; font-size: 13px; color: var(--redup); }
-  .legenda span { display: inline-flex; align-items: center; gap: 6px; }
-  .legenda .kendali { margin-left: auto; display: inline-flex; gap: 4px; flex-wrap: wrap; }
-  .legenda .kendali button, .legenda .jeda { background: none; border: 1px solid var(--garis); border-radius: 8px; padding: 4px 10px; font-size: 13px;
-    color: var(--tinta); cursor: pointer; min-width: 32px; min-height: 32px; }
-  .legenda .kendali button:hover, .legenda .jeda:hover { background: color-mix(in srgb, var(--tinta) 5%, transparent); }
-  .legenda .kendali button:disabled, .legenda .kendali button.mati { opacity: .4; cursor: default; }
-  .petunjuk { width: 100%; font-size: 12.5px; }
-  .legenda .petunjuk { display: block; }
-  .legenda .petunjuk .untuk-tetikus { display: inline; } .legenda .petunjuk .untuk-sentuh { display: none; }
-  @media (pointer: coarse) { .legenda .petunjuk .untuk-sentuh { display: inline; } .legenda .petunjuk .untuk-tetikus { display: none; } }
   .panggung:focus-visible { outline: 2px solid var(--berpikir); outline-offset: -2px; }
   .petunjuk-sentuh { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 2; pointer-events: none; max-width: 80%; text-align: center;
     font: 600 13px/1.35 var(--teks); color: #fff; background: rgba(20, 30, 40, .78); padding: 8px 12px; border-radius: 10px; }
   .simbol { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; color: #fff;
-    font-size: 11px; font-weight: 600; line-height: 1; flex: none; }
+    font-size: 11px; font-weight: 600; line-height: 1; flex: none; font-style: normal; }
   .simbol.bekerja { background: var(--bekerja); } .simbol.berpikir { background: var(--berpikir); }
   .simbol.menunggu { background: var(--menunggu); } .simbol.santai, .simbol.siap { background: var(--santai); }
   .simbol.selesai { background: var(--selesai); }
   .simbol.absen, .simbol.kosong { background: transparent; border: 1.5px dashed var(--santai); color: var(--santai); }
+  .legenda .simbol { width: 16px; height: 16px; font-size: 9.5px; }
 
-  .samping { grid-area: samping; display: flex; flex-direction: column; gap: 18px; min-width: 0; }
-  .samping section, .linimasa { padding: 16px 16px 14px; }
-  h2 { font-family: var(--judul); font-weight: 650; font-size: 18px; letter-spacing: -0.2px; margin: 0 0 10px; }
+  /* ---------- Perlu perhatian Anda ---------- */
+  .perhatian { grid-area: perhatian; border: 1.5px solid var(--menunggu); background: color-mix(in srgb, var(--menunggu) 7%, var(--permukaan)); padding: 12px 16px; }
+  .perhatian h2 { font-size: 15.5px; margin-bottom: 6px; }
+  .perhatian ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  .perhatian li { display: grid; grid-template-columns: auto 1fr; gap: 0 10px; align-items: center; }
+  .perhatian .cara { grid-column: 2; color: var(--redup); font-size: 13px; }
 
-  .perhatian { border: 1.5px solid var(--menunggu); }
-  .perhatian ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-  .perhatian li { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; align-items: center; }
-  .perhatian .sesi { grid-column: 2; color: var(--redup); font-size: 13px; }
+  /* ---------- Tugas ---------- */
+  .tugas { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .tugas > li { display: grid; gap: 3px; padding: 10px 12px 11px; border: 1px solid var(--garis); border-radius: 12px; min-width: 0; }
+  .tugas > li.sorot { border-color: var(--berpikir); box-shadow: inset 3px 0 0 var(--berpikir); background: color-mix(in srgb, var(--berpikir) 6%, transparent); }
+  .tugas .atas-kartu { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .tugas .st { font: 600 11.5px var(--teks); padding: 1px 8px; border-radius: 999px; white-space: nowrap;
+    background: color-mix(in srgb, var(--warna) 15%, transparent); color: color-mix(in srgb, var(--warna) 72%, var(--tinta)); }
+  .tugas .segera { font: 600 11.5px var(--teks); padding: 1px 8px; border-radius: 999px; color: var(--galat); border: 1px solid color-mix(in srgb, var(--galat) 50%, transparent); }
+  .tugas .id { margin-left: auto; font-size: 12px; color: var(--redup); font-variant-numeric: tabular-nums; }
+  .tugas .judul { font-weight: 600; font-size: 14.5px; line-height: 1.35; overflow-wrap: anywhere; }
+  .tugas .tahap { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--redup); }
+  .tugas .tahap .seg { display: inline-grid; grid-template-columns: repeat(5, 14px); gap: 3px; }
+  .tugas .tahap .seg i { height: 5px; border-radius: 3px; background: color-mix(in srgb, var(--tinta) 12%, transparent); }
+  .tugas .tahap .seg i.lewat-tahap { background: color-mix(in srgb, var(--bekerja) 55%, transparent); }
+  .tugas .tahap .seg i.kini { background: var(--bekerja); }
+  .tugas .tahap b { font-weight: 600; color: var(--tinta); }
+  .tugas .siapa { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--redup); min-width: 0; }
+  .tugas .siapa .simbol { width: 15px; height: 15px; font-size: 9px; }
+  .tugas .siapa b { font-weight: 600; color: var(--tinta); }
+  .tugas .waktu { font-size: 12.5px; color: var(--redup); font-variant-numeric: tabular-nums; }
+  .tugas .waktu .lewat { color: var(--menunggu-teks); font-weight: 600; }
+  .selesai-hari-ini { margin-top: 12px; }
+  .selesai-hari-ini h3 { font: 650 14px var(--judul); margin: 0 0 6px; color: var(--redup); }
+  .selesai-hari-ini ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 150px; overflow: auto; }
+  .selesai-hari-ini li { display: grid; grid-template-columns: 46px minmax(0, 1fr); gap: 0 8px; font-size: 13.5px; }
+  .selesai-hari-ini time { color: var(--selesai); font-variant-numeric: tabular-nums; font-weight: 600; }
+  .selesai-hari-ini .judul { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
+  /* ---------- Tim ---------- */
   .tim { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; }
-  .tim .kelompok { display: flex; align-items: center; gap: 8px; margin: 10px 0 2px; font: 600 13px var(--judul); color: var(--redup); }
+  .tim .kelompok { display: flex; align-items: center; gap: 8px; margin: 8px 0 1px; font: 600 12.5px var(--teks); color: var(--redup); }
   .tim .kelompok:first-child { margin-top: 0; }
-  .tim .kelompok i { width: 10px; height: 10px; border-radius: 3px; background: var(--warna); }
-  .tim > li > button { width: 100%; text-align: left; background: none; border: 0; border-radius: 10px; padding: 6px 8px;
-    display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 0 12px; align-items: center; cursor: pointer; }
-  .tim > li > button:hover { background: color-mix(in srgb, var(--tinta) 5%, transparent); }
-  .tim > li > button[aria-expanded="true"] { background: color-mix(in srgb, var(--warna) 12%, transparent); }
-  .avatar { position: relative; width: 34px; height: 34px; border-radius: 50%; background: var(--warna); color: #fff;
-    display: grid; place-items: center; font-family: var(--judul); font-weight: 650; font-size: 12.5px; }
-  li.selesai .keadaan b { color: var(--selesai); }
-  .tim .sub { display: inline-block; font-size: 11.5px; font-weight: 600; color: var(--warna); border: 1px solid color-mix(in srgb, var(--warna) 45%, transparent);
-    border-radius: 6px; padding: 0 5px; margin-left: 4px; }
-  .avatar .simbol { position: absolute; right: -4px; bottom: -4px; width: 17px; height: 17px; font-size: 10px; box-shadow: 0 0 0 2px var(--permukaan); }
-  .tim .nama { font-weight: 600; }
-  .tim .nama small { font-weight: 500; color: var(--redup); font-size: 12px; margin-left: 4px; }
-  .tim .keadaan { grid-column: 2; font-size: 13.5px; color: var(--redup); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .tim .keadaan b { font-weight: 500; color: var(--tinta); }
-  li.menunggu .keadaan b { color: var(--menunggu); }
-  .tim .waktu { grid-row: 1 / span 2; grid-column: 3; font-size: 12.5px; color: var(--redup); font-variant-numeric: tabular-nums; }
-  .rincian { margin: 2px 8px 10px 54px; font-size: 13.5px; color: var(--redup); }
+  .tim .kelompok i { width: 9px; height: 9px; border-radius: 3px; background: var(--warna); flex: none; }
+  .tim > li > button.orang { width: 100%; text-align: left; background: none; border: 0; border-radius: 10px; padding: 5px 8px;
+    display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 0 10px; align-items: center; cursor: pointer; }
+  .tim > li > button.orang:hover { background: color-mix(in srgb, var(--tinta) 5%, transparent); }
+  .tim > li > button.orang[aria-expanded="true"] { background: color-mix(in srgb, var(--warna) 12%, transparent); }
+  .avatar { position: relative; width: 30px; height: 30px; border-radius: 50%; background: var(--warna); color: #fff;
+    display: grid; place-items: center; font-family: var(--judul); font-weight: 650; font-size: 11.5px; flex: none; }
+  .avatar .simbol { position: absolute; right: -4px; bottom: -4px; width: 15px; height: 15px; font-size: 9px; box-shadow: 0 0 0 2px var(--permukaan); }
+  .tim .nama { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tim .pimpinan { font-size: 11px; font-weight: 600; color: var(--redup); border: 1px solid var(--garis); border-radius: 5px; padding: 0 5px; margin-left: 6px; vertical-align: 1px; }
+  .tim .keadaan { grid-column: 2; font-size: 13px; color: var(--redup); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tim .keadaan b { font-weight: 600; color: var(--tinta); }
+  .tim li.menunggu .keadaan b { color: var(--menunggu-teks); }
+  .tim li.selesai .keadaan b { color: var(--selesai); }
+  .tim .waktu { grid-row: 1 / span 2; grid-column: 3; font-size: 12px; color: var(--redup); font-variant-numeric: tabular-nums; }
+  .tim .bantu-dari { color: var(--redup); }
+  .tim .siap-ringkas > button { width: 100%; display: flex; align-items: center; gap: 10px; padding: 4px 8px 5px; border: 0; background: none; border-radius: 10px;
+    cursor: pointer; text-align: left; font-size: 13px; color: var(--redup); }
+  .tim .siap-ringkas > button:hover { background: color-mix(in srgb, var(--tinta) 5%, transparent); }
+  .tumpuk { display: inline-flex; padding-left: 6px; }
+  .tumpuk i { width: 22px; height: 22px; margin-left: -4px; border-radius: 50%; display: grid; place-items: center; font: 650 9.5px var(--judul); font-style: normal;
+    color: #fff; background: var(--warna); box-shadow: 0 0 0 2px var(--permukaan); }
+  .siap-ringkas .panah { margin-left: auto; font-size: 14px; color: var(--tinta); }
+  .rincian { margin: 2px 8px 10px 48px; font-size: 13.5px; color: var(--redup); }
   .rincian h3 { font-size: 12.5px; font-weight: 600; color: var(--tinta); margin: 10px 0 4px; }
   .rincian ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
-  .rincian .lokasi { overflow-wrap: anywhere; }
 
-  .hitung { font: 500 13px var(--teks); color: var(--redup); margin-left: 4px; }
-  .tugas { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; max-height: 300px; overflow: auto; }
-  .tugas li { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 1px 10px; padding: 7px 0; border-top: 1px solid var(--garis); }
-  .tugas li:first-child { border-top: 0; }
-  .tugas li.sorot { background: color-mix(in srgb, var(--berpikir) 10%, transparent); border-radius: 10px; padding-left: 8px; padding-right: 8px; box-shadow: inset 3px 0 0 var(--berpikir); }
-  .tugas .st { grid-row: 1 / span 2; align-self: start; margin-top: 2px; font: 600 11.5px var(--teks); padding: 2px 8px; border-radius: 999px;
-    background: color-mix(in srgb, var(--warna) 16%, transparent); color: color-mix(in srgb, var(--warna) 75%, var(--tinta)); white-space: nowrap; }
-  .tugas .judul { font-weight: 600; font-size: 14px; overflow-wrap: anywhere; }
-  .tugas .judul.segera::before { content: "Segera · "; color: var(--galat); }
-  .tugas .meta { font-size: 12.5px; color: var(--redup); overflow-wrap: anywhere; }
-  .tugas .meta .lewat { color: var(--galat); font-weight: 600; }
-  .aktivitas { list-style: none; margin: 0; padding: 0; max-height: 360px; overflow: auto; }
-  .aktivitas li { display: grid; grid-template-columns: 46px 10px minmax(0, 1fr); gap: 8px; padding: 6px 0; border-top: 1px solid var(--garis); font-size: 14px; }
-  .aktivitas li:first-child { border-top: 0; }
+  /* ---------- Aktivitas ---------- */
+  .aktivitas { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+  .aktivitas .grup h3 { display: flex; gap: 8px; align-items: baseline; font: 600 13px var(--teks); margin: 0 0 4px; color: var(--tinta); min-width: 0; }
+  .aktivitas .grup h3 .id { color: var(--redup); font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .aktivitas .grup { min-width: 0; }
+  .aktivitas .grup h3 .j { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .aktivitas ol { list-style: none; margin: 0; padding: 0; }
+  .aktivitas ol > li { display: grid; grid-template-columns: 42px 8px minmax(0, 1fr); gap: 0 9px; padding: 5px 0; border-top: 1px solid var(--garis); font-size: 13.5px; }
+  .aktivitas ol > li:first-child { border-top: 0; }
+  .aktivitas details li + li { margin-top: 2px; }
   .aktivitas time { color: var(--redup); font-variant-numeric: tabular-nums; }
-  .aktivitas .titik { width: 8px; height: 8px; border-radius: 50%; background: var(--warna); margin-top: 7px; }
-  .aktivitas .rinci { color: var(--redup); overflow-wrap: anywhere; }
-  .kosong { color: var(--redup); font-size: 14px; margin: 0; }
-  .selesai-hari-ini h3 { font: 650 14px var(--judul); margin: 14px 0 4px; color: var(--redup); }
-  .selesai-hari-ini .tugas { max-height: 180px; }
-  .selesai-hari-ini .judul { font-weight: 500; }
+  .aktivitas .titik { width: 8px; height: 8px; border-radius: 50%; background: var(--warna); margin-top: 6.5px; }
+  .aktivitas b { font-weight: 600; }
+  .aktivitas details { display: inline; }
+  .aktivitas summary { display: inline; cursor: pointer; color: var(--redup); font-size: 12px; margin-left: 6px; list-style: none; text-decoration: underline dotted; text-underline-offset: 3px; }
+  .aktivitas summary::-webkit-details-marker { display: none; }
+  .aktivitas details[open] { display: block; }
+  .aktivitas details[open] summary { text-decoration: none; margin-left: 0; }
+  .aktivitas details ul { display: block; margin: 3px 0 0; padding: 4px 8px; list-style: none; border-radius: 6px; font-size: 12.5px; color: var(--redup);
+    background: color-mix(in srgb, var(--tinta) 4%, transparent); overflow-wrap: anywhere; }
+  .lihat-semua { margin-top: 10px; }
 
-  .linimasa { grid-area: linimasa; }
-  .linimasa .kepala { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; }
-  .linimasa .skala { font-size: 12.5px; color: var(--redup); }
+  /* ---------- Linimasa ---------- */
   .jalur-wrap { overflow-x: auto; }
-  .jalur { display: grid; grid-template-columns: 150px minmax(480px, 1fr); gap: 5px 12px; align-items: center; }
-  .jalur .label { font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .jalur { display: grid; grid-template-columns: 64px minmax(300px, 1fr); gap: 5px 10px; align-items: center; }
+  .jalur .label { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
   .jalur [hidden] { display: none; }
-  .sel { display: grid; grid-template-columns: repeat(60, 1fr); gap: 2px; height: 13px; }
+  .sel { display: grid; grid-template-columns: repeat(60, 1fr); gap: 2px; height: 12px; }
   .sel i { border-radius: 2px; background: color-mix(in srgb, var(--tinta) 7%, transparent); }
   .sel i[data-n="1"] { background: color-mix(in srgb, var(--warna) 45%, transparent); }
   .sel i[data-n="2"] { background: color-mix(in srgb, var(--warna) 72%, transparent); }
   .sel i[data-n="3"] { background: var(--warna); }
-  .catatan { grid-column: 1 / -1; font-size: 13px; color: var(--redup); margin: 0; }
+  .sumbu { grid-column: 2; display: flex; justify-content: space-between; font-size: 11.5px; color: var(--redup); font-variant-numeric: tabular-nums; }
+
+  /* ---------- kaki ---------- */
+  .kaki { padding-bottom: 28px; }
+  .tentang { font-size: 13.5px; color: var(--redup); }
+  .tentang summary { cursor: pointer; color: var(--tinta); font-weight: 600; width: fit-content; }
+  .tentang .isi { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 8px 32px; margin-top: 8px; max-width: 1200px; }
+  .tentang ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+  .tentang h3 { font: 600 13px var(--teks); color: var(--tinta); margin: 0 0 4px; }
+  .tentang dl { display: grid; grid-template-columns: max-content 1fr; gap: 2px 12px; margin: 0; }
+  .tentang dt { font-weight: 600; color: var(--tinta); }
+  .tentang dd { margin: 0; }
 
   @media (max-width: 1180px) {
-    .tata { grid-template-columns: 1fr; grid-template-areas: "denah" "samping" "linimasa"; grid-template-rows: auto; padding: 10px 14px 24px; }
-    .atas { padding: 18px 16px 4px; }
-    .koneksi { margin-left: 0; width: 100%; }
-    .atas h1 { font-size: 26px; }
+    .tata { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "perhatian perhatian" "denah denah" "samping samping" "aktivitas linimasa"; grid-template-rows: auto; }
+    .samping { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
+    .lebar { padding-left: 16px; padding-right: 16px; }
   }
-  @media (max-width: 600px) {
+  @media (max-width: 760px) {
+    .tata { grid-template-columns: minmax(0, 1fr); grid-template-areas: "perhatian" "denah" "samping" "aktivitas" "linimasa"; gap: 12px; }
+    .samping { display: flex; gap: 12px; align-items: stretch; }
+    .jalur { grid-template-columns: 68px minmax(200px, 1fr); gap: 5px 8px; }
+    /* HP: "Menunggu Anda" selebar layar (dengan kalimatnya); tiga angka lain sebaris: angka di atas, nama di bawah */
+    .ringkas { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding-bottom: 12px; }
+    .angka { padding: 10px 12px; gap: 0 10px; } .angka .nilai { font-size: 26px; } .angka .nama { font-size: 13.5px; }
+    .angka.menunggu { grid-column: 1 / -1; }
+    .angka:not(.menunggu) { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 9px 10px 10px; }
+    .angka:not(.menunggu) .nilai { text-align: left; }
+    .angka:not(.menunggu) .nama { font-size: 12.5px; line-height: 1.25; align-items: flex-start; gap: 5px; }
+    .angka:not(.menunggu) .nama .simbol { width: 14px; height: 14px; font-size: 8.5px; margin-top: 1px; }
+    .angka:not(.menunggu) .ket { display: none; }
+    .atas { padding-top: 14px; } .atas h1 { font-size: 22px; }
+    .koneksi { margin-left: 0; }
     .panggung { height: clamp(380px, 64vh, 600px); }
-    .legenda .kendali { margin-left: 0; }
+    .legenda .alat { margin-left: 0; }
+    .tentang .isi { grid-template-columns: 1fr; }
   }
 </style>
 </head>
 <body>
-<header class="atas">
+<header class="atas lebar">
   <h1>Kantor RudisOne</h1>
   <span class="jam" id="jam"></span>
-  <span class="koneksi" id="koneksi" role="status"><span class="titik"></span><span id="koneksi-teks">Menghubungkan…</span></span>
+  <span class="koneksi" id="koneksi" role="status"><span class="titik" aria-hidden="true"></span><span id="koneksi-teks">Menghubungkan…</span></span>
 </header>
 
-<main class="tata">
+<section class="ringkas lebar" aria-labelledby="judul-ringkas">
+  <h2 id="judul-ringkas" class="sr">Ringkasan</h2>
+  <p class="sr" id="ringkas-kalimat" role="status" aria-live="polite" aria-atomic="true"></p>
+  <a class="angka menunggu" id="angka-menunggu" href="#perhatian"><b class="nilai">0</b><span class="nama"><i class="simbol menunggu" aria-hidden="true">!</i>Menunggu Anda</span><span class="ket">Tidak ada yang menunggu Anda</span></a>
+  <a class="angka" id="angka-bekerja" href="#judul-tim"><b class="nilai">0</b><span class="nama"><i class="simbol bekerja" aria-hidden="true">▶</i>Sedang bekerja</span><span class="ket">Tidak ada yang bekerja</span></a>
+  <a class="angka" id="angka-tugas" href="#judul-tugas"><b class="nilai">0</b><span class="nama">Tugas berjalan</span><span class="ket">Belum ada tugas</span></a>
+  <a class="angka" id="angka-selesai" href="#judul-selesai"><b class="nilai">0</b><span class="nama"><i class="simbol selesai" aria-hidden="true">✓</i>Selesai hari ini</span><span class="ket">Belum ada</span></a>
+</section>
+
+<main class="tata lebar">
+  <section class="kartu perhatian" id="perhatian" hidden aria-labelledby="judul-perhatian">
+    <h2 id="judul-perhatian">Perlu perhatian Anda</h2>
+    <ul id="daftar-perhatian"></ul>
+  </section>
+
   <section class="denah kartu" aria-labelledby="judul-denah">
     <h2 id="judul-denah" class="sr">Denah kantor</h2>
-    <div class="panggung" id="panggung" role="group" aria-roledescription="denah 3D" aria-describedby="petunjuk" aria-label="Denah kantor 3D RudisOne. Rincian setiap orang ada di panel Tim per divisi.">
+    <div class="panggung" id="panggung" role="group" aria-roledescription="denah 3D" aria-describedby="petunjuk" aria-label="Denah kantor 3D RudisOne. Rincian setiap orang ada di panel Tim.">
       <canvas id="kanvas"></canvas>
       <div class="lapis-label" id="lapis-label"></div>
     </div>
     <div class="tanpa-3d" id="tanpa-3d" role="status" hidden>
       <h3>Denah 3D tidak bisa ditampilkan di peramban ini</h3>
       <p class="alasan">Peramban atau kartu grafis perangkat ini tidak mendukung grafis 3D (WebGL 2), atau fitur itu sedang dimatikan.
-        Tim, tugas berjalan, dan aktivitas tetap diperbarui di panel samping.</p>
+        Tim, tugas berjalan, dan aktivitas tetap diperbarui di panel lain.</p>
       <p>Yang bisa dicoba: nyalakan akselerasi perangkat keras di pengaturan peramban, perbarui peramban, atau buka Kantor di Chrome, Edge, Firefox, atau Safari terbaru.</p>
     </div>
     <div class="legenda">
-      <span aria-hidden="true"><i class="simbol bekerja">▶</i>Bekerja</span>
-      <span aria-hidden="true"><i class="simbol berpikir">…</i>Berpikir</span>
-      <span aria-hidden="true"><i class="simbol menunggu">!</i>Menunggu Anda</span>
-      <span aria-hidden="true"><i class="simbol selesai">✓</i>Baru selesai (≤ 10 mnt)</span>
-      <span aria-hidden="true"><i class="simbol siap">–</i>Siap dipanggil · di meja, sesekali ngopi (titik tampil saat diperbesar)</span>
-      <span class="kendali" role="group" aria-label="Kamera denah">
-        <button type="button" id="putar-kiri" aria-label="Putar denah ke kiri">⟲</button>
-        <button type="button" id="putar-kanan" aria-label="Putar denah ke kanan">⟳</button>
-        <button type="button" id="zoom-kecil" aria-label="Perkecil denah">−</button>
-        <button type="button" id="zoom-besar" aria-label="Perbesar denah">+</button>
-        <button type="button" id="zoom-pas">Seluruh denah</button>
-      </span>
-      <fieldset class="pilih-label" id="pilih-label">
-        <legend>Label</legend>
-        <label><input type="radio" name="label" value="ringkas" checked>Ringkas</label>
-        <label><input type="radio" name="label" value="lengkap">Lengkap</label>
-        <label><input type="radio" name="label" value="tanpa">Tanpa</label>
-      </fieldset>
-      <button type="button" class="jeda" id="jeda" aria-pressed="false">Jeda gerak</button>
-      <span class="petunjuk" id="petunjuk"><span class="untuk-tetikus">Seret untuk menggeser · klik kanan + seret untuk memutar · gulir untuk memperbesar · arahkan ke orang untuk nama & status, klik untuk rincian · keyboard (klik denah dulu): panah geser, Shift + panah putar, + / − perbesar, 0 seluruh denah, Tab ke orang berikutnya, Esc tutup.</span><span class="untuk-sentuh">Satu jari menggulir halaman · dua jari menggeser & memperbesar denah · ⟲ ⟳ memutar · ketuk orang untuk nama, status & rincian.</span></span>
+      <ul class="arti" aria-label="Arti tanda di denah">
+        <li><i class="simbol menunggu" aria-hidden="true">!</i>Menunggu Anda</li>
+        <li><i class="simbol bekerja" aria-hidden="true">▶</i>Bekerja</li>
+        <li><i class="simbol berpikir" aria-hidden="true">…</i>Berpikir</li>
+        <li><i class="simbol selesai" aria-hidden="true">✓</i>Baru selesai</li>
+        <li><i class="simbol siap" aria-hidden="true">–</i>Siap dipanggil</li>
+      </ul>
+      <div class="alat">
+        <span class="kendali" role="group" aria-label="Kamera denah">
+          <button type="button" class="tombol" id="putar-kiri" aria-label="Putar denah ke kiri" title="Putar ke kiri">⟲</button>
+          <button type="button" class="tombol" id="putar-kanan" aria-label="Putar denah ke kanan" title="Putar ke kanan">⟳</button>
+          <button type="button" class="tombol" id="zoom-kecil" aria-label="Perkecil denah" title="Perkecil">−</button>
+          <button type="button" class="tombol" id="zoom-besar" aria-label="Perbesar denah" title="Perbesar">+</button>
+          <button type="button" class="tombol" id="zoom-pas">Seluruh denah</button>
+        </span>
+        <fieldset class="pilih-label" id="pilih-label">
+          <legend>Label</legend>
+          <label><input type="radio" name="label" value="ringkas" checked>Ringkas</label>
+          <label><input type="radio" name="label" value="lengkap">Lengkap</label>
+          <label><input type="radio" name="label" value="tanpa">Tanpa</label>
+        </fieldset>
+        <button type="button" class="tombol" id="jeda" aria-pressed="false">Jeda gerak</button>
+        <button type="button" class="tombol bantu" id="tombol-bantuan" aria-expanded="false" aria-controls="petunjuk" aria-label="Cara memakai denah" title="Cara memakai denah">?</button>
+      </div>
+      <div class="petunjuk" id="petunjuk" hidden>
+        <h3>Cara memakai denah</h3>
+        <dl class="untuk-tetikus">
+          <dt>Geser</dt><dd>Seret dengan tetikus</dd>
+          <dt>Putar</dt><dd>Klik kanan lalu seret, atau tombol ⟲ ⟳</dd>
+          <dt>Perbesar</dt><dd>Gulir, atau tombol − +</dd>
+          <dt>Orang</dt><dd>Arahkan untuk nama &amp; status; klik untuk rincian di panel Tim</dd>
+          <dt>Keyboard</dt><dd>Klik denah dulu: panah = geser, Shift + panah = putar, + / − = perbesar, 0 = seluruh denah, Tab = orang berikutnya, Esc = tutup</dd>
+        </dl>
+        <dl class="untuk-sentuh">
+          <dt>Halaman</dt><dd>Satu jari menggulir halaman</dd>
+          <dt>Denah</dt><dd>Dua jari menggeser &amp; memperbesar; ⟲ ⟳ memutar</dd>
+          <dt>Orang</dt><dd>Ketuk untuk nama, status, dan rincian</dd>
+        </dl>
+      </div>
     </div>
   </section>
 
   <div class="samping">
-    <section class="kartu perhatian" id="perhatian" hidden aria-labelledby="judul-perhatian">
-      <h2 id="judul-perhatian">Perlu perhatian Anda</h2>
-      <ul id="daftar-perhatian"></ul>
-    </section>
-    <section class="kartu" aria-labelledby="judul-tugas">
-      <h2 id="judul-tugas">Tugas berjalan <span class="hitung" id="hitung-tugas"></span></h2>
+    <section class="kartu bagian" aria-labelledby="judul-tugas">
+      <header><h2 id="judul-tugas">Tugas berjalan<span class="hitung" id="hitung-tugas"></span></h2></header>
       <ul class="tugas" id="tugas"></ul>
+      <button type="button" class="tombol lihat-semua" id="lihat-semua-tugas" aria-expanded="false" hidden>Lihat semua tugas</button>
       <div class="selesai-hari-ini" id="selesai-hari-ini" hidden>
-        <h3>Selesai hari ini <span class="hitung"></span></h3>
-        <ul class="tugas"></ul>
+        <h3 id="judul-selesai">Selesai hari ini<span class="hitung"></span></h3>
+        <ul></ul>
       </div>
     </section>
-    <section class="kartu" aria-labelledby="judul-tim">
-      <h2 id="judul-tim">Tim per divisi</h2>
+    <section class="kartu bagian" aria-labelledby="judul-tim">
+      <header><h2 id="judul-tim">Tim</h2><span class="sub" id="tim-sub"></span></header>
       <ul class="tim" id="tim"></ul>
-    </section>
-    <section class="kartu" aria-labelledby="judul-aktivitas">
-      <h2 id="judul-aktivitas">Aktivitas terbaru</h2>
-      <ol class="aktivitas" id="aktivitas"></ol>
     </section>
   </div>
 
-  <section class="kartu linimasa" aria-labelledby="judul-linimasa">
-    <div class="kepala"><h2 id="judul-linimasa">Linimasa 60 menit</h2><span class="skala">aktivitas per menit · kiri 60 menit lalu, kanan sekarang</span></div>
-    <div class="jalur-wrap"><div class="jalur" id="jalur"></div></div>
+  <section class="kartu bagian aktivitas-bagian" aria-labelledby="judul-aktivitas">
+    <header><h2 id="judul-aktivitas">Aktivitas terbaru</h2><span class="sub">per tugas, terbaru di atas</span></header>
+    <div class="aktivitas" id="aktivitas" role="log" aria-live="off"></div>
+    <button type="button" class="tombol lihat-semua" id="lihat-semua" aria-expanded="false" hidden>Lihat semua aktivitas</button>
   </section>
 
-  <p class="catatan">Data dibaca dari sesi Claude di laptop ini dan tidak dikirim ke mana pun; halaman ini juga tidak memuat apa pun dari internet. Sesi tetap hanya COO dan Tech Lead proyek aktif; IT Operations dibentuk saat ada tugas server/insiden/deploy; peran lain adalah katalog yang dipanggil sebagai subagent saat dibutuhkan, lalu bekerja di kursinya dengan penanda “subagent dari …”. Semua jabatan selalu hadir di mejanya; “Bekerja” hanya tampil bila ada sesi atau subagent yang benar-benar berjalan, “Baru selesai” bila pekerjaannya berakhir kurang dari 10 menit lalu, selain itu “Siap dipanggil” (sesekali istirahat ke lounge). Gerak karakter menggambarkan kejadian nyata: atasan memanggil dari mejanya dan bawahan datang ke kursi tamu untuk menerima tugas, laporan dibawa naik ke atasan. Papan tulis tim, papan tugas, dan berkas di meja hanya berisi ID & judul tugas dari register. Cahaya mengikuti jam WIB.</p>
+  <section class="kartu bagian linimasa" aria-labelledby="judul-linimasa">
+    <header><h2 id="judul-linimasa">Linimasa 60 menit</h2><span class="sub">aktivitas per menit</span></header>
+    <div class="jalur-wrap"><div class="jalur" id="jalur"></div></div>
+  </section>
 </main>
+
+<footer class="kaki lebar">
+  <details class="tentang">
+    <summary>Tentang halaman ini</summary>
+    <div class="isi">
+      <div>
+        <ul>
+          <li>Data dibaca dari percakapan Claude di laptop ini dan tidak dikirim ke mana pun; halaman ini tidak memuat apa pun dari internet.</li>
+          <li>Semua jabatan selalu ada di mejanya. <b>Bekerja</b> hanya tampil bila pekerjaannya benar-benar berjalan, <b>Baru selesai</b> selama 10 menit sesudahnya, selain itu <b>Siap dipanggil</b> (sesekali beristirahat di lounge).</li>
+          <li>COO dan Tech Lead proyek aktif selalu punya ruang kerja; IT Operations dibuka saat ada tugas server, insiden, atau penerapan; jabatan lain dipanggil saat dibutuhkan, lalu bekerja di kursinya.</li>
+          <li>Gerak di denah menggambarkan kejadian nyata: pimpinan memanggil dari mejanya, anggota datang menerima tugas, laporan dibawa ke atasan.</li>
+          <li>Papan tulis, papan tugas, dan map di meja hanya berisi nomor dan judul tugas. Cahaya mengikuti jam WIB.</li>
+          <li>Bila Kantor terus terputus, minta COO menyalakannya kembali.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Singkatan jabatan</h3>
+        <dl id="daftar-singkatan"></dl>
+      </div>
+    </div>
+  </details>
+</footer>
 
 <script type="module" src="/app/kantor.mjs"></script>
 </body>

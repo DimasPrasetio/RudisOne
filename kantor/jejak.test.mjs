@@ -22,8 +22,8 @@ test("'Bekerja' (dan berpikir/menunggu) hanya dari sesi/subagent yang benar-bena
 test("semua jabatan hadir: siaga, katalog, dan sesi tetap yang belum masuk tampil 'Siap dipanggil' dengan keterangan jujur", () => {
   for (const ag of [{ present: true, status: "santai", mode: "siaga" }, { present: false, status: "absen", mode: "katalog" },
     { present: false, status: "absen", mode: "absen" }]) assert.equal(keadaanTampil(ag, KINI), "siap");
-  assert.match(keteranganSiap({ mode: "siaga" }), /sesi terbuka/);
-  assert.match(keteranganSiap({ mode: "katalog" }), /subagent/);
+  assert.match(keteranganSiap({ mode: "siaga" }), /terbuka/);
+  assert.match(keteranganSiap({ mode: "katalog" }), /saat ditugaskan/);
   assert.match(keteranganSiap({ mode: "absen" }), /COO/);
 });
 
