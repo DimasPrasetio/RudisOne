@@ -42,12 +42,13 @@ export function tampilanOrang({ status, mode = "ringkas", tingkat = "jauh", dise
 export const PRIO_WAJIB = 5.5;
 /**
  * Penempatan label tanpa tumpuk (seperti simbol peta). `daftar` = [{ px, py, w, h, prio, jarak, bawah }] (piksel; `bawah` =
- * jangkar atas-tengah, selainnya bawah-tengah); `lebar` = lebar kanvas. Urut prioritas lalu jarak; tiap label mencoba
- * posisinya sendiri lalu digeser per baris (wajib: lebih banyak langkah, termasuk ke bawah). Label opsional yang tetap
+ * jangkar atas-tengah, selainnya bawah-tengah); `lebar`/`tinggi` = ukuran kanvas. Urut prioritas lalu jarak; tiap label mencoba
+ * posisinya sendiri lalu digeser per baris (wajib: lebih banyak langkah, termasuk ke bawah); posisi geser yang keluar dari
+ * kanvas tidak dipakai (akan terpotong). Label opsional yang tetap
  * bertumpuk disembunyikan; label wajib tidak pernah — bila semua langkah terpakai ia diletakkan di posisi asal.
  * Mengubah `px`/`py` tiap label (dijepit ke kanvas & digeser); kembalian: Set label yang disembunyikan.
  */
-export function tempatkanLabel(daftar, lebar) {
+export function tempatkanLabel(daftar, lebar, tinggi = Infinity) {
   const terpakai = [], kalah = new Set();
   const urut = daftar.filter((l) => l.prio > 0 && l.w > 0 && l.h > 0).sort((p, q) => (q.prio - p.prio) || p.jarak - q.jarak);
   const tumpuk = (r) => terpakai.some((q) => r.x0 < q.x1 - 1 && r.x1 > q.x0 + 1 && r.y0 < q.y1 - 1 && r.y1 > q.y0 + 1);
@@ -56,7 +57,8 @@ export function tempatkanLabel(daftar, lebar) {
     const kotak = (dy) => ({ x0: l.px - l.w / 2, x1: l.px + l.w / 2, y0: (l.bawah ? l.py : l.py - l.h) + dy, y1: (l.bawah ? l.py + l.h : l.py) + dy });
     const s = l.h + 2, wajib = l.prio >= PRIO_WAJIB;
     const coba = l.bawah ? [0, s, -s] : wajib ? [0, -s, -2 * s, s, -3 * s, 2 * s] : [0, -s, -2 * s];
-    let dy = coba.find((d) => !tumpuk(kotak(d)));
+    const muat = (r) => r.y0 >= 0 && r.y1 <= tinggi;
+    let dy = coba.find((d) => !tumpuk(kotak(d)) && (d === 0 || muat(kotak(d))));
     if (dy === undefined) { if (!wajib) { kalah.add(l); continue; } dy = 0; }
     l.py += dy; terpakai.push(kotak(0));
   }

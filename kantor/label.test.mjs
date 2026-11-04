@@ -77,6 +77,17 @@ test("penempatan label: dua 'Menunggu Anda' berimpit saling menghindar (keduanya
   for (const l of banyak) assert.ok(l.px - l.w / 2 >= 4 - 1e-9 && l.px + l.w / 2 <= 390);
 });
 
+test("penempatan label: geser tidak pernah mendorong label keluar kanvas (tiga 'Menunggu Anda' dekat tepi atas HP)", () => {
+  // posisi kepala Corporate Strategy di HP seluruh denah (tinggi kanvas 377 px): FC (60, 49), HoS (120, 58), RA (65, 67)
+  const lbl = (px, py, jarak) => ({ px, py, w: 130, h: 23, prio: PRIO_WAJIB, jarak });
+  const fc = lbl(60, 49, 3), hos = lbl(120, 58, 2), ra = lbl(65, 67, 1);
+  assert.equal(tempatkanLabel([fc, hos, ra], 375, 377).size, 0);
+  for (const [nama, l] of Object.entries({ fc, hos, ra })) {
+    const asal = { fc: 49, hos: 58, ra: 67 }[nama];
+    assert.ok((l.py - l.h >= 0 && l.py <= 377) || l.py === asal, `${nama} di dalam kanvas atau di posisi asalnya (py ${l.py})`);
+  }
+});
+
 test("gelembung ucapan hanya saat diperbesar atau mode lengkap", () => {
   assert.equal(ucapanTampil("ringkas", "jauh"), false);
   assert.equal(ucapanTampil("ringkas", "dekat"), true);

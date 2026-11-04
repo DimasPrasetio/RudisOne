@@ -1071,7 +1071,7 @@ export class Adegan {
     // tabrakan (seperti simbol peta) — label.mjs › tempatkanLabel: urut prioritas lalu jarak, geser bila bertumpuk; label
     // wajib (kartu sentuh, "Menunggu Anda") tidak pernah disembunyikan; nama (teks opsional) kalah lebih dulu dari titik.
     for (const l of tampil) { l.prio = l.prioritasFn?.() ?? l.prioritas; l.bawah = l.el.classList.contains("tag"); }
-    const kalah = tempatkanLabel(tampil, w);
+    const kalah = tempatkanLabel(tampil, w, h);
     for (const l of tampil) {
       l.el.style.visibility = kalah.has(l) ? "hidden" : "";
       l.el.style.transform = `translate(${l.px.toFixed(1)}px, ${l.py.toFixed(1)}px)`;
