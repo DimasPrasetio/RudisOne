@@ -1,7 +1,8 @@
-# Brief desain — Kantor RudisOne
+# Brief desain — Kantor RudisOne (3D)
 
-Brief desain tampilan Kantor RudisOne (`kantor/index.html`, data dari `kantor/server.mjs`), disusun mengikuti skill
-`rudis-riset-desain`. Berkas ini memuat prinsip, denah, cerita gerak, dan token yang berlaku — bukan riwayat versi.
+Brief desain tampilan Kantor RudisOne, disusun mengikuti skill `rudis-riset-desain`: halaman `kantor/index.html`, denah 3D
+`kantor/app/` (three.js r186 disalin di `kantor/vendor/`, tanpa build, tanpa internet), data dari `kantor/server.mjs`.
+Berkas ini memuat prinsip, denah, cerita gerak, kamera, dan token yang berlaku — bukan riwayat versi.
 
 ## Subjek, audiens, tugas utama
 - **Subjek:** organisasi agent RudisOne sebagai kantor: COO di ruang pimpinan, tiga pod Engineering (Tim 1–3), Corporate
@@ -9,144 +10,179 @@ Brief desain tampilan Kantor RudisOne (`kantor/index.html`, data dari `kantor/se
 - **Audiens:** pemilik tim, memantau sambil bekerja di layar lebar, sesekali dari HP.
 - **Tugas utama layar:** dalam 3 detik menjawab: siapa sedang bekerja di divisi mana, siapa menunggu saya, dan apa
   yang sedang mengalir (tugas turun, laporan naik). Detail baru muncul saat diminta.
+- **3D adalah peta, bukan tempat menjelajah:** ruangan semi-realistis (cahaya, bayangan, bahan kayu/kaca/karpet) dengan
+  kamera terbatas; rincian dan padanan aksesibel tetap di panel samping HTML.
 
 ## Prinsip
 1. **Status selalu terbaca tanpa animasi** (warna + simbol + teks); animasi hanya memperkuat.
 2. **Jujur:** kursi tanpa sesi tampil apa adanya (katalog/absen); data basi atau koneksi putus selalu ditampilkan.
 3. **Struktur organisasi terlihat:** denah mencerminkan rantai komando — atasan memanggil dari mejanya, bawahan
-   menghampiri; laporan dibawa naik.
+   menghampiri; laporan dibawa naik. Papan nama zona **selalu tampil**.
 4. **Privasi:** hanya metadata aktivitas (nama alat, deskripsi singkat ≤ 50 karakter, nama berkas) — tidak pernah isi
    berkas, pesan, prompt, atau keluaran. Jenis pesan diambil dari tag `[…]` di awal pesan saja.
 5. **Tenang:** lantai & perabot netral; warna kuat hanya untuk status dan identitas peran; tidak ada merah kecuali galat.
-6. **Gerak aman:** `prefers-reduced-motion` dan tombol **Jeda gerak** membuat semuanya statis (WCAG 2.2.2, 2.3.3).
+6. **Gerak aman:** `prefers-reduced-motion` dan tombol **Jeda gerak** membuat semuanya statis (WCAG 2.2.2, 2.3.3) —
+   orang berpindah seketika, kamera tanpa transisi, dan denah hanya digambar ulang saat datanya berubah.
+7. **Lokal:** halaman tidak memuat apa pun dari internet (pustaka & huruf disalin; server mengirim CSP `'self'`).
 
 ## Temuan riset → keputusan
 | Temuan (sumber) | Keputusan |
 |---|---|
-| Kantor virtual modern (Roam, Kumospace, Gather): ruang bernama per tim, tim yang sering berinteraksi berdekatan, ukuran ruang sesuai jumlah orang, jalur & pintu jelas | Denah **isometrik vektor** dengan zona per divisi (lantai berwarna lembut + papan nama), lorong utama yang menghubungkan semua zona, pintu zona selalu kosong |
-| Kantor eksekutif modern (Gensler/Fujitsu, Haworth, Algedra): wilayah pimpinan ditandai material lantai & dinding kaca, ada kursi tamu | **Ruang Pimpinan** berlantai kayu, partisi kaca rendah, meja besar menghadap ruangan, dua kursi tamu — tempat bawahan berdiri saat dipanggil/melapor |
-| Break room dipisah dari area kerja tenang (partisi/tanaman), stasiun kopi sebagai titik kumpul, sofa membentuk pod ngobrol | **Lounge** terpisah tanaman & partisi rendah: bar kopi, sofa L, sofa berhadapan, pouf, meja bundar, bangku |
-| Dashboard multi-agent: peta organisasi dengan status live, linimasa, titik persetujuan menonjol, state basi/galat eksplisit | Panel **Perlu perhatian Anda** paling atas; papan **Tugas berjalan**; **linimasa 60 menit**; banner koneksi & "diperbarui … lalu" |
-| Pixel Agents / Claude-Office: agent masuk lewat pintu, punya meja, pose sesuai alat, istirahat kopi; data dari transkrip `~/.claude/projects` | Bekerja → ke meja dengan pose sesuai alat (mengetik/membaca/berpikir); santai → lounge; menunggu → angkat tangan + "!" |
-| Generative Agents (Smallville), simulasi kantor: agen berpindah sesuai rutinitas dan mengobrol saat bertemu; titik yang dipakai bersama membuat penumpukan | Titik santai **dipesan** satu per orang; dua orang santai yang berdekatan sesekali mengobrol |
+| Kantor virtual modern (Roam, Kumospace, Gather): ruang bernama per tim, tim yang sering berinteraksi berdekatan, jalur & pintu jelas | Zona per divisi (lantai bertint warna divisi + papan nama), lorong utama berkarpet, pintu zona selalu kosong |
+| Kantor eksekutif modern (Gensler/Fujitsu, Haworth, Algedra): wilayah pimpinan ditandai material lantai & dinding kaca, ada kursi tamu | **Ruang Pimpinan** berlantai kayu, partisi kaca, meja walnut menghadap ruangan, dua kursi tamu |
+| Break room dipisah dari area kerja tenang, stasiun kopi sebagai titik kumpul, sofa membentuk pod ngobrol | **Lounge** dibatasi pot tanaman: bar kopi, sofa L, pouf, meja bundar, bangku |
+| Dashboard multi-agent: peta organisasi dengan status live, linimasa, titik persetujuan menonjol, state basi/galat eksplisit | Panel **Perlu perhatian Anda** paling atas; papan **Tugas berjalan**; **linimasa 60 menit**; banner koneksi |
+| Pixel Agents / Claude-Office: agent masuk lewat pintu, punya meja, pose sesuai alat, istirahat kopi | Bekerja → ke meja dengan pose sesuai alat (mengetik/membaca/berpikir); santai → lounge; menunggu → angkat tangan |
+| Generative Agents (Smallville): titik yang dipakai bersama membuat penumpukan | Titik santai **dipesan** satu per orang; dua orang santai yang berdekatan sesekali mengobrol |
 | Pola FSM NPC: pisahkan status, gerak, dan kondisi | Status dari server ≠ perilaku di layar: tiap karakter punya antrean skenario (delegasi, lapor) yang didahulukan |
-| Isometrik: urutan gambar berdasarkan kedalaman x+y; dinding depan dipotong; lintasan sejajar sumbu iso | Perabot & orang diurutkan bersama per bingkai; hanya dinding belakang tinggi; pencarian jalur A* di grid (4 arah, penalti belok), kecepatan konstan, menghadap arah gerak |
-| Indikator presence: jangan hanya warna; kontras tinggi | Status = warna + simbol + label teks |
+| Navigasi 3D bebas membuat orang tersesat; 3D layak bila bentuk ruang penting (Nielsen, "2D is better than 3D"); "kembali ke tampilan standar" memulihkan orientasi (Autodesk ViewCube) | Kamera **terbatas** + tombol **Seluruh denah** selalu ada; transisi ±650 ms, instan saat hemat gerak |
+| Diorama web ringan yang terasa nyata memakai cahaya terpanggang (Bruno Simon, *my-room-in-3d*) — kita tak memakai aset berlisensi | Pengganti murah dari kode: bayangan perabot **statis** (dihitung sekali), bayangan kontak palsu di bawah orang, bercak cahaya jendela di lantai |
+| Hemisphere + satu cahaya arah + IBL `RoomEnvironment` cukup tanpa berkas HDR; tiap cahaya langsung menambah biaya (dok three.js, Discover three.js) | Cahaya = Hemisphere + 1 Directional berbayangan + RoomEnvironment; layar = warna tak terpengaruh cahaya |
+| Khronos **PBR Neutral** menjaga rona & saturasi warna dasar; ACES/AgX mengurangi saturasi (model-viewer, tone mapping) | `NeutralToneMapping`: warna status & peran di 3D sama dengan token CSS |
+| Perspektif memberi isyarat kedalaman; FOV kecil menekan distorsi (MathWorks view projections; contoh *ai-office*) | `PerspectiveCamera` FOV 30° |
+| Peta tertanam di halaman yang digulir: satu jari menggulir halaman, dua jari menggerakkan peta (Google Maps `gestureHandling: cooperative`) | HP: **satu jari menggulir halaman, dua jari menggeser & mencubit denah**; petunjuk singkat muncul saat satu jari digeser di denah |
+| Label HTML di atas kanvas (CSS2D): teks tajam & ikut CSS, tidak terbaca sebagai bagian 3D; panel HTML = padanan pembaca layar (forum three.js aksesibilitas) | Label = elemen HTML yang mengikuti titik 3D; tag meja = tombol (klik = rincian); panel samping = padanan penuh |
+| Label tidak boleh bertumpuk; deconfliction berprioritas (ArcGIS label deconfliction, *avoid-overlap*) | Papan zona ditempatkan dulu dan tidak pernah disembunyikan; lalu gelembung > "!" menunggu > nama > tag meja — yang bertabrakan digeser ±1 baris, baru disembunyikan |
+| Kinerja: batasi pixel ratio, render saat perlu, kurangi draw call dengan penggabungan & instancing (panduan three.js performance CloudAI-X r186, MDN WebGL best practices) | Pixel ratio ≤ 2 (HP 1,5), perabot statis digabung per material, layar monitor & bayangan kontak = satu `InstancedMesh`, tiap orang = satu `SkinnedMesh` |
+| DevTools CPU throttling tidak memperlambat GPU (Chrome for Developers) | Angka HP dari emulasi dilabeli "GPU laptop — optimistis" |
+| Pesan galat: apa yang terjadi + yang bisa dicoba, tanpa "maaf"/jargon (GOV.UK error message) | Tanpa WebGL 2: kotak pesan menggantikan denah, panel tetap lengkap |
 
-## Denah (unit isometrik; lantai 40 × 21)
+## Denah (1 unit = 1 m; lantai 40 × 21; data: `kantor/app/denah.mjs`)
 ```
-  ┌───────────┬───────────────┬───────────────┬───────────────┐ y=0
+  ┌───────────┬───────────────┬───────────────┬───────────────┐ y=0 (dinding belakang berjendela)
   │ RUANG     │ ENG · TIM 1   │ ENG · TIM 2   │ ENG · TIM 3   │   tiap pod: meja Tech Lead menghadap tim,
-  │ PIMPINAN  │ (proyek A)    │ (proyek B)    │ (redup bila   │   BSA · SE1 · SE2 di baris depan, papan tulis
-  │           │               │               │  belum dipakai)│
-  ├─pintu─────┴──── lorong utama (karpet) ─────┴───────────────┤ ← pintu masuk (kiri)
+  │ PIMPINAN  │ (proyek A)    │ (proyek B)    │ (redup bila   │   BSA · SE1 · SE2 di baris depan, papan tulis,
+  │ (kayu)    │               │               │  belum dipakai)│   meja berdiri untuk asisten
+  ├─pintu─────┴──── lorong utama (karpet) ─────┴───────────────┤ ← pintu masuk (dinding kiri)
   │ CORPORATE      │ LAYANAN   │ IT OPS      ┊ LOUNGE           │
-  │ STRATEGY       │ BERSAMA   │ IT Ops lead ┊ bar kopi, sofa L,│
-  │ Strategy lead, │ PM lead,  │ SysAdmin,   ┊ pouf, meja bundar│
-  │ Finance·Riset· │ TW        │ rak server  ┊ bangku, berdiri  │
-  │ HRBP           │           │             ┊                  │
-  └────────────────┴───────────┴─────────────┴──────────────────┘ y=21
+  │ STRATEGY       │ BERSAMA   │ panel layar,┊ bar kopi, sofa L,│
+  │ Strategy lead, │ PM lead,  │ IT Ops lead,┊ pouf, meja bundar│
+  │ Finance·Riset· │ TW        │ SysAdmin,   ┊ bangku, berdiri  │
+  │ HRBP           │           │ rak server  ┊                  │
+  └────────────────┴───────────┴─────────────┴──────────────────┘ y=21 (tepi depan terbuka — diorama)
 ```
-- Meja leader di belakang zonanya **menghadap anggota**; anggota di meja baris depan.
+- Meja leader di belakang zonanya **menghadap anggota**; anggota duduk menghadap mejanya (membelakangi kamera bawaan).
 - Kursi tim dipetakan per proyek: nomor tim dari `TEAM.md` (`## Engineering · Tim <n> · <proyek>`), lalu dari nama worktree
-  `r<n>-…`, selain itu nomor kosong terkecil saat sesi tim proyek itu pertama terlihat. Papan nama tim menampilkan proyeknya; tim tanpa proyek diredupkan
-  dan disembunyikan dari panel & linimasa.
-- Hanya sesi RudisOne yang tampil (folder repo ini, worktree `r<n>-…`, `/rudisone`, atau pembuka "… di RudisOne"); sistem
-  agent lain di device yang sama diabaikan.
-- 20 titik santai — cukup untuk semua kursi selain COO.
-- Desktop: denah selebar kolom kiri, kolom samping 340px (perhatian, tugas berjalan, tim per divisi, aktivitas),
-  linimasa di bawah; tombol **− / + / Seluruh denah** (zoom 1–2,8×) dan geser dengan seret. HP: denah bisa digeser
-  horizontal (lebar minimum ±760px) — tidak dikecilkan sampai tak terbaca.
+  `r<n>-…`, selain itu nomor kosong terkecil. Papan nama tim menampilkan proyeknya; tim tanpa proyek diredupkan dan
+  tag mejanya disembunyikan dari denah, panel & linimasa.
+- Hanya sesi RudisOne yang tampil (folder repo ini, worktree `r<n>-…`, `/rudisone`, atau pembuka "… di RudisOne").
+- Jalan: A* di grid 0,5 m (4 arah, penalti belok) dari tapak perabot; semua kursi, kursi tamu, titik santai, dan meja
+  bantuan terjangkau dari pintu (dijaga `kantor/denah.test.mjs`). 20 titik santai.
+
+## Kamera & interaksi
+- `PerspectiveCamera` FOV 30°. Bawaan **atas-miring dari depan-kanan** (azimut 45°, 58° dari vertikal) = sudut denah
+  isometrik lama; layar sempit (< 700 px) memakai azimut 74° dan 46° dari vertikal agar sisi panjang denah mengisi layar
+  tegak. Batas: azimut 15°–75°, polar 28°–64°, jarak 9 m – 1,2 × jarak pas; titik pandang dijepit ke lantai.
+- **Seluruh denah** = jarak & titik pandang agar lantai + dinding tepat masuk dan terpusat (dihitung dari proyeksi).
+  Selama pengguna belum menggerakkan kamera, ukuran kanvas berubah → tetap "Seluruh denah".
+- Tetikus: seret = geser, klik kanan + seret = putar, gulir = perbesar. Sentuh: satu jari = gulir halaman, dua jari =
+  geser & cubit. Tombol: ⟲ ⟳ (±15°), − +, **Seluruh denah** (≥ 32 px). Keyboard (fokus di denah): panah = geser,
+  Shift + panah = putar, + / − = perbesar, 0 = seluruh denah, Esc = batal pilih.
+- Klik/ketuk meja, orang, atau tag meja = rincian di panel (seperti panel Tim). Tautan `?tugas=<ID>` menyorot tugas,
+  memilih pemiliknya, dan mendekatkan kamera ke mejanya.
+- HP: tinggi kanvas mengikuti tinggi denah (tanpa ruang kosong di atas/bawah).
 
 ## Cerita gerak
 | Kejadian (dari transkrip) | Animasi |
 |---|---|
 | Atasan → bawahan `[Tugas …]` / `[Revisi]` / `[Permintaan …]`, atau COO membentuk sesi | Atasan tetap duduk, gelembung "<nama>, ke meja saya"; bawahan berdiri ("Baik"), berjalan ke kursi tamu atasan, menerima berkas ("Siap ✓"), lalu ke mejanya dan bekerja |
-| Bawahan → atasan `[Laporan …]`, atau bawahan selesai satu giliran kerja | Bawahan membawa berkas ke kursi tamu atasan, "Laporan selesai"; atasan "Terima kasih"; bawahan kembali (ke lounge bila santai) |
+| Bawahan → atasan `[Laporan …]`, atau bawahan selesai satu giliran kerja | Bawahan membawa kertas ke kursi tamu atasan, "Laporan selesai"; atasan "Terima kasih"; bawahan kembali (ke lounge bila santai) |
 | Atasan → bawahan `[Diterima]` | Atasan "Diterima ✓", bawahan "Terima kasih" di tempat — tanpa berjalan |
 | `[Tinjau]` | Peninjau dipanggil ke meja pemberi tinjauan |
 | Sesama `[Konsultasi]`/`[Jawaban]`/`[Info]` | Pengirim menghampiri meja penerima, gelembung tanya-jawab, kembali |
-| Santai | Ke bar kopi (mengambil cangkir), lalu duduk di sofa/meja bundar; bila ada teman di dekatnya, mengobrol bergantian |
+| Santai | Ke bar kopi (memegang cangkir), lalu duduk di sofa/meja bundar; bila ada teman di dekatnya, mengobrol bergantian |
 | Sesi muncul / diarsipkan | Masuk lewat pintu ke mejanya / keluar lewat pintu |
+| Subagent umum (asisten) | Asisten muncul di samping pemanggil, bekerja di meja berdiri tim, lalu menyerahkan hasil dan pergi |
 
-Atasan mengikuti rantai komando di `protokol.md`: COO → leader & staf Corporate Strategy; Tech Lead → BSA dan Software
-Engineer #n; Head of IT Operations → System Administrator; Program Manager → Technical Writer.
+Pose di meja: bekerja = mengetik (atau membaca untuk alat baca/web), berpikir = tangan di dagu, menunggu Anda = angkat
+tangan + **cincin amber di lantai**, santai di meja = duduk. Atasan mengikuti rantai komando di `protokol.md`.
 
 ## Keadaan peran
 Hanya inti yang hidup sebagai sesi (COO dan Tech Lead tim yang punya proyek); IT Operations dibentuk saat dibutuhkan;
 peran lain dipanggil sebagai subagent `rudis-<id-peran>`.
-- **`mode` di /state:** *aktif* (sesi hidup bekerja/berpikir/menunggu, atau subagent berjalan) · *siaga* (sesi hidup
-  tapi santai — ke lounge) · *katalog* (tidak ada sesi; dipanggil saat perlu — termasuk Head of IT Operations dan System
-  Administrator tanpa sesi) · *absen* (kursi sesi tetap yang belum masuk). `status` lama tetap dikirim agar klien lama
-  tidak rusak.
-- **Subagent peran duduk di kursinya:** `agentType` di `subagents/agent-<id>.meta.json` bernilai `rudis-<id-peran>`
-  (boleh berawalan plugin) → kursi peran itu (peran tim memakai tim pemanggil; engineer: nomor "#n" di deskripsi/pembuka,
-  selain itu kursi #1/#2 yang kosong); tanpa `agentType`, dikenali dari pembuka "Kamu adalah <Jabatan> …". Subagent
-  bertipe lain tampil sebagai asisten di kursi pemanggil. Selesai → kursi kembali ke katalog; langkahnya tetap di log &
-  linimasa.
-- **Tampilan katalog:** redup dan netral — tag meja opasitas .4, avatar berlatar warna peran 14%, simbol bertitik, teks
-  "Dipanggil saat perlu · <peran>". Legenda: Siaga · Katalog · "Sesi tetap belum masuk".
-- **Penanda subagent:** lencana "subagent · <pemanggil>" di panel tim, baris aksi meja "subagent dari <pemanggil>",
-  dan "Subagent dari …" di rincian sesi.
-- **Register tugas:** papan "Tugas berjalan" membaca `handoff/register-tugas.json` (sumber kebenaran, ditulis
-  `bin/register.sh`); bila tidak ada atau rusak, tabel MD lewat `bacaRegister`.
+- **`mode` di /state:** *aktif* · *siaga* (sesi hidup tapi santai — ke lounge) · *katalog* (tidak ada sesi; dipanggil saat
+  perlu) · *absen* (kursi sesi tetap yang belum masuk). `status` lama tetap dikirim agar klien lama tidak rusak.
+- **Subagent peran duduk di kursinya** (`agentType` `rudis-<id-peran>`, atau pembuka "Kamu adalah <Jabatan> …"); subagent
+  bertipe lain tampil sebagai asisten. Selesai → kursi kembali ke katalog; langkahnya tetap di log & linimasa.
+- **Tampilan katalog:** tag meja redup (opasitas .45), simbol bertitik, teks "Dipanggil saat perlu"; tag absen/katalog
+  disembunyikan saat denah jauh (HP / seluruh denah) agar tidak menutupi yang aktif.
+- **Penanda subagent:** lencana "subagent · <pemanggil>" di panel tim, baris aksi tag meja "subagent dari <pemanggil>".
+- **Register tugas:** papan "Tugas berjalan" membaca `handoff/register-tugas.json` (ditulis `bin/register.sh`).
 
 ## Lapisan & keterbacaan
-- Lapisan tetap: lantai → bayangan & cahaya → perabot + orang (urut kedalaman) → papan nama, label meja & nama →
-  gelembung & berkas. Papan nama di pita atas dinding / tepi lantai depan, lebar diukur setelah font siap.
-- Teks denah 10,5–14px (gelembung 11px, papan 14/11,5px, nama meja 12px; lencana angka 10px); cincin lantai hanya untuk "menunggu Anda"; label nama
-  hanya saat di luar meja; papan meja orang yang santai diredupkan.
-- Suasana: bayangan lembut di bawah perabot, cahaya jendela di lantai, opasitas zona lebih tinggi di tema gelap, karpet
-  lorong, kusen + keset + tanda keluar di pintu masuk.
-- Karakter berbeda per kursi: rambut (cepak, samping, panjang, kuncir, keriting, botak+topi) dan aksesori (jas+dasi COO,
-  kacamata, headset Head of IT Operations, hoodie engineer, lanyard, dasi); tampak belakang menutupi wajah & aksesori depan.
+- Kanvas WebGL (ruangan, perabot, orang) → lapisan label HTML: papan zona, tag meja (tombol), label kepala (simbol status
+  + nama saat di luar meja), gelembung ucapan, berkas yang diserahkan. Label mengikuti titik 3D tiap gambar.
+- Penghindaran tumpukan setiap gambar: papan zona ditempatkan dulu (tidak pernah disembunyikan), lalu menurut prioritas
+  (gelembung 5 > menunggu 4 > nama 3 > simbol di meja 2,5 > tag meja 2) dan jarak; yang bertabrakan dicoba digeser satu
+  baris ke atas/bawah, baru disembunyikan. Label dijepit agar tidak terpotong tepi kanvas.
+- Tingkat rincian: saat jauh (< 26 px per meter) atau layar < 600 px, label ringkas — tanpa sub-judul zona, tanpa baris
+  aksi meja (kecuali menunggu/dipilih), nama hanya untuk yang menunggu.
+- Status di 3D diperkuat tanpa animasi: layar monitor menyala warna peran saat bekerja, redup saat berpikir/menunggu,
+  mati selainnya; cincin lantai amber hanya untuk "menunggu Anda".
+- Ukuran teks: papan zona 14/11,5 px (HP 11,5), tag meja 12 px, aksi 11 px, label kepala 10,5 px, gelembung 11 px.
 
 ## Token
-Nilai di bawah sama dengan variabel CSS di `kantor/index.html` (`:root` dan blok `prefers-color-scheme: dark`) — kode adalah
-sumbernya; ubah keduanya bersamaan.
-- **Dasar (terang / gelap):** latar `#E8EDF2` / `#0E151D`, lantai `#F4F6F8` / `#18222D`, garis ubin `#E1E7ED` / `#202C39`, partisi
-  `#C9D3DD` / `#2E3E4E`, tinta `#1D2833` / `#E4EBF2`, redup `#5E6E7E` / `#8FA0B1`.
+Warna halaman = variabel CSS di `kantor/index.html` (`:root` dan blok `prefers-color-scheme: dark`); warna 3D =
+`PALET` di `kantor/app/adegan.mjs` (terang / gelap). Kode adalah sumbernya; ubah bersamaan dengan berkas ini.
+- **Dasar (terang / gelap):** latar `#E8EDF2` / `#0E151D`, permukaan `#FFFFFF` / `#141E28`, tinta `#1D2833` / `#E4EBF2`,
+  redup `#5E6E7E` / `#8FA0B1`, panggung (gradien di belakang kanvas) `#F3F6F9`→`#DFE6ED` / `#121C26`→`#0B1117`.
 - **Status (terang / gelap):** Bekerja `#1F9D6A` / `#34C38A` (▶), Berpikir `#3B7BD8` / `#5B97EF` (…), Menunggu Anda `#D9930B` /
   `#F0AA2A` (!), Santai `#8A97A6` / `#7D8B99` (–), Belum masuk = garis putus-putus. Galat `#D64545` / `#EF6461` hanya untuk
   galat/terputus.
 - **Identitas peran:** COO `#B8892B`, Head of Strategy `#B07A1F`, Financial Controller `#3E9E5C`, Research Analyst `#1FA3AE`,
   HR Business Partner `#D35F9A`, Tech Lead `#5B3FB8`, Business Systems Analyst `#3D7BD9`, Software Engineer #1 `#7C5CD6` dan #2
-  `#9A7BE6` (dua kursi per tim), Program Manager `#E08A2E`, Technical Writer `#C9A227`, Head of IT Operations `#475BD1`, System
-  Administrator `#D9534F`.
-- **Zona:** tint lantai warna zona dengan opasitas 10% (terang) / 17% (gelap) — Pimpinan `#C9A47A`, Engineering `#7C5CD6`, IT
-  Operations `#475BD1`, Layanan bersama `#E08A2E`, Corporate Strategy `#1FA3AE`, Lounge `#D39A5B`. Lantai kayu Ruang Pimpinan
-  `#D9BB93` / `#5A4632` (garis kayu `#C9A47A` / `#4C3A29`); karpet lounge `#EADFCD` / `#2C2721`.
-- **Huruf:** Bricolage Grotesque (judul & papan zona 14px), Geist (UI & angka, `tabular-nums`; label nama karakter di luar meja
-  10,5px). Tanpa huruf kapital semua, tanpa monospace dekoratif.
-- **Gerak:** momen utama = orang berjalan antar-meja saat bertukar pesan; selebihnya halus — layar menyala berdenyut saat
-  bekerja, titik "…" saat berpikir, lencana "!" berdenyut saat menunggu.
+  `#9A7BE6`, Program Manager `#E08A2E`, Technical Writer `#C9A227`, Head of IT Operations `#475BD1`, System Administrator `#D9534F`.
+  Warna peran = warna baju karakter & layar monitornya.
+- **Zona:** lantai = warna dasar lantai dicampur warna zona 20% (terang) / 8% (gelap) — Pimpinan `#C9A47A` (lantai kayu),
+  Engineering `#7C5CD6`, IT Operations `#475BD1`, Layanan bersama `#E08A2E`, Corporate Strategy `#1FA3AE`, Lounge `#D39A5B`.
+- **Bahan 3D (terang / gelap, kekasaran):** lantai ubin `#EEF1F4` / `#1B2530` (0,82), lorong `#E3E8EE` / `#18212B` (0,95), kayu
+  lantai `#D9BB93` / `#5A4632` (0,55), meja oak `#D8C2A3` / `#5B4A3A` (0,5), walnut `#7D5538` / `#4A3222` (0,45), kain kursi
+  `#5F6D7A` / `#3A4653` (0,95), sofa `#6F93AD` / `#3E5A70` (0,95), partisi `#CDD5DD` / `#2F3D4B`, kaca `#BCD8EA` / `#3C6684`
+  (opasitas .28, 0,06), aluminium `#9AA5B0` (logam .7, 0,35). Tekstur ubin, serat kayu, dan karpet dibuat kanvas saat muat.
+- **Cahaya (terang / gelap):** Hemisphere langit `#FFFFFF` / `#7F9CC4`, tanah `#D9D3C9` / `#1A1F26`, 0,95 / 0,8; matahari
+  `#FFF1DC` / `#FFD9A8`, 3,0 / 1,3, dari belakang-kiri atas; IBL 0,35 / 0,3; tone mapping Neutral, exposure 1.
+- **Huruf:** Bricolage Grotesque (judul & papan zona), Geist (UI & angka, `tabular-nums`) — disalin lokal (OFL).
+- **Gerak:** momen utama = orang berjalan antar-meja saat bertukar pesan (1,25–1,45 m/dtk, berbelok halus); selebihnya
+  halus — mengetik, melambai saat menunggu, minum kopi.
+
+## Kinerja & keadaan khusus
+- Anggaran: draw call ≤ 100 (perabot statis digabung per material ±35, orang 1 per orang, layar & bayangan kontak 1
+  masing-masing), pixel ratio ≤ 2 (HP 1,5), peta bayangan 2048² (HP 1024²) digambar sekali, tanpa post-processing.
+- Gambar ulang hanya bila perlu: kamera bergerak, orang/benda bergerak atau beranimasi, data berubah, ukuran/tema berubah.
+  Diam + Jeda gerak / reduced-motion → 0 gambar per detik. Ukur dengan `?ukur=1` (bingkai/dtk, gambar/dtk, ms/gambar,
+  draw call, segitiga).
+- **Tanpa WebGL 2:** denah diganti kotak "Denah 3D tidak bisa ditampilkan di peramban ini" + sebab + yang bisa dicoba;
+  panel samping, linimasa, dan tautan `?tugas=` tetap berfungsi. Konteks WebGL hilang → pesan untuk memuat ulang.
+- `?demo=<detik>`: skenario contoh berulang 70 detik, mulai dari detik tertentu (untuk tangkapan layar yang dapat diulang).
 
 ## Sumber
 - Gather — Best Practices in Office Design: https://support.gather.town/hc/en-us/articles/15910372095508
-- Gather — Studio Overview: Editing Your Office: https://support.help.gather.town/articles/1963307749
 - Roam — virtual office platform: https://ro.am/virtual-office-platform
 - Perbandingan kantor virtual (Kumospace, SoWork): https://www.sowork.com/alternatives/kumospace-vs-sowork
 - Claude-Office (W17ant): https://github.com/W17ant/Claude-Office
-- The-Office — Avi Levi: https://www.avilevi.co.il/en/projects/the-office/
 - Pixel Agents (VS Code): https://github.com/NoMercy-Entertainment/pixel-agents
 - Gensler — Fujitsu HQ: https://gensler.com/projects/fujitsu
 - Haworth — Future leadership offices: https://blog.haworth.com/na/en/spark/articles/2019/future-leadership-offices.html
-- Algedra — Executive suite / CEO office design trends: https://algedra.ae/en/blog/executive-suite-ceo-office-design-trends
-- WorkLife — C-suite transparency: https://www.worklife.news/spaces/c-suite-transparency/
-- Raccoon — Office design (zona & breakout): https://www.raccoon.co.uk/blog/office-design
-- World-Architects — Dewan New Offices: https://world-architects.com/es/intercon-barcelona/project/dewan-new-offices
 - IKEA Business — Office break room ideas: https://www.ikea.com/gb/en/ikea-business/how-to/four-easy-and-fun-office-break-room-ideas-pub3a5db070/
-- AJ Products — Acoustic sofas: https://ajproducts.co.uk/reception-lounge/seating/acoustic-sofas
 - Generative Agents (Smallville): https://gonzoml.substack.com/p/generative-agents-interactive-simulacra
-- Office Simulation: https://schokolasbotter.itch.io/office-simulation
 - Pola FSM NPC: https://blog.recroom.com/posts/cv2-state-machine
-- Isometric depth sorting: https://bugnet.io/blog/how-to-fix-isometric-tilemap-sprite-depth-sort-overlap ·
-  https://www.parallelrealities.co.uk/tutorials/isometric/isometric1.php
-- Lintasan & arah hadap isometrik: https://forum.arongranberg.com/t/face-player-towards-path/6517
-- Usulan Agent Hierarchy Dashboard, anthropics/claude-code #24537: https://github.com/anthropics/claude-code/issues/24537
-- Microsoft AG-UI multi-agent workflow demo: https://devblogs.microsoft.com/agent-framework/ag-ui-multi-agent-workflow-demo/
 - Panduan dashboard multi-agent: https://www.browseract.com/blog/multi-agent-management-dashboard-guide
-- Tren SaaS UI (calm design): https://www.saasui.design/blog/7-saas-ui-design-trends-2026
-- Desain avatar & indikator status: https://setproduct.com/blog/avatar-ui-design
 - ServiceNow Horizon — presence icon: https://horizon.servicenow.com/components/now-icon-presence
-- W3C — Understanding SC 2.3.3: https://w3c.github.io/wcag/understanding/animation-from-interactions.html
+- Nielsen Norman Group — 2D is Better Than 3D: https://www.nngroup.com/articles/2d-is-better-than-3d/
+- Autodesk Research — ViewCube: https://research.autodesk.com/app/uploads/2023/03/viewcube-a-3d-orientation.pdf_recsg8BsEjf1BeIbZ.pdf
+- Bruno Simon — my-room-in-3d (cahaya terpanggang): https://github.com/brunosimon/my-room-in-3d
+- three.js docs — HemisphereLight, RoomEnvironment, WebGLRenderer, OrbitControls, MapControls, CSS2DRenderer:
+  https://threejs.org/docs/
+- Discover three.js — Tips & Tricks: https://discoverthreejs.com/tips-and-tricks/
+- CloudAI-X threejs-skills (fundamentals, lighting, materials, performance; r186): https://github.com/CloudAI-X/threejs-skills
+- Gaurav2693/ai-office (kantor 3D three.js, FOV 30): https://github.com/Gaurav2693/ai-office
+- model-viewer — Tone mapping (Khronos PBR Neutral): https://modelviewer.dev/examples/tone-mapping
+- MathWorks — Understanding view projections: https://fr.mathworks.com/help/matlab/visualize/understanding-view-projections.html
+- Google Maps JS API — gestureHandling: https://developers.google.com/maps/documentation/javascript/interaction
+- three.js forum — Accessible app with CSS2DRenderer: https://discourse.threejs.org/t/accessible-app-with-css2drenderer/84921
+- ArcGIS — label deconfliction strategy: https://developers.arcgis.com/kotlin/api-reference/arcgis-maps-kotlin/com.arcgismaps.mapping.labeling/-label-definition/deconfliction-strategy.html
+- kevinschaul/avoid-overlap: https://github.com/kevinschaul/avoid-overlap
+- MDN — WebGL best practices: https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/WebGL_best_practices
+- Chrome for Developers — DevTools performance & real-world data: https://developer.chrome.com/blog/devtools-grounded-real-world
+- W3C — Understanding SC 2.3.3: https://www.w3.org/WAI/WCAG22/Understanding/animation-from-interactions.html
+- GOV.UK Design System — Error message: https://design-system.service.gov.uk/components/error-message/

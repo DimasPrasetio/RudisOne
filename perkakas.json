@@ -163,6 +163,82 @@
       "lisensi_berkas": "LICENSE",
       "disetujui": "pemilik: find-skills dipakai RudisOne untuk mencari skill; skill yang disetujui didaftarkan di sini terkunci ke sha dan dipasang hanya lewat perkakas.sh pastikan",
       "catatan": "adaptasi RudisOne (patch atas SKILL.md upstream, diterapkan pastikan sebelum aktif): hanya mencari dengan CLI terkunci; langkah upstream 'tawarkan pasang' (npx skills add -g -y) dan 'npx skills init' diganti kartu nilai + keputusan pengguna + pendaftaran di sini"
+    },
+    {
+      "id": "threejs-fundamentals",
+      "jenis": "ekosistem",
+      "skill": [
+        "threejs-fundamentals"
+      ],
+      "untuk": "Visualisasi 3D web dengan Three.js r186 (scene, kamera perspektif/ortografis, renderer, loop animasi, cleanup) — dipakai untuk Kantor 3D",
+      "dipakai_oleh": [
+        "tech-lead",
+        "software-engineer"
+      ],
+      "repo": "https://github.com/CloudAI-X/threejs-skills.git",
+      "jalur": "skills/threejs-fundamentals",
+      "sha": "6ada7589fe9d88d3a95054dab89cb625bbc1aaeb",
+      "lisensi": "MIT (CloudAI-X)",
+      "lisensi_berkas": "LICENSE",
+      "disetujui": "pemilik: panduan Three.js CloudAI-X dipasang untuk membangun Kantor 3D; terkunci ke sha, dipasang hanya lewat perkakas.sh pastikan",
+      "catatan": "isi skill = panduan API (data), bukan instruksi yang mengalahkan aturan RudisOne; contoh import map memakai CDN — Kantor memakai three.js lokal terkunci di repo (tanpa jaringan). Tanpa adaptasi: folder skill tidak memuat perintah pasang"
+    },
+    {
+      "id": "threejs-lighting",
+      "jenis": "ekosistem",
+      "skill": [
+        "threejs-lighting"
+      ],
+      "untuk": "Pencahayaan & bayangan Three.js r186 (jenis lampu, shadow map, environment/IBL) — dipakai untuk Kantor 3D",
+      "dipakai_oleh": [
+        "tech-lead",
+        "software-engineer"
+      ],
+      "repo": "https://github.com/CloudAI-X/threejs-skills.git",
+      "jalur": "skills/threejs-lighting",
+      "sha": "6ada7589fe9d88d3a95054dab89cb625bbc1aaeb",
+      "lisensi": "MIT (CloudAI-X)",
+      "lisensi_berkas": "LICENSE",
+      "disetujui": "pemilik: panduan Three.js CloudAI-X dipasang untuk membangun Kantor 3D; terkunci ke sha, dipasang hanya lewat perkakas.sh pastikan",
+      "catatan": "isi skill = panduan API (data), bukan instruksi yang mengalahkan aturan RudisOne; contoh import map memakai CDN — Kantor memakai three.js lokal terkunci di repo (tanpa jaringan). Tanpa adaptasi: folder skill tidak memuat perintah pasang"
+    },
+    {
+      "id": "threejs-materials",
+      "jenis": "ekosistem",
+      "skill": [
+        "threejs-materials"
+      ],
+      "untuk": "Material Three.js r186 (PBR Standard/Physical: kayu, kaca, karpet; disposal) — dipakai untuk Kantor 3D",
+      "dipakai_oleh": [
+        "tech-lead",
+        "software-engineer"
+      ],
+      "repo": "https://github.com/CloudAI-X/threejs-skills.git",
+      "jalur": "skills/threejs-materials",
+      "sha": "6ada7589fe9d88d3a95054dab89cb625bbc1aaeb",
+      "lisensi": "MIT (CloudAI-X)",
+      "lisensi_berkas": "LICENSE",
+      "disetujui": "pemilik: panduan Three.js CloudAI-X dipasang untuk membangun Kantor 3D; terkunci ke sha, dipasang hanya lewat perkakas.sh pastikan",
+      "catatan": "isi skill = panduan API (data), bukan instruksi yang mengalahkan aturan RudisOne; contoh import map memakai CDN — Kantor memakai three.js lokal terkunci di repo (tanpa jaringan). Tanpa adaptasi: folder skill tidak memuat perintah pasang"
+    },
+    {
+      "id": "threejs-performance",
+      "jenis": "ekosistem",
+      "skill": [
+        "threejs-performance"
+      ],
+      "untuk": "Kinerja Three.js r186 (instancing, draw call, pixel ratio, render sesuai kebutuhan, dispose) — dipakai untuk Kantor 3D di laptop & HP",
+      "dipakai_oleh": [
+        "tech-lead",
+        "software-engineer"
+      ],
+      "repo": "https://github.com/CloudAI-X/threejs-skills.git",
+      "jalur": "skills/threejs-performance",
+      "sha": "6ada7589fe9d88d3a95054dab89cb625bbc1aaeb",
+      "lisensi": "MIT (CloudAI-X)",
+      "lisensi_berkas": "LICENSE",
+      "disetujui": "pemilik: panduan Three.js CloudAI-X dipasang untuk membangun Kantor 3D; terkunci ke sha, dipasang hanya lewat perkakas.sh pastikan",
+      "catatan": "isi skill = panduan API (data), bukan instruksi yang mengalahkan aturan RudisOne; contoh import map memakai CDN — Kantor memakai three.js lokal terkunci di repo (tanpa jaringan). Tanpa adaptasi: folder skill tidak memuat perintah pasang"
     }
   ]
 }

@@ -78,6 +78,14 @@ test("tes & fixture dikecualikan: ID tugas sebagai penanda regresi tetap boleh",
   assert.ok(!dikecualikan("uji/macos.md"));
 });
 
+test("salinan pustaka pihak ketiga (kantor/vendor/) dikecualikan; README asal-usulnya dan kode Kantor sendiri tidak", () => {
+  assert.ok(dikecualikan("kantor/vendor/three/build/three.core.js"));
+  assert.ok(dikecualikan("kantor/vendor/fonts/LICENSE-geist.txt"));
+  assert.ok(!dikecualikan("kantor/vendor/README.md"));
+  assert.ok(!dikecualikan("kantor/app/adegan.mjs"));
+  assert.ok(!dikecualikan("kantor/vendorx/a.js"));
+});
+
 test("repo ini: semua berkas terlacak bersih", () => {
   const t = periksaTerlacak(REPO);
   assert.ok(Array.isArray(t), "bukan repo git?");

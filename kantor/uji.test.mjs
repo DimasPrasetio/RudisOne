@@ -148,7 +148,7 @@ const kepalaRegister = ["## Aktif", "", "| ID | Tugas | Folder | Divisi | Pemili
 fs.writeFileSync(path.join(tmp, "register-tugas.md"), [...kepalaRegister,
   "| T-20261024-7 | Harga toko | `~/Documents/toko` | Engineering · Tim 3 | Tech Lead · toko | normal | berjalan | 2026-10-24 10:00 |"].join("\n"));
 
-const { scan, buildState, describeTool, hostDiizinkan, VERSI, jenisPesan, KURSI, bacaRegister } = await import("./server.mjs");
+const { scan, buildState, describeTool, hostDiizinkan, VERSI, jenisPesan, KURSI, bacaRegister, berkasStatis, CSP } = await import("./server.mjs");
 scan();
 const st = buildState();
 const ag = (n) => st.agents.find((a) => a.name === n);
@@ -221,6 +221,18 @@ test("hanya Host lokal yang dilayani (DNS rebinding)", () => {
   assert.equal(hostDiizinkan("jahat.example:7421", 7421), false);
   assert.equal(hostDiizinkan("127.0.0.1:80", 7421), false);
   assert.equal(hostDiizinkan(undefined, 7421), false);
+});
+test("berkas statis halaman 3D: hanya /app/ & /vendor/, ekstensi dikenal, tanpa keluar folder; CSP hanya sumber sendiri", () => {
+  const sini = path.dirname(new URL(import.meta.url).pathname);
+  assert.equal(berkasStatis("/app/kantor.mjs").file, path.join(sini, "app", "kantor.mjs"));
+  assert.equal(berkasStatis("/vendor/three/build/three.module.js").jenis, "text/javascript; charset=utf-8");
+  assert.equal(berkasStatis("/vendor/fonts/geist-latin-wght-normal.woff2").jenis, "font/woff2");
+  for (const p of ["/app/../server.mjs", "/app/%2e%2e/server.mjs", "/vendor/..%2F..%2Fserver.mjs", "/app/x/../../server.mjs", "/app/", "/app//kantor.mjs",
+    "/vendor/three/LICENSE", "/vendor/README.md", "/app/kantor.mjs%00.js", "/app/a\\b.js", "/server.mjs", "/app/%E0%A4%A.js"])
+    assert.equal(berkasStatis(p), null, p);
+  assert.match(CSP, /default-src 'self'/);
+  assert.match(CSP, /connect-src 'self'/);
+  assert.doesNotMatch(CSP, /https?:/);
 });
 test("versi server = sidik kode", () => {
   assert.match(VERSI, /^[0-9a-f]{12}$/);
