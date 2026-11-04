@@ -579,6 +579,7 @@ function renderJejak(s, terlihat) {
   }
   isi.corp = { judul: "Corporate Strategy — tugas berjalan", tugas: perDivisi.corp ?? [] };
   adegan?.aturPapan(isi);
+  adegan?.aturLampuTim(new Set([...terlihat]));
   BERKAS = Object.fromEntries(Object.entries(berkasMeja(s.selesaiHariIni ?? [], s.tim))
     .filter(([k]) => !TIM[k].divisi.startsWith("tim") || terlihat.has(TIM[k].divisi)));
   adegan?.aturBerkas(Object.fromEntries(Object.entries(BERKAS).map(([k, v]) => [k, v.length])));

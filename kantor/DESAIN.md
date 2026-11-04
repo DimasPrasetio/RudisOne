@@ -131,7 +131,9 @@ atau catatan hiasan — papan yang kosong berarti memang tidak ada tugas.
   Tim tanpa proyek: papan putih kosong.
 - **Papan strategi Corporate Strategy** (dinding kiri): satu catatan tempel per tugas berjalan divisi itu (maks. 3).
 - **Papan tugas Ruang Pimpinan** (dinding kiri, di samping pintu): tiga kolom Berjalan · Antre & lainnya · Selesai hari ini.
-- **Berkas di meja:** tumpukan map (maks. 3) di meja pemilik tugas yang selesai hari ini; rinciannya di panel orang itu.
+- **Berkas di meja:** tumpukan map (maks. 3) di meja pemilik tugas yang selesai hari ini (hari = `selesai_pada` register,
+  bukan `diperbarui` yang ikut berubah tiap `register.sh ubah`); rinciannya di panel orang itu.
+- Pemilik "<Jabatan> · <proyek>" yang proyeknya belum dikenal server tidak ditaruh di tim mana pun (hanya di papan tugas).
 - Papan = `CanvasTexture` 400 px/m (huruf lokal), digambar ulang hanya bila isinya berubah.
 
 ## Suasana mengikuti jam
@@ -141,6 +143,7 @@ digambar ulang saat fase berganti. Uji: `?jam=pagi|siang|sore|malam` atau `?jam=
 - **pagi:** langit sejuk kebiruan, bercak cahaya jendela lebih terang; **siang:** palet apa adanya;
 - **sore:** cahaya keemasan dari sudut rendah (bayangan lebih panjang), jendela jingga, lampu setengah menyala;
 - **malam:** jendela biru gelap tanpa bercak matahari, interior hangat, kap lampu meja & lampu lantai menyala + genangan cahaya.
+  Lampu meja tim tanpa proyek tetap padam (meja kosong & redup). Lampu berubah tanpa menghitung ulang bayangan.
 - Latar panggung (`--panggung-*`) ikut fase (`:root[data-waktu]`). Status tetap terbaca di semua fase (label HTML tidak ikut gelap).
 
 ## Lapisan & keterbacaan
@@ -181,8 +184,9 @@ Warna halaman = variabel CSS di `kantor/index.html` (`:root` dan blok `prefers-c
   halus — mengetik, melambai saat menunggu, minum kopi.
 
 ## Kinerja & keadaan khusus
-- Anggaran: draw call ≤ 100 (terukur 66 desktop / 73 HP dengan semua jabatan hadir: perabot statis digabung per material
-  ±35, orang 1 per orang, layar, bayangan kontak, map, genangan lampu 1 masing-masing, papan 5), pixel ratio ≤ 2 (HP 1,5), peta bayangan 2048² (HP 1024²) digambar sekali, tanpa post-processing.
+- Anggaran: draw call ≤ 100 (terukur ±70 desktop & HP dengan semua jabatan hadir, ±80 di demo dengan asisten; gambar yang
+  sekaligus menghitung ulang peta bayangan ±97: perabot statis digabung per material ±35, orang 1 per orang, layar, bayangan
+  kontak, map, genangan lampu 1 masing-masing, kap lampu 4, papan 5), pixel ratio ≤ 2 (HP 1,5), peta bayangan 2048² (HP 1024²) digambar sekali, tanpa post-processing.
 - Gambar ulang hanya bila perlu: kamera bergerak, orang/benda bergerak atau beranimasi, data berubah, ukuran/tema berubah.
   Diam + Jeda gerak / reduced-motion → 0 gambar per detik. Ukur dengan `?ukur=1` (bingkai/dtk, gambar/dtk, ms/gambar,
   draw call, segitiga).

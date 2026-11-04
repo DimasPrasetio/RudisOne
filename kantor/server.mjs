@@ -504,9 +504,11 @@ export function selesaiDariJson(reg, kini = Date.now()) {
   return reg.tugas
     .filter((t) => t && /^T-\d{8}-\d+/.test(t.id ?? "") && /^selesai/i.test(t.status ?? ""))
     .map((t) => {
-      const ts = Date.parse(t.diperbarui ?? "");
-      const tgl = Number.isNaN(ts) ? String(t.selesai_pada ?? "").slice(0, 10) : tanggalLokal(ts);
-      return { t, ts: Number.isNaN(ts) ? null : ts, tgl };
+      // selesai_pada (tanggal lokal register) = penentu hari: `diperbarui` ikut berubah setiap `register.sh ubah`, juga
+      // pada tugas yang sudah lama ditutup. Jam tutup hanya dari `diperbarui` bila tanggalnya sama.
+      const d = Date.parse(t.diperbarui ?? ""), sp = /^\d{4}-\d{2}-\d{2}/.exec(String(t.selesai_pada ?? ""))?.[0];
+      const tgl = sp ?? (Number.isNaN(d) ? "" : tanggalLokal(d));
+      return { t, ts: !Number.isNaN(d) && tanggalLokal(d) === tgl ? d : null, tgl };
     })
     .filter((x) => x.tgl === hari)
     .sort((a, b) => (b.ts ?? 0) - (a.ts ?? 0))
@@ -700,7 +702,8 @@ export function buildState(now = Date.now()) {
     const peran = peranSubagent(s);
     if (peran) {
       const berjalan = !selesai && now - s.lastTs <= TOOL_STALE_MS;
-      const kursi = kursiSubagent(peran, induk, s, berjalan ? byAgent : null);
+      // kursi saat berjalan diingat: setelah selesai, "baru selesai" & log tetap di kursi yang sama (mis. SE #2 bila #1 terisi)
+      const kursi = berjalan ? (s.kursiTerakhir = kursiSubagent(peran, induk, s, byAgent)) : s.kursiTerakhir ?? kursiSubagent(peran, induk, s, null);
       catat(s, kursi);                       // linimasa & log tetap tercatat setelah subagent selesai
       if (!berjalan) { if (selesai) tandaiSelesai(kursi, s.lastTs); continue; }   // selesai → kursi kembali ke katalog
       let st = sessionStatus(s, now);

@@ -47,6 +47,10 @@ test("pemilik register → kursi (nama, id teknis, nomor tim, proyek)", () => {
   assert.equal(kursiPemilik("research-analyst", tim), "Research Analyst");
   assert.equal(kursiPemilik("COO", tim), "COO");
   assert.equal(kursiPemilik("Peran Tak Dikenal", tim), null);
+  assert.equal(kursiPemilik("Tech Lead", tim), "Tech Lead · Tim 1");                // tanpa keterangan → Tim 1
+  assert.equal(kursiPemilik("Tech Lead · toko", tim), null);                       // proyek belum dikenal → bukan Tim 1
+  assert.equal(kursiPemilik("Business Systems Analyst · toko", tim), null);
+  assert.deepEqual(papanDivisi([{ id: "T-20260101-9", tugas: "x", pemilik: "Tech Lead · toko", status: "berjalan" }], tim), {});
   assert.equal(kursiPemilik(undefined, tim), null);
 });
 

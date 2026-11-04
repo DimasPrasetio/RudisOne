@@ -50,7 +50,10 @@ export function kursiPemilik(pemilik, tim) {
   const dasar = bernomor ? bernomor[1] : peran0.trim();
   const peran = Object.hasOwn(NAMA_ID, dasar) ? NAMA_ID[dasar] : dasar;
   if (Object.hasOwn(TIM, peran)) return peran;
-  const n = Number(/Tim\s*(\d)/.exec(sisa)?.[1] ?? tim?.find((t) => t.proyek === sisa.trim())?.n ?? 1);
+  // "· Tim N" atau "· <proyek yang dikenal>"; tanpa keterangan → Tim 1; proyek yang belum dikenal server → tidak ada kursi
+  // (tugasnya tetap di papan tugas Ruang Pimpinan, tidak menumpang di papan/meja tim lain)
+  const ket = sisa.trim(), n = Number(/^Tim\s*(\d)$/.exec(ket)?.[1] ?? tim?.find((t) => t.proyek === ket)?.n ?? (ket ? NaN : 1));
+  if (!Number.isFinite(n)) return null;
   const k = kursiTim(peran === "Software Engineer" ? `Software Engineer #${bernomor?.[2] === "2" ? 2 : 1}` : peran, n);
   return Object.hasOwn(TIM, k) ? k : null;
 }

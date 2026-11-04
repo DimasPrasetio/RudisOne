@@ -269,9 +269,10 @@ function gambarPerabot(b, o, layar, ekstra = { lampu: [], berkas: {} }) {
       const [lx, ly] = hadapDepan ? [x + w - 0.16, y + 0.16] : [x + 0.18, y + d - 0.2];
       b.silinder("logamGelap", lx, ly, tinggi, 0.07, 0.02);
       b.silinder("logam", lx, ly, tinggi + 0.02, 0.012, 0.32);
-      b.tambah("kapLampu", KERUCUT, lx, tinggi + 0.39, ly, { sx: 0.1, sy: 0.12, sz: 0.1 });
+      const dvLampu = TIM[o.agen]?.divisi ?? "";   // kap lampu tim engineering terpisah: padam bila timnya belum dipakai
+      b.tambah(dvLampu.startsWith("tim") ? `kapLampu:${dvLampu}` : "kapLampu", KERUCUT, lx, tinggi + 0.39, ly, { sx: 0.1, sy: 0.12, sz: 0.1 });
       const kx = x + w / 2 - lx, ky = y + d / 2 - ly, kp = Math.hypot(kx, ky);
-      ekstra.lampu.push({ x: lx + (kx / kp) * 0.24, y: ly + (ky / kp) * 0.24, h: tinggi + 0.004, r: 0.42 });
+      ekstra.lampu.push({ x: lx + (kx / kp) * 0.24, y: ly + (ky / kp) * 0.24, h: tinggi + 0.004, r: 0.42, divisi: dvLampu });
       // tempat berkas tugas yang selesai hari ini (lihat aturBerkas)
       ekstra.berkas[o.agen] = hadapDepan ? { x: x + 0.42, y: y + d / 2 + 0.06, h: tinggi } : { x: x + w - 0.85, y: y + d / 2 + 0.05, h: tinggi };
       break;
@@ -524,6 +525,7 @@ export class Adegan {
       blob: new THREE.MeshBasicMaterial({ map: teksturBlob(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }),
       grafik: new THREE.MeshBasicMaterial({ map: teksturGrafik(), toneMapped: false }),
       kapLampu: std({ roughness: 0.7 }), map: std({ roughness: 0.75 }),
+      kapLampuTim: Object.fromEntries(NOMOR_TIM.map((n) => [`tim${n}`, std({ roughness: 0.7 })])),
       genangan: new THREE.MeshBasicMaterial({ map: teksturGenangan(), color: "#ffcf8a", transparent: true, opacity: 0, depthWrite: false,
         blending: THREE.AdditiveBlending, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -3 }),
       zona: {},
@@ -546,13 +548,34 @@ export class Adegan {
     this.matahari.color.copy(campur(p.matahari, w.matahari, w.matahari ? 0.8 : 0)); this.matahari.intensity = p.kuatMatahari * w.kuatMatahari;
     this.matahari.position.set(NX / 2 + w.pos[0], w.pos[1], NY / 2 + w.pos[2]);
     this.scene.environmentIntensity = p.env * w.env;
-    m.kapLampu.emissive.set(w.lampu ? "#ffc97a" : "#000000"); m.kapLampu.emissiveIntensity = w.lampu * 1.4;
-    m.genangan.opacity = (this.gelap ? 0.38 : 0.62) * w.lampu; this.genangan.visible = w.lampu > 0;
+    this.terapkanLampu();
     for (const nama of Object.keys(this.layar)) this.aturLayar(nama, this.statusLayar?.[nama] ?? null, true);
     for (const pp of Object.values(this.papan ?? {})) pp.kunci = null;   // warna tinta papan mengikuti tema
     if (this.isiPapan) this.aturPapan(this.isiPapan);
     if (this.isiBerkas) this.aturBerkas(this.isiBerkas, true);
     this.perbaruiBayangan();
+  }
+  /** Lampu meja & lantai menurut fase; kap lampu tim yang belum dipakai tidak menyala. Tidak menyentuh bayangan. */
+  terapkanLampu() {
+    const p = PALET[this.gelap ? "gelap" : "terang"], m = this.mat, w = WAKTU[this.waktu] ?? WAKTU.siang;
+    for (const [dv, km] of [["", m.kapLampu], ...Object.entries(m.kapLampuTim)]) {
+      const nyala = w.lampu > 0 && (!dv || !this.timTerlihat || this.timTerlihat.has(dv));
+      km.color.set(p.kapLampu); km.emissive.set(nyala ? "#ffc97a" : "#000000"); km.emissiveIntensity = nyala ? w.lampu * 1.4 : 0;
+    }
+    m.genangan.opacity = (this.gelap ? 0.38 : 0.62) * w.lampu; this.genangan.visible = w.lampu > 0;
+    this.mintaGambar();
+  }
+  /** Lampu meja tim engineering yang belum dipakai padam (genangan disembunyikan, kap tidak menyala). `terlihat` = Set divisi. */
+  aturLampuTim(terlihat, paksa = false) {
+    const kunci = terlihat ? [...terlihat].sort().join(",") : "*";
+    if (!paksa && kunci === this._kunciLampu) return;
+    this._kunciLampu = kunci; this.timTerlihat = terlihat;
+    (this.lampu ?? []).forEach((l, i) => {
+      const padam = terlihat && l.divisi?.startsWith("tim") && !terlihat.has(l.divisi);
+      this.blobM.makeScale(padam ? 0 : l.r, 1, padam ? 0 : l.r).setPosition(l.x, l.h, l.y); this.genangan.setMatrixAt(i, this.blobM);
+    });
+    this.genangan.instanceMatrix.needsUpdate = true;
+    if (!paksa) this.terapkanLampu();
   }
   /** Fase waktu (pagi · siang · sore · malam) → cahaya, jendela, lampu. Hanya menggambar ulang bila fasenya berubah. */
   aturWaktu(fase) {
@@ -584,7 +607,7 @@ export class Adegan {
 
   // ---------- ruang & perabot ----------
   bangunRuang() {
-    const b = new Pembangun(), pakaiMat = (k) => (k.startsWith("zona:") ? this.mat.zona[k.slice(5)] : this.mat[k]);
+    const b = new Pembangun(), pakaiMat = (k) => (k.startsWith("zona:") ? this.mat.zona[k.slice(5)] : k.startsWith("kapLampu:") ? this.mat.kapLampuTim[k.slice(9)] : this.mat[k]);
     // lantai: alas (lorong) + zona; tebal lantai (diorama)
     const lantai = (kunci, x0, y0, x1, y1, z = 0) => {
       const g = new THREE.PlaneGeometry(x1 - x0, y1 - y0).rotateX(-Math.PI / 2);
@@ -664,7 +687,8 @@ export class Adegan {
     this.berkasInst.count = 0; this.berkasInst.castShadow = false; this.berkasInst.receiveShadow = true; this.scene.add(this.berkasInst);
     // genangan cahaya lampu meja & lampu lantai (hanya tampil saat lampu menyala) = satu InstancedMesh
     this.genangan = new THREE.InstancedMesh(new THREE.PlaneGeometry(2, 2).rotateX(-Math.PI / 2), this.mat.genangan, ekstra.lampu.length);
-    ekstra.lampu.forEach((l, i) => { this.blobM.makeScale(l.r, 1, l.r).setPosition(l.x, l.h, l.y); this.genangan.setMatrixAt(i, this.blobM); });
+    this.lampu = ekstra.lampu; this.timTerlihat ??= null;
+    this.aturLampuTim(this.timTerlihat, true);
     this.genangan.visible = false; this.genangan.renderOrder = 2; this.scene.add(this.genangan);
     // bayangan kontak semua orang = satu InstancedMesh (diperbarui saat menggambar)
     this.blob = new THREE.InstancedMesh(new THREE.PlaneGeometry(0.75, 0.75).rotateX(-Math.PI / 2), this.mat.blob, 48);

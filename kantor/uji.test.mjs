@@ -367,11 +367,14 @@ test("baru selesai: dari pekerjaan nyata yang berakhir < 10 menit lalu (subagent
 });
 
 test("selesai hari ini dari register JSON: hanya status selesai, tanggal lokal hari ini, tanpa bukti/isi", () => {
-  const kini = Date.now(), kemarin = kini - 36 * 3600e3;
+  const siang = new Date(); siang.setHours(12, 0, 0, 0);
+  const kini = +siang, kemarin = kini - 24 * 3600e3, hariIni = new Date(kini).toLocaleDateString("sv"), tglKemarin = new Date(kemarin).toLocaleDateString("sv");
   const t = (id, status, ts, extra = {}) => ({ id, judul: `Judul ${id}`, pemilik: "Research Analyst", status, diperbarui: new Date(ts).toISOString(),
-    bukti: "keluaran perintah rahasia", folder: "/x", ...extra });
+    selesai_pada: new Date(ts).toLocaleDateString("sv"), bukti: "keluaran perintah rahasia", folder: "/x", ...extra });
   const reg = { tugas: [t("T-20260101-1", "selesai", kini - 60e3), t("T-20260101-2", "selesai", kemarin), t("T-20260101-3", "dibatalkan", kini),
-    t("T-20260101-4", "berjalan", kini), t("T-20260101-5", "selesai", kini, { diperbarui: "rusak", selesai_pada: new Date(kini).toLocaleDateString("sv") }),
+    t("T-20260101-4", "berjalan", kini), t("T-20260101-5", "selesai", kini, { diperbarui: "rusak", selesai_pada: hariIni }),
+    // ditutup kemarin, diubah hari ini (register.sh ubah --bukti …) → bukan "selesai hari ini"
+    t("T-20260101-6", "selesai", kini - 3600e3, { selesai_pada: tglKemarin }),
     { id: "bukan-id", status: "selesai" }] };
   const hasil = selesaiDariJson(reg, kini);
   assert.deepEqual(hasil.map((x) => x.id), ["T-20260101-1", "T-20260101-5"]);
