@@ -1,7 +1,8 @@
 // Kantor RudisOne — halaman pemantauan: data dari server (SSE /events), panel samping, dan denah 3D (adegan.mjs).
 // Perilaku orang mengikuti status & pesan (DESAIN.md › Cerita gerak); jalur dihitung di grid lantai (denah.mjs).
-import { CHIEF, DIVISI, KURSI, NOMOR_TIM, PINTU, TIM, URUT, atasanDari, bangunGrid, cariJalur, hadapMeja, kursiTim, pusat, selBebas } from "./denah.mjs";
+import { CHIEF, DIVISI, WARNA_LOUNGE, KURSI, NOMOR_TIM, PINTU, TIM, URUT, atasanDari, bangunGrid, cariJalur, hadapMeja, kursiTim, pusat, selBebas } from "./denah.mjs";
 import { berkasMeja, faseDariParam, faseWaktu, jamWIB, keadaanTampil, keteranganSiap, kursiPemilik, papanDivisi, papanTugas, statusTugas, teksSelesai } from "./jejak.mjs";
+import { KUNCI_SIMPAN_LABEL, MODE_LABEL, modeLabelDari, tampilanOrang, tingkatRincian, tulisanZona, ucapanTampil } from "./label.mjs";
 
 // Keadaan tampil (jejak.mjs › keadaanTampil): bekerja/berpikir/menunggu hanya dari sesi/subagent yang berjalan;
 // "selesai" = pekerjaan nyata berakhir < 10 menit lalu; selain itu "siap" (Siap dipanggil). "kosong" = tim tanpa proyek.
@@ -12,6 +13,11 @@ const modeDari = (ag) => ag.mode ?? (!ag.present ? "absen" : ag.status === "sant
 const PARAM = new URLSearchParams(location.search);
 let HEMAT_GERAK = matchMedia("(prefers-reduced-motion: reduce)").matches;
 try { if (localStorage.getItem("kantor-jeda") === "1") HEMAT_GERAK = true; } catch { /* penyimpanan tidak tersedia */ }
+// label (DESAIN.md › Label & keterbacaan): mode tombol Label, tingkat rincian ikut zoom, dan siapa yang sedang disentuh
+let MODE = "ringkas";
+try { MODE = modeLabelDari(PARAM.get("label"), localStorage.getItem(KUNCI_SIMPAN_LABEL)); } catch { MODE = modeLabelDari(PARAM.get("label"), null); }
+let TINGKAT = "jauh", SEMPIT = false;
+let HOVER = null, FOKUS = null, SENTUH = null;   // SENTUH = kartu tampil untuk siapa (fokus keyboard > hover > dipilih)
 
 // ================= util =================
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -67,25 +73,12 @@ function bangunMeja() {
     const namaT = tag.querySelector("b"), aksiT = tag.querySelector(".aksi-meja"), simbol = tag.querySelector(".simbol");
     namaT.textContent = t.pendek;
     const depan = k.pimpinan ? sy + 2.0 : sy + 0.6;     // tepi depan meja (pimpinan: mejanya di depan kursi)
-    adegan?.tambahLabel(tag, sx, 0, depan, null, { prioritasFn: () => (tag.classList.contains("menunggu") || tag.classList.contains("dipilih") ? 4 : 2) });
+    // tag meja = padanan yang bisa difokus (Tab) & dibaca pembaca layar; tidak tampil di denah — fokus menampilkan kartu
+    adegan?.tambahLabel(tag, sx, 0, depan);
+    tag.addEventListener("focus", () => { FOKUS = tag.matches(":focus-visible") ? nama : null; perbaruiKartu(); });
+    tag.addEventListener("blur", () => { if (FOKUS === nama) { FOKUS = null; perbaruiKartu(); } });
     MEJA[nama] = { tag, namaT, aksiT, simbol };
   }
-}
-function papanZona() {
-  const PAPAN = {};
-  const tambah = (id, dv, [x, h, y]) => {
-    const el = div("papan-zona", `<span class="isi"><i aria-hidden="true"></i><span><b>${esc(dv.nama)}</b><small>${esc(dv.sub ?? "")}</small></span></span>`);
-    el.style.setProperty("--warna", dv.warna);
-    adegan?.tambahLabel(el, x, h, y, null, { prioritas: 2.2 });   // di atas tag meja: struktur organisasi selalu terbaca
-    PAPAN[id] = { el, sub: el.querySelector("small") };
-  };
-  tambah("pimpinan", DIVISI[0], [4.1, 3.3, 0]);
-  tambah("corp", DIVISI[1], [0, 3.3, 15.6]);
-  for (const n of NOMOR_TIM) tambah(`tim${n}`, DIVISI.find((d) => d.tim === n), [{ 1: 13.5, 2: 24, 3: 34.6 }[n], 3.3, 0]);
-  tambah("bersama", DIVISI.find((d) => d.id === "bersama"), [14.25, 0, 20.9]);
-  tambah("ops", DIVISI.find((d) => d.id === "ops"), [21.5, 0, 20.9]);
-  tambah("lounge", { nama: "Lounge", sub: "Kopi, sofa, ngobrol", warna: "#d39a5b" }, [32.8, 0, 20.9]);
-  return PAPAN;
 }
 
 // ================= karakter =================
@@ -93,12 +86,16 @@ const ORANG = {};
 /** Satu karakter (anggota tetap atau asisten). `t` = data tampilan: warna, rambut, pendek, gaya, aksesori. */
 function buatOrang(nama, t, skala = 1) {
   const m = O3 && adegan ? O3.buatOrang(t, { skala }) : null;
-  const kepala = div("kepala-label", `<span class="isi"><i class="simbol santai" aria-hidden="true"></i><span class="nama-orang"></span></span>`);
-  kepala.style.setProperty("--warna", t.warna);
+  // label kepala: titik status (warna + simbol) — atau label penuh "<nama> · Menunggu Anda"; nama kecil = label terpisah
+  // (teks opsional: kalah lebih dulu saat bertabrakan, titiknya tetap). Semua aria-hidden: padanannya tag meja & panel.
+  const kepala = div("kepala-label", `<span class="isi"><i class="simbol santai"></i><span class="teks-penuh"><b class="nama-orang"></b> · Menunggu Anda</span></span>`);
+  kepala.style.setProperty("--warna", t.warna); kepala.setAttribute("aria-hidden", "true");
   kepala.querySelector(".nama-orang").textContent = t.pendek;
+  const namaL = div("nama-label", `<span class="isi"></span>`); namaL.setAttribute("aria-hidden", "true");
+  namaL.firstElementChild.textContent = t.pendek; namaL.hidden = true;
   const ucapan = div("ucapan", `<span class="isi"></span>`); ucapan.style.setProperty("--warna", t.warna); ucapan.hidden = true;
   const o = {
-    nama, m, kepala, ucapan, simbolEl: kepala.querySelector(".simbol"), ucapanTeks: ucapan.querySelector(".isi"),
+    nama, m, kepala, namaL, ucapan, simbolEl: kepala.querySelector(".simbol"), ucapanTeks: ucapan.querySelector(".isi"),
     x: PINTU[0], y: PINTU[1], rute: [], kunci: null, arah: Math.PI / 2, arahDiam: null,
     kecepatan: acak(1.25, 1.45), tampak: false, status: "kosong", ikon: null, skrip: [], tunggu: 0, pose: "berdiri", istirahat: null, istirahatBerikut: performance.now() + acak(20e3, 240e3),
     bawa: null, tempat: null, tamu: null, jeda: acak(10, 20), ngopiSampai: 0, sudahNgopi: false, ucapSampai: 0,
@@ -107,7 +104,8 @@ function buatOrang(nama, t, skala = 1) {
   if (m) {
     adegan.daftarOrang(m, nama.startsWith("asisten:") ? t.induk ?? null : nama);
     m.akar.visible = false;
-    o.lKepala = adegan.tambahLabel(kepala, 0, 1.95 * skala, 0, m.akar, { prioritasFn: () => (kepala.dataset.status === "menunggu" ? 4 : kepala.classList.contains("di-meja") ? 2.5 : 3) });
+    o.lKepala = adegan.tambahLabel(kepala, 0, 1.95 * skala, 0, m.akar, { prioritasFn: () => (kepala.classList.contains("penuh") ? 5.5 : 3) });
+    o.lNama = adegan.tambahLabel(namaL, 0, 1.95 * skala, 0, m.akar, { prioritas: 2, dy: -16 });
     o.lUcapan = adegan.tambahLabel(ucapan, 0, 2.3 * skala, 0, m.akar, { prioritas: 5 });
   }
   kepala.hidden = true;
@@ -127,10 +125,17 @@ function ucap(o, teks, ms = 1900, panggil = false) {
   o.ucapan.hidden = false; o.ucapSampai = performance.now() + ms;
   adegan?.mintaGambar();
 }
+/** Label kepala & nama menurut mode Label, tingkat rincian (zoom), dan status (label.mjs › tampilanOrang). */
+function segarkanKepala(o) {
+  const t = tampilanOrang({ status: o.status, mode: MODE, tingkat: TINGKAT, disentuh: !o.induk && SENTUH === o.nama });
+  const kepalaTampil = o.tampak && (t.titik || t.penuh), namaTampil = o.tampak && t.nama;
+  if (o.kepala.hidden === kepalaTampil || o.kepala.classList.contains("penuh") !== t.penuh || o.namaL.hidden === namaTampil) adegan?.mintaGambar();
+  o.kepala.hidden = !kepalaTampil; o.kepala.classList.toggle("penuh", t.penuh); o.namaL.hidden = !namaTampil;
+}
 function tampakkan(o, ya) {
   o.tampak = ya;
   if (o.m) o.m.akar.visible = ya;
-  o.kepala.hidden = !ya;
+  segarkanKepala(o);
   if (!ya) o.ucapan.hidden = true;
   adegan?.mintaGambar();
 }
@@ -313,7 +318,6 @@ function majukan(o, dt, now) {
 function gambarOrang(o, now, bergerak, diMeja, arah, dt) {
   const m = o.m;
   if (o.ucapSampai && now > o.ucapSampai) { o.ucapan.hidden = true; o.ucapSampai = 0; adegan?.mintaGambar(); }
-  o.kepala.classList.toggle("di-meja", diMeja);
   if (!m) return false;
   // putar halus ke arah tujuan
   const beda = sudutBeda(o.arah, arah);
@@ -362,7 +366,7 @@ function terapkanAsisten(daftar = []) {
       o.asisten = a; o.induk = a.induk; o.titik = titik; titik.dipakai = a.id;
       const induk = ORANG[a.induk];
       [o.x, o.y] = HEMAT_GERAK ? [titik.x, titik.y] : bebasDekat(induk.x + 0.7, induk.y + 0.6);
-      tampakkan(o, true); o.status = "bekerja"; o.simbolEl.className = "simbol bekerja"; o.simbolEl.textContent = SIMBOL.bekerja;
+      o.status = "bekerja"; o.simbolEl.className = "simbol bekerja"; o.simbolEl.textContent = SIMBOL.bekerja; tampakkan(o, true);
       o.kepala.classList.add("asisten"); o.kepala.dataset.status = "bekerja";
       if (!HEMAT_GERAK) { ucap(induk, "Tolong bantu ya", 1500); jalanKe(o, [titik.x, titik.y]); }
       ASISTEN[a.id] = o;
@@ -389,7 +393,7 @@ function pulangkanAsisten(o) {
 }
 function hapusAsisten(o) {
   if (o.titik) o.titik.dipakai = null;
-  if (o.m) { adegan.lepasOrang(o.m); adegan.hapusLabel(o.lKepala); adegan.hapusLabel(o.lUcapan); }
+  if (o.m) { adegan.lepasOrang(o.m); adegan.hapusLabel(o.lKepala); adegan.hapusLabel(o.lNama); adegan.hapusLabel(o.lUcapan); }
   delete ASISTEN[o.asisten.id];
   adegan?.mintaGambar();
 }
@@ -418,6 +422,7 @@ function terapkanStatus(ag, awal, st) {
   o.simbolEl.className = `simbol ${st}`; o.simbolEl.textContent = SIMBOL[st];
   o.kepala.dataset.status = st;
   if (o.m) O3.aturCincin(o.m, st === "menunggu");
+  segarkanKepala(o);
   if (st !== "kosong" && !o.tampak) {
     tampakkan(o, true); o.kunci = null;
     // muat awal / hemat gerak: langsung di meja; tim yang baru mendapat proyek: masuk lewat pintu
@@ -450,7 +455,7 @@ function ceritakan(f) {
 const elTim = document.getElementById("tim"), elAkt = document.getElementById("aktivitas");
 const elJalur = document.getElementById("jalur"), elPerhatian = document.getElementById("perhatian");
 const LI = {}, SEL = {}, KELOMPOK = {}, LABEL_JALUR = {};
-let state = null, dipilih = null, diterimaPada = 0, pertama = true, PAPAN = {};
+let state = null, dipilih = null, diterimaPada = 0, pertama = true;
 const sudahLihat = new Set();
 
 function bangunPanel() {
@@ -486,6 +491,7 @@ function pilih(nama) {
     li.querySelector(".rincian").hidden = !buka;
   }
   if (state) isiRincian();
+  perbaruiKartu();
 }
 function isiRincian() {
   if (!dipilih) return;
@@ -560,13 +566,15 @@ function renderTim(s, terlihat) {
     const proyek = s.tim?.find((t) => t.n === n)?.proyek ?? null;
     const anggota = URUT.filter((x) => TIM[x].divisi === `tim${n}`);
     const aktif = terlihat.has(`tim${n}`);
-    const papan = PAPAN[`tim${n}`], baru = proyek ? `Proyek: ${proyek}` : aktif ? "Proyek belum terdaftar" : "Belum ada proyek";
-    if (papan && papan.sub.textContent !== baru) { papan.sub.textContent = baru; adegan?.mintaGambar(); }
-    papan?.el.classList.toggle("redup", !aktif);
     KELOMPOK[`tim${n}`].querySelector("span").textContent = `Engineering · Tim ${n}${proyek ? ` — ${proyek}` : ""}`;
     for (const el2 of [KELOMPOK[`tim${n}`], ...anggota.flatMap((x) => [LI[x], LABEL_JALUR[x], SEL[x]])]) el2.hidden = !aktif;
     for (const x of anggota) if (MEJA[x]) MEJA[x].tag.classList.toggle("tim-kosong", !aktif);
   }
+}
+/** Nama zona = tulisan di lantai (adegan 3D): nama divisi, proyek tim; tim tanpa proyek diredupkan. */
+function perbaruiTulisanZona(s, terlihat) {
+  const tim = NOMOR_TIM.map((n) => ({ n, proyek: s.tim?.find((t) => t.n === n)?.proyek ?? null, aktif: terlihat.has(`tim${n}`) }));
+  adegan?.aturTulisanZona(tulisanZona(DIVISI, { tim, sempit: SEMPIT, warnaLounge: WARNA_LOUNGE }));
 }
 /** Jejak kerja nyata di 3D: papan tulis tiap tim & Corporate Strategy, papan tugas, berkas di meja (hanya ID + judul). */
 let BERKAS = {};
@@ -638,6 +646,7 @@ function render(s, ulang = false) {
   }
   renderTugas(s.tugas, s.selesaiHariIni ?? []);
   renderTim(s, terlihat);
+  perbaruiTulisanZona(s, terlihat);
   renderJejak(s, terlihat);
   terapkanAsisten(s.asisten);
   sorotTugasDariTautan(s);
@@ -650,6 +659,7 @@ function render(s, ulang = false) {
       <span><b>${esc(f.agent)}</b> ${esc(f.label)}${f.detail ? `<span class="rinci"> — ${esc(f.detail)}</span>` : ""}</span></li>`).join("")
     : `<li><p class="kosong">Belum ada aktivitas dalam 24 jam terakhir.</p></li>`;
   if (dipilih) isiRincian();
+  if (SENTUH) isiKartu(SENTUH);
   for (const f of ulang ? [] : [...s.feed].reverse()) {
     const kunci = `${f.ts}|${f.agent}|${f.label}|${f.to ?? ""}`;
     if (sudahLihat.has(kunci)) continue;
@@ -720,6 +730,80 @@ tombolJeda.addEventListener("click", () => {
   try { localStorage.setItem("kantor-jeda", HEMAT_GERAK ? "1" : "0"); } catch { /* abaikan */ }
 });
 matchMedia("(prefers-reduced-motion: reduce)").addEventListener("change", (e) => { if (e.matches && !HEMAT_GERAK) { HEMAT_GERAK = true; aturJeda(); } });
+
+// ================= label: tingkat rincian ikut zoom, kartu sentuh, tombol Label =================
+/** Tingkat rincian (jauh/dekat) dari jarak kamera terhadap "Seluruh denah"; layar sempit mengubah tulisan lantai. */
+function aturRincian(paksa = false) {
+  if (!adegan) return;
+  const t = tingkatRincian(adegan.camera.position.distanceTo(adegan.kontrol.target), adegan.jarakPas());
+  const sempit = elPanggung.clientWidth < 600, ubahSempit = sempit !== SEMPIT;
+  SEMPIT = sempit;
+  if (t !== TINGKAT || ubahSempit || paksa) {
+    TINGKAT = t;
+    elLapis.dataset.tingkat = t; elLapis.dataset.label = MODE;
+    elLapis.classList.toggle("tanpa-ucapan", !ucapanTampil(MODE, t));
+    for (const o of [...Object.values(ORANG), ...Object.values(ASISTEN)]) segarkanKepala(o);
+    adegan.mintaGambar();
+  }
+  if (ubahSempit && state) perbaruiTulisanZona(state, timTerlihat(state));
+}
+// kartu sentuh: nama + status orang yang di-hover, difokus (Tab ke tag meja), atau dipilih (klik/ketuk). Dapat di-hover,
+// menetap, dan ditutup dengan Esc tanpa memindah fokus (WCAG 1.4.13); padanan pembaca layarnya aria-label tag meja.
+let KARTU = null, kartuDiAtas = false, tundaHover = 0;
+function bangunKartu() {
+  const el = div("kartu-orang", `<span class="isi"><b class="k-nama"></b><span class="k-status"></span><small class="k-petunjuk"></small></span>`);
+  el.setAttribute("aria-hidden", "true"); el.hidden = true;
+  el.addEventListener("mouseenter", () => { kartuDiAtas = true; clearTimeout(tundaHover); });
+  el.addEventListener("mouseleave", () => { kartuDiAtas = false; aturHover(null); });
+  el.addEventListener("click", () => { if (SENTUH) pilih(SENTUH); });
+  KARTU = { el, l: adegan.tambahLabel(el, 0, 0, 0, null, { prioritasFn: () => (el.hidden ? 0 : 6) }) };
+}
+function aturHover(nama) {
+  clearTimeout(tundaHover);
+  if (nama) { if (HOVER !== nama) { HOVER = nama; perbaruiKartu(); } return; }
+  tundaHover = setTimeout(() => { if (!kartuDiAtas && HOVER) { HOVER = null; perbaruiKartu(); } }, 300);   // waktu untuk pindah ke kartu
+}
+function isiKartu(nama) {
+  if (!KARTU || !state) return;
+  const ag = state.agents.find((a) => a.name === nama) ?? { name: nama }, st = ORANG[nama]?.status ?? "siap", now = Date.now();
+  const rinci = st === "bekerja" || st === "berpikir" || st === "menunggu" ? (ag.label ? ` · ${potong(ag.detail ? `${ag.label} — ${ag.detail}` : ag.label, 46)}` : "")
+    : st === "selesai" ? ` · ${teksSelesai(ag.selesai?.ts, now)}` : st === "siap" ? ` · ${keteranganSiap(ag)}` : "";
+  const el = KARTU.el, dari = ag.subagent?.dari;
+  el.style.setProperty("--warna", TIM[nama].warna);
+  el.querySelector(".k-nama").textContent = nama;
+  el.querySelector(".k-status").innerHTML = `<i class="simbol ${st}">${SIMBOL[st]}</i>${esc(LABEL_STATUS[st])}${esc(rinci)}${dari ? ` <span class="sub">subagent · ${esc(TIM[dari]?.pendek ?? dari)}</span>` : ""}`;
+  el.querySelector(".k-petunjuk").textContent = dipilih === nama ? "Rincian di panel Tim" : "Klik untuk rincian";
+}
+function perbaruiKartu() {
+  const calon = FOKUS ?? HOVER ?? dipilih ?? null;
+  const target = calon && ORANG[calon]?.tampak && ORANG[calon]?.m ? calon : null;
+  const lama = SENTUH;
+  SENTUH = target;
+  if (lama && ORANG[lama]) segarkanKepala(ORANG[lama]);
+  if (target) segarkanKepala(ORANG[target]);
+  if (!KARTU) return;
+  KARTU.el.hidden = !target;
+  if (target) {
+    KARTU.l.ikut = ORANG[target].m.akar; KARTU.l.offset = 1.95 * SKALA_ORANG;
+    KARTU.el.classList.toggle("fokus", FOKUS === target);
+    isiKartu(target);
+  }
+  adegan?.mintaGambar();
+}
+// Esc menutup kartu (hover/fokus) tanpa memindah fokus; denah yang difokus juga membatalkan pilihan (adegan.mjs)
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape" || !(HOVER || FOKUS)) return;
+  HOVER = null; FOKUS = null; perbaruiKartu();
+});
+// tombol Label: Ringkas (bawaan) · Lengkap · Tanpa — grup radio (panah kiri/kanan berpindah), pilihan diingat per peramban
+const elPilihLabel = document.getElementById("pilih-label");
+function aturModeLabel(mode, simpan = true) {
+  MODE = MODE_LABEL.includes(mode) ? mode : "ringkas";
+  for (const r of elPilihLabel.querySelectorAll("input")) r.checked = r.value === MODE;
+  if (simpan) try { localStorage.setItem(KUNCI_SIMPAN_LABEL, MODE); } catch { /* abaikan */ }
+  if (adegan) aturRincian(true);
+}
+elPilihLabel.addEventListener("change", (e) => { if (e.target.name === "label") aturModeLabel(e.target.value); });
 
 // ================= ukur kinerja (?ukur=1): bingkai/dtk, gambar/dtk, ms per gambar, draw call =================
 function pasangUkur() {
@@ -826,8 +910,16 @@ try { await siapkanAdegan(); } catch (e) { adegan = null; O3 = null; tampilkanTa
 DENAH = adegan?.denah ?? (await import("./denah.mjs")).bangunDenah();
 BLOK = bangunGrid(DENAH.perabot);
 bangunMeja();   // tanpa WebGL pun: tag meja tetap ada (tidak ditampilkan) agar render panel tidak bergantung pada denah
-if (adegan) { PAPAN = papanZona(); adegan.onKamera = perbaruiTombolZoom; perbaruiTombolZoom(); }
 for (const nama of URUT) bangunOrang(nama);
+if (adegan) {
+  bangunKartu();
+  adegan.onKamera = () => { perbaruiTombolZoom(); aturRincian(); };
+  adegan.onUkur = () => aturRincian();
+  adegan.onHover = aturHover;
+  perbaruiTombolZoom(); aturRincian(true);
+  perbaruiTulisanZona({ tim: [] }, new Set());   // nama zona tampil sebelum data pertama datang
+}
+aturModeLabel(MODE, false);
 bangunPanel();
 aturJeda();
 detik(); setInterval(detik, 1000);

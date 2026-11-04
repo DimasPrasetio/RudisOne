@@ -7,6 +7,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { DIVISI, JENDELA, KURSI, NOMOR_TIM, NX, NY, OX_TIM, PINTU, TINGGI_DINDING, TIM, WARNA_LOUNGE, ZONA, bangunDenah } from "./denah.mjs";
+import { KOTAK_TULISAN, LIS_DEPAN } from "./label.mjs";
 
 /** WebGL2 tersedia? (three.js r186 hanya mendukung WebGL2). */
 export function adaWebGL2() {
@@ -230,7 +231,7 @@ class Pembangun {
     for (const [k, daftar] of this.bagian) {
       const [kunci, bayang] = k.split("|");
       const me = new THREE.Mesh(mergeGeometries(daftar), material(kunci));
-      me.castShadow = bayang === "1"; me.receiveShadow = true;
+      me.castShadow = bayang === "1"; me.receiveShadow = true; me.name = k;
       me.matrixAutoUpdate = false; me.updateMatrix();
       grup.add(me);
       for (const g of daftar) g.dispose();
@@ -317,7 +318,8 @@ function gambarPerabot(b, o, layar, ekstra = { lampu: [], berkas: {} }) {
         const panjang = sepanjangY ? d : w;
         for (let t = 0.08; t < panjang - 0.12;) {
           const tebal = 0.04 + r() * 0.04, tg = 0.18 + r() * 0.12, warna = warnaBuku[Math.floor(r() * 4)];
-          if (sepanjangY) b.kotak(warna, x + 0.06, y + t, z, w - 0.14, tebal, tg); else b.kotak(warna, x + t, y + 0.08, z, tebal, d - 0.14, tg);
+          // buku di dalam rak tidak ikut peta bayangan (bayangannya jatuh di dalam rak; hemat 4 draw call saat bayangan dihitung ulang)
+          if (sepanjangY) b.kotak(warna, x + 0.06, y + t, z, w - 0.14, tebal, tg, { bayang: false }); else b.kotak(warna, x + t, y + 0.08, z, tebal, d - 0.14, tg, { bayang: false });
           t += tebal + 0.01;
         }
       }
@@ -552,6 +554,7 @@ export class Adegan {
     for (const nama of Object.keys(this.layar)) this.aturLayar(nama, this.statusLayar?.[nama] ?? null, true);
     for (const pp of Object.values(this.papan ?? {})) pp.kunci = null;   // warna tinta papan mengikuti tema
     if (this.isiPapan) this.aturPapan(this.isiPapan);
+    if (this.isiTulisan) this.aturTulisanZona(this.isiTulisan, true);
     if (this.isiBerkas) this.aturBerkas(this.isiBerkas, true);
     this.perbaruiBayangan();
   }
@@ -617,6 +620,8 @@ export class Adegan {
     lantai("lorong", 0, 0, NX, NY, 0);
     for (const [id, [x0, y0, x1, y1]] of Object.entries(ZONA)) lantai(`zona:${id}`, x0, y0, x1, y1, 0.004);
     b.kotak("sisiLantai", -0.22, -0.22, -0.45, NX + 0.22, NY + 0.22, 0.449, { bayang: false });
+    // lis depan diorama (sedikit lebih rendah dari lantai): tempat nama zona baris depan (label.mjs › LIS_DEPAN)
+    b.kotak("sisiLantai", -0.22, LIS_DEPAN.y0, -0.45, NX + 0.22, LIS_DEPAN.y1 - LIS_DEPAN.y0, 0.45 + LIS_DEPAN.z, { bayang: false });
     for (const dk of this.denah.dekor) {
       if (dk.jenis === "karpet") lantai(dk.warna === "lounge" ? "karpetLounge" : "karpet", dk.x0, dk.y0, dk.x1, dk.y1, 0.012);
     }
@@ -682,6 +687,7 @@ export class Adegan {
       this.scene.add(m);
     }
     this.bangunPapan();
+    this.bangunTulisanZona();
     // berkas tugas yang selesai hari ini di meja pemiliknya = satu InstancedMesh (maks. 3 per meja)
     this.berkasInst = new THREE.InstancedMesh(new THREE.BoxGeometry(0.23, 0.012, 0.31), this.mat.map, Object.keys(this.tempatBerkas).length * 3);
     this.berkasInst.count = 0; this.berkasInst.castShadow = false; this.berkasInst.receiveShadow = true; this.scene.add(this.berkasInst);
@@ -772,6 +778,87 @@ export class Adegan {
       pp.tekstur.needsUpdate = true;
       this.mintaGambar();
     }
+  }
+  // ---------- nama zona: tulisan di lantai (DESAIN.md › Label & keterbacaan) ----------
+  /**
+   * Satu mesh untuk semua zona (satu draw call, tidak ikut peta bayangan): tiap zona = satu bidang di lantai pada kotak
+   * `KOTAK_TULISAN` (lorong / tepi depan), teksturnya satu kanvas atlas. Tulisan berada DI lantai: perabot dan orang
+   * selalu tergambar di atasnya, jadi nama zona tidak pernah menutupi meja atau orang.
+   */
+  bangunTulisanZona() {
+    const PPM = 150, JARAK = 8, ids = Object.keys(KOTAK_TULISAN);
+    const lebar = Math.ceil(Math.max(...ids.map((id) => (KOTAK_TULISAN[id][2] - KOTAK_TULISAN[id][0]) * PPM)));
+    const tempat = {}; let y = 0;
+    for (const id of ids) {
+      const [x0, y0, x1, y1] = KOTAK_TULISAN[id], w = Math.round((x1 - x0) * PPM), h = Math.round((y1 - y0) * PPM);
+      tempat[id] = { px: 0, py: y, w, h, kotak: KOTAK_TULISAN[id] }; y += h + JARAK;
+    }
+    const kanvas = document.createElement("canvas"); kanvas.width = lebar; kanvas.height = y;
+    const tekstur = new THREE.CanvasTexture(kanvas);
+    tekstur.colorSpace = THREE.SRGBColorSpace; tekstur.anisotropy = 8;
+    const pos = [], uv = [], idx = [];
+    for (const id of ids) {
+      const t = tempat[id], [x0, y0, x1, y1, H = 0.022] = t.kotak, n = pos.length / 3;
+      const u0 = t.px / lebar, u1 = (t.px + t.w) / lebar, v0 = 1 - t.py / kanvas.height, v1 = 1 - (t.py + t.h) / kanvas.height;
+      // sudut: kiri-belakang, kanan-belakang, kanan-depan, kiri-depan (atas tulisan menghadap dinding belakang)
+      pos.push(x0, H, y0, x1, H, y0, x1, H, y1, x0, H, y1);
+      uv.push(u0, v0, u1, v0, u1, v1, u0, v1);
+      idx.push(n, n + 2, n + 1, n, n + 3, n + 2);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
+    g.setAttribute("normal", new THREE.Float32BufferAttribute(pos.map((_, i) => (i % 3 === 1 ? 1 : 0)), 3));
+    g.setIndex(idx);
+    const mat = new THREE.MeshStandardMaterial({ map: tekstur, transparent: true, roughness: 0.9, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4 });
+    const me = new THREE.Mesh(g, mat);
+    me.receiveShadow = true; me.castShadow = false; me.renderOrder = 1; me.matrixAutoUpdate = false; me.visible = false;
+    this.scene.add(me);
+    this.tulisan = { kanvas, tekstur, me, tempat, PPM, kunci: null };
+    document.fonts?.ready?.then(() => { if (this.isiTulisan) this.aturTulisanZona(this.isiTulisan, true); });
+  }
+  /**
+   * Isi tulisan lantai: `[{ id, warna, redup, baris: [{ teks, skala }] }]` (label.mjs › tulisanZona). Baris pertama
+   * tebal dengan kotak warna zona, baris berikutnya lebih kecil & redup; ukuran huruf terbesar yang muat di kotaknya.
+   */
+  aturTulisanZona(daftar, paksa = false) {
+    this.isiTulisan = daftar;
+    const tl = this.tulisan; if (!tl) return;
+    const kunci = JSON.stringify([daftar, this.gelap]);
+    if (!paksa && kunci === tl.kunci) return;
+    tl.kunci = kunci;
+    const g = tl.kanvas.getContext("2d"), tinta = new THREE.Color(this.gelap ? "#e4ebf2" : "#1d2833"), redupW = this.gelap ? "#8fa0b1" : "#5e6e7e";
+    g.clearRect(0, 0, tl.kanvas.width, tl.kanvas.height);
+    for (const z of daftar) {
+      const t = tl.tempat[z.id]; if (!t) continue;
+      const pad = 0.08 * tl.PPM, ruangW = t.w - 2 * pad, ruangH = t.h - 2 * pad;
+      const hurufBaris = (b, i, px) => `${i === 0 ? 700 : 520} ${px * b.skala}px ${i === 0 ? HURUF_JUDUL : HURUF}`;
+      // ukuran huruf baris pertama (px) yang muat tinggi & lebar kotak; kotak warna zona di depan baris pertama
+      let px = Math.min(ruangH / z.baris.reduce((s, b) => s + b.skala * 1.18, 0), 1.0 * tl.PPM);
+      for (const [i, b] of z.baris.entries()) {
+        g.font = hurufBaris(b, i, 100);
+        const w100 = g.measureText(b.teks).width + (i === 0 ? 100 * 0.78 : 0);
+        px = Math.min(px, (ruangW / w100) * 100);
+      }
+      const warnaTeks = `#${tinta.clone().lerp(new THREE.Color(z.warna), this.gelap ? 0.28 : 0.32).getHexString()}`;
+      g.save();
+      g.globalAlpha = z.redup ? 0.45 : 0.95;
+      g.textBaseline = "middle"; g.textAlign = "left";
+      const tinggiTotal = z.baris.reduce((s, b) => s + b.skala * px * 1.18, 0);
+      let yb = t.py + t.h / 2 - tinggiTotal / 2;
+      for (const [i, b] of z.baris.entries()) {
+        const ukuran = px * b.skala, tengah = yb + ukuran * 0.59;
+        g.font = hurufBaris(b, i, px);
+        const kotakW = i === 0 ? px * 0.78 : 0, lebarTeks = g.measureText(b.teks).width + kotakW, x = t.px + t.w / 2 - lebarTeks / 2;
+        if (i === 0) { g.fillStyle = z.warna; kotakBulat(g, x, tengah - px * 0.27, px * 0.54, px * 0.54, px * 0.12); g.fill(); }
+        g.fillStyle = i === 0 ? warnaTeks : redupW;
+        g.fillText(b.teks, x + kotakW, tengah);
+        yb += ukuran * 1.18;
+      }
+      g.restore();
+    }
+    tl.tekstur.needsUpdate = true; tl.me.visible = daftar.length > 0;
+    this.mintaGambar();
   }
   /** Berkas di meja: `{ kursi: jumlah }` → tumpukan map (maks. 3) di meja pemiliknya. */
   aturBerkas(jumlah, paksa = false) {
@@ -866,7 +953,7 @@ export class Adegan {
   }
   hitungPas(az, polar) {
     const target = new THREE.Vector3(NX / 2, 0, NY / 2), titik = [];
-    for (const x of [-0.25, NX]) for (const z of [-0.25, NY]) for (const y of [-0.45, TINGGI_DINDING]) titik.push(new THREE.Vector3(x, y, z));
+    for (const x of [-0.25, NX]) for (const z of [-0.25, LIS_DEPAN.y1]) for (const y of [-0.45, TINGGI_DINDING]) titik.push(new THREE.Vector3(x, y, z));
     const arah = new THREE.Vector3().setFromSphericalCoords(1, polar, az), cam = this.camera.clone(), v = new THREE.Vector3();
     const tempat = (d) => { cam.position.copy(target).addScaledVector(arah, d); cam.lookAt(target); cam.updateMatrixWorld(); cam.updateProjectionMatrix(); };
     const batas = () => {
@@ -950,24 +1037,24 @@ export class Adegan {
     } else if (w >= 700 && this._lebarTinggi) { this._lebarTinggi = null; this.wadah.style.height = ""; return; }
     if (!this.kameraDiubah) this.seluruhDenah(false);   // belum disentuh pengguna: tetap "Seluruh denah" untuk ukuran baru
     this.mintaGambar();
+    this.onUkur?.();
   }
 
   // ---------- label HTML ----------
   /**
    * Daftarkan elemen label yang mengikuti titik 3D (x lantai, tinggi, y lantai); `ikut` = objek yang diikuti (opsional).
    * `prioritas` untuk tabrakan (lebih tinggi menang; 0 = tidak diperiksa); `prioritasFn` bila berubah menurut status.
-   * Isi label (`.isi`) diberi transform sendiri di CSS (jangkar bawah-tengah atau atas-tengah).
+   * Isi label (`.isi`) diberi transform sendiri di CSS (jangkar bawah-tengah atau atas-tengah). `dy` = geser piksel
+   * vertikal tetap (mis. nama tepat di atas titik status, berapa pun zoomnya).
    */
-  tambahLabel(el, x, h, y, ikut = null, { prioritas = 0, prioritasFn = null } = {}) {
-    const l = { el, isi: el.firstElementChild ?? el, pos: new THREE.Vector3(x, h, y), ikut, offset: h, prioritas, prioritasFn };
+  tambahLabel(el, x, h, y, ikut = null, { prioritas = 0, prioritasFn = null, dy = 0 } = {}) {
+    const l = { el, isi: el.firstElementChild ?? el, pos: new THREE.Vector3(x, h, y), ikut, offset: h, prioritas, prioritasFn, dy };
     this.lapis.append(el); this.label.push(l);
     return l;
   }
   hapusLabel(l) { l.el.remove(); this.label.splice(this.label.indexOf(l), 1); }
   posisikanLabel() {
     const w = this.wadah.clientWidth, h = this.wadah.clientHeight, v = new THREE.Vector3();
-    // tingkat rincian: tag meja ringkas saat jauh (HP / seluruh denah) — diatur sebelum ukuran label dibaca
-    this.lapis.classList.toggle("jauh", this.skalaLantai() <= 26 || w < 600);   // HP selalu ringkas
     const tampil = [];
     for (const l of this.label) {
       if (l.el.hidden || (l.ikut && !l.ikut.visible)) continue;
@@ -975,25 +1062,26 @@ export class Adegan {
       const jarak = v.distanceTo(this.camera.position);
       v.project(this.camera);
       if (!(v.z < 1 && Math.abs(v.x) < 1.15 && Math.abs(v.y) < 1.15)) { l.el.style.visibility = "hidden"; continue; }
-      l.px = (v.x * 0.5 + 0.5) * w; l.py = (-v.y * 0.5 + 0.5) * h; l.jarak = jarak;
+      l.px = (v.x * 0.5 + 0.5) * w; l.py = (-v.y * 0.5 + 0.5) * h + l.dy; l.jarak = jarak;
       tampil.push(l);
     }
     // baca semua ukuran dulu (satu kali tata letak), lalu tulis posisi
     for (const l of tampil) if (l.prioritas || l.prioritasFn) { const r = l.isi.getBoundingClientRect(); l.w = r.width; l.h = r.height; }
-    // tabrakan: papan zona SELALU tampil (struktur organisasi); label lain menurut prioritas (lalu jarak) mencoba
-    // posisinya sendiri, lalu digeser sedikit ke atas/bawah; bila tetap bertumpuk baru disembunyikan.
+    // tabrakan (seperti simbol peta): label menurut prioritas (lalu jarak) mencoba posisinya sendiri, lalu digeser sedikit
+    // ke atas/bawah; bila tetap bertumpuk baru disembunyikan. Label wajib (Menunggu Anda, kartu sentuh) berprioritas
+    // tertinggi; nama = teks opsional, kalah lebih dulu dari titik status. Label tak berukuran (display: none) dilewati.
     const terpakai = [], kalah = new Set();
-    const prio = (l) => (l.el.classList.contains("papan-zona") ? Infinity : l.prioritasFn?.() ?? l.prioritas);   // zona ditempatkan lebih dulu
-    const urut = tampil.filter((l) => prio(l) > 0).sort((p, q) => (prio(q) - prio(p)) || p.jarak - q.jarak);
+    const prio = (l) => l.prioritasFn?.() ?? l.prioritas;
+    const urut = tampil.filter((l) => prio(l) > 0 && l.w > 0 && l.h > 0).sort((p, q) => (prio(q) - prio(p)) || p.jarak - q.jarak);
     const tumpuk = (r) => terpakai.some((q) => r.x0 < q.x1 - 1 && r.x1 > q.x0 + 1 && r.y0 < q.y1 - 1 && r.y1 > q.y0 + 1);
     for (const l of urut) {
       l.px = THREE.MathUtils.clamp(l.px, l.w / 2 + 4, Math.max(l.w / 2 + 4, w - l.w / 2 - 4));   // jangan terpotong tepi kanvas
       const bawah = l.el.classList.contains("tag");               // tag meja: jangkar di atas-tengah; lainnya bawah-tengah
       const kotak = (dy) => ({ x0: l.px - l.w / 2, x1: l.px + l.w / 2, y0: (bawah ? l.py : l.py - l.h) + dy, y1: (bawah ? l.py + l.h : l.py) + dy });
-      const zona = l.el.classList.contains("papan-zona");
-      const coba = zona ? [0] : bawah ? [0, l.h + 2, -(l.h + 2)] : [0, -(l.h + 2), -2 * (l.h + 2)];
+      const wajib = prio(l) >= 6;                                   // kartu sentuh: selalu tampil
+      const coba = wajib ? [0] : bawah ? [0, l.h + 2, -(l.h + 2)] : [0, -(l.h + 2), -2 * (l.h + 2)];
       const dy = coba.find((d) => !tumpuk(kotak(d)));
-      if (dy === undefined && !zona) { kalah.add(l); continue; }
+      if (dy === undefined && !wajib) { kalah.add(l); continue; }
       l.py += dy ?? 0; terpakai.push(kotak(0));
     }
     for (const l of tampil) {
@@ -1025,10 +1113,15 @@ export class Adegan {
       turun = null;
       this.onPilih(kena(e));
     });
+    el.addEventListener("pointerleave", (e) => {
+      if (e.pointerType !== "mouse" || !this.hover) return;
+      if (this.hover !== this.dipilih) this.aturSorot(this.hover, 0);
+      this.hover = null; el.style.cursor = ""; this.onHover?.(null);
+    });
     el.addEventListener("pointermove", (e) => {
       if (e.pointerType !== "mouse" || e.buttons) return;
       const nama = kena(e);
-      if (nama !== this.hover) { if (this.hover && this.hover !== this.dipilih) this.aturSorot(this.hover, 0); this.hover = nama; if (nama && nama !== this.dipilih) this.aturSorot(nama, 1); }
+      if (nama !== this.hover) { if (this.hover && this.hover !== this.dipilih) this.aturSorot(this.hover, 0); this.hover = nama; if (nama && nama !== this.dipilih) this.aturSorot(nama, 1); this.onHover?.(nama); }
       el.style.cursor = nama ? "pointer" : "";
     });
   }

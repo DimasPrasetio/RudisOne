@@ -79,58 +79,57 @@
   .ukur { position: absolute; left: 8px; bottom: 8px; font: 500 12px var(--teks); font-variant-numeric: tabular-nums; padding: 3px 8px;
     border-radius: 6px; background: color-mix(in srgb, var(--permukaan) 85%, transparent); color: var(--tinta); pointer-events: none; }
 
-  /* papan nama zona */
-  .papan-zona .isi { display: inline-flex; align-items: center; gap: 8px; transform: translate(-50%, -100%); padding: 5px 11px 6px 9px;
-    border-radius: 9px; background: color-mix(in srgb, var(--permukaan) 92%, transparent); white-space: nowrap;
-    border: 1.3px solid color-mix(in srgb, var(--warna) 60%, var(--garis)); box-shadow: 0 1px 3px rgba(10, 20, 30, .16); }
-  .papan-zona i { width: 9px; height: 9px; border-radius: 2.5px; background: var(--warna); flex: none; }
-  .papan-zona b { display: block; font: 650 14px/1.15 var(--judul); }
-  .papan-zona small { display: block; font: 500 11.5px/1.2 var(--teks); color: var(--redup); }
-  .papan-zona.redup { opacity: .55; }
-  .jauh .papan-zona small { display: none; }
-  @media (max-width: 600px) {
-    .jauh .papan-zona .isi { padding: 2px 7px 3px 6px; gap: 5px; } .jauh .papan-zona b { font-size: 11.5px; }
-    .jauh .tag .nama-meja { font-size: 10.5px; } .jauh .tag .isi { padding: 1px 5px 2px; }
-  }
+  /* Label di denah (DESAIN.md › Label & keterbacaan): nama zona = tulisan di lantai 3D (adegan.mjs); di sini hanya
+     titik status orang, nama kecil (opsional), label penuh "Menunggu Anda", gelembung ucapan, dan kartu sentuh. */
 
-  /* tag meja (tombol: klik = rincian) */
-  .tag { pointer-events: auto; background: none; border: 0; padding: 0; cursor: pointer; }
-  .tag .isi { display: inline-grid; justify-items: center; transform: translate(-50%, 0); padding: 2px 8px 3px; border-radius: 8px;
-    background: color-mix(in srgb, var(--permukaan) 92%, transparent); white-space: nowrap;
-    border: 1.2px solid color-mix(in srgb, var(--warna) 55%, var(--garis)); box-shadow: 0 1px 2px rgba(10, 20, 30, .18); }
-  .tag .nama-meja { display: inline-flex; align-items: center; gap: 5px; font: 650 12px/1.3 var(--judul); }
-  .tag .nama-meja .simbol { width: 14px; height: 14px; font-size: 9px; }
-  .tag .aksi-meja { font: 500 11px/1.25 var(--teks); color: var(--redup); }
-  .tag .aksi-meja:empty { display: none; }
-  .tag.menunggu .aksi-meja { color: var(--menunggu); } .tag.bekerja .aksi-meja { color: var(--bekerja); }
-  .tag.selesai .aksi-meja { color: var(--selesai); font-weight: 600; }
-  .tag.menunggu .isi { border-color: var(--menunggu); border-width: 2px; }
-  .tag.selesai .isi { border-color: var(--selesai); border-width: 2px; }
-  .tag.dipilih .isi { border-color: var(--warna); border-width: 2px; }
-  .tag:hover .isi { background: var(--permukaan); }
-  /* siap dipanggil: tag lebih tenang dari yang bekerja; saat denah jauh hanya orangnya yang tampil (tanpa lencana) */
-  .tag.siap .isi { opacity: .72; } .tag.siap.dipilih .isi { opacity: 1; }
+  /* tag meja = padanan yang bisa difokus (Tab) & dibaca pembaca layar; tidak tampil — fokus menampilkan kartu sentuh */
+  .tag { pointer-events: none; background: none; border: 0; padding: 0; width: 1px; height: 1px; overflow: hidden;
+    clip-path: inset(50%); white-space: nowrap; }
   .tag.tim-kosong { display: none; }
-  .jauh .tag.siap:not(.dipilih) { display: none; }
-  .jauh .tag .aksi-meja { display: none; }
-  .jauh .tag.menunggu .aksi-meja, .jauh .tag.selesai .aksi-meja, .jauh .tag.dipilih .aksi-meja { display: block; }
 
-  /* label di atas kepala: simbol status (+ nama saat di luar meja) */
-  .kepala-label .isi { display: inline-flex; align-items: center; gap: 4px; transform: translate(-50%, -100%); white-space: nowrap;
-    font: 600 10.5px var(--teks); padding: 1px 6px 1px 1px; border-radius: 999px; background: color-mix(in srgb, var(--permukaan) 90%, transparent);
-    box-shadow: 0 1px 2px rgba(10, 20, 30, .2); }
-  .kepala-label .simbol { width: 15px; height: 15px; font-size: 9.5px; }
-  .kepala-label.di-meja .isi { padding: 1px; } .kepala-label.di-meja .nama-orang { display: none; }
-  .kepala-label[data-status="siap"].di-meja { display: none; }
-  .kepala-label[data-status="menunggu"] .isi { box-shadow: 0 0 0 2px var(--menunggu); }
-  .jauh .kepala-label:not([data-status="menunggu"]) .nama-orang { display: none; }
-  .jauh .kepala-label:not([data-status="menunggu"]) .isi { padding: 1px; }
+  /* titik status di atas kepala (warna + simbol, tanpa teks) */
+  .kepala-label .isi { display: inline-flex; align-items: center; gap: 5px; transform: translate(-50%, -100%); white-space: nowrap; border-radius: 999px; }
+  .kepala-label .simbol { width: 14px; height: 14px; font-size: 8.5px; box-shadow: 0 0 0 1.5px var(--permukaan), 0 1px 3px rgba(10, 20, 30, .35); }
+  .kepala-label.asisten .simbol { width: 11px; height: 11px; font-size: 7px; }
+  .kepala-label .teks-penuh { display: none; }
+  /* "Menunggu Anda" tetap berlabel penuh (+ cincin amber di lantai) */
+  .kepala-label.penuh .isi { padding: 2px 9px 2px 2px; background: var(--permukaan); border: 2px solid var(--menunggu);
+    box-shadow: 0 2px 6px rgba(10, 20, 30, .25); font: 600 11.5px/1.2 var(--teks); color: var(--tinta); }
+  .kepala-label.penuh .teks-penuh { display: inline; }
+  .kepala-label.penuh .teks-penuh b { font-weight: 700; }
+  .kepala-label.penuh .simbol { width: 17px; height: 17px; font-size: 10.5px; box-shadow: none; }
+  /* nama kecil & tipis (diperbesar atau mode Lengkap) — teks opsional: kalah lebih dulu saat bertabrakan */
+  .nama-label .isi { display: block; transform: translate(-50%, -100%); white-space: nowrap; font: 500 10px/1.15 var(--teks); color: var(--tinta);
+    text-shadow: 0 0 2px var(--permukaan), 0 0 3px var(--permukaan), 0 0 5px var(--permukaan); }
 
-  /* gelembung ucapan & berkas yang diserahkan */
+  /* kartu sentuh: nama + status saat hover, fokus keyboard, atau dipilih */
+  .kartu-orang { pointer-events: auto; cursor: pointer; }
+  .kartu-orang .isi { display: grid; gap: 1px; transform: translate(-50%, -100%); white-space: nowrap; padding: 6px 10px 7px; border-radius: 10px;
+    background: var(--permukaan); border: 1.5px solid color-mix(in srgb, var(--warna) 65%, var(--garis)); box-shadow: 0 4px 14px rgba(10, 20, 30, .22);
+    font: 500 12px/1.3 var(--teks); color: var(--tinta); }
+  .kartu-orang .k-nama { font: 650 13px/1.25 var(--judul); }
+  .kartu-orang .k-status { display: inline-flex; align-items: center; gap: 6px; }
+  .kartu-orang .k-status .simbol { width: 15px; height: 15px; font-size: 9px; }
+  .kartu-orang .k-status .sub { color: var(--redup); }
+  .kartu-orang small { color: var(--redup); font-size: 11px; }
+  .kartu-orang.fokus .isi { outline: 2px solid var(--berpikir); outline-offset: 2px; }
+
+  /* gelembung ucapan & berkas yang diserahkan; ucapan disembunyikan pada Ringkas-jauh dan Tanpa */
   .ucapan .isi { display: inline-block; transform: translate(-50%, -100%); white-space: nowrap; font: 600 11px/1.3 var(--teks);
     padding: 3px 9px; border-radius: 8px; background: var(--permukaan); border: 1px solid var(--garis); box-shadow: 0 1px 3px rgba(10, 20, 30, .22); }
   .ucapan.panggil .isi { border: 1.8px solid var(--warna); }
+  .tanpa-ucapan .ucapan { display: none; }
   .berkas { width: 10px; height: 12px; margin: -6px 0 0 -5px; border-radius: 2px; background: #fff; border: 1.2px solid var(--warna); }
+
+  /* tombol Label: Ringkas · Lengkap · Tanpa (grup radio) */
+  .pilih-label { display: inline-flex; align-items: stretch; border: 1px solid var(--garis); border-radius: 8px; padding: 0; margin: 0; min-height: 32px; overflow: hidden; }
+  .pilih-label legend { float: left; align-self: center; padding: 0 8px 0 10px; font-size: 13px; color: var(--redup); }
+  .pilih-label label { position: relative; display: inline-grid; place-items: center; min-height: 32px; padding: 0 10px; cursor: pointer;
+    font-size: 13px; color: var(--tinta); border-left: 1px solid var(--garis); }
+  .pilih-label input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
+  .pilih-label label:has(input:checked) { background: color-mix(in srgb, var(--berpikir) 15%, transparent); font-weight: 600; }
+  .pilih-label label:has(input:focus-visible) { outline: 2px solid var(--berpikir); outline-offset: -2px; }
+
 
   .legenda { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; padding: 8px 16px 14px; font-size: 13px; color: var(--redup); }
   .legenda span { display: inline-flex; align-items: center; gap: 6px; }
@@ -260,7 +259,7 @@
       <span aria-hidden="true"><i class="simbol berpikir">…</i>Berpikir</span>
       <span aria-hidden="true"><i class="simbol menunggu">!</i>Menunggu Anda</span>
       <span aria-hidden="true"><i class="simbol selesai">✓</i>Baru selesai (≤ 10 mnt)</span>
-      <span aria-hidden="true"><i class="simbol siap">–</i>Siap dipanggil · di meja, sesekali ngopi</span>
+      <span aria-hidden="true"><i class="simbol siap">–</i>Siap dipanggil · di meja, sesekali ngopi (titik tampil saat diperbesar)</span>
       <span class="kendali" role="group" aria-label="Kamera denah">
         <button type="button" id="putar-kiri" aria-label="Putar denah ke kiri">⟲</button>
         <button type="button" id="putar-kanan" aria-label="Putar denah ke kanan">⟳</button>
@@ -268,8 +267,14 @@
         <button type="button" id="zoom-besar" aria-label="Perbesar denah">+</button>
         <button type="button" id="zoom-pas">Seluruh denah</button>
       </span>
+      <fieldset class="pilih-label" id="pilih-label">
+        <legend>Label</legend>
+        <label><input type="radio" name="label" value="ringkas" checked>Ringkas</label>
+        <label><input type="radio" name="label" value="lengkap">Lengkap</label>
+        <label><input type="radio" name="label" value="tanpa">Tanpa</label>
+      </fieldset>
       <button type="button" class="jeda" id="jeda" aria-pressed="false">Jeda gerak</button>
-      <span class="petunjuk" id="petunjuk"><span class="untuk-tetikus">Seret untuk menggeser · klik kanan + seret untuk memutar · gulir untuk memperbesar · klik meja atau orang untuk rincian · keyboard (klik denah dulu): panah geser, Shift + panah putar, + / − perbesar, 0 seluruh denah.</span><span class="untuk-sentuh">Satu jari menggulir halaman · dua jari menggeser & memperbesar denah · ⟲ ⟳ memutar · ketuk meja atau orang untuk rincian.</span></span>
+      <span class="petunjuk" id="petunjuk"><span class="untuk-tetikus">Seret untuk menggeser · klik kanan + seret untuk memutar · gulir untuk memperbesar · arahkan ke orang untuk nama & status, klik untuk rincian · keyboard (klik denah dulu): panah geser, Shift + panah putar, + / − perbesar, 0 seluruh denah, Tab ke orang berikutnya, Esc tutup.</span><span class="untuk-sentuh">Satu jari menggulir halaman · dua jari menggeser & memperbesar denah · ⟲ ⟳ memutar · ketuk orang untuk nama, status & rincian.</span></span>
     </div>
   </section>
 

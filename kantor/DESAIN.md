@@ -14,12 +14,14 @@ Berkas ini memuat prinsip, denah, cerita gerak, kamera, dan token yang berlaku �
   kamera terbatas; rincian dan padanan aksesibel tetap di panel samping HTML.
 
 ## Prinsip
-1. **Status selalu terbaca tanpa animasi** (warna + simbol + teks); animasi hanya memperkuat.
+1. **Status selalu terbaca tanpa animasi.** Di denah: **warna + simbol** dengan bentuk berbeda (▶ … ! ✓ –), tidak pernah hanya
+   warna; teksnya di panel samping, di kartu saat orang disentuh (hover/klik/ketuk/fokus keyboard), dan untuk pembaca
+   layar (aria). **"Menunggu Anda" tetap bertulisan di denah.** Animasi hanya memperkuat.
 2. **Jujur:** semua jabatan hadir di mejanya, tetapi "Bekerja" hanya dari sesi/subagent yang benar-benar berjalan; "Siap
    dipanggil" menyebut keadaan sesinya apa adanya (sesi terbuka · dipanggil sebagai subagent · dibuka COO saat ada tugas);
    papan & berkas hanya berisi tugas register (papan kosong = memang tidak ada tugas); data basi atau koneksi putus selalu ditampilkan.
 3. **Struktur organisasi terlihat:** denah mencerminkan rantai komando — atasan memanggil dari mejanya, bawahan
-   menghampiri; laporan dibawa naik. Papan nama zona **selalu tampil**.
+   menghampiri; laporan dibawa naik. Nama zona **selalu tampil** sebagai tulisan di lantai ruangan.
 4. **Privasi:** hanya metadata aktivitas (nama alat, deskripsi singkat ≤ 50 karakter, nama berkas) — tidak pernah isi
    berkas, pesan, prompt, atau keluaran. Jenis pesan diambil dari tag `[…]` di awal pesan saja.
 5. **Tenang:** lantai & perabot netral; warna kuat hanya untuk status dan identitas peran; tidak ada merah kecuali galat.
@@ -43,8 +45,14 @@ Berkas ini memuat prinsip, denah, cerita gerak, kamera, dan token yang berlaku �
 | Khronos **PBR Neutral** menjaga rona & saturasi warna dasar; ACES/AgX mengurangi saturasi (model-viewer, tone mapping) | `NeutralToneMapping`: warna status & peran di 3D sama dengan token CSS |
 | Perspektif memberi isyarat kedalaman; FOV kecil menekan distorsi (MathWorks view projections; contoh *ai-office*) | `PerspectiveCamera` FOV 30° |
 | Peta tertanam di halaman yang digulir: satu jari menggulir halaman, dua jari menggerakkan peta (Google Maps `gestureHandling: cooperative`) | HP: **satu jari menggulir halaman, dua jari menggeser & mencubit denah**; petunjuk singkat muncul saat satu jari digeser di denah |
-| Label HTML di atas kanvas (CSS2D): teks tajam & ikut CSS, tidak terbaca sebagai bagian 3D; panel HTML = padanan pembaca layar (forum three.js aksesibilitas) | Label = elemen HTML yang mengikuti titik 3D; tag meja = tombol (klik = rincian); panel samping = padanan penuh |
-| Label tidak boleh bertumpuk; deconfliction berprioritas (ArcGIS label deconfliction, *avoid-overlap*) | Papan zona ditempatkan dulu dan tidak pernah disembunyikan; lalu gelembung > "!" menunggu > nama > tag meja — yang bertabrakan digeser ±1 baris, baru disembunyikan |
+| Label HTML di atas kanvas (CSS2D): teks tajam & ikut CSS, tidak terbaca sebagai bagian 3D; panel HTML = padanan pembaca layar (forum three.js aksesibilitas) | Status orang = titik HTML kecil yang mengikuti kepala; panel samping = padanan penuh. Kapsul nama mengambang dihapus: menutupi ruangan |
+| Lantai, pola lantai, dan warna aksen per area adalah elemen wayfinding; label bisa menempel di bidang peta, bukan di layar (DHA/MHS Wayfinding Guidelines 2022; Mapbox `text-pitch-alignment: map`) | Nama zona = **tulisan di lantai** (bagian adegan 3D, ikut berputar & mengecil): perabot & orang selalu tergambar di atasnya |
+| Simbol peta: ikon & teks bertabrakan disembunyikan menurut urutan tetap; `text-optional` membuang teks tapi mempertahankan ikon; lapisan punya rentang zoom (Mapbox Style Spec) | Titik status = "ikon", nama = "teks opsional" (kalah lebih dulu); nama baru tampil saat diperbesar |
+| Penanda wajib (`REQUIRED_AND_HIDES_OPTIONAL`) vs. opsional berprioritas (Google Maps Platform, collision behavior) | Kartu sentuh & "Menunggu Anda" = wajib/teratas; titik > nama > gelembung pada urutan tetap |
+| Progressive disclosure: sedikit yang paling sering dibutuhkan dulu, maks. ±2 tingkat (NN/g) | Denah: titik → kartu (hover/klik) → panel rincian; mode bawaan **Ringkas** |
+| Warna tidak boleh satu-satunya penanda; ikon status ≥ 3:1 terhadap sekitarnya (WCAG 1.4.1, 1.4.11) | Simbol berbeda per status + legenda; titik berbingkai warna permukaan agar kontras di lantai terang & gelap |
+| Konten saat hover/fokus: dapat ditutup (Esc), dapat di-hover, menetap; juga muncul saat fokus keyboard (WCAG 1.4.13, WAI-ARIA APG Tooltip); di layar sentuh = ketukan (NN/g Tooltip Guidelines) | Kartu sentuh tampil saat hover/fokus (Tab ke tag meja)/dipilih, tetap saat kursor pindah ke kartu, Esc menutup tanpa memindah fokus; HP: ketuk |
+| Content switcher untuk tampilan saling eksklusif, satu selalu terpilih, opsi tersering pertama (Carbon Design System) | Tombol **Label**: Ringkas (bawaan) · Lengkap · Tanpa — grup radio, diingat per peramban |
 | Kantor virtual terasa "hidup" karena kehadiran rekan, bukan karena aktivitas palsu (Gather, Roam: avatar tetap di meja saat diam) | Semua jabatan hadir **Siap dipanggil** di mejanya; sesekali maks. 3 orang ngopi lalu kembali; "Bekerja" hanya dari data nyata |
 | Jejak kerja yang tertinggal (papan tulis, berkas) memberi konteks tanpa membuka rincian (Pixel Agents, Claude-Office) | Papan tulis tim, papan strategi, papan tugas Ruang Pimpinan, dan map di meja — semua dari register (ID + judul) |
 | Pencahayaan siang/malam memberi rasa waktu (Bruno Simon *my-room-in-3d*: varian cahaya terpanggang) | Cahaya mengikuti jam WIB: pagi sejuk, siang netral, sore keemasan, malam jendela gelap + lampu meja menyala |
@@ -65,6 +73,7 @@ Berkas ini memuat prinsip, denah, cerita gerak, kamera, dan token yang berlaku �
   │ Finance·Riset· │ TW        │ SysAdmin,   ┊ bangku, berdiri  │
   │ HRBP           │           │ rak server  ┊                  │
   └────────────────┴───────────┴─────────────┴──────────────────┘ y=21 (tepi depan terbuka — diorama)
+    Corporate Strategy · Layanan bersama · IT Operations · Lounge     ← lis depan y 21–22,6 (nama zona baris depan)
 ```
 - Meja leader di belakang zonanya **menghadap anggota**; anggota duduk menghadap mejanya (membelakangi kamera bawaan).
 - Kursi tim dipetakan per proyek: nomor tim dari `TEAM.md` (`## Engineering · Tim <n> · <proyek>`, atau baris Tech Lead di
@@ -84,7 +93,9 @@ Berkas ini memuat prinsip, denah, cerita gerak, kamera, dan token yang berlaku �
 - Tetikus: seret = geser, klik kanan + seret = putar, gulir = perbesar. Sentuh: satu jari = gulir halaman, dua jari =
   geser & cubit. Tombol: ⟲ ⟳ (±15°), − +, **Seluruh denah** (≥ 32 px). Keyboard (fokus di denah): panah = geser,
   Shift + panah = putar, + / − = perbesar, 0 = seluruh denah, Esc = batal pilih.
-- Klik/ketuk meja, orang, atau tag meja = rincian di panel (seperti panel Tim). Tautan `?tugas=<ID>` menyorot tugas,
+- Arahkan tetikus ke orang/meja = kartu nama + status; klik/ketuk = pilih (kartu menetap + rincian di panel, seperti
+  panel Tim). Keyboard: Tab dari denah berpindah antarorang (tag meja tersembunyi) dan menampilkan kartunya, Enter = pilih,
+  Esc = tutup kartu / batal pilih. Tautan `?tugas=<ID>` menyorot tugas,
   memilih pemiliknya, dan mendekatkan kamera ke mejanya.
 - HP: tinggi kanvas mengikuti tinggi denah (tanpa ruang kosong di atas/bawah).
 
@@ -119,9 +130,9 @@ peran lain dipanggil sebagai subagent `rudis-<id-peran>`.
   ID, judul, pemilik, waktu tutup; kolom bukti tidak pernah dikirim.
 - **Subagent peran duduk di kursinya** (`agentType` `rudis-<id-peran>`, atau pembuka "Kamu adalah <Jabatan> …"); subagent
   bertipe lain tampil sebagai asisten. Selesai → kursi kembali ke katalog; langkahnya tetap di log & linimasa.
-- **Tampilan siap dipanggil:** karakter duduk di mejanya, tag meja tenang (opasitas .72, simbol abu-abu –); saat denah jauh
-  (HP / seluruh denah) tag siap disembunyikan — orangnya tetap tampil tanpa lencana, jadi lencana ▶ ✓ ! langsung menonjol.
-- **Penanda subagent:** lencana "subagent · <pemanggil>" di panel tim, baris aksi tag meja "subagent dari <pemanggil>".
+- **Tampilan siap dipanggil:** karakter duduk di mejanya tanpa titik saat Ringkas & seluruh denah (titik abu-abu – + nama saat
+  diperbesar atau Lengkap), jadi titik ▶ ✓ ! langsung menonjol.
+- **Penanda subagent:** lencana "subagent · <pemanggil>" di panel tim dan kartu sentuh; aria tag meja "subagent dari <pemanggil>".
 - **Register tugas:** papan "Tugas berjalan" membaca `handoff/register-tugas.json` (ditulis `bin/register.sh`), plus
   daftar **Selesai hari ini**.
 
@@ -147,17 +158,34 @@ digambar ulang saat fase berganti. Uji: `?jam=pagi|siang|sore|malam` atau `?jam=
   Lampu meja tim tanpa proyek tetap padam (meja kosong & redup). Lampu berubah tanpa menghitung ulang bayangan.
 - Latar panggung (`--panggung-*`) ikut fase (`:root[data-waktu]`). Status tetap terbaca di semua fase (label HTML tidak ikut gelap).
 
-## Lapisan & keterbacaan
-- Kanvas WebGL (ruangan, perabot, orang) → lapisan label HTML: papan zona, tag meja (tombol), label kepala (simbol status
-  + nama saat di luar meja), gelembung ucapan, berkas yang diserahkan. Label mengikuti titik 3D tiap gambar.
-- Penghindaran tumpukan setiap gambar: papan zona ditempatkan dulu (tidak pernah disembunyikan), lalu menurut prioritas
-  (gelembung 5 > menunggu 4 > nama 3 > simbol di meja 2,5 > tag meja 2) dan jarak; yang bertabrakan dicoba digeser satu
-  baris ke atas/bawah, baru disembunyikan. Label dijepit agar tidak terpotong tepi kanvas.
-- Tingkat rincian: saat jauh (< 26 px per meter) atau layar < 600 px, label ringkas — tanpa sub-judul zona, tanpa baris
-  aksi meja (kecuali menunggu/dipilih), nama hanya untuk yang menunggu.
+## Label & keterbacaan
+Denah bersih: tidak ada label yang menutupi orang atau meja kecuali "Menunggu Anda". Aturan murni di `kantor/app/label.mjs`
+(diuji `kantor/label.test.mjs`); tulisan lantai di `adegan.mjs`, label HTML di `kantor.mjs`.
+- **Nama zona = tulisan di lantai** (satu mesh + satu tekstur atlas, 1 draw call, tidak ikut peta bayangan): Ruang Pimpinan
+  dan Tim 1–3 di lorong tepat di depan pintunya ("Tim n · <proyek>"; tim tanpa proyek redup,
+  "Engineering" tersirat dari warna lantai dan lengkap di panel); zona baris depan di **lis depan** diorama. Kotaknya dipilih
+  di lantai kosong yang tidak tertutup benda tinggi dari kamera bawaan (dijaga tes); huruf terbesar yang muat, Bricolage 700,
+  kotak warna zona di depannya. Tulisan ikut berputar & mengecil bersama ruangan; HP memakai nama tim pendek.
+- **Orang = titik status** (14 px, warna + simbol, bingkai warna permukaan) di atas kepala, tanpa teks. **"Menunggu Anda"**
+  = label penuh "! <nama> · Menunggu Anda" berbingkai amber + cincin amber di lantai.
+- **Detail ikut zoom** (`tingkatRincian`: dekat bila jarak kamera ≤ 75 % jarak "Seluruh denah", yaitu satu langkah +):
+
+  | Mode Label | Seluruh denah (jauh) | Diperbesar (dekat) |
+  |---|---|---|
+  | **Ringkas** (bawaan) | titik ▶ … ✓; siap tanpa titik; label penuh menunggu | + titik siap, nama kecil & tipis di atas titik, gelembung ucapan |
+  | **Lengkap** | titik semua + nama + gelembung | sama |
+  | **Tanpa** | hanya titik ! untuk menunggu (cincin tetap); tanpa nama & gelembung | sama |
+
+  Kartu sentuh tampil di semua mode. Pilihan Label diingat per peramban (`localStorage` `kantor-label`); uji: `?label=`.
+- **Kartu sentuh** (hover/fokus/dipilih): nama jabatan lengkap, simbol + status + rincian singkat, petunjuk "Klik untuk
+  rincian"; label kepala orang itu disembunyikan selama kartunya tampil. Padanan pembaca layar: tag meja (tombol tersembunyi,
+  `aria-label` = nama + status + rincian), panel Tim, dan `aria-label` denah (jumlah per status); label visual `aria-hidden`.
+- **Tabrakan** (setiap gambar): urut prioritas lalu jarak — kartu 6 (selalu tampil) > menunggu 5,5 > gelembung 5 > titik 3 >
+  nama 2; yang bertabrakan dicoba digeser satu baris ke atas/bawah, baru disembunyikan (nama hilang lebih dulu, titik tetap).
+  Label dijepit agar tidak terpotong tepi kanvas; label tak berukuran (display: none) tidak ikut.
 - Status di 3D diperkuat tanpa animasi: layar monitor menyala warna peran saat bekerja, redup saat berpikir/menunggu,
   mati selainnya; cincin lantai amber hanya untuk "menunggu Anda".
-- Ukuran teks: papan zona 14/11,5 px (HP 11,5), tag meja 12 px, aksi 11 px, label kepala 10,5 px, gelembung 11 px.
+- Ukuran teks: label menunggu 11,5 px, nama 10 px (500, halo warna permukaan), kartu 13/12/11 px, gelembung 11 px.
 
 ## Token
 Warna halaman = variabel CSS di `kantor/index.html` (`:root` dan blok `prefers-color-scheme: dark`); warna 3D =
@@ -185,9 +213,9 @@ Warna halaman = variabel CSS di `kantor/index.html` (`:root` dan blok `prefers-c
   halus — mengetik, melambai saat menunggu, minum kopi.
 
 ## Kinerja & keadaan khusus
-- Anggaran: draw call ≤ 100 (terukur ±70 desktop & HP dengan semua jabatan hadir, ±80 di demo dengan asisten; gambar yang
-  sekaligus menghitung ulang peta bayangan ±97: perabot statis digabung per material ±35, orang 1 per orang, layar, bayangan
-  kontak, map, genangan lampu 1 masing-masing, kap lampu 4, papan 5), pixel ratio ≤ 2 (HP 1,5), peta bayangan 2048² (HP 1024²) digambar sekali, tanpa post-processing.
+- Anggaran: draw call ≤ 100 (terukur ±70 desktop & HP dengan semua jabatan hadir, ±77 di demo dengan asisten; gambar yang
+  sekaligus menghitung ulang peta bayangan ±93 / ±99 demo: perabot statis digabung per material ±35, orang 1 per orang, layar,
+  bayangan kontak, map, genangan lampu, tulisan lantai 1 masing-masing, kap lampu 4, papan 5; buku di rak tidak ikut peta bayangan), pixel ratio ≤ 2 (HP 1,5), peta bayangan 2048² (HP 1024²) digambar sekali, tanpa post-processing.
 - Gambar ulang hanya bila perlu: kamera bergerak, orang/benda bergerak atau beranimasi, data berubah, ukuran/tema berubah.
   Diam + Jeda gerak / reduced-motion → 0 gambar per detik. Ukur dengan `?ukur=1` (bingkai/dtk, gambar/dtk, ms/gambar,
   draw call, segitiga).
@@ -220,6 +248,16 @@ Warna halaman = variabel CSS di `kantor/index.html` (`:root` dan blok `prefers-c
 - MathWorks — Understanding view projections: https://fr.mathworks.com/help/matlab/visualize/understanding-view-projections.html
 - Google Maps JS API — gestureHandling: https://developers.google.com/maps/documentation/javascript/interaction
 - three.js forum — Accessible app with CSS2DRenderer: https://discourse.threejs.org/t/accessible-app-with-css2drenderer/84921
+- Mapbox Style Spec — Layers (symbol: text-optional, symbol-sort-key, minzoom, text-pitch-alignment): https://docs.mapbox.com/style-spec/reference/layers/
+- Google Maps Platform — Advanced Markers collision behavior: https://developers.google.com/maps/documentation/javascript/advanced-markers/collision-behavior
+- NN/g — Progressive Disclosure: https://www.nngroup.com/articles/progressive-disclosure/
+- NN/g — Tooltip Guidelines: https://www.nngroup.com/articles/tooltip-guidelines/
+- W3C — Understanding SC 1.4.1 Use of Color: https://www.w3.org/WAI/WCAG22/Understanding/use-of-color.html
+- W3C — Understanding SC 1.4.11 Non-text Contrast: https://www.w3.org/WAI/WCAG22/Understanding/non-text-contrast.html
+- W3C — Understanding SC 1.4.13 Content on Hover or Focus: https://www.w3.org/WAI/WCAG22/Understanding/content-on-hover-or-focus.html
+- WAI-ARIA APG — Tooltip pattern: https://www.w3.org/WAI/ARIA/apg/patterns/tooltip/
+- DHA/MHS — Wayfinding Guidelines and Signage Standards (2022): https://www.wbdg.org/FFC/DHA/wayfinding_guidelines_signage_stds_mhs_fac_17nov2022.pdf
+- Carbon Design System — Content switcher: https://carbondesignsystem.com/components/content-switcher/usage/
 - ArcGIS — label deconfliction strategy: https://developers.arcgis.com/kotlin/api-reference/arcgis-maps-kotlin/com.arcgismaps.mapping.labeling/-label-definition/deconfliction-strategy.html
 - kevinschaul/avoid-overlap: https://github.com/kevinschaul/avoid-overlap
 - MDN — WebGL best practices: https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/WebGL_best_practices
