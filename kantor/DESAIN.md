@@ -255,7 +255,9 @@ tiga angka lain sebaris (angka di atas, nama di bawah, tanpa kalimat); linimasa 
   seorang pelaku untuk tugas yang sama digabung menjadi satu kalimat selama jedanya ≤ 10 menit, walau diselingi pelaku lain
   ("Tech Lead · Tim 1 menjalankan 26 perintah, membaca 9 berkas dan mengubah 2 berkas (5 langkah)"). Satu kata kerja hanya
   sekali per kalimat: label bermakna sama digabung (`kunciLabel`: perintah terminal yang mengubah/memeriksa berkas ikut
-  Edit/Read; Mengurus Git = Menyimpan versi kode) dan berkas dihitung dari nama yang berbeda; pesan, menunggu Anda, penerapan,
+  Edit/Read; Mengurus Git = Menyimpan versi kode), berkas dihitung dari nama yang berbeda, dan frasa berkata kerja sama
+  menjadi satu kata kerja dengan beberapa objek (`gabungFrasa`: "menjalankan 2 perintah dan tes", "membaca 3 berkas serta 2
+  halaman web dan mengubah berkas"); pesan, menunggu Anda, penerapan,
   dan penyerahan hasil selalu satu baris. 10 baris + "Lihat semua aktivitas (n)". Rincian teknis (deskripsi singkat agent,
   nama berkas, host web; ≤ 50 karakter, maks. 4) di "rincian" per baris — `rincianAman` membuang apa pun yang mirip perintah
   atau nama alat internal.

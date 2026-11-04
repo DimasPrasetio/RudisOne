@@ -148,6 +148,26 @@ export function frasaKerja(kunci, n = 1, berkas = new Set()) {
   if (k <= 1) return n > 1 ? `${kk} berkas (${n} langkah)` : `${kk} berkas`;
   return `${kk} ${k} berkas${n > k ? ` (${n} langkah)` : ""}`;
 }
+/** "a", "a dan b", "a, b dan c". */
+const daftarKata = (xs, kata = "dan") => (xs.length > 1 ? `${xs.slice(0, -1).join(", ")} ${kata} ${xs.at(-1)}` : xs[0] ?? "");
+/**
+ * Frasa kerja → satu kalimat; frasa yang kata kerjanya sama dijadikan satu kata kerja dengan beberapa objek
+ * ("menjalankan 2 perintah dan tes (3×)"; dengan kata kerja lain: "membaca 3 berkas serta 2 halaman web dan mengubah berkas"),
+ * jadi tiap kata kerja muncul sekali.
+ * Lebih dari 3 kata kerja → tiga pertama + "dan langkah lain".
+ */
+export function gabungFrasa(frasa = []) {
+  const perKerja = new Map();
+  for (const x of frasa) {
+    const [kerja, ...objek] = x.split(" ");
+    if (!perKerja.has(kerja)) perKerja.set(kerja, []);
+    perKerja.get(kerja).push(objek.join(" "));
+  }
+  // beberapa kata kerja → objek satu kata kerja disambung "serta" agar "dan" hanya memisah kata kerja
+  const sambung = perKerja.size > 1 ? "serta" : "dan";
+  const bagian = [...perKerja].map(([kerja, objek]) => [kerja, daftarKata(objek.filter(Boolean), sambung)].filter(Boolean).join(" "));
+  return bagian.length > 3 ? `${bagian.slice(0, 3).join(", ")}, dan langkah lain` : daftarKata(bagian);
+}
 /** Kejadian yang selalu satu baris sendiri (tidak digabung dengan langkah kerja lain). */
 const SENDIRI = /^(Mengirim pesan ke |Menerima pesan dari |Menunggu (jawaban|keputusan) Anda|Men-deploy rilis|Memanggil agent|Menyerahkan hasil)/;
 /** Jeda maksimum antar-langkah dalam satu baris gabungan. */
@@ -165,9 +185,7 @@ export function kelompokAktivitas(feed = [], judulTugas = {}, { maksBaris = Infi
   let total = 0;
   const terbuka = new Map();   // pelaku|tugas → baris gabungan yang masih bisa ditambah (langkah paralel saling menyela)
   const kalimat = (run) => {
-    const bagian = [...run.label.entries()].map(([kunci, x]) => frasaKerja(kunci, x.n, x.berkas));
-    run.baris.kerja = bagian.length > 3 ? `${bagian.slice(0, 3).join(", ")}, dan langkah lain`
-      : bagian.length > 1 ? `${bagian.slice(0, -1).join(", ")} dan ${bagian.at(-1)}` : bagian[0];
+    run.baris.kerja = gabungFrasa([...run.label.entries()].map(([kunci, x]) => frasaKerja(kunci, x.n, x.berkas)));
   };
   for (const f of feed) {
     if (!f || f.label === "Menyiapkan alat" || f.label === "Santai") continue;

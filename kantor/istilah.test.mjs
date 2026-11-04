@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import { TIM, URUT } from "./app/denah.mjs";
 import { keteranganSiap, pembantuTugas, teksSelesai, waktuSelesai } from "./app/jejak.mjs";
 import {
-  BATAS_RINCIAN, DAFTAR_SINGKATAN, frasaKerja, kunciLabel, JEDA_GABUNG_MS, STATUS, STATUS_TUGAS, TAHAP, TERLARANG, URUT_STATUS, durasi, kalimatWaktuTahap,
+  BATAS_RINCIAN, DAFTAR_SINGKATAN, frasaKerja, gabungFrasa, kunciLabel, JEDA_GABUNG_MS, STATUS, STATUS_TUGAS, TAHAP, TERLARANG, URUT_STATUS, durasi, kalimatWaktuTahap,
   kataStatusTugas, kelompokAktivitas, kerjaAktivitas, pimpinan, rincianAman, ringkasan, singkatan, tahapTugas,
 } from "./app/istilah.mjs";
 
@@ -197,14 +197,22 @@ test("aktivitas: satu kata kerja hanya sekali per kalimat (label bermakna sama d
   ];
   const kerja = kelompokAktivitas(feed, { "T-20260101-2": "x" })[0].baris[0].kerja;
   assert.equal(kerja, "mengubah 3 berkas (9 langkah), membaca berkas (3 langkah), menyimpan versi kode (2 langkah), dan langkah lain");
-  // setiap kombinasi label server: kata kerja pertama tiap frasa unik
-  const label = ["Menjalankan perintah", "Menjalankan tes", "Mengubah berkas", "Memeriksa berkas", "Membaca kode", "Menulis", "Mengurus Git",
-    "Menyimpan versi kode", "Memeriksa riwayat kode", "Memotret tampilan", "Riset di web", "Membaca halaman web", "Memeriksa di browser"];
-  for (let a = 0; a < label.length; a++) for (let b = 0; b < label.length; b++) {
-    const k2 = kelompokAktivitas([f(1, label[a], "p.mjs"), f(2, label[b], "q.mjs"), f(3, label[a], "r.mjs")], { "T-20260101-2": "x" })[0].baris[0].kerja;
-    const frasa = k2.split(/, dan |, | dan /).map((s) => s.replace(/\s*\(.*\)$/, "").replace(/ \d+ /, " "));
-    assert.equal(new Set(frasa).size, frasa.length, `${label[a]} + ${label[b]} → ${k2}`);
+  // setiap pasangan & tiga sekaligus dari SEMUA label server yang bisa digabung: tiap kata kerja (kata pertama) muncul sekali
+  const sumberServer = fs.readFileSync(path.join(HERE, "server.mjs"), "utf8");
+  const label = [...new Set([...sumberServer.matchAll(/label: "([^"]+)"/g), ...sumberServer.matchAll(/^\s*\["([A-Z][^"]+)", \//gm)].map((m) => m[1]))]
+    .filter((l) => !/^(Mengirim|Menerima|Menunggu|Men-deploy|Memanggil agent|Menyerahkan|Menyiapkan alat|Santai|Belum masuk|Dipanggil saat perlu)/.test(l));
+  assert.ok(label.length >= 20, `label server terbaca: ${label.length}`);
+  // semua kata kerja yang mungkin (kata pertama setiap frasa label server); tiap kata kerja paling banyak sekali per kalimat
+  const KATA_KERJA = new Set(label.map((l) => kerjaAktivitas({ label: l }).split(" ")[0]));
+  const kataKerja = (k) => k.split(/[\s,]+/).filter((w) => KATA_KERJA.has(w));
+  for (const a of label) for (const b of label) for (const c of [a, label[0], label.at(-1)]) {
+    const k2 = kelompokAktivitas([f(1, a, "p.mjs"), f(2, b, "q.mjs"), f(3, c, "r.mjs")], { "T-20260101-2": "x" })[0].baris[0].kerja;
+    const kk = kataKerja(k2);
+    assert.equal(new Set(kk).size, kk.length, `${a} + ${b} + ${c} → ${k2}`);
   }
+  assert.equal(gabungFrasa(["menjalankan 2 perintah", "menjalankan tes (3×)"]), "menjalankan 2 perintah dan tes (3×)");
+  assert.equal(gabungFrasa(["membaca 3 berkas", "membaca 2 halaman web", "mengubah berkas"]), "membaca 3 berkas serta 2 halaman web dan mengubah berkas");
+  assert.equal(gabungFrasa(["menyusun ringkasan", "menyusun rencana kerja"]), "menyusun ringkasan dan rencana kerja");
   assert.equal(kunciLabel("Mengubah berkas"), "Menulis");
   assert.equal(frasaKerja("Membaca kode", 6, new Set(["a", "b", "c", "d", "e", "f"])), "membaca 6 berkas");
   assert.equal(frasaKerja("Menulis", 1), "mengubah berkas");
