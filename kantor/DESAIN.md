@@ -18,12 +18,13 @@ Berkas ini memuat prinsip, denah, cerita gerak, kamera, dan token yang berlaku �
    warna; teksnya di panel samping, di kartu saat orang disentuh (hover/klik/ketuk/fokus keyboard), dan untuk pembaca
    layar (aria). **"Menunggu Anda" tetap bertulisan di denah.** Animasi hanya memperkuat.
 2. **Jujur:** semua jabatan hadir di mejanya, tetapi "Bekerja" hanya dari sesi/subagent yang benar-benar berjalan; "Siap
-   dipanggil" menyebut keadaan sesinya apa adanya (sesi terbuka · dipanggil sebagai subagent · dibuka COO saat ada tugas);
+   dipanggil" menyebut keadaannya apa adanya (ruang kerjanya terbuka · bekerja saat ditugaskan · mulai bekerja saat COO memberi tugas);
    papan & berkas hanya berisi tugas register (papan kosong = memang tidak ada tugas); data basi atau koneksi putus selalu ditampilkan.
 3. **Struktur organisasi terlihat:** denah mencerminkan rantai komando — atasan memanggil dari mejanya, bawahan
    menghampiri; laporan dibawa naik. Nama zona **selalu tampil dan terbaca** di seluruh denah: papan nama berdiri di ruangan.
-4. **Privasi:** hanya metadata aktivitas (nama alat, deskripsi singkat ≤ 50 karakter, nama berkas) — tidak pernah isi
-   berkas, pesan, prompt, atau keluaran. Jenis pesan diambil dari tag `[…]` di awal pesan saja.
+4. **Privasi:** hanya metadata aktivitas (jenis langkah, deskripsi singkat yang ditulis agent ≤ 50 karakter, nama berkas,
+   host web, ID tugas) — tidak pernah isi berkas, pesan, prompt, keluaran, perintah terminal, atau nama alat internal.
+   Jenis pesan diambil dari tag `[…]` di awal pesan saja; ID tugas dari baris berawalan (`[Tugas dari COO] T-…`).
 5. **Tenang:** lantai & perabot netral; warna kuat hanya untuk status dan identitas peran; tidak ada merah kecuali galat.
 6. **Gerak aman:** `prefers-reduced-motion` dan tombol **Jeda gerak** membuat semuanya statis (WCAG 2.2.2, 2.3.3) —
    orang berpindah seketika, kamera tanpa transisi, dan denah hanya digambar ulang saat datanya berubah.
@@ -35,7 +36,7 @@ Berkas ini memuat prinsip, denah, cerita gerak, kamera, dan token yang berlaku �
 | Kantor virtual modern (Roam, Kumospace, Gather): ruang bernama per tim, tim yang sering berinteraksi berdekatan, jalur & pintu jelas | Zona per divisi (lantai bertint warna divisi + papan nama), lorong utama berkarpet, pintu zona selalu kosong |
 | Kantor eksekutif modern (Gensler/Fujitsu, Haworth, Algedra): wilayah pimpinan ditandai material lantai & dinding kaca, ada kursi tamu | **Ruang Pimpinan** berlantai kayu, partisi kaca, meja walnut menghadap ruangan, dua kursi tamu |
 | Break room dipisah dari area kerja tenang, stasiun kopi sebagai titik kumpul, sofa membentuk pod ngobrol | **Lounge** dibatasi pot tanaman: bar kopi, sofa L, pouf, meja bundar, bangku |
-| Dashboard multi-agent: peta organisasi dengan status live, linimasa, titik persetujuan menonjol, state basi/galat eksplisit | Panel **Perlu perhatian Anda** paling atas; papan **Tugas berjalan**; **linimasa 60 menit**; banner koneksi |
+| Dashboard multi-agent: peta organisasi dengan status live, linimasa, titik persetujuan menonjol, state basi/galat eksplisit | Ringkasan atas + pita **Perlu perhatian Anda**; papan **Tugas berjalan**; **linimasa 60 menit**; status koneksi (rinci: Panel di luar denah) |
 | Pixel Agents / Claude-Office: agent masuk lewat pintu, punya meja, pose sesuai alat, istirahat kopi | Bekerja → ke meja dengan pose sesuai alat (mengetik/membaca/berpikir); santai → lounge; menunggu → angkat tangan |
 | Generative Agents (Smallville): titik yang dipakai bersama membuat penumpukan | Titik santai **dipesan** satu per orang; dua orang santai yang berdekatan sesekali mengobrol |
 | Pola FSM NPC: pisahkan status, gerak, dan kondisi | Status dari server ≠ perilaku di layar: tiap karakter punya antrean skenario (delegasi, lapor) yang didahulukan |
@@ -109,7 +110,7 @@ Berkas ini memuat prinsip, denah, cerita gerak, kamera, dan token yang berlaku �
 | `[Tinjau]` | Peninjau dipanggil ke meja pemberi tinjauan |
 | Sesama `[Konsultasi]`/`[Jawaban]`/`[Info]` | Pengirim menghampiri meja penerima, gelembung tanya-jawab, kembali |
 | Siap dipanggil | Duduk bersandar di mejanya, layar sangat redup. Sesekali (tiap 3–8 menit, maks. 3 orang bersamaan) istirahat ±1 menit: ke bar kopi (memegang cangkir), lalu duduk di lounge; bila ada teman, mengobrol ringan — obrolan tidak pernah mengklaim pekerjaan. COO tetap di mejanya; hemat gerak = semua di meja |
-| Pekerjaan nyata berakhir (sesi berhenti setelah memakai alat, subagent peran selesai) | Tetap di mejanya 10 menit sebagai **Baru selesai**: bersandar, dua lengan terentang ke atas, label "Selesai N mnt lalu", lalu kembali Siap dipanggil |
+| Pekerjaan nyata berakhir (sesi berhenti setelah memakai alat, subagent peran selesai) | Tetap di mejanya 10 menit sebagai **Baru selesai**: bersandar, dua lengan terentang ke atas, label "Baru selesai · N mnt lalu", lalu kembali Siap dipanggil |
 | Tim mendapat proyek / kehilangan proyek | Anggota tim masuk lewat pintu ke mejanya / keluar lewat pintu |
 | Subagent umum (asisten) | Asisten muncul di samping pemanggil, bekerja di meja berdiri tim, lalu menyerahkan hasil dan pergi |
 
@@ -133,7 +134,7 @@ peran lain dipanggil sebagai subagent `rudis-<id-peran>`.
   bertipe lain tampil sebagai asisten. Selesai → kursi kembali ke katalog; langkahnya tetap di log & linimasa.
 - **Tampilan siap dipanggil:** karakter duduk di mejanya tanpa titik saat Ringkas & seluruh denah (titik abu-abu – + nama saat
   diperbesar atau Lengkap), jadi titik ▶ ✓ ! langsung menonjol.
-- **Penanda subagent:** lencana "subagent · <pemanggil>" di panel tim dan kartu sentuh; aria tag meja "subagent dari <pemanggil>".
+- **Penanda subagent:** "dipanggil <singkatan pemanggil>" di panel Tim, kartu sentuh, dan tag meja; aria tag meja "dipanggil oleh <pemanggil>".
 - **Register tugas:** papan "Tugas berjalan" membaca `handoff/register-tugas.json` (ditulis `bin/register.sh`), plus
   daftar **Selesai hari ini**.
 
@@ -200,11 +201,105 @@ Denah bersih: tidak ada label yang menutupi orang atau meja kecuali "Menunggu An
   mati selainnya; cincin lantai amber hanya untuk "menunggu Anda".
 - Ukuran teks: label menunggu 11,5 px, nama 10 px (500, halo warna permukaan), kartu 13/12/11 px, gelembung 11 px.
 
+## Panel di luar denah
+Bagian HTML di sekitar denah menjawab pertanyaan yang sama dengan denah, dalam teks: **ada yang menunggu saya? apa yang
+sedang berjalan?** Umum → rinci, maks. dua tingkat (kalimat → "rincian"). Logika teks murni di `kantor/app/istilah.mjs`
+(diuji `kantor/istilah.test.mjs`); data aktivitas dari server (`kantor/aktivitas.test.mjs`).
+
+| Temuan (sumber) | Keputusan |
+|---|---|
+| Agent view Claude Code: "needs input" paling atas, ikon kuning, jumlah di judul tab | Ringkasan atas diawali **Menunggu Anda** (satu-satunya kotak berwarna bila > 0) + kalimatnya; judul tab "(n) Kantor RudisOne" |
+| > 5–6 indikator membebani; merah hanya galat (Carbon status indicator; NN/g dashboards) | 4 angka + koneksi; peringatan waktu kuning + ⏱ + kalimat, tidak pernah merah |
+| Data telat ditandai garis putus/abu, bukan merah (Linear project updates) | Koneksi: Terhubung · Data mungkin basi (garis putus, kuning) · Terputus (merah, satu-satunya) |
+| Status tracker: status terbaru menonjol, kata biasa, tahap ringkas (NN/g status trackers) | Kartu tugas: judul → tahap 5 segmen → siapa → lama berjalan → kalimat waktu tahap |
+| Lozenge: label ≤ 2 kata, sentence case (Atlassian lozenge) | Status tugas berkata biasa (Dikerjakan, Antre, …) |
+| Avatar group maks. 5 + "+N", berlabel (Atlassian avatar group); presence = titik + teks singkat (Slack) | Tim: yang aktif tampil penuh; siap dipanggil diringkas per divisi (avatar kecil + jumlah), bisa dibuka |
+| Progressive disclosure ≤ 2 tingkat; `<details>` untuk yang kurang penting saja (NN/g; GOV.UK details; APG disclosure) | Rincian teknis aktivitas, "Lihat semua", "Tentang halaman ini" dibuka-tutup; "Menunggu Anda" tidak pernah disembunyikan |
+| Tooltip = info tambahan, juga lewat fokus, bukan satu-satunya jalan (NN/g tooltip) | Kepanjangan singkatan lewat `abbr`/`title` + daftar di "Tentang"; petunjuk kontrol di panel "?" (klik/ketuk) |
+| Akronim: eja penuh di tempat lega, singkatan di ruang sempit (Microsoft style guide; GOV.UK writing for UI) | Jabatan resmi di panel; singkatan baku di linimasa & denah |
+| Status message: satu live region atomik, polite, tidak cerewet (WCAG 4.1.3; MDN live regions) | Satu kalimat ringkasan `role=status aria-atomic`, diganti hanya saat angkanya berubah; aktivitas `role=log aria-live=off` |
+| Waktu absolut + tooltip lengkap; angka tabular (Primer RelativeTime; MDN font-variant-numeric) | Jam "17.21" + `<time datetime title>`; `tabular-nums` di angka, jam, durasi |
+| Glassmorphism di atas 3D, sparkline per angka, donut/gauge tidak cocok untuk hitungan (riset desain panel) | Kotak polos berbatas tipis; angka besar saja |
+
+Tata letak (laptop ≥ 1180 px; kolom samping 372 px):
+```
+ Kantor RudisOne  17.21 WIB · sore                                   ( ● Terhubung · data terkini )
+ [1 ! Menunggu Anda      ][7 ▶ Sedang bekerja ][5 Tugas berjalan    ][3 ✓ Selesai hari ini  ]
+ ┌ Perlu perhatian Anda (hanya bila ada) ─────────────────────────────────────────────────────┐
+ ┌ Denah 3D ─────────────────────────────────┐ ┌ Tugas berjalan (≤ 4 kartu + Lihat semua) ┐
+ │ legenda 5 status · kamera · Label · Jeda · ? │ │ Selesai hari ini (≤ 6, judul ≤ 2 baris)  │
+ ├ Aktivitas terbaru (per tugas, 10 baris) ──┤ ├ Tim (aktif penuh, siap diringkas)        ┤
+ ├ Linimasa 60 menit (singkatan + sumbu) ─────┤ └──────────────────────────────────────────┘
+ ▸ Tentang halaman ini
+```
+±1000 px: satu kolom; Tugas & Tim berdampingan di bawah denah. HP (< 760 px): satu kolom; "Menunggu Anda" selebar layar,
+tiga angka lain sebaris (angka di atas, nama di bawah, tanpa kalimat); linimasa label 68 px.
+
+- **Ringkasan atas:** Menunggu Anda (kalimat "BSA T1 menunggu jawaban Anda", tautan ke Perlu perhatian) · Sedang bekerja
+  (= Bekerja + Berpikir, singkatan ≤ 3 + "+n") · Tugas berjalan (semua tugas register yang belum selesai; "n dikerjakan · n
+  lainnya") · Selesai hari ini ("Terakhir: <judul>"). Status koneksi = pil di kanan atas kepala.
+- **Perlu perhatian Anda:** pita selebar halaman tepat di bawah ringkasan: "<Jabatan> menunggu jawaban Anda" + "Buka
+  percakapan “<judul>” di Claude untuk menjawab."
+- **Kartu tugas:** status kata biasa + "Segera", ID · proyek (folder `ruang/<peran>` bukan proyek), judul, tahap (Fase register →
+  `istilah.mjs` › `TAHAP`, 5 segmen; tugas tanpa tahap tidak menampilkannya), pemilik (+ status bila langkah terakhirnya
+  untuk tugas ini) dan "dibantu <singkatan>" (yang sedang bekerja, aktivitas terakhirnya ber-ID tugas ini, **dan** berada di bawah
+  pemilik dalam rantai komando atau dipanggilnya sebagai subagent — `jejak.mjs` › `pembantuTugas`; COO/pemberi tugas bukan pembantu),
+  "Berjalan <durasi>" (sejak `dibuat` register), kalimat waktu tahap ("Tahap ini 12 mnt dari perkiraan 25 mnt" / "⏱ Melewati
+  perkiraan tahap 6 mnt"; anggaran = `server.mjs` › `ANGGARAN_FASE`). Maks. 4 kartu + "Lihat semua tugas (n)"; tautan
+  `?tugas=` ke kartu di luar empat teratas membuka semuanya.
+- **Tim:** per divisi; baris lengkap untuk Bekerja/Berpikir/Menunggu Anda/Baru selesai (jabatan resmi, tanda "Pimpinan",
+  kalimat kerja + "dipanggil <singkatan pemanggil>" + jumlah asisten); Siap dipanggil diringkas menjadi satu tombol "n siap
+  dipanggil" (avatar ≤ 5, `aria-expanded`), dibuka → baris lengkap. Orang yang dipilih dari denah selalu tampil. Rincian (klik):
+  Keadaan, Sedang dikerjakan, Selesai hari ini, Aktivitas terakhir (kalimat + rincian aman).
+- **Aktivitas:** dikelompokkan per tugas (ID + judul; tanpa ID → "Di luar tugas terdaftar"), terbaru dulu. Langkah kerja
+  seorang pelaku untuk tugas yang sama digabung menjadi satu kalimat selama jedanya ≤ 10 menit, walau diselingi pelaku lain
+  ("Tech Lead · Tim 1 menjalankan 26 perintah, membaca 9 berkas dan mengubah 2 berkas (5 langkah)"). Satu kata kerja hanya
+  sekali per kalimat: label bermakna sama digabung (`kunciLabel`: perintah terminal yang mengubah/memeriksa berkas ikut
+  Edit/Read; Mengurus Git = Menyimpan versi kode), berkas dihitung dari nama yang berbeda, dan frasa berkata kerja sama
+  menjadi satu kata kerja dengan beberapa objek (`gabungFrasa`: "menjalankan 2 perintah dan tes", "membaca 3 berkas serta 2
+  halaman web dan mengubah berkas"); pesan, menunggu Anda, penerapan,
+  dan penyerahan hasil selalu satu baris. 10 baris + "Lihat semua aktivitas (n)". Rincian teknis (deskripsi singkat agent,
+  nama berkas, host web; ≤ 50 karakter, maks. 4) di "rincian" per baris — `rincianAman` membuang apa pun yang mirip perintah
+  atau nama alat internal.
+- **Linimasa:** label = singkatan baku (`abbr` berisi jabatan resmi), sumbu "60 mnt lalu · 30 mnt · sekarang".
+- **Legenda & kontrol:** 5 status saja; kamera, Label, Jeda gerak, dan tombol **?** (panel "Cara memakai denah"; isi tetikus
+  atau layar sentuh). Tanpa WebGL tombol ? disembunyikan bersama kontrol 3D.
+- **Tentang halaman ini** (`<details>`, tertutup bawaan): sumber data & privasi, arti status, siapa yang punya ruang kerja,
+  arti gerak, isi papan, "Bila Kantor terus terputus, minta COO menyalakannya kembali", dan daftar singkatan jabatan.
+
+## Istilah
+Satu sumber: `kantor/app/istilah.mjs` (diuji `kantor/istilah.test.mjs`). Bahasa Indonesia profesional, sentence case; jabatan
+resmi bahasa Inggris seperti di organisasi.
+- **Jabatan:** nama resmi di tempat lega (panel, aktivitas, kartu, perhatian, kartu sentuh); di tempat sempit (linimasa,
+  label denah, ringkasan, "dibantu", "dipanggil") singkatan baku tabel protokol: COO · HoS · FC · RA · HRBP · TL Tn · BSA Tn ·
+  SE1 Tn / SE2 Tn · PgM · TW · HITO · SysAdmin (`singkatan()`; `TIM[*].pendek` diisi dari sini).
+- **Status orang:** Menunggu Anda ! · Bekerja ▶ · Berpikir … · Baru selesai ✓ · Siap dipanggil – (`STATUS`; legenda halaman
+  diuji sama). "Sedang bekerja" (ringkasan) = Bekerja + Berpikir.
+- **Status tugas:** Baru · Menyamakan persepsi · Dikerjakan · Ditinjau · Antre · Ditunda · Terhambat · Selesai.
+  **Tahap:** Inisiasi · Analisis · Konstruksi · Pengujian · Rilis.
+- **Waktu:** mnt · dtk · jam; "Berjalan 1 jam 4 mnt", "Baru selesai · 3 mnt lalu" (label status + waktu, satu bentuk di panel,
+  kartu sentuh, dan aria), jam "17.21 WIB".
+- **Kata kerja aktivitas** (`kerjaAktivitas`): menjalankan perintah / tes · memeriksa berkas · mengubah berkas · membaca
+  berkas · memeriksa riwayat kode · menyimpan versi kode · memotret tampilan · memasang dependensi · mencari di web · membaca
+  halaman web · memeriksa tampilan di peramban · bekerja di server · memasang rilis ke server · mengirim tugas / laporan /
+  pertanyaan / revisi … ke <jabatan> · menerima pesan dari <jabatan> · menunggu jawaban Anda · menugaskan asisten ·
+  menyerahkan hasil kerja · membuka ruang kerja baru · menyusun rencana kerja · menyusun ringkasan · memeriksa kemajuan tim ·
+  membuka panduan kerja · mengurus domain; alat lain = "memakai alat kerja" (namanya tidak ditampilkan). Server memilih label
+  perintah terminal dari deskripsi singkat agent lalu awal perintahnya (`jenisPerintah`); perintahnya tidak pernah dikirim.
+- **Lainnya:** Pimpinan (bukan leader) · dipanggil <singkatan> (bukan "subagent") · asisten · percakapan (bukan "sesi") ·
+  ruang kerja · Terhubung · data terkini / Data mungkin basi · diperbarui n dtk lalu / Terputus dari server Kantor · mencoba lagi.
+- **Terlarang di tampilan** (`TERLARANG`; dipindai pada index.html, keluaran fungsi teks, dan halaman nyata & demo di peramban):
+  ngopi · subagent · leader · sesi · nama alat internal (SubagentHandback, mcp__…, ToolSearch) · singkatan lama (Lead T1,
+  Strategy/Finance/Research tanpa jabatan lengkap) · perintah mentah (perl/sed/git/cat/curl/npx/bash -…) · nama berkas skrip
+  (*.sh, *.mjs, *.py) di luar "rincian".
+
 ## Token
 Warna halaman = variabel CSS di `kantor/index.html` (`:root` dan blok `prefers-color-scheme: dark`); warna 3D =
 `PALET` di `kantor/app/adegan.mjs` (terang / gelap). Kode adalah sumbernya; ubah bersamaan dengan berkas ini.
 - **Dasar (terang / gelap):** latar `#E8EDF2` / `#0E151D`, permukaan `#FFFFFF` / `#141E28`, tinta `#1D2833` / `#E4EBF2`,
   redup `#5E6E7E` / `#8FA0B1`, panggung (gradien di belakang kanvas) `#F3F6F9`→`#DFE6ED` / `#121C26`→`#0B1117`.
+- **Teks peringatan (terang / gelap):** `--menunggu-teks` `#8A5A00` / `#F6C063` (kalimat "Menunggu Anda" & "Melewati perkiraan" di atas
+  permukaan; amber status sendiri terlalu pucat untuk teks).
 - **Status (terang / gelap):** Bekerja `#1F9D6A` / `#34C38A` (▶), Berpikir `#3B7BD8` / `#5B97EF` (…), Menunggu Anda `#D9930B` /
   `#F0AA2A` (!), Baru selesai `#148A9C` / `#3FB6C8` (✓), Siap dipanggil `#8A97A6` / `#7D8B99` (–), tim kosong = garis putus-putus.
   Layar monitor: bekerja = warna peran terang, berpikir/menunggu = setengah, baru selesai = setengah toska, siap = sangat redup, tim kosong = mati. Galat `#D64545` / `#EF6461` hanya untuk
@@ -278,3 +373,21 @@ Warna halaman = variabel CSS di `kantor/index.html` (`:root` dan blok `prefers-c
 - Chrome for Developers — DevTools performance & real-world data: https://developer.chrome.com/blog/devtools-grounded-real-world
 - W3C — Understanding SC 2.3.3: https://www.w3.org/WAI/WCAG22/Understanding/animation-from-interactions.html
 - GOV.UK Design System — Error message: https://design-system.service.gov.uk/components/error-message/
+- Claude Code Docs — agent view: https://code.claude.com/docs/en/agent-view
+- Carbon — Status indicator pattern: https://carbondesignsystem.com/patterns/status-indicator-pattern/
+- NN/g — Dashboards & preattentive processing: https://www.nngroup.com/articles/dashboards-preattentive/
+- Linear — Initiative and project updates: https://linear.app/docs/initiative-and-project-updates
+- NN/g — Status trackers and progress updates: https://www.nngroup.com/articles/status-tracker-progress-update/
+- Atlassian — Lozenge: https://atlassian.design/components/lozenge/usage · Avatar group: https://atlassian.design/components/avatar-group/usage
+- Slack — Status & availability: https://slack.com/help/articles/201864558-Set-your-Slack-status-and-availability
+- GOV.UK Design System — Details: https://design-system.service.gov.uk/components/details/
+- WAI-ARIA APG — Disclosure: https://www.w3.org/WAI/ARIA/apg/patterns/disclosure/
+- Microsoft Writing Style Guide — Acronyms: https://learn.microsoft.com/en-us/style-guide/acronyms
+- GOV.UK Service Manual — Writing for user interfaces: https://www.gov.uk/service-manual/design/writing-for-user-interfaces
+- Atlassian — Designing messages: https://atlassian.design/foundations/content/designing-messages/
+- NN/g — Indicators, validations, notifications: https://www.nngroup.com/articles/indicators-validations-notifications/
+- W3C — Understanding SC 4.1.3 Status messages: https://www.w3.org/WAI/WCAG22/Understanding/status-messages.html
+- MDN — ARIA live regions: https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Guides/Live_regions
+- MDN — font-variant-numeric: https://developer.mozilla.org/en-US/docs/Web/CSS/font-variant-numeric
+- Primer — RelativeTime: https://primer.style/components/relative-time
+- Grafana — Dashboard best practices: https://grafana.com/docs/grafana/latest/visualizations/dashboards/build-dashboards/best-practices/

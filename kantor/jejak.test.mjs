@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { URUT } from "./app/denah.mjs";
-import { BARU_SELESAI_MS, berkasMeja, faseDariParam, faseWaktu, jamWIB, keadaanTampil, keteranganSiap, kursiPemilik, papanDivisi, papanTugas, teksSelesai } from "./app/jejak.mjs";
+import { BARU_SELESAI_MS, barisTersembunyi, berkasMeja, faseDariParam, faseWaktu, jamWIB, keadaanTampil, keteranganSiap, kursiPemilik, papanDivisi, papanTugas, teksSelesai } from "./app/jejak.mjs";
 
 const KINI = Date.parse("2026-01-01T07:00:00Z");
 
@@ -22,8 +22,8 @@ test("'Bekerja' (dan berpikir/menunggu) hanya dari sesi/subagent yang benar-bena
 test("semua jabatan hadir: siaga, katalog, dan sesi tetap yang belum masuk tampil 'Siap dipanggil' dengan keterangan jujur", () => {
   for (const ag of [{ present: true, status: "santai", mode: "siaga" }, { present: false, status: "absen", mode: "katalog" },
     { present: false, status: "absen", mode: "absen" }]) assert.equal(keadaanTampil(ag, KINI), "siap");
-  assert.match(keteranganSiap({ mode: "siaga" }), /sesi terbuka/);
-  assert.match(keteranganSiap({ mode: "katalog" }), /subagent/);
+  assert.match(keteranganSiap({ mode: "siaga" }), /terbuka/);
+  assert.match(keteranganSiap({ mode: "katalog" }), /saat ditugaskan/);
   assert.match(keteranganSiap({ mode: "absen" }), /COO/);
 });
 
@@ -35,8 +35,8 @@ test("'Baru selesai' selama 10 menit setelah pekerjaan nyata berakhir, lalu kemb
   assert.equal(keadaanTampil(ag(30e3, { present: true, status: "bekerja" }), KINI), "bekerja");
   assert.equal(keadaanTampil({ present: true, status: "santai", selesai: null }, KINI), "siap");
   assert.equal(keadaanTampil({ selesai: { ts: "bukan angka" } }, KINI), "siap");
-  assert.equal(teksSelesai(KINI - 20e3, KINI), "Selesai baru saja");
-  assert.equal(teksSelesai(KINI - 3 * 60e3 - 5e3, KINI), "Selesai 3 mnt lalu");
+  assert.equal(teksSelesai(KINI - 20e3, KINI), "Baru selesai · baru saja");
+  assert.equal(teksSelesai(KINI - 3 * 60e3 - 5e3, KINI), "Baru selesai · 3 mnt lalu");
 });
 
 test("pemilik register → kursi (nama, id teknis, nomor tim, proyek)", () => {
@@ -94,4 +94,15 @@ test("fase waktu: pagi/siang/sore/malam dari jam WIB; parameter uji ?jam=", () =
   // 07:00 UTC = 14:00 WIB
   assert.equal(jamWIB(KINI), 14);
   assert.equal(faseWaktu(jamWIB(Date.parse("2026-01-01T12:30:00Z"))), "malam");   // 19:30 WIB
+});
+
+test("panel Tim ringkas: hanya 'siap' yang disembunyikan; orang yang mulai bekerja langsung tampil lagi", () => {
+  const corp = ["Head of Strategy", "Financial Controller", "Research Analyst", "HR Business Partner"];
+  const siapSemua = Object.fromEntries(corp.map((n) => [n, "siap"]));
+  assert.deepEqual([...barisTersembunyi(corp, siapSemua)], corp);
+  // Research Analyst berganti ke bekerja / menunggu / baru selesai → tidak tersembunyi lagi (render berikutnya)
+  for (const st of ["bekerja", "berpikir", "menunggu", "selesai"])
+    assert.ok(!barisTersembunyi(corp, { ...siapSemua, "Research Analyst": st }).has("Research Analyst"), st);
+  assert.equal(barisTersembunyi(corp, siapSemua, { buka: true }).size, 0, "divisi dibuka");
+  assert.ok(!barisTersembunyi(corp, siapSemua, { dipilih: "HR Business Partner" }).has("HR Business Partner"), "dipilih dari denah");
 });

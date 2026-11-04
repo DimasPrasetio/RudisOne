@@ -151,24 +151,42 @@ const TIMELINE_MIN = 60;
 
 // ---------- deskripsi aktivitas ----------
 const base = (p) => (typeof p === "string" && p ? path.basename(p) : "");
-const clip = (s, n = 70) => {
+/** Rincian aktivitas paling banyak 50 karakter (DESAIN.md › Prinsip, privasi). */
+const BATAS_DETAIL = 50;
+const clip = (s, n = BATAS_DETAIL) => {
   const t = String(s ?? "").replace(/\s+/g, " ").trim();
   return t.length > n ? `${t.slice(0, n - 1)}…` : t;
 };
 const host = (u) => { try { return new URL(u).hostname; } catch { return ""; } };
 
+/** Perintah terminal lain → kata kerja yang lebih bermakna, dari deskripsi singkat agent lalu awal perintahnya. Hanya
+ *  label yang dipilih; perintah itu sendiri tidak pernah dikirim. */
+const JENIS_PERINTAH = [
+  ["Menjalankan tes", /\b(run|runs|running|jalankan|menjalankan|execute)\b[^.]*\b(tests?|tes|uji|suite)\b|^\s*(tes|uji)\b/i, null],
+  ["Memeriksa riwayat kode", /\bgit\s+(log|status|diff|show)\b|\b(riwayat|history|diff|branches)\b/i, /^\s*git\s+(-C\s+\S+\s+)?(log|status|diff|show|rev-parse|ls-files|blame)\b/],
+  ["Menyimpan versi kode", /\b(commit|merge|rebase)\b/i, /^\s*git\s+(-C\s+\S+\s+)?(commit|merge|rebase|switch|checkout|branch|worktree|tag|add|cherry-pick)\b/],
+  ["Memotret tampilan", /\b(screenshots?|tangkapan|potret|playwright)\b/i, /playwright|screenshot/],
+  ["Memasang dependensi", /\b(install|pasang|dependenc|dependensi)/i, /^\s*(npm|pnpm|yarn)\s+(ci|i|install|add)\b|^\s*brew\s+install\b/],
+  ["Mengubah berkas", /\b(write|edit|apply|update|replace|rewrite|fix|ubah|ganti|tulis|perbaiki|tambah|add)\b/i, /^\s*(perl\s+-[^\n]*i|sed\s+-i|cp|mv|mkdir|printf\b.*>|cat\s*>)/],
+  ["Memeriksa berkas", /\b(read|show|list|check|inspect|find|search|count|view|baca|lihat|cek|periksa|cari|tampilkan)\b/i, /^\s*(cat|head|tail|sed\s+-n|grep|rg|ls|find|wc|diff|stat|tree)\b/],
+];
+function jenisPerintah(cmd, deskripsi) {
+  for (const [label, polaDesk, polaCmd] of JENIS_PERINTAH) if ((deskripsi && polaDesk.test(deskripsi)) || (polaCmd && polaCmd.test(cmd))) return label;
+  return "Menjalankan perintah";
+}
 /** {label, detail, icon, waiting} untuk satu pemanggilan alat. */
 export function describeTool(name, input = {}, resolveAgent = () => null) {
   const cmd = String(input.command ?? "");
   switch (name) {
     case "Bash": {
-      const detail = clip(input.description || cmd.split("\n")[0]);
+      // hanya deskripsi singkat yang ditulis agent — perintah mentah tidak pernah dikirim ke halaman
+      const detail = clip(input.description);
       if (/deploy\.sh/.test(cmd)) return { label: "Men-deploy rilis", detail, icon: "server" };
       if (/\bssh\s/.test(cmd)) return { label: "Bekerja di server", detail, icon: "server" };
       if (/\bgit\s+(push|commit|merge|pull)\b|\bgh\s/.test(cmd)) return { label: "Mengurus Git", detail, icon: "git" };
-      if (/vitest|jest|\bgo\s+test|\btsc\b|npm\s+(run\s+)?(test|verify|lint)|eslint|pytest/.test(cmd))
+      if (/vitest|jest|\bgo\s+test|\btsc\b|npm\s+(run\s+)?(test|verify|lint)|eslint|pytest|node\s+--test/.test(cmd))
         return { label: "Menjalankan tes", detail, icon: "tes" };
-      return { label: "Menjalankan perintah", detail, icon: "terminal" };
+      return { label: jenisPerintah(cmd, String(input.description ?? "")), detail, icon: "terminal" };
     }
     case "Read": case "Grep": case "Glob": case "NotebookRead":
       return { label: "Membaca kode", detail: clip(base(input.file_path) || input.pattern || input.path || ""), icon: "baca" };
@@ -179,7 +197,7 @@ export function describeTool(name, input = {}, resolveAgent = () => null) {
     case "WebFetch":
       return { label: "Membaca halaman web", detail: host(input.url), icon: "web" };
     case "SendMessage": {
-      const to = resolveAgent(String(input.to ?? "")) || clip(input.to, 30);
+      const to = resolveAgent(String(input.to ?? "")) || "rekan";   // alamat sesi mentah tidak ditampilkan
       const jenis = jenisPesan(input.message);
       return { label: `Mengirim pesan ke ${to}`, detail: LABEL_JENIS[jenis] ?? "", icon: "pesan", to, jenis };
     }
@@ -197,12 +215,13 @@ export function describeTool(name, input = {}, resolveAgent = () => null) {
         const to = resolveAgent(String(input.title ?? ""));
         return { label: "Memanggil agent", detail: clip(input.title || ""), icon: "pesan", to, jenis: to ? "tugas" : null };
       }
+      if (name === "SubagentHandback") return { label: "Menyerahkan hasil", detail: "", icon: "pesan" };
       if (name === "mcp__ccd_turn__update_plan") return { label: "Menyusun rencana", detail: "", icon: "rencana" };
       if (name === "mcp__ccd_turn__wrap_up") return { label: "Menyusun laporan", detail: "", icon: "rencana" };
       if (name.startsWith("mcp__ccd_session_mgmt__")) return { label: "Memeriksa sesi tim", detail: "", icon: "rencana" };
       if (name.startsWith("mcp__Claude_Browser__") || name.startsWith("mcp__claude-in-chrome__"))
         return { label: "Memeriksa di browser", detail: "", icon: "web" };
-      return { label: "Bekerja", detail: clip(name.replace(/^mcp__[^_]+__/, ""), 40), icon: "umum" };
+      return { label: "Bekerja", detail: "", icon: "umum" };   // nama alat internal tidak ditampilkan
   }
 }
 
@@ -330,6 +349,12 @@ function newFileState() {
     lastTs: 0, lastKind: null, pending: new Map(), events: [], sidechain: 0 };
 }
 
+/** ID tugas (`T-YYYYMMDD-n`, sub-tugas `.k`). */
+const RE_ID_TUGAS = /\bT-\d{8}-\d+(?:\.\d+)*\b/;
+/** Baris pesan baku: `[Tugas dari COO] T-…`, `[Revisi] T-…`, `[Info dari COO] T-…` (protokol › Format pesan). */
+const RE_ID_SETELAH_AWALAN = /(?:^|\n)\s*\[[^\]\n]{2,60}\]\s*(T-\d{8}-\d+(?:\.\d+)*)\b/;
+/** Teks pesan tanpa tag pembungkus (`<cross-session-message …>` dll.) — ID tugas dicari di awal isi pesannya. */
+const textTanpaPembungkus = (s) => String(s ?? "").replace(/<[^>]*>/g, " ").trim();
 function textOf(content) {
   if (typeof content === "string") return content;
   if (Array.isArray(content)) return content.filter((b) => b?.type === "text").map((b) => b.text).join("\n");
@@ -362,11 +387,15 @@ function ingestLine(s, line) {
       const text = textOf(c);
       if (!text) return;
       if (!s.firstPrompt) s.firstPrompt = text.slice(0, 400);
+      // tugas yang sedang dikerjakan sesi ini = ID di awal pesan masuk terakhir (brief, [Revisi], [Info dari COO] …)
+      const isi = textTanpaPembungkus(text);
+      const idTugas = isi.slice(0, 4000).match(RE_ID_SETELAH_AWALAN)?.[1] ?? isi.split("\n")[0].match(RE_ID_TUGAS)?.[0];
+      if (idTugas) s.tugasKini = idTugas;
       if (TANDA_RUDISONE.test(text)) s.rudisone = true;
       // `/rudisone` menjadikan sesi itu COO (di folder mana pun, juga CLI/VS Code tanpa agent-setting)
       if (TANDA_COO.test(text)) s.coo = true;
       const from = text.match(/<cross-session-message[^>]*from="([^"]+)"/)?.[1];
-      if (from) s.events.push({ ts, kind: "pesan-masuk", from });
+      if (from) s.events.push({ ts, kind: "pesan-masuk", from, tugas: s.tugasKini ?? null });
       s.lastKind = "tugas";
       return;
     }
@@ -380,7 +409,7 @@ function ingestLine(s, line) {
         tool = true;
         s.pending.set(b.id, { name: b.name, input: b.input ?? {}, ts });
         if (b.name === "Skill" && b.input?.skill === "rudisone") s.rudisone = s.coo = true;
-        s.events.push({ ts, kind: "alat", name: b.name, input: b.input ?? {} });
+        s.events.push({ ts, kind: "alat", name: b.name, input: b.input ?? {}, tugas: s.tugasKini ?? null });
       }
       if (!tool && c.some((b) => b?.type === "text")) s.lastKind = "selesai";
       else if (tool) s.lastKind = "alat";
@@ -505,7 +534,7 @@ export function tugasDariJson(reg) {
     .sort((a, b) => ((urutan[a.prioritas] ?? 2) - (urutan[b.prioritas] ?? 2)) || String(a.dibuat ?? "").localeCompare(String(b.dibuat ?? "")))
     .map((t) => ({ id: t.id, tugas: clip(t.judul, 90), folder: bersih(t.folder).replace(/\/+$/, ""), divisi: bersih(t.divisi),
       pemilik: bersih(t.pemilik), prioritas: bersih(t.prioritas), status: bersih(t.status), fase: bersih(t.fase),
-      perkakas: bersih(t.perkakas), diperbarui: waktuLokal(t.diperbarui), faseSejak: t.fase_sejak ?? null, kemajuan: kemajuanFase(t) }))
+      perkakas: bersih(t.perkakas), diperbarui: waktuLokal(t.diperbarui), dibuat: Number.isNaN(Date.parse(t.dibuat ?? "")) ? null : Date.parse(t.dibuat), faseSejak: t.fase_sejak ?? null, kemajuan: kemajuanFase(t) }))
     .slice(0, 30);
 }
 const tanggalLokal = (ms) => { const d = new Date(ms); return `${d.getFullYear()}-${dua(d.getMonth() + 1)}-${dua(d.getDate())}`; };
@@ -679,10 +708,10 @@ export function buildState(now = Date.now()) {
       if (e.kind === "alat") {
         const d = describeTool(e.name, e.input, resolveAgent);
         if (["ToolSearch"].includes(e.name)) continue;
-        feed.push({ ts: e.ts, agent, label: d.label, detail: d.detail, icon: d.icon, to: d.to ?? null, jenis: d.jenis ?? null });
+        feed.push({ ts: e.ts, agent, label: d.label, detail: d.detail, icon: d.icon, to: d.to ?? null, jenis: d.jenis ?? null, tugas: e.tugas ?? null });
       } else if (e.kind === "pesan-masuk") {
         const from = resolveAgent(e.from) ?? "agent lain";
-        feed.push({ ts: e.ts, agent, label: `Menerima pesan dari ${from}`, detail: "", icon: "pesan", from });
+        feed.push({ ts: e.ts, agent, label: `Menerima pesan dari ${from}`, detail: "", icon: "pesan", from, tugas: e.tugas ?? null });
       }
     }
   };
@@ -723,7 +752,7 @@ export function buildState(now = Date.now()) {
       if (!berjalan) { if (selesai) tandaiSelesai(kursi, s.lastTs); continue; }   // selesai → kursi kembali ke katalog
       let st = sessionStatus(s, now);
       if (st.status === "santai") st = { status: "berpikir", label: "Berpikir", detail: "", icon: "pikir", since: s.lastTs };  // subagent berjalan = bekerja
-      byAgent.get(kursi)?.push({ title: deskripsi || "subagent", cwd: s.cwd?.replace(HOME, "~") ?? "", lastTs: s.lastTs, ...st,
+      byAgent.get(kursi)?.push({ title: deskripsi || "Tugas tanpa judul", cwd: s.cwd?.replace(HOME, "~") ?? "", lastTs: s.lastTs, ...st,
         subagent: { dari: induk, id: s.asisten.id, deskripsi } });
       continue;
     }

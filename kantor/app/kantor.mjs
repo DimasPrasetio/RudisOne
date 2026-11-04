@@ -1,13 +1,18 @@
 // Kantor RudisOne — halaman pemantauan: data dari server (SSE /events), panel samping, dan denah 3D (adegan.mjs).
 // Perilaku orang mengikuti status & pesan (DESAIN.md › Cerita gerak); jalur dihitung di grid lantai (denah.mjs).
 import { CHIEF, DIVISI, WARNA_LOUNGE, KURSI, NOMOR_TIM, PINTU, TIM, URUT, atasanDari, bangunGrid, cariJalur, hadapMeja, kursiTim, pusat, selBebas } from "./denah.mjs";
-import { berkasMeja, faseDariParam, faseWaktu, jamWIB, keadaanTampil, keteranganSiap, kursiPemilik, papanDivisi, papanTugas, statusTugas, teksSelesai } from "./jejak.mjs";
+import { barisTersembunyi, berkasMeja, pembantuTugas, waktuSelesai, faseDariParam, faseWaktu, jamWIB, keadaanTampil, keteranganSiap, kursiPemilik, papanDivisi, papanTugas, statusTugas, teksSelesai } from "./jejak.mjs";
 import { KUNCI_SIMPAN_LABEL, MODE_LABEL, isiPapanZona, modeLabelDari, tampilanOrang, tingkatRincian, tulisanZona, ucapanTampil } from "./label.mjs";
+import { DAFTAR_SINGKATAN, STATUS, durasi, kalimatWaktuTahap, kataStatusTugas, kelompokAktivitas, kerjaAktivitas, pimpinan, rincianAman, ringkasan, singkatan, tahapTugas } from "./istilah.mjs";
 
 // Keadaan tampil (jejak.mjs › keadaanTampil): bekerja/berpikir/menunggu hanya dari sesi/subagent yang berjalan;
 // "selesai" = pekerjaan nyata berakhir < 10 menit lalu; selain itu "siap" (Siap dipanggil). "kosong" = tim tanpa proyek.
-const SIMBOL = { bekerja: "▶", berpikir: "…", menunggu: "!", selesai: "✓", siap: "–", kosong: "" };
-const LABEL_STATUS = { bekerja: "Bekerja", berpikir: "Berpikir", menunggu: "Menunggu Anda", selesai: "Baru selesai", siap: "Siap dipanggil", kosong: "Tim tanpa proyek" };
+// Label & simbol satu sumber: istilah.mjs › STATUS.
+const SIMBOL = Object.fromEntries(Object.entries(STATUS).map(([k, v]) => [k, v.simbol]));
+const LABEL_STATUS = Object.fromEntries(Object.entries(STATUS).map(([k, v]) => [k, v.label]));
+/** Kalimat kerja orang (huruf besar di awal) dari label status server: "Membaca 1 berkas" → "Membaca berkas". */
+const kalimatKerja = (ag) => { const k = kerjaAktivitas(ag); return k[0].toUpperCase() + k.slice(1); };
+const besar = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 /** Keadaan peran dari server (aktif · siaga · katalog · absen); server lama/mode demo tanpa `mode` → diturunkan dari status. */
 const modeDari = (ag) => ag.mode ?? (!ag.present ? "absen" : ag.status === "santai" ? "siaga" : "aktif");
 const PARAM = new URLSearchParams(location.search);
@@ -52,7 +57,7 @@ async function siapkanAdegan() {
 function tampilkanTanpa3d(alasan) {
   elPanggung.hidden = true; elTanpa3d.hidden = false;
   if (alasan) elTanpa3d.querySelector(".alasan").textContent = alasan;
-  document.getElementById("petunjuk").hidden = true;
+  document.getElementById("petunjuk").hidden = true; document.getElementById("tombol-bantuan").hidden = true;
   for (const id of ["zoom-kecil", "zoom-besar", "zoom-pas", "putar-kiri", "putar-kanan"]) document.getElementById(id).disabled = true;
   document.getElementById("pilih-label").disabled = true;   // tombol Label hanya berlaku untuk denah 3D
 }
@@ -456,9 +461,11 @@ function ceritakan(f) {
 // ================= panel =================
 const elTim = document.getElementById("tim"), elAkt = document.getElementById("aktivitas");
 const elJalur = document.getElementById("jalur"), elPerhatian = document.getElementById("perhatian");
-const LI = {}, SEL = {}, KELOMPOK = {}, LABEL_JALUR = {};
+const LI = {}, SEL = {}, KELOMPOK = {}, LABEL_JALUR = {}, RINGKAS_SIAP = {};
 let state = null, dipilih = null, diterimaPada = 0, pertama = true;
 const sudahLihat = new Set();
+/** Divisi yang ringkasan "siap dipanggil"-nya dibuka pengguna (DESAIN.md › Panel Tim). */
+const TERBUKA = new Set();
 
 function bangunPanel() {
   for (const dv of DIVISI) {
@@ -466,21 +473,30 @@ function bangunPanel() {
     h.innerHTML = `<i aria-hidden="true"></i><span>${esc(dv.nama)}</span>`; elTim.append(h); KELOMPOK[dv.id] = h;
     for (const nama of URUT.filter((n) => TIM[n].divisi === dv.id)) {
       const t = TIM[nama], li = document.createElement("li");
-      li.dataset.agen = nama; li.style.setProperty("--warna", t.warna); li.className = "absen";
-      const leader = KURSI[nama].pimpinan && nama !== CHIEF ? "<small>leader</small>" : "";
+      li.dataset.agen = nama; li.style.setProperty("--warna", t.warna); li.className = "siap";
+      const tanda = pimpinan(nama) ? `<span class="pimpinan">Pimpinan</span>` : "";
       const idRinci = `rinci-${URUT.indexOf(nama)}`;
-      li.innerHTML = `<button type="button" aria-expanded="false" aria-controls="${idRinci}">
-          <span class="avatar">${t.inisial}<i class="simbol absen" aria-hidden="true"></i></span>
-          <span class="nama">${esc(nama)}${leader}</span><span class="waktu"></span><span class="keadaan">Belum masuk</span></button>
+      li.innerHTML = `<button type="button" class="orang" aria-expanded="false" aria-controls="${idRinci}">
+          <span class="avatar" aria-hidden="true">${t.inisial}<i class="simbol siap"></i></span>
+          <span class="nama">${esc(nama)}${tanda}</span><span class="waktu"></span><span class="keadaan">Siap dipanggil</span></button>
         <div class="rincian" id="${idRinci}" hidden></div>`;
       li.querySelector("button").addEventListener("click", () => pilih(dipilih === nama ? null : nama));
       elTim.append(li); LI[nama] = li;
-      const label = document.createElement("span"); label.className = "label"; label.textContent = t.pendek; label.title = nama;
+      const label = document.createElement("abbr"); label.className = "label"; label.textContent = t.pendek; label.title = nama;
       const sel2 = document.createElement("div"); sel2.className = "sel"; sel2.style.setProperty("--warna", t.warna);
       sel2.innerHTML = "<i></i>".repeat(60); sel2.setAttribute("role", "img");
       elJalur.append(label, sel2); SEL[nama] = sel2; LABEL_JALUR[nama] = label;
     }
+    // ringkasan anggota yang siap dipanggil: avatar kecil + jumlah; dibuka → baris lengkapnya tampil
+    const r = document.createElement("li"); r.className = "siap-ringkas"; r.hidden = true;
+    r.innerHTML = `<button type="button" aria-expanded="false"><span class="tumpuk" aria-hidden="true"></span><span class="teks"></span><span class="panah" aria-hidden="true">▸</span></button>`;
+    r.querySelector("button").addEventListener("click", () => { TERBUKA.has(dv.id) ? TERBUKA.delete(dv.id) : TERBUKA.add(dv.id); if (state) render(state, true); });
+    elTim.append(r); RINGKAS_SIAP[dv.id] = r;
   }
+  const sumbu = document.createElement("div"); sumbu.className = "sumbu"; sumbu.setAttribute("aria-hidden", "true");
+  sumbu.innerHTML = "<span>60 mnt lalu</span><span>30 mnt</span><span>sekarang</span>";
+  elJalur.append(sumbu);
+  document.getElementById("daftar-singkatan").innerHTML = DAFTAR_SINGKATAN.map(([s, n]) => `<dt>${esc(s)}</dt><dd>${esc(n)}</dd>`).join("");
 }
 function pilih(nama) {
   dipilih = nama;
@@ -501,12 +517,13 @@ function isiRincian() {
   if (!ag) return;
   const akt = state.feed.filter((f) => f.agent === dipilih).slice(0, 6);
   const berkas = BERKAS[dipilih] ?? [];
+  const st = ORANG[dipilih]?.status ?? "siap";
   LI[dipilih].querySelector(".rincian").innerHTML = `
-    <h3>Sesi</h3>${ag.sessions.length ? `<ul>${ag.sessions.map((s) => `<li>${s.subagent ? `Subagent dari ${esc(s.subagent.dari)}: ` : ""}${esc(s.title)} — ${esc(s.label)}<br><span class="lokasi">${esc(s.cwd)}</span></li>`).join("")}</ul>`
-      : modeDari(ag) === "katalog" ? "<p class=\"kosong\">Siap dipanggil: peran ini tidak punya sesi tetap. Dipanggil sebagai subagent saat dibutuhkan, lalu bekerja di kursi ini.</p>"
-      : "<p class=\"kosong\">Siap dipanggil: belum ada sesi aktif. COO membukanya saat ada tugas.</p>"}
-    ${berkas.length ? `<h3>Berkas di meja · selesai hari ini</h3><ul>${berkas.map((b) => `<li>${esc(b.id)} — ${esc(b.judul)}</li>`).join("")}</ul>` : ""}
-    <h3>Aktivitas</h3>${akt.length ? `<ul>${akt.map((f) => `<li>${fmtJam(f.ts)} · ${esc(f.label)}${f.detail ? ` — ${esc(f.detail)}` : ""}</li>`).join("")}</ul>`
+    <h3>Keadaan</h3><p class="kosong">${esc(LABEL_STATUS[st])}${st === "siap" ? ` — ${esc(keteranganSiap(ag))}` : ""}${ag.subagent?.dari ? ` — dipanggil oleh ${esc(ag.subagent.dari)}` : ""}</p>
+    ${ag.sessions.length ? `<h3>Sedang dikerjakan</h3><ul>${ag.sessions.map((s) => `<li>${esc(s.subagent?.deskripsi || s.title)} — ${esc(kalimatKerja(s))}</li>`).join("")}</ul>` : ""}
+    ${berkas.length ? `<h3>Selesai hari ini</h3><ul>${berkas.map((b) => `<li>${esc(b.id)} — ${esc(b.judul)}</li>`).join("")}</ul>` : ""}
+    <h3>Aktivitas terakhir</h3>${akt.length ? `<ul>${akt.map((f) => { const r = rincianAman(f.detail, f.label);
+      return `<li>${fmtJam(f.ts)} · ${esc(besar(kerjaAktivitas(f)))}${r ? ` <span title="Rincian">(${esc(r)})</span>` : ""}</li>`; }).join("")}</ul>`
       : "<p class=\"kosong\">Belum ada aktivitas dalam 24 jam.</p>"}`;
 }
 
@@ -519,6 +536,7 @@ function sorotTugasDariTautan(s) {
   if (sudahSorot || !TUGAS_SOROT || !s.tugas) return;
   sudahSorot = true;
   const t = s.tugas.find((x) => x.id === TUGAS_SOROT);
+  if (t && s.tugas.indexOf(t) >= MAKS_KARTU_TUGAS) { SEMUA_TUGAS = true; render(s, true); }
   const k = t && kursiPemilik(t.pemilik, s.tim);
   if (!k) return;
   pilih(k);
@@ -527,30 +545,56 @@ function sorotTugasDariTautan(s) {
   document.querySelector(`.tugas li[data-id="${CSS.escape(TUGAS_SOROT)}"]`)?.scrollIntoView({ block: "nearest" });
 }
 
-/** " · <fase> · 12/25 mnt" — menit berjalan di fase ini terhadap anggarannya (server: ANGGARAN_FASE). */
-function faseTeks(t) {
-  if (!t.fase || t.fase === "—") return "";
-  const k = t.kemajuan;
-  if (!k) return ` · ${esc(t.fase)}`;
-  const angka = k.anggaran ? `${k.menit}/${k.anggaran} mnt` : `${k.menit} mnt`;
-  return ` · ${esc(t.fase)} · <span class="${k.lewat ? "lewat" : ""}" title="${k.lewat ? "melewati anggaran waktu fase" : "dalam anggaran waktu fase"}">${angka}${k.lewat ? " ⚠" : ""}</span>`;
+/** Siapa yang mengerjakan tugas: pemiliknya (kursi dari kolom Pemilik) + orang lain yang sedang bekerja dan langkah
+ *  terakhirnya milik tugas itu (ID tugas per aktivitas dari server). */
+function pelakuTugas(t, s, keadaan) {
+  const pemilik = kursiPemilik(t.pemilik, s.tim);
+  const terakhir = new Map();
+  for (const f of s.feed) if (!terakhir.has(f.agent)) terakhir.set(f.agent, f.tugas ?? null);
+  const milik = (id) => id && (id === t.id || id.startsWith(`${t.id}.`));
+  const kandidat = URUT.filter((n) => n !== pemilik && ["bekerja", "berpikir", "menunggu"].includes(keadaan[n]) && milik(terakhir.get(n)))
+    .map((nama) => ({ nama, dari: s.agents.find((a) => a.name === nama)?.subagent?.dari ?? null }));
+  const bantu = pembantuTugas(pemilik, kandidat);
+  const idPemilik = pemilik ? terakhir.get(pemilik) : null;
+  const pemilikDiSini = !!pemilik && (milik(idPemilik) || (!idPemilik && statusTugas(t.status) === "berjalan"));
+  return { pemilik, bantu, pemilikDiSini };
 }
-
-function renderTugas(tugas = [], selesai = []) {
+const MAKS_KARTU_TUGAS = 4;
+let SEMUA_TUGAS = false;
+const tombolSemuaTugas = document.getElementById("lihat-semua-tugas");
+tombolSemuaTugas.addEventListener("click", () => { SEMUA_TUGAS = !SEMUA_TUGAS; if (state) render(state, true); });
+function renderTugas(s, keadaan) {
+  const tugas = s.tugas ?? [], selesai = s.selesaiHariIni ?? [], now = Date.now();
   const el = document.getElementById("tugas");
   document.getElementById("hitung-tugas").textContent = tugas.length ? `${tugas.length}` : "";
   const elS = document.getElementById("selesai-hari-ini");
   elS.hidden = !selesai.length;
-  elS.querySelector("ul").innerHTML = selesai.map((t) => `<li><span class="st" style="--warna:var(--selesai)">✓ ${t.ts ? fmtJam(t.ts) : "hari ini"}</span>
-      <span class="judul">${esc(t.tugas)}</span><span class="meta">${esc(t.id)}${t.pemilik ? ` · ${esc(t.pemilik)}` : ""}</span></li>`).join("");
+  const MAKS_SELESAI = 6;
+  elS.querySelector("ul").innerHTML = selesai.slice(0, MAKS_SELESAI).map((t) => `<li><time${t.ts ? ` datetime="${new Date(t.ts).toISOString()}"` : ""}>${t.ts ? fmtJam(t.ts) : "✓"}</time>
+      <span class="judul" title="${esc(t.id)} · ${esc(t.tugas)}">${esc(t.tugas)}</span></li>`).join("")
+    + (selesai.length > MAKS_SELESAI ? `<li class="lain"><span></span><span class="kosong">dan ${selesai.length - MAKS_SELESAI} tugas lainnya</span></li>` : "");
   elS.querySelector(".hitung").textContent = selesai.length ? `${selesai.length}` : "";
-  el.innerHTML = tugas.length ? tugas.map((t) => {
-    const st = statusTugas(t.status);
-    const folder = t.folder ? t.folder.split("/").filter(Boolean).at(-1) : "";
-    return `<li data-id="${esc(t.id)}"${t.id === TUGAS_SOROT ? ' class="sorot"' : ""}><span class="st" style="--warna:${WARNA_STATUS[st] ?? "var(--santai)"}">${esc(t.status || "baru")}</span>
-      <span class="judul${t.prioritas === "segera" ? " segera" : ""}">${esc(t.tugas)}</span>
-      <span class="meta">${esc(t.id)}${folder ? ` · ${esc(folder)}` : ""}${t.pemilik ? ` · ${esc(t.pemilik)}` : ""}${faseTeks(t)}</span></li>`;
-  }).join("") : `<li><p class="kosong">Tidak ada tugas berjalan. Tugas yang diterima COO muncul di sini.</p></li>`;
+  const tampil = SEMUA_TUGAS ? tugas : tugas.slice(0, MAKS_KARTU_TUGAS);
+  tombolSemuaTugas.hidden = tugas.length <= MAKS_KARTU_TUGAS;
+  tombolSemuaTugas.setAttribute("aria-expanded", String(SEMUA_TUGAS));
+  tombolSemuaTugas.textContent = SEMUA_TUGAS ? "Tampilkan lebih sedikit" : `Lihat semua tugas (${tugas.length})`;
+  el.innerHTML = tugas.length ? tampil.map((t) => {
+    const st = statusTugas(t.status), tahap = tahapTugas(t.fase), waktu = kalimatWaktuTahap(t.kemajuan);
+    const { pemilik, bantu, pemilikDiSini } = pelakuTugas(t, s, keadaan);
+    const stPemilik = pemilik && pemilikDiSini ? keadaan[pemilik] : null;
+    const proyek = t.folder && !/[\\/]ruang[\\/]/.test(t.folder) ? t.folder.split(/[\\/]/).filter(Boolean).at(-1) : "";
+    const seg = tahap ? `<span class="seg" aria-hidden="true">${Array.from({ length: tahap.dari }, (_, i) => `<i class="${i < tahap.ke ? "lewat-tahap" : i === tahap.ke ? "kini" : ""}"></i>`).join("")}</span>` : "";
+    const lama = t.dibuat ? `Berjalan ${durasi((now - t.dibuat) / 60e3)}` : "";
+    const siapa = pemilik
+      ? `${stPemilik && stPemilik !== "siap" ? `<i class="simbol ${stPemilik}" aria-hidden="true">${SIMBOL[stPemilik]}</i>` : ""}<span><b>${esc(pemilik)}</b>${stPemilik && !["siap", "kosong"].includes(stPemilik) ? ` · ${esc(LABEL_STATUS[stPemilik].toLowerCase())}` : ""}${bantu.length ? ` · dibantu ${bantu.map((n) => `<abbr title="${esc(n)}">${esc(TIM[n].pendek)}</abbr>`).join(", ")}` : ""}</span>`
+      : t.pemilik ? `<span><b>${esc(t.pemilik)}</b></span>` : "";
+    return `<li data-id="${esc(t.id)}"${t.id === TUGAS_SOROT ? ' class="sorot"' : ""}>
+      <span class="atas-kartu"><span class="st" style="--warna:${WARNA_STATUS[st] ?? "var(--santai)"}">${esc(kataStatusTugas(st))}</span>${t.prioritas === "segera" ? `<span class="segera">Segera</span>` : ""}<span class="id">${esc(t.id)}${proyek ? ` · ${esc(proyek)}` : ""}</span></span>
+      <span class="judul">${esc(t.tugas)}</span>
+      ${tahap ? `<span class="tahap">${seg}<span>Tahap <b>${esc(tahap.nama)}</b> · ${tahap.ke + 1} dari ${tahap.dari}</span></span>` : ""}
+      ${siapa ? `<span class="siapa">${siapa}</span>` : ""}
+      ${lama || waktu ? `<span class="waktu">${esc(lama)}${lama && waktu ? " · " : ""}${waktu ? `<span class="${waktu.lewat ? "lewat" : ""}">${waktu.lewat ? "⏱ " : ""}${esc(waktu.teks)}</span>` : ""}</span>` : ""}</li>`;
+  }).join("") : `<li><p class="kosong">Belum ada tugas berjalan. Tugas yang diterima COO muncul di sini.</p></li>`;
 }
 
 /** Tim engineering yang dipakai: punya proyek, atau ada anggotanya yang hadir. Tim lain: meja kosong & redup. */
@@ -603,6 +647,71 @@ function keadaanSemua(s, terlihat, now = Date.now()) {
     return [nama, !dv.startsWith("tim") || terlihat.has(dv) ? keadaanTampil(ag, now) : "kosong"];
   }));
 }
+/** Tim ringkas: anggota yang bekerja/berpikir/menunggu/baru selesai tampil lengkap; yang siap dipanggil diringkas per
+ *  divisi (avatar kecil + jumlah) dan baru tampil lengkap bila ringkasannya dibuka atau orangnya dipilih. */
+function ringkasTim(keadaan, terlihat) {
+  let jumlahSiap = 0;
+  for (const dv of DIVISI) {
+    const anggota = URUT.filter((n) => TIM[n].divisi === dv.id);
+    const r = RINGKAS_SIAP[dv.id], tampil = !dv.id.startsWith("tim") || terlihat.has(dv.id);
+    const siap = tampil ? anggota.filter((n) => keadaan[n] === "siap") : [];
+    jumlahSiap += siap.length;
+    const buka = TERBUKA.has(dv.id);
+    if (tampil) { const sembunyi = barisTersembunyi(anggota, keadaan, { buka, dipilih }); for (const n of anggota) LI[n].hidden = sembunyi.has(n); }
+    const ringkas = siap.filter((n) => dipilih !== n || buka);
+    r.hidden = !ringkas.length;
+    if (!ringkas.length) continue;
+    const b = r.querySelector("button");
+    b.setAttribute("aria-expanded", String(buka));
+    b.setAttribute("aria-label", buka ? `Ringkas lagi anggota ${dv.nama} yang siap dipanggil` : `${dv.nama}: ${ringkas.length} siap dipanggil — ${ringkas.join(", ")}. Tampilkan`);
+    r.querySelector(".tumpuk").innerHTML = buka ? "" : ringkas.slice(0, 5).map((n) => `<i style="--warna:${TIM[n].warna}">${TIM[n].inisial}</i>`).join("") + (ringkas.length > 5 ? `<i style="--warna:var(--santai)">+${ringkas.length - 5}</i>` : "");
+    r.querySelector(".teks").textContent = buka ? "Ringkas lagi" : `${ringkas.length} siap dipanggil`;
+    r.querySelector(".panah").textContent = buka ? "▾" : "▸";
+  }
+  const aktif = Object.values(keadaan).filter((st) => st !== "siap" && st !== "kosong").length;
+  document.getElementById("tim-sub").textContent = `${aktif} aktif · ${jumlahSiap} siap dipanggil`;
+}
+
+/** Ringkasan atas (DESAIN.md › Ringkasan): Menunggu Anda · Sedang bekerja · Tugas berjalan · Selesai hari ini. */
+let kalimatRingkasLama = "";
+function renderRingkasan(s, keadaan) {
+  const r = ringkasan(keadaan, s.tugas ?? [], s.selesaiHariIni ?? [], statusTugas);
+  const isi = (id, nilai, ket) => { const el = document.getElementById(id); el.querySelector(".nilai").textContent = nilai; el.querySelector(".ket").textContent = ket; return el; };
+  const daftar = (xs) => xs.slice(0, 3).map((n) => TIM[n].pendek).join(", ") + (xs.length > 3 ? ` +${xs.length - 3}` : "");
+  isi("angka-menunggu", r.menunggu.length, r.menunggu.length === 1 ? `${TIM[r.menunggu[0]].pendek} menunggu jawaban Anda`
+    : r.menunggu.length ? `${daftar(r.menunggu)} menunggu jawaban Anda` : "Tidak ada yang menunggu Anda").classList.toggle("ada", r.menunggu.length > 0);
+  isi("angka-bekerja", r.bekerja.length, r.bekerja.length ? daftar(r.bekerja) : "Tidak ada yang bekerja");
+  isi("angka-tugas", r.tugas.semua, r.tugas.semua ? [r.tugas.berjalan && `${r.tugas.berjalan} dikerjakan`, r.tugas.lain && `${r.tugas.lain} lainnya`].filter(Boolean).join(" · ") : "Belum ada tugas");
+  const akhir = (s.selesaiHariIni ?? [])[0];
+  isi("angka-selesai", r.selesai, akhir ? `Terakhir: ${akhir.tugas}` : "Belum ada").title = akhir ? `Terakhir selesai: ${akhir.tugas}` : "";
+  document.getElementById("angka-menunggu").setAttribute("href", r.menunggu.length ? "#perhatian" : "#judul-tim");
+  const kalimat = `${r.menunggu.length} menunggu Anda, ${r.bekerja.length} sedang bekerja, ${r.tugas.semua} tugas berjalan, ${r.selesai} selesai hari ini.`;
+  if (kalimat !== kalimatRingkasLama) { kalimatRingkasLama = kalimat; document.getElementById("ringkas-kalimat").textContent = kalimat; }
+  document.title = r.menunggu.length ? `(${r.menunggu.length}) Kantor RudisOne` : "Kantor RudisOne";
+}
+
+/** Aktivitas: kalimat kerja per tugas, 10 baris terbaru (+ "Lihat semua"); rincian teknis singkat di "rincian". */
+const BARIS_AKTIVITAS = 10;
+let SEMUA_AKTIVITAS = false;
+const tombolSemua = document.getElementById("lihat-semua");
+tombolSemua.addEventListener("click", () => { SEMUA_AKTIVITAS = !SEMUA_AKTIVITAS; if (state) renderAktivitas(state); });
+function renderAktivitas(s) {
+  const judul = Object.fromEntries([...(s.tugas ?? []), ...(s.selesaiHariIni ?? [])].map((t) => [t.id, t.tugas]));
+  const semua = kelompokAktivitas(s.feed, judul);
+  const total = semua.reduce((n, g) => n + g.baris.length, 0);
+  const grup = SEMUA_AKTIVITAS ? semua : kelompokAktivitas(s.feed, judul, { maksBaris: BARIS_AKTIVITAS });
+  const terbuka = new Set([...elAkt.querySelectorAll("details[open]")].map((d) => d.dataset.k));
+  elAkt.innerHTML = grup.length ? grup.map((g) => `<section class="grup">
+      <h3>${g.id ? `<span class="id">${esc(g.id)}</span><span class="j">${esc(g.judul ?? "")}</span>` : `<span class="j">Di luar tugas terdaftar</span>`}</h3>
+      <ol>${g.baris.map((b) => { const k = `${b.ts}|${b.agent}`;
+        return `<li style="--warna:${TIM[b.agent]?.warna ?? "var(--santai)"}"><time datetime="${new Date(b.ts).toISOString()}" title="${esc(new Date(b.ts).toLocaleString("id-ID", { timeZone: "Asia/Jakarta" }))} WIB">${fmtJam(b.ts)}</time><i class="titik" aria-hidden="true"></i>
+        <span><b>${esc(b.agent)}</b> ${esc(b.kerja)}${b.rincian.length ? `<details data-k="${esc(k)}"${terbuka.has(k) ? " open" : ""}><summary>rincian</summary><ul>${b.rincian.map((r) => `<li>${esc(r)}</li>`).join("")}</ul></details>` : ""}</span></li>`; }).join("")}</ol></section>`).join("")
+    : `<p class="kosong">Belum ada aktivitas dalam 24 jam terakhir.</p>`;
+  tombolSemua.hidden = total <= BARIS_AKTIVITAS;
+  tombolSemua.setAttribute("aria-expanded", String(SEMUA_AKTIVITAS));
+  tombolSemua.textContent = SEMUA_AKTIVITAS ? "Tampilkan 10 terbaru saja" : `Lihat semua aktivitas (${total})`;
+}
+
 function render(s, ulang = false) {
   state = s;
   if (!ulang) diterimaPada = Date.now();
@@ -619,9 +728,9 @@ function render(s, ulang = false) {
     const namaBaru = jumlahSesi > 1 ? `${TIM[nama].pendek} ×${jumlahSesi}` : TIM[nama].pendek;
     const kerja = st === "bekerja" || st === "berpikir";
     const aksiBaru = st === "menunggu" ? "Menunggu Anda" : st === "selesai" ? teksSelesai(ag.selesai.ts, now)
-      : dari && kerja ? potong(`subagent dari ${TIM[dari]?.pendek ?? dari}`, 30)
+      : dari && kerja ? potong(`dipanggil ${TIM[dari]?.pendek ?? dari}`, 30)
       : jumlahAsisten ? `+${jumlahAsisten} asisten`
-      : dipilih === nama && kerja ? potong(ag.detail ? `${ag.label} · ${ag.detail}` : ag.label, 30)
+      : dipilih === nama && kerja ? potong(kalimatKerja(ag), 30)
       : dipilih === nama && st === "siap" ? (ORANG[nama]?.istirahat ? "Siap dipanggil · istirahat" : "Siap dipanggil") : "";
     const kelasTag = `tag ${st}${dipilih === nama ? " dipilih" : ""}${m.tag.classList.contains("tim-kosong") ? " tim-kosong" : ""}`;
     if (m.namaT.textContent !== namaBaru || m.aksiT.textContent !== aksiBaru || m.tag.className !== kelasTag) {
@@ -629,8 +738,9 @@ function render(s, ulang = false) {
       m.simbol.className = `simbol ${st}`; m.simbol.textContent = SIMBOL[st];
       adegan?.mintaGambar();
     }
-    const rinciKerja = kerja || st === "menunggu" ? `: ${ag.label}${ag.detail ? `, ${ag.detail}` : ""}${dari ? `, subagent dari ${dari}` : ""}`
-      : st === "selesai" ? `: ${teksSelesai(ag.selesai.ts, now)}` : st === "siap" ? `: ${keteranganSiap(ag)}` : "";
+    const rinciAman = rincianAman(ag.detail, ag.label);
+    const rinciKerja = kerja || st === "menunggu" ? `: ${kalimatKerja(ag)}${rinciAman ? `, ${rinciAman}` : ""}${dari ? `, dipanggil oleh ${dari}` : ""}`
+      : st === "selesai" ? `: ${waktuSelesai(ag.selesai.ts, now)}` : st === "siap" ? `: ${keteranganSiap(ag)}` : "";
     m.tag.setAttribute("aria-label", `${nama}, ${LABEL_STATUS[st]}${rinciKerja}`);
     m.tag.setAttribute("aria-pressed", String(dipilih === nama));
     if (st === "menunggu") perhatian.push(ag);
@@ -639,28 +749,28 @@ function render(s, ulang = false) {
     li.querySelector(".simbol").className = `simbol ${st}`;
     li.querySelector(".simbol").textContent = SIMBOL[st];
     li.querySelector(".keadaan").innerHTML = kerja || st === "menunggu"
-      ? `${dari ? `<span class="sub" title="Subagent dari ${esc(dari)}">subagent · ${esc(TIM[dari]?.pendek ?? dari)}</span> ` : ""}<b>${esc(ag.label)}</b>${ag.detail ? ` · ${esc(ag.detail)}` : ""}${jumlahSesi > 1 ? ` · ${jumlahSesi} sesi` : ""}${jumlahAsisten ? ` · ${jumlahAsisten} asisten` : ""}`
-      : st === "selesai" ? `<b>${esc(teksSelesai(ag.selesai.ts, now))}</b> · siap dipanggil lagi`
-      : `Siap dipanggil · ${esc(keteranganSiap(ag))}`;
+      ? `<b>${esc(st === "menunggu" ? "Menunggu jawaban Anda" : kalimatKerja(ag))}</b>${dari ? ` <span class="bantu-dari">· dipanggil <abbr title="${esc(dari)}">${esc(TIM[dari]?.pendek ?? dari)}</abbr></span>` : ""}${jumlahAsisten ? ` · ${jumlahAsisten} asisten` : ""}`
+      : st === "selesai" ? `<b>${esc(teksSelesai(ag.selesai.ts, now))}</b>`
+      : `Siap dipanggil`;
+    li.title = st === "siap" ? keteranganSiap(ag) : "";
     li.querySelector(".waktu").textContent = ag.present ? lalu(ag.lastTs) : "";
     let aktif = 0;
     [...SEL[nama].children].forEach((c, i) => { const n = ag.timeline?.[i]?.n ?? 0; if (n) aktif++; c.dataset.n = n >= 4 ? 3 : n >= 2 ? 2 : n; });
     SEL[nama].setAttribute("aria-label", `${nama}: aktif ${aktif} dari 60 menit terakhir`);
   }
-  renderTugas(s.tugas, s.selesaiHariIni ?? []);
+  renderTugas(s, keadaan);
   renderTim(s, terlihat);
+  ringkasTim(keadaan, terlihat);
+  renderRingkasan(s, keadaan);
   perbaruiTulisanZona(s, terlihat);
   renderJejak(s, terlihat);
   terapkanAsisten(s.asisten);
   sorotTugasDariTautan(s);
   elPerhatian.hidden = perhatian.length === 0;
   document.getElementById("daftar-perhatian").innerHTML = perhatian.map((a) =>
-    `<li><i class="simbol menunggu" aria-hidden="true">!</i><b>${esc(a.name)} — ${esc(a.label)}</b>
-     <span class="sesi">Buka sesi “${esc(a.sessions[0]?.title ?? a.name)}” di sidebar Claude.</span></li>`).join("");
-  elAkt.innerHTML = s.feed.length ? s.feed.slice(0, 40).map((f) => `<li style="--warna:${TIM[f.agent]?.warna}">
-      <time>${fmtJam(f.ts)}</time><i class="titik" aria-hidden="true"></i>
-      <span><b>${esc(f.agent)}</b> ${esc(f.label)}${f.detail ? `<span class="rinci"> — ${esc(f.detail)}</span>` : ""}</span></li>`).join("")
-    : `<li><p class="kosong">Belum ada aktivitas dalam 24 jam terakhir.</p></li>`;
+    `<li><i class="simbol menunggu" aria-hidden="true">!</i><b>${esc(a.name)} menunggu jawaban Anda</b>
+     <span class="cara">Buka percakapan “${esc(a.sessions[0]?.title ?? a.name)}” di Claude untuk menjawab.</span></li>`).join("");
+  renderAktivitas(s);
   if (dipilih) isiRincian();
   if (SENTUH) isiKartu(SENTUH);
   for (const f of ulang ? [] : [...s.feed].reverse()) {
@@ -672,7 +782,7 @@ function render(s, ulang = false) {
   }
   if (!ulang) pertama = false;
   const hitung = (k) => Object.values(keadaan).filter((x) => x === k).length;
-  elPanggung.setAttribute("aria-label", `Denah kantor 3D: ${hitung("bekerja")} bekerja, ${hitung("menunggu")} menunggu Anda, ${hitung("berpikir")} berpikir, ${hitung("selesai")} baru selesai, ${hitung("siap")} siap dipanggil. Papan tulis tim dan papan tugas menampilkan tugas dari register. Rincian tiap orang ada di panel Tim per divisi.`);
+  elPanggung.setAttribute("aria-label", `Denah kantor 3D: ${hitung("bekerja")} bekerja, ${hitung("menunggu")} menunggu Anda, ${hitung("berpikir")} berpikir, ${hitung("selesai")} baru selesai, ${hitung("siap")} siap dipanggil. Papan tulis tim dan papan tugas menampilkan tugas dari register. Rincian tiap orang ada di panel Tim.`);
 }
 
 // ================= koneksi, jam, kamera, jeda gerak =================
@@ -698,8 +808,8 @@ function detik() {
   const umur = diterimaPada ? Math.round((Date.now() - diterimaPada) / 1000) : null;
   elKon.classList.toggle("putus", putus);
   elKon.classList.toggle("basi", !putus && umur !== null && umur > 30);
-  if (putus) elKonT.textContent = "Terputus dari server kantor — mencoba lagi. Jalankan bin/kantor.sh bila server mati.";
-  else if (umur !== null) elKonT.textContent = umur > 30 ? `Data terakhir ${umur} dtk lalu` : "Terhubung · langsung";
+  if (putus) elKonT.textContent = "Terputus dari server Kantor · mencoba lagi";
+  else if (umur !== null) elKonT.textContent = umur > 30 ? `Data mungkin basi · diperbarui ${umur} dtk lalu` : "Terhubung · data terkini";
   if (state) for (const [n, li] of Object.entries(LI)) { const a = state.agents.find((x) => x.name === n); li.querySelector(".waktu").textContent = a?.present ? lalu(a.lastTs) : ""; }
 }
 function sambung() {
@@ -723,6 +833,8 @@ tbPas.addEventListener("click", () => adegan?.seluruhDenah());
 document.getElementById("putar-kiri").addEventListener("click", () => adegan?.putar(-Math.PI / 12));
 document.getElementById("putar-kanan").addEventListener("click", () => adegan?.putar(Math.PI / 12));
 
+const tombolBantuan = document.getElementById("tombol-bantuan"), elPetunjuk = document.getElementById("petunjuk");
+tombolBantuan.addEventListener("click", () => { const buka = elPetunjuk.hidden; elPetunjuk.hidden = !buka; tombolBantuan.setAttribute("aria-expanded", String(buka)); });
 const tombolJeda = document.getElementById("jeda");
 function aturJeda() {
   tombolJeda.setAttribute("aria-pressed", String(HEMAT_GERAK)); tombolJeda.textContent = HEMAT_GERAK ? "Lanjutkan gerak" : "Jeda gerak";
@@ -770,13 +882,13 @@ function aturHover(nama) {
 function isiKartu(nama) {
   if (!KARTU || !state) return;
   const ag = state.agents.find((a) => a.name === nama) ?? { name: nama }, st = ORANG[nama]?.status ?? "siap", now = Date.now();
-  const rinci = st === "bekerja" || st === "berpikir" || st === "menunggu" ? (ag.label ? ` · ${potong(ag.detail ? `${ag.label} — ${ag.detail}` : ag.label, 46)}` : "")
-    : st === "selesai" ? ` · ${teksSelesai(ag.selesai?.ts, now)}` : st === "siap" ? ` · ${keteranganSiap(ag)}` : "";
+  const rinci = st === "bekerja" || st === "berpikir" ? (ag.label ? ` · ${potong(kalimatKerja(ag), 46)}` : "")
+    : st === "selesai" ? ` · ${waktuSelesai(ag.selesai?.ts, now)}` : st === "siap" ? ` · ${keteranganSiap(ag)}` : "";
   const el = KARTU.el, dari = ag.subagent?.dari;
   el.style.setProperty("--warna", TIM[nama].warna);
   el.querySelector(".k-nama").textContent = nama;
-  el.querySelector(".k-status").innerHTML = `<i class="simbol ${st}">${SIMBOL[st]}</i>${esc(LABEL_STATUS[st])}${esc(rinci)}${dari ? ` <span class="sub">subagent · ${esc(TIM[dari]?.pendek ?? dari)}</span>` : ""}`;
-  el.querySelector(".k-petunjuk").textContent = dipilih === nama ? "Rincian di panel Tim" : "Klik untuk rincian";
+  el.querySelector(".k-status").innerHTML = `<i class="simbol ${st}">${SIMBOL[st]}</i>${esc(LABEL_STATUS[st])}${esc(rinci)}${dari ? ` <span class="sub">· dipanggil ${esc(TIM[dari]?.pendek ?? dari)}</span>` : ""}`;
+  el.querySelector(".k-petunjuk").textContent = dipilih === nama ? "Rincian ada di panel Tim" : "Klik untuk rincian";
 }
 function perbaruiKartu() {
   const calon = FOKUS ?? HOVER ?? dipilih ?? null;
@@ -827,7 +939,7 @@ function pasangUkur() {
 // ================= mode demo (?demo=1): skenario contoh berulang tiap 70 detik =================
 function demo() {
   modeDemo = true;
-  elKonT.textContent = "Mode demo — data contoh, bukan aktivitas nyata"; elKon.classList.add("basi");
+  elKonT.textContent = "Mode demo · data contoh, bukan aktivitas nyata"; elKon.classList.add("basi");
   const L1 = kursiTim("Tech Lead", 1), S1 = kursiTim("Business Systems Analyst", 1), P1 = kursiTim("Software Engineer #1", 1);
   const L2 = kursiTim("Tech Lead", 2), S2 = kursiTim("Business Systems Analyst", 2), Q2 = kursiTim("Software Engineer #1", 2);
   const STRAT = "Head of Strategy", FIN = "Financial Controller", RISET = "Research Analyst", PM = "Program Manager",
@@ -864,6 +976,11 @@ function demo() {
       : n === PM ? { status: "bekerja", label: "Menyusun rencana", detail: "status lintas proyek", icon: "rencana" }
         : { status: "santai", label: "Santai", detail: "", icon: "santai" }]));
   let keadaan = awal(), feed = [], terakhir = -1, selesaiDemo = {};
+  const TUGAS_DEMO = { [L1]: "T-20260101-2", [S1]: "T-20260101-2", [P1]: "T-20260101-2", [L2]: "T-20260101-4", [S2]: "T-20260101-4",
+    [ITOPS]: "T-20260101-3", [SYSADM]: "T-20260101-3", [STRAT]: "T-20260101-5", [FIN]: "T-20260101-5", [PM]: null };
+  const mulaiDemo = Date.now();
+  const tahap = (fase, menitTahap, anggaran, menitTotal) => ({ fase, dibuat: mulaiDemo - menitTotal * 60e3,
+    kemajuan: anggaran === null ? null : { menit: menitTahap, anggaran, lewat: menitTahap > anggaran } });
   const mulai = performance.now();
   const kirim = () => {
     const now = Date.now();
@@ -885,21 +1002,21 @@ function demo() {
       { id: "T-20260101-6", tugas: "SOP cuti karyawan", pemilik: "HR Business Partner", ts: now - 3 * 3600e3 },
       { id: "T-20260101-7", tugas: "Riset harga paket pesaing", pemilik: "Research Analyst", ts: now - 4 * 3600e3 }];
     render({ now, agents, feed: [...feed].reverse(), asisten, selesaiHariIni, tim: [{ n: 1, proyek: "kasir" }, { n: 2, proyek: "toko-b" }], tugas: [
-      { id: "T-20260101-3", tugas: "Insiden stok minus cabang 2", folder: "~/Documents/Neuron/ai-agent/RudisOne/ruang/head-of-it-operations", pemilik: "Head of IT Operations", prioritas: "segera", status: "berjalan" },
-      { id: "T-20260101-2", tugas: "Perbaikan cetak SJ paging", folder: "~/Documents/kasir", pemilik: "Tech Lead · Tim 1", prioritas: "normal", status: "berjalan" },
-      { id: "T-20260101-4", tugas: "Landing page toko-b", folder: "~/Documents/toko-b", pemilik: "Tech Lead · Tim 2", prioritas: "normal", status: "berjalan" },
-      { id: "T-20260101-5", tugas: "Kelayakan paket harga toko-b", folder: "~/Documents/Neuron/ai-agent/RudisOne/ruang/head-of-strategy", pemilik: "Head of Strategy", prioritas: "normal", status: "berjalan" },
-      { id: "T-20260101-8", tugas: "Laporan stok bulanan", folder: "~/Documents/kasir", pemilik: "Tech Lead · Tim 1", prioritas: "normal", status: "antre" },
+      { id: "T-20260101-3", tugas: "Insiden stok minus cabang 2", folder: "~/Documents/Neuron/ai-agent/RudisOne/ruang/head-of-it-operations", pemilik: "Head of IT Operations", prioritas: "segera", status: "berjalan", ...tahap("—", 0, null, 18) },
+      { id: "T-20260101-2", tugas: "Perbaikan cetak SJ paging", folder: "~/Documents/kasir", pemilik: "Tech Lead · Tim 1", prioritas: "normal", status: "berjalan", ...tahap("Konstruksi", 31, 25, 64) },
+      { id: "T-20260101-4", tugas: "Landing page toko-b", folder: "~/Documents/toko-b", pemilik: "Tech Lead · Tim 2", prioritas: "normal", status: "berjalan", ...tahap("Analisis", 6, 11, 22) },
+      { id: "T-20260101-5", tugas: "Kelayakan paket harga toko-b", folder: "~/Documents/Neuron/ai-agent/RudisOne/ruang/head-of-strategy", pemilik: "Head of Strategy", prioritas: "normal", status: "berjalan", ...tahap("—", 0, null, 9) },
+      { id: "T-20260101-8", tugas: "Laporan stok bulanan", folder: "~/Documents/kasir", pemilik: "Tech Lead · Tim 1", prioritas: "normal", status: "antre", ...tahap("—", 0, null, 3) },
     ] });
   };
   const putar = (dtk) => {
     if (dtk < terakhir) { keadaan = awal(); feed = []; selesaiDemo = {}; }
     for (const e of SKEN) if ((e[0] > terakhir && e[0] <= dtk) || (dtk < terakhir && e[0] <= dtk)) {
-      if (e[1] === "pesan") feed.push({ ts: Date.now(), agent: e[2], label: `Mengirim pesan ke ${e[3]}`, detail: e[4][0].toUpperCase() + e[4].slice(1), icon: "pesan", to: e[3], jenis: e[4] });
+      if (e[1] === "pesan") feed.push({ ts: Date.now(), agent: e[2], label: `Mengirim pesan ke ${e[3]}`, detail: e[4][0].toUpperCase() + e[4].slice(1), icon: "pesan", to: e[3], jenis: e[4], tugas: TUGAS_DEMO[e[3]] ?? TUGAS_DEMO[e[2]] ?? null });
       else {
         // demo: yang berhenti bekerja ditandai baru selesai (di data nyata: dari server)
         if (e[2] === "santai" && keadaan[e[1]]?.status && keadaan[e[1]].status !== "santai" && keadaan[e[1]].status !== "absen") selesaiDemo[e[1]] = Date.now();
-        keadaan[e[1]] = { status: e[2], label: e[3], detail: e[4], icon: e[5] }; feed.push({ ts: Date.now(), agent: e[1], label: e[3], detail: e[4], icon: e[5] }); }
+        keadaan[e[1]] = { status: e[2], label: e[3], detail: e[4], icon: e[5] }; feed.push({ ts: Date.now(), agent: e[1], label: e[3], detail: e[4], icon: e[5], tugas: TUGAS_DEMO[e[1]] ?? null }); }
     }
     terakhir = dtk; kirim();
   };
