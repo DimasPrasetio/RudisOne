@@ -34,9 +34,13 @@ tulis("coo", [{ type: "agent-setting", agentSetting: "coo" }, { type: "custom-ti
   { type: "user", timestamp: iso(40 * 3600e3), cwd: ROOT, message: { content: "<command-name>/rudisone</command-name>" } },
   { type: "assistant", timestamp: iso(4e3), cwd: WT2, message: { content: [{ type: "tool_use", id: "c", name: "Bash", input: { command: "git status", description: "Cek worktree" } }] } }]);
 fs.writeFileSync(path.join(tmp, "TEAM.md"), ["## Engineering", "| Agent | Proyek | Session id | Name | cwd |", "|---|---|---|---|---|",
-  "| Tech Lead · RudisOne (Tim 1) | RudisOne | `local_11112222-3333-4444-5555-666677778888` | `r1-lead-rudisone-11` | worktree |", ""].join("\n"));
+  "| Tech Lead · RudisOne (Tim 1) | RudisOne | `local_11112222-3333-4444-5555-666677778888` | `r1-lead-rudisone-11` | worktree |",
+  // komentar riwayat seperti di TEAM.md sungguhan: memuat local_… dan nama peran, tetapi bukan baris tabel
+  "<!-- 2026-01-01: Tech Lead · RudisOne (local_e55309cc…, r2-lead-rudisone-10 setelah T-20260101-3) diarsipkan atas \"Ya, arsipkan\" pengguna. -->",
+  "", "## IT Operations", "| Agent | Peran | Session id | Name | cwd |", "|---|---|---|---|---|",
+  "| Head of IT Operations | leader | `local_99998888-7777-6666-5555-444433332222` | `rudis-head-of-it-ops` | `~/x` |", ""].join("\n"));
 
-const { scan, buildState } = await import("./server.mjs");
+const { scan, buildState, sumberData } = await import("./server.mjs");
 scan();
 const st = buildState();
 const ag = (n) => st.agents.find((a) => a.name === n);
@@ -46,6 +50,14 @@ test("nomor tim dari baris Tech Lead di TEAM.md, bukan dari sesi lama di worktre
   assert.equal(ag("Tech Lead · Tim 1").present, true);
   assert.equal(ag("Tech Lead · Tim 1").status, "bekerja");
   assert.equal(ag("Tech Lead · Tim 2").present, false);
+});
+
+test("TEAM.md bergaya asli (komentar riwayat di bawah tabel) tetap terbaca utuh; komentar tidak menetapkan nomor tim", () => {
+  const team = sumberData().find((x) => x.nama === "TEAM.md");
+  assert.equal(team.terbaca, true);
+  assert.match(team.ket, /^(\d+) alamat sesi/);
+  assert.ok(Number(team.ket.match(/^(\d+)/)[1]) >= 3, team.ket);   // TL (id + nama sesi) + Head of IT Ops (id + nama sesi)
+  assert.ok(!st.tim.some((t) => t.n === 2), JSON.stringify(st.tim));
 });
 
 test("sesi COO yang memeriksa worktree tim tetap di kursi COO (peran dari folder awal sesi)", () => {

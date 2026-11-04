@@ -294,9 +294,10 @@ function loadTeam() {
       if (!id || !nama) continue;
       // baris Tech Lead (buku alamat COO) menetapkan nomor timnya: "(Tim n)" di kolom Agent atau nama sesi `r<n>-lead-…`;
       // proyek dari kolom Proyek atau judul bagian. Lebih kuat dari tebakan dari sesi (yang bergantung urutan & jendela 48 jam).
-      if (kanonik(nama) === "Tech Lead") {
-        const nTim = Number(sel[0]?.match(/\(Tim\s*(\d)\)/)?.[1] ?? (kolomName >= 0 ? sel[kolomName] : "").match(/^r(\d)-lead-/)?.[1]);
-        const pTim = (kolomProyek >= 0 ? sel[kolomProyek] : "") || proyek;
+      // hanya baris tabel (bukan komentar riwayat `<!-- … -->` yang juga memuat local_… dan nama peran)
+      if (sel.length && kanonik(nama) === "Tech Lead") {
+        const nTim = Number(sel[0]?.match(/\(Tim\s*(\d)\)/)?.[1] ?? String(sel[kolomName] ?? "").match(/^r(\d)-lead-/)?.[1]);
+        const pTim = String(sel[kolomProyek] ?? "").trim() || proyek;
         if (pTim && NOMOR_TIM.includes(nTim)) {
           for (const [p2, n2] of timProyek) if (n2 === nTim && p2 !== pTim) timProyek.delete(p2);   // nomor itu milik proyek ini
           timProyek.set(pTim, nTim);
