@@ -36,3 +36,10 @@ export function hitungPas(THREE, { aspect, fov = 30, az, polar, kotak, ekstra = 
   }
   return { jarak, target, batas, posisi: target.clone().addScaledVector(arah, jarak) };
 }
+
+/** Piksel kanvas paling banyak (≈ 4K): di atas itu rasio piksel diturunkan — layar penuh di monitor besar tetap lancar. */
+export const PIKSEL_MAKS = 3840 * 2160;
+/** Rasio piksel kanvas: devicePixelRatio, maks. 2 (HP/sentuh 1,5), dan lebar × tinggi × rasio² ≤ PIKSEL_MAKS (tidak di bawah 1 karena batas itu). */
+export function rasioPiksel(w, h, dpr = globalThis.devicePixelRatio || 1, sentuh = globalThis.matchMedia?.("(pointer: coarse)").matches ?? false) {
+  return Math.min(dpr, sentuh ? 1.5 : 2, Math.max(1, Math.sqrt(PIKSEL_MAKS / Math.max(1, w * h))));
+}

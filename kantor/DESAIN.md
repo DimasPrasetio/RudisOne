@@ -101,6 +101,24 @@ Berkas ini memuat prinsip, denah, cerita gerak, kamera, dan token yang berlaku �
   memilih pemiliknya, dan mendekatkan kamera ke mejanya.
 - HP: tinggi kanvas mengikuti tinggi denah (tanpa ruang kosong di atas/bawah).
 
+## Layar penuh
+- Tombol **Layar penuh** (ikon empat sudut + teks) di bilah kontrol, sesudah Jeda gerak. Yang dibuat layar penuh = kartu denah
+  (Fullscreen API, juga awalan webkit), jadi kontrolnya ikut: kamera (⟲ ⟳ − + Seluruh denah), Label, Jeda gerak, ?, dan
+  tombol itu sendiri yang kini bertuliskan **Keluar** (label aksesibel "Layar penuh" ↔ "Keluar dari layar penuh"; keterangan
+  arah "… (Esc)"). Logika: `kantor/app/layarpenuh.mjs` (diuji Node dengan DOM tiruan, `kantor/layarpenuh.test.mjs`).
+- Tata letak saat layar penuh: denah memenuhi layar tanpa sudut membulat; bilah kontrol mengambang di pojok kanan bawah
+  (permukaan 90% + blur, di atas kanvas, menghormati safe area); arti tanda disembunyikan (ada di ? dan di halaman biasa).
+  **Menunggu Anda** tampil sebagai pil amber di pojok kiri atas berisi jumlahnya — hanya saat layar penuh dan bila ada yang
+  menunggu; diklik = keluar dan halaman menuju "Perlu perhatian Anda".
+- Masuk/keluar: klik, ketuk, atau fokus + Enter/Spasi (perilaku tombol biasa); Esc keluar (ditangani peramban; bila Esc
+  sampai ke halaman, halaman yang keluar). Kamera, pilihan orang, mode Label, dan Jeda gerak tidak berubah; selama kamera
+  belum digerakkan, denah tetap "Seluruh denah" untuk ukuran layar yang baru.
+- Sentuh: saat layar penuh **satu jari menggeser denah** (tidak ada halaman untuk digulir), dua jari tetap cubit; keluar →
+  kembali ke pola kooperatif (satu jari menggulir halaman). Tinggi kanvas HP dihitung ulang setelah keluar.
+- **Mode cadangan** bila Fullscreen API tidak ada atau permintaan ditolak (mis. Safari iPhone): kartu denah diperbesar
+  memenuhi jendela (`position: fixed`), gulir halaman dikunci dan posisinya dikembalikan saat keluar; tombol dan Esc sama.
+  Uji: `?uji-tanpa-layar-penuh`. Tanpa WebGL 2: tombol disembunyikan.
+
 ## Cerita gerak
 | Kejadian (dari transkrip) | Animasi |
 |---|---|
@@ -323,7 +341,7 @@ Warna halaman = variabel CSS di `kantor/index.html` (`:root` dan blok `prefers-c
 ## Kinerja & keadaan khusus
 - Anggaran: draw call ≤ 100 (terukur ±70 desktop & HP dengan semua jabatan hadir, ±77 di demo dengan asisten; gambar yang
   sekaligus menghitung ulang peta bayangan ±93 / ±99 demo: perabot statis digabung per material ±35, orang 1 per orang, layar,
-  bayangan kontak, map, genangan lampu, nama zona (papan atau tulisan lantai) 1 masing-masing, kap lampu 4, papan 5; buku di rak tidak ikut peta bayangan), pixel ratio ≤ 2 (HP 1,5), peta bayangan 2048² (HP 1024²) digambar sekali, tanpa post-processing.
+  bayangan kontak, map, genangan lampu, nama zona (papan atau tulisan lantai) 1 masing-masing, kap lampu 4, papan 5; buku di rak tidak ikut peta bayangan), pixel ratio ≤ 2 (HP 1,5) dan piksel kanvas ≤ 3840 × 2160 (layar penuh di monitor besar: rasio diturunkan, `kamera.mjs › rasioPiksel`; dihitung ulang tiap ukuran berubah), peta bayangan 2048² (HP 1024²) digambar sekali, tanpa post-processing.
 - Gambar ulang hanya bila perlu: kamera bergerak, orang/benda bergerak atau beranimasi, data berubah, ukuran/tema berubah.
   Diam + Jeda gerak / reduced-motion → 0 gambar per detik. Ukur dengan `?ukur=1` (bingkai/dtk, gambar/dtk, ms/gambar,
   draw call, segitiga).

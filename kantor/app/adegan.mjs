@@ -7,7 +7,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { DIVISI, JENDELA, KURSI, NOMOR_TIM, NX, NY, OX_TIM, PINTU, TINGGI_DINDING, TIM, WARNA_LOUNGE, ZONA, bangunDenah } from "./denah.mjs";
-import { hitungPas } from "./kamera.mjs";
+import { hitungPas, rasioPiksel } from "./kamera.mjs";
 import { KOTAK_TULISAN, LIS_DEPAN, PAPAN_ATAS_DINDING, PAPAN_ZONA, WARNA_PAPAN, penandaZona, tempatkanLabel } from "./label.mjs";
 
 /** WebGL2 tersedia? (three.js r186 hanya mendukung WebGL2). */
@@ -472,7 +472,7 @@ export class Adegan {
     this.wadah = wadah; this.lapis = lapis; this.onPilih = onPilih; this.hemat = hemat;
     this.gelap = matchMedia("(prefers-color-scheme: dark)").matches;
     this.renderer = new THREE.WebGLRenderer({ canvas: el, antialias: true, alpha: true, powerPreference: "high-performance" });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, matchMedia("(pointer: coarse)").matches ? 1.5 : 2));   // HP: 1,5 (brief desain 3D)
+    this.renderer.setPixelRatio(rasioPiksel(1, 1));   // HP: 1,5 (brief desain 3D); diperbarui di ubahUkuran
     this.renderer.toneMapping = THREE.NeutralToneMapping;
     this.renderer.toneMappingExposure = 1.0;
     this.renderer.shadowMap.enabled = true;
@@ -1049,9 +1049,21 @@ export class Adegan {
     return Math.abs(s.radius - p.jarak) < 0.5 && this.kontrol.target.distanceTo(p.target) < 0.3;
   }
 
+  /** Layar penuh (kantor/app/layarpenuh.mjs): kanvas memenuhi layar; satu jari menggeser denah (tak ada halaman untuk digulir). */
+  aturLayarPenuh(aktif) {
+    this.layarPenuh = aktif;
+    this.kontrol.touches.ONE = aktif ? THREE.TOUCH.PAN : -1;
+    this.renderer.domElement.style.touchAction = aktif ? "none" : "pan-y";
+    this.wadah.style.height = ""; this._lebarTinggi = null;   // tinggi HP dihitung ulang untuk ukuran baru
+    this.ubahUkuran();
+  }
+
   ubahUkuran() {
     const w = this.wadah.clientWidth, h = this.wadah.clientHeight;
     if (!w || !h) return;
+    // rasio piksel mengikuti layar (pindah monitor, layar penuh) dengan batas jumlah piksel agar tetap lancar
+    const pr = rasioPiksel(w, h);
+    if (Math.abs(pr - this.renderer.getPixelRatio()) > 0.01) this.renderer.setPixelRatio(pr);
     const tegak = w / h < 0.9 || w < 700;   // HP: sudut lebih tegak (tetap meski tinggi kanvas disesuaikan)
     if (tegak !== this.tegak) { this.tegak = tegak; this._pas = null; }
     this.AZ = tegak ? Math.PI / 4 + 0.5 : Math.PI / 4;
@@ -1061,13 +1073,13 @@ export class Adegan {
     this.camera.aspect = w / h; this.camera.updateProjectionMatrix();
     this.kontrol.maxDistance = this.jarakPas() * 1.2;
     // layar sempit: tinggi kanvas mengikuti tinggi denah (tanpa ruang kosong besar di atas/bawah) — sekali per lebar
-    if (w < 700 && this._lebarTinggi !== w) {
+    if (w < 700 && !this.layarPenuh && this._lebarTinggi !== w) {
       this._pas = null; this.pandangPas();
       const b = this._batasPas, isi = (b.y1 - b.y0) / 2;
       const ideal = Math.round(THREE.MathUtils.clamp(h * isi * 1.06, 320, innerHeight * 0.72));
       this._lebarTinggi = w;
       if (Math.abs(ideal - h) > 6) { this.wadah.style.height = `${ideal}px`; return; }   // ResizeObserver memanggil lagi
-    } else if (w >= 700 && this._lebarTinggi) { this._lebarTinggi = null; this.wadah.style.height = ""; return; }
+    } else if ((w >= 700 || this.layarPenuh) && this._lebarTinggi) { this._lebarTinggi = null; this.wadah.style.height = ""; return; }
     if (!this.kameraDiubah) this.seluruhDenah(false);   // belum disentuh pengguna: tetap "Seluruh denah" untuk ukuran baru
     this.mintaGambar();
     this.onUkur?.();

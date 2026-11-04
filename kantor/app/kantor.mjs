@@ -3,6 +3,7 @@
 import { CHIEF, DIVISI, WARNA_LOUNGE, KURSI, NOMOR_TIM, PINTU, TIM, URUT, atasanDari, bangunGrid, cariJalur, hadapMeja, kursiTim, pusat, selBebas } from "./denah.mjs";
 import { barisTersembunyi, berkasMeja, pembantuTugas, waktuSelesai, faseDariParam, faseWaktu, jamWIB, keadaanTampil, keteranganSiap, kursiPemilik, papanDivisi, papanTugas, statusTugas, teksSelesai } from "./jejak.mjs";
 import { KUNCI_SIMPAN_LABEL, MODE_LABEL, isiPapanZona, modeLabelDari, tampilanOrang, tingkatRincian, tulisanZona, ucapanTampil } from "./label.mjs";
+import { pasangLayarPenuh } from "./layarpenuh.mjs";
 import { DAFTAR_SINGKATAN, STATUS, durasi, kalimatWaktuTahap, kataStatusTugas, kelompokAktivitas, kerjaAktivitas, pimpinan, rincianAman, ringkasan, singkatan, tahapTugas } from "./istilah.mjs";
 
 // Keadaan tampil (jejak.mjs › keadaanTampil): bekerja/berpikir/menunggu hanya dari sesi/subagent yang berjalan;
@@ -60,6 +61,7 @@ function tampilkanTanpa3d(alasan) {
   document.getElementById("petunjuk").hidden = true; document.getElementById("tombol-bantuan").hidden = true;
   for (const id of ["zoom-kecil", "zoom-besar", "zoom-pas", "putar-kiri", "putar-kanan"]) document.getElementById(id).disabled = true;
   document.getElementById("pilih-label").disabled = true;   // tombol Label hanya berlaku untuk denah 3D
+  layarPenuh.keluar(); document.getElementById("layar-penuh").hidden = true;   // layar penuh hanya untuk denah 3D
 }
 
 // ================= denah: grid jalan, kursi, tempat santai =================
@@ -688,6 +690,7 @@ function renderRingkasan(s, keadaan) {
   const kalimat = `${r.menunggu.length} menunggu Anda, ${r.bekerja.length} sedang bekerja, ${r.tugas.semua} tugas berjalan, ${r.selesai} selesai hari ini.`;
   if (kalimat !== kalimatRingkasLama) { kalimatRingkasLama = kalimat; document.getElementById("ringkas-kalimat").textContent = kalimat; }
   document.title = r.menunggu.length ? `(${r.menunggu.length}) Kantor RudisOne` : "Kantor RudisOne";
+  jumlahMenunggu = r.menunggu.length; perbaruiPenandaMenunggu();
 }
 
 /** Aktivitas: kalimat kerja per tugas, 10 baris terbaru (+ "Lihat semua"); rincian teknis singkat di "rincian". */
@@ -845,6 +848,27 @@ tombolJeda.addEventListener("click", () => {
   try { localStorage.setItem("kantor-jeda", HEMAT_GERAK ? "1" : "0"); } catch { /* abaikan */ }
 });
 matchMedia("(prefers-reduced-motion: reduce)").addEventListener("change", (e) => { if (e.matches && !HEMAT_GERAK) { HEMAT_GERAK = true; aturJeda(); } });
+
+// ================= layar penuh (DESAIN.md › Layar penuh; logika: layarpenuh.mjs) =================
+// Wadah = kartu denah (panggung + kontrol), jadi kamera, Label, Jeda gerak, dan ? ikut tampil. ?uji-tanpa-layar-penuh = paksa cadangan.
+const elPenanda = document.getElementById("penanda-menunggu");
+let jumlahMenunggu = 0;
+function perbaruiPenandaMenunggu() {
+  elPenanda.hidden = !(layarPenuh.aktif && jumlahMenunggu > 0);
+  elPenanda.querySelector(".nilai").textContent = jumlahMenunggu;
+}
+const layarPenuh = pasangLayarPenuh({ wadah: elPanggung.closest(".denah"), tombol: document.getElementById("layar-penuh"),
+  paksaCadangan: PARAM.has("uji-tanpa-layar-penuh"),
+  onUbah: (aktif) => { adegan?.aturLayarPenuh(aktif); perbaruiPenandaMenunggu(); } });
+elPenanda.addEventListener("click", async () => {
+  await layarPenuh.keluar();
+  requestAnimationFrame(() => {
+    document.getElementById(elPerhatian.hidden ? "judul-tim" : "perhatian").scrollIntoView({ block: "start" });
+    // fokus ikut pindah (penanda sudah tersembunyi): pengguna keyboard/pembaca layar mulai dari bagian yang dituju
+    const judul = document.getElementById(elPerhatian.hidden ? "judul-tim" : "judul-perhatian");
+    judul.setAttribute("tabindex", "-1"); judul.focus({ preventScroll: true });
+  });
+});
 
 // ================= label: tingkat rincian ikut zoom, kartu sentuh, tombol Label =================
 /** Tingkat rincian (jauh/dekat) dari jarak kamera terhadap "Seluruh denah"; layar sempit mengubah tulisan lantai. */
@@ -1034,6 +1058,7 @@ BLOK = bangunGrid(DENAH.perabot);
 bangunMeja();   // tanpa WebGL pun: tag meja tetap ada (tidak ditampilkan) agar render panel tidak bergantung pada denah
 for (const nama of URUT) bangunOrang(nama);
 if (adegan) {
+  if (layarPenuh.aktif) adegan.aturLayarPenuh(true);   // tombol sempat ditekan sebelum denah selesai dimuat
   bangunKartu();
   adegan.onKamera = () => { perbaruiTombolZoom(); aturRincian(); };
   adegan.onUkur = () => aturRincian();
