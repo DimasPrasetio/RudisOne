@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { DIVISI, ZONA, bangunDenah } from "./app/denah.mjs";
-import { AMBANG_DEKAT, KOTAK_TULISAN, LIS_DEPAN, MODE_LABEL, modeLabelDari, tampilanOrang, tingkatRincian, tulisanZona, ucapanTampil } from "./app/label.mjs";
+import { AMBANG_DEKAT, KOTAK_TULISAN, LIS_DEPAN, PRIO_WAJIB, tempatkanLabel, MODE_LABEL, modeLabelDari, tampilanOrang, tingkatRincian, tulisanZona, ucapanTampil } from "./app/label.mjs";
 
 const STATUS = ["bekerja", "berpikir", "menunggu", "selesai", "siap"];
 
@@ -55,6 +55,26 @@ test("orang yang disentuh & kursi tim kosong tidak berlabel kepala (kartu sentuh
     assert.deepEqual(tampilanOrang({ status: "menunggu", mode, disentuh: true }), { titik: false, nama: false, penuh: false });
     assert.deepEqual(tampilanOrang({ status: "kosong", mode, tingkat: "dekat" }), { titik: false, nama: false, penuh: false });
   }
+});
+
+test("penempatan label: dua 'Menunggu Anda' berimpit saling menghindar (keduanya tampil, tidak bertumpuk); opsional mengalah", () => {
+  const lbl = (px, py, prio, jarak = 10, w = 150, h = 22) => ({ px, py, w, h, prio, jarak });
+  const bertumpuk = (a, b) => Math.abs(a.px - b.px) < (a.w + b.w) / 2 - 1 && Math.abs((a.py - a.h / 2) - (b.py - b.h / 2)) < (a.h + b.h) / 2 - 1;   // jangkar bawah-tengah
+  // HP seluruh denah: dua orang berjarak 2,2 m ≈ 18 px → kotak hampir berimpit
+  const a = lbl(200, 300, PRIO_WAJIB, 10), b = lbl(218, 302, PRIO_WAJIB, 11), titik = lbl(205, 296, 3, 9, 14, 14), nama = lbl(200, 280, 2, 9, 40, 12);
+  const kalah = tempatkanLabel([titik, b, nama, a], 390);
+  assert.equal(kalah.has(a) || kalah.has(b), false, "label wajib tidak pernah disembunyikan");
+  assert.equal(bertumpuk(a, b), false, "dua label menunggu tidak saling menutup");
+  for (const o of [titik, nama]) assert.ok(kalah.has(o) || (!bertumpuk(o, a) && !bertumpuk(o, b)), "label opsional disembunyikan atau digeser, tidak menimpa label wajib");
+  assert.ok(kalah.has(titik), "titik yang terkepung disembunyikan");
+  // kartu sentuh (6) di atas label menunggu (5,5): keduanya tampil tanpa tumpuk
+  const k = lbl(200, 300, 6, 10, 220, 50), m = lbl(205, 300, PRIO_WAJIB, 10);
+  assert.equal(tempatkanLabel([m, k], 390).size, 0);
+  assert.equal(bertumpuk(k, m), false);
+  // penuh sesak: label wajib tetap tampil (boleh bertumpuk bila semua langkah terpakai), dijepit di dalam kanvas
+  const banyak = Array.from({ length: 12 }, (_, i) => lbl(380, 300 + i, PRIO_WAJIB, i));
+  assert.equal(tempatkanLabel(banyak, 390).size, 0);
+  for (const l of banyak) assert.ok(l.px - l.w / 2 >= 4 - 1e-9 && l.px + l.w / 2 <= 390);
 });
 
 test("gelembung ucapan hanya saat diperbesar atau mode lengkap", () => {

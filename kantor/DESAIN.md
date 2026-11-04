@@ -181,7 +181,8 @@ Denah bersih: tidak ada label yang menutupi orang atau meja kecuali "Menunggu An
   rincian"; label kepala orang itu disembunyikan selama kartunya tampil. Padanan pembaca layar: tag meja (tombol tersembunyi,
   `aria-label` = nama + status + rincian), panel Tim, dan `aria-label` denah (jumlah per status); label visual `aria-hidden`.
 - **Tabrakan** (setiap gambar): urut prioritas lalu jarak — kartu 6 & menunggu 5,5 (wajib: selalu tampil) > gelembung 5 > titik 3 >
-  nama 2; yang bertabrakan dicoba digeser satu baris ke atas/bawah, baru disembunyikan (nama hilang lebih dulu, titik tetap).
+  nama 2; yang bertabrakan dicoba digeser per baris ke atas/bawah (`label.mjs` › `tempatkanLabel`), baru disembunyikan (nama hilang
+  lebih dulu, titik tetap); label wajib mencoba lebih banyak langkah lalu tetap tampil — dua "Menunggu Anda" berdekatan saling menghindar.
   Label dijepit agar tidak terpotong tepi kanvas; label tak berukuran (display: none) tidak ikut. Lapisan label `overflow: clip`
   (bukan wadah gulir) agar fokus Tab pada tag meja di tepi kanvas tidak menggeser semua label.
 - Status di 3D diperkuat tanpa animasi: layar monitor menyala warna peran saat bekerja, redup saat berpikir/menunggu,

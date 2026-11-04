@@ -7,7 +7,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { DIVISI, JENDELA, KURSI, NOMOR_TIM, NX, NY, OX_TIM, PINTU, TINGGI_DINDING, TIM, WARNA_LOUNGE, ZONA, bangunDenah } from "./denah.mjs";
-import { KOTAK_TULISAN, LIS_DEPAN } from "./label.mjs";
+import { KOTAK_TULISAN, LIS_DEPAN, tempatkanLabel } from "./label.mjs";
 
 /** WebGL2 tersedia? (three.js r186 hanya mendukung WebGL2). */
 export function adaWebGL2() {
@@ -1068,23 +1068,10 @@ export class Adegan {
     }
     // baca semua ukuran dulu (satu kali tata letak), lalu tulis posisi
     for (const l of tampil) if (l.prioritas || l.prioritasFn) { const r = l.isi.getBoundingClientRect(); l.w = r.width; l.h = r.height; }
-    // tabrakan (seperti simbol peta): label menurut prioritas (lalu jarak) mencoba posisinya sendiri, lalu digeser sedikit
-    // ke atas/bawah; bila tetap bertumpuk baru disembunyikan. Label wajib (Menunggu Anda, kartu sentuh) berprioritas
-    // tertinggi; nama = teks opsional, kalah lebih dulu dari titik status. Label tak berukuran (display: none) dilewati.
-    const terpakai = [], kalah = new Set();
-    const prio = (l) => l.prioritasFn?.() ?? l.prioritas;
-    const urut = tampil.filter((l) => prio(l) > 0 && l.w > 0 && l.h > 0).sort((p, q) => (prio(q) - prio(p)) || p.jarak - q.jarak);
-    const tumpuk = (r) => terpakai.some((q) => r.x0 < q.x1 - 1 && r.x1 > q.x0 + 1 && r.y0 < q.y1 - 1 && r.y1 > q.y0 + 1);
-    for (const l of urut) {
-      l.px = THREE.MathUtils.clamp(l.px, l.w / 2 + 4, Math.max(l.w / 2 + 4, w - l.w / 2 - 4));   // jangan terpotong tepi kanvas
-      const bawah = l.el.classList.contains("tag");               // tag meja: jangkar di atas-tengah; lainnya bawah-tengah
-      const kotak = (dy) => ({ x0: l.px - l.w / 2, x1: l.px + l.w / 2, y0: (bawah ? l.py : l.py - l.h) + dy, y1: (bawah ? l.py + l.h : l.py) + dy });
-      const wajib = prio(l) >= 5.5;                                 // kartu sentuh & "Menunggu Anda": selalu tampil
-      const coba = wajib ? [0] : bawah ? [0, l.h + 2, -(l.h + 2)] : [0, -(l.h + 2), -2 * (l.h + 2)];
-      const dy = coba.find((d) => !tumpuk(kotak(d)));
-      if (dy === undefined && !wajib) { kalah.add(l); continue; }
-      l.py += dy ?? 0; terpakai.push(kotak(0));
-    }
+    // tabrakan (seperti simbol peta) — label.mjs › tempatkanLabel: urut prioritas lalu jarak, geser bila bertumpuk; label
+    // wajib (kartu sentuh, "Menunggu Anda") tidak pernah disembunyikan; nama (teks opsional) kalah lebih dulu dari titik.
+    for (const l of tampil) { l.prio = l.prioritasFn?.() ?? l.prioritas; l.bawah = l.el.classList.contains("tag"); }
+    const kalah = tempatkanLabel(tampil, w);
     for (const l of tampil) {
       l.el.style.visibility = kalah.has(l) ? "hidden" : "";
       l.el.style.transform = `translate(${l.px.toFixed(1)}px, ${l.py.toFixed(1)}px)`;
