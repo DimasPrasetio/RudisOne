@@ -108,7 +108,9 @@
     background: var(--permukaan); border: 1.5px solid color-mix(in srgb, var(--warna) 65%, var(--garis)); box-shadow: 0 4px 14px rgba(10, 20, 30, .22);
     font: 500 12px/1.3 var(--teks); color: var(--tinta); }
   .kartu-orang .k-nama { font: 650 13px/1.25 var(--judul); }
-  .kartu-orang .k-status { display: inline-flex; align-items: center; gap: 6px; }
+  .kartu-orang .isi { max-width: min(340px, calc(100vw - 72px)); white-space: normal; }   /* HP: dibungkus, tidak melewati layar */
+  .kartu-orang .k-status { display: flex; align-items: flex-start; gap: 6px; }
+  .kartu-orang .k-status .simbol { margin-top: 1px; }
   .kartu-orang .k-status .simbol { width: 15px; height: 15px; font-size: 9px; }
   .kartu-orang .k-status .sub { color: var(--redup); }
   .kartu-orang small { color: var(--redup); font-size: 11px; }
