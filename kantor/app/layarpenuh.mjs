@@ -51,17 +51,20 @@ export function pasangLayarPenuh({ wadah, tombol, doc = document, akar = doc.doc
     onUbah(mode !== null, mode);
   }
 
+  // Permintaan layar penuh sedang berjalan. Safari lama (awalan webkit saja) tidak mengembalikan promise: hasilnya datang
+  // lewat event *fullscreenchange (berhasil) atau *fullscreenerror (ditolak) — sampai itu, tetap menunggu.
+  let menunggu = false;
   async function masuk() {
-    if (mode) return;
-    if (!paksaCadangan && dukungLayarPenuh(doc, wadah)) {
-      try {
-        const minta = wadah.requestFullscreen ?? wadah.webkitRequestFullscreen;
-        await minta.call(wadah, { navigationUI: "hide" });
-        if (elemenLayarPenuh(doc) === wadah) terapkan("asli");   // event fullscreenchange juga memanggil ini (idempoten)
-        return;
-      } catch { /* ditolak peramban (izin, iframe, gestur) → mode cadangan */ }
+    if (mode || menunggu) return;
+    if (paksaCadangan || !dukungLayarPenuh(doc, wadah)) { terapkan("cadangan"); return; }
+    menunggu = true;
+    try {
+      const minta = wadah.requestFullscreen ?? wadah.webkitRequestFullscreen;
+      await minta.call(wadah, { navigationUI: "hide" });
+    } catch {   // ditolak peramban (izin, iframe, gestur) → mode cadangan
+      menunggu = false; terapkan("cadangan"); return;
     }
-    terapkan("cadangan");
+    if (elemenLayarPenuh(doc) === wadah) { menunggu = false; terapkan("asli"); }   // event change juga memanggil ini (idempoten)
   }
   async function keluar() {
     if (mode === "asli" && elemenLayarPenuh(doc)) {
@@ -74,16 +77,21 @@ export function pasangLayarPenuh({ wadah, tombol, doc = document, akar = doc.doc
 
   // keluar lewat peramban (Esc, gestur, tombol sistem) → kembalikan tampilan
   const berubah = () => {
-    if (elemenLayarPenuh(doc) === wadah) terapkan("asli");
+    if (elemenLayarPenuh(doc) === wadah) { menunggu = false; terapkan("asli"); }
     else if (mode === "asli") terapkan(null);
   };
   doc.addEventListener("fullscreenchange", berubah);
   doc.addEventListener("webkitfullscreenchange", berubah);
+  // penolakan lewat event (Safari lama tidak melempar galat) → mode cadangan
+  const ditolak = () => { if (menunggu && !mode) { menunggu = false; terapkan("cadangan"); } };
+  doc.addEventListener("fullscreenerror", ditolak);
+  doc.addEventListener("webkitfullscreenerror", ditolak);
   // Esc keluar. Layar penuh asli: peramban biasanya menanganinya sendiri (keydown tidak sampai) — bila sampai (mis. tanpa
-  // UI peramban), halaman yang keluar. Mode cadangan: selalu di sini. Enter/Spasi/klik/ketuk = perilaku bawaan <button>.
+  // UI peramban), halaman yang keluar. Mode cadangan: selalu di sini. Ditangkap lebih dulu (capture) dan tidak diteruskan:
+  // Esc di sini HANYA keluar — pilihan orang & kartu tetap. Enter/Spasi/klik/ketuk = perilaku bawaan <button>.
   doc.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && mode) { e.preventDefault(); keluar(); }
-  });
+    if (e.key === "Escape" && mode) { e.preventDefault(); e.stopPropagation(); keluar(); }
+  }, true);
   tombol.addEventListener("click", () => { alih(); });
   tulisTombol();
 

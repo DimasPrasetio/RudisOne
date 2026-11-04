@@ -862,7 +862,12 @@ const layarPenuh = pasangLayarPenuh({ wadah: elPanggung.closest(".denah"), tombo
   onUbah: (aktif) => { adegan?.aturLayarPenuh(aktif); perbaruiPenandaMenunggu(); } });
 elPenanda.addEventListener("click", async () => {
   await layarPenuh.keluar();
-  requestAnimationFrame(() => document.getElementById(elPerhatian.hidden ? "judul-tim" : "perhatian").scrollIntoView({ block: "start" }));
+  requestAnimationFrame(() => {
+    document.getElementById(elPerhatian.hidden ? "judul-tim" : "perhatian").scrollIntoView({ block: "start" });
+    // fokus ikut pindah (penanda sudah tersembunyi): pengguna keyboard/pembaca layar mulai dari bagian yang dituju
+    const judul = document.getElementById(elPerhatian.hidden ? "judul-tim" : "judul-perhatian");
+    judul.setAttribute("tabindex", "-1"); judul.focus({ preventScroll: true });
+  });
 });
 
 // ================= label: tingkat rincian ikut zoom, kartu sentuh, tombol Label =================
@@ -1053,6 +1058,7 @@ BLOK = bangunGrid(DENAH.perabot);
 bangunMeja();   // tanpa WebGL pun: tag meja tetap ada (tidak ditampilkan) agar render panel tidak bergantung pada denah
 for (const nama of URUT) bangunOrang(nama);
 if (adegan) {
+  if (layarPenuh.aktif) adegan.aturLayarPenuh(true);   // tombol sempat ditekan sebelum denah selesai dimuat
   bangunKartu();
   adegan.onKamera = () => { perbaruiTombolZoom(); aturRincian(); };
   adegan.onUkur = () => aturRincian();

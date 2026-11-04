@@ -15,7 +15,7 @@ class Sasaran {
   constructor() { this.dengar = {}; }
   addEventListener(jenis, f) { (this.dengar[jenis] ??= []).push(f); }
   kirim(jenis, isi = {}) {
-    const e = { type: jenis, dicegah: false, preventDefault() { this.dicegah = true; }, ...isi };
+    const e = { type: jenis, dicegah: false, dihentikan: false, preventDefault() { this.dicegah = true; }, stopPropagation() { this.dihentikan = true; }, ...isi };
     for (const f of this.dengar[jenis] ?? []) f(e);
     return e;
   }
@@ -26,7 +26,8 @@ function elemen() {
   e.setAttribute = (k, v) => { atr[k] = String(v); }; e.getAttribute = (k) => atr[k] ?? null; e.title = "";
   return e;
 }
-/** Dokumen + wadah + tombol tiruan. `api`: "standar" | "webkit" | "tidak" (Safari iPhone) | "tolak" (permintaan ditolak). */
+/** Dokumen + wadah + tombol tiruan. `api`: "standar" | "webkit" | "tidak" (Safari iPhone) | "tolak" (permintaan ditolak)
+ *  | "webkit-tolak" (Safari lama menolak: tanpa galat, hanya event webkitfullscreenerror). */
 function siapkan(api = "standar", opsi = {}) {
   const doc = new Sasaran(), wadah = elemen(), tombol = elemen(), akar = elemen(), teks = { textContent: "Layar penuh" };
   tombol.querySelector = (s) => (s === ".teks" ? teks : null);
@@ -36,13 +37,14 @@ function siapkan(api = "standar", opsi = {}) {
     doc.fullscreenEnabled = true; doc.fullscreenElement = null;
     wadah.requestFullscreen = async () => { if (api === "tolak") { catat.minta++; throw new TypeError("Permissions check failed"); } masukAsli(); };
     doc.exitFullscreen = async () => { catat.lepas++; doc.fullscreenElement = null; doc.kirim("fullscreenchange"); };
-  } else if (api === "webkit") {
+  } else if (api === "webkit" || api === "webkit-tolak") {
     doc.webkitFullscreenEnabled = true; doc.webkitFullscreenElement = null;
-    wadah.webkitRequestFullscreen = () => masukAsli();   // versi lama: tanpa promise
+    wadah.webkitRequestFullscreen = api === "webkit" ? () => { setTimeout(masukAsli, 0); }   // versi lama: tanpa promise, hasil lewat event
+      : () => { catat.minta++; setTimeout(() => doc.kirim("webkitfullscreenerror"), 0); };
     doc.webkitExitFullscreen = () => { catat.lepas++; doc.webkitFullscreenElement = null; doc.kirim("webkitfullscreenchange"); };
   }
   const lp = pasangLayarPenuh({ wadah, tombol, doc, akar, onUbah: (aktif, mode) => catat.ubah.push([aktif, mode]), ...opsi });
-  const klik = async () => { tombol.kirim("click"); await new Promise((s) => setTimeout(s, 0)); };
+  const klik = async () => { tombol.kirim("click"); await new Promise((s) => setTimeout(s, 5)); };
   return { doc, wadah, tombol, akar, teks, catat, lp, klik };
 }
 const tampakNormal = ({ wadah, tombol, teks, akar }) => {
@@ -80,7 +82,7 @@ test("Esc / keluar lewat peramban (fullscreenchange) mengembalikan tampilan semu
   // Esc yang sampai ke halaman (peramban tidak menanganinya) → halaman keluar dari layar penuh asli
   await k.klik(); assert.equal(k.lp.mode, "asli");
   const esc = k.doc.kirim("keydown", { key: "Escape" }); await new Promise((s) => setTimeout(s, 0));
-  assert.ok(esc.dicegah); assert.equal(k.catat.lepas, 1); assert.equal(k.lp.mode, null); tampakNormal(k);
+  assert.ok(esc.dicegah && esc.dihentikan, "Esc hanya keluar: tidak diteruskan (pilihan orang tetap)"); assert.equal(k.catat.lepas, 1); assert.equal(k.lp.mode, null); tampakNormal(k);
 });
 
 test("awalan webkit (Safari iPad/Mac lama) dipakai bila API standar tidak ada", async () => {
@@ -103,16 +105,20 @@ test("mode cadangan bila Fullscreen API tidak ada (Safari iPhone): memenuhi jend
   assert.ok(k.wadah.classList.contains("layar-penuh") && k.wadah.classList.contains("layar-penuh-cadangan") && k.akar.classList.contains("kunci-gulir"));
   assert.equal(k.tombol.getAttribute("aria-label"), "Keluar dari layar penuh");
   const esc = k.doc.kirim("keydown", { key: "Escape" });
-  assert.ok(esc.dicegah); assert.equal(k.lp.mode, null); tampakNormal(k);
+  assert.ok(esc.dicegah && esc.dihentikan, "Esc hanya keluar: tidak diteruskan ke denah (pilihan orang tetap)"); assert.equal(k.lp.mode, null); tampakNormal(k);
   await k.klik(); assert.equal(k.lp.mode, "cadangan");
   await k.klik(); assert.equal(k.lp.mode, null); tampakNormal(k);
-  assert.ok(!k.doc.kirim("keydown", { key: "Escape" }).dicegah, "Esc di luar layar penuh tidak diambil (tutup kartu tetap jalan)");
+  const escLuar = k.doc.kirim("keydown", { key: "Escape" });
+  assert.ok(!escLuar.dicegah && !escLuar.dihentikan, "Esc di luar layar penuh tidak diambil (tutup kartu / batal pilih tetap jalan)");
   assert.ok(!k.doc.kirim("keydown", { key: "Enter" }).dicegah);
 });
 
-test("permintaan layar penuh ditolak peramban → mode cadangan; paksaCadangan (?uji-tanpa-layar-penuh) → cadangan", async () => {
+test("permintaan layar penuh ditolak peramban (galat atau event webkit) → mode cadangan; paksaCadangan (?uji-tanpa-layar-penuh) → cadangan", async () => {
   const k = siapkan("tolak");
   await k.klik(); assert.equal(k.catat.minta, 1); assert.equal(k.lp.mode, "cadangan");
+  const w = siapkan("webkit-tolak");
+  await w.klik(); assert.equal(w.catat.minta, 1); assert.equal(w.lp.mode, "cadangan", "Safari lama menolak lewat event → cadangan");
+  await w.klik(); assert.equal(w.lp.mode, null);
   const p = siapkan("standar", { paksaCadangan: true });
   await p.klik(); assert.equal(p.catat.minta, 0); assert.equal(p.lp.mode, "cadangan");
 });
