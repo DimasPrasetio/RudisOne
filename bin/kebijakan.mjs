@@ -751,7 +751,8 @@ export function teksKode(t) {
     let j = i + 1;
     while (j < t.length && t[j] !== c) j += c === '"' && t[j] === "\\" ? 2 : 1;
     const isi = t.slice(i + 1, j);
-    if (/(^|[\s;&|(])(-[A-Za-z]*c|--call|eval)\s*$/.test(out)) out += ` ; ${isi} ;`;
+    // isi kutip = kode: setelah `-c` (perilaku lama), `--call`, `eval`, atau opsi gabungan shell (`bash -lc`, `sh -xc`) — bukan `grep -rc`
+    if (/(^|[\s;&|(])(-c|--call|eval)\s*$|(^|[\s;&|(/])(ba|z|da|k)?sh\s+(-\S+\s+)*-[A-Za-z]*c\s*$/.test(out)) out += ` ; ${isi} ;`;
     else if (c === '"') out += ` ${[...isi.matchAll(/\$\(([^)]*)\)?|`([^`]*)`?/g)].map((m) => `; ${m[1] ?? m[2] ?? ""}`).join(" ")} `;
     else out += " ";
     i = j;

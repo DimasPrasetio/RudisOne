@@ -187,7 +187,7 @@ function pasangEkosistem(e, catat, dir) {
       fs.rmSync(baru, { recursive: true, force: true });
       return catat("!!", `${e.id}: pemasangan gagal — ${err.message}`), false;
     }
-    fs.rmSync(lama, { recursive: true, force: true });
+    try { fs.rmSync(lama, { recursive: true, force: true }); } catch { /* sisa versi lama (mis. berkas terkunci di Windows) — dibuang di pemasangan berikutnya */ }
     catat("ok", `${e.id}: ${isi.length} berkas dari ${e.repo} @ ${e.sha.slice(0, 12)} (${e.jalur}) → ${tujuan}`);
     return true;
   } finally { fs.rmSync(kerja, { recursive: true, force: true }); }

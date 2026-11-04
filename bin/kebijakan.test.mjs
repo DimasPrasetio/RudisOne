@@ -170,7 +170,8 @@ test("CLI ekosistem skill (npx skills): cari/lihat tanpa tanya untuk COO & Resea
   assert.equal(p(COO, "ls ~/.claude/skills").keputusan, null);
   assert.equal(p(COO, "echo 'npx skills add x'").keputusan, null);   // teks dalam kutip bukan perintah
   for (const c of ["npx eslint skills", "npx prettier --write skills/", "echo add-skill", "grep -rn add-skill .", "git commit -m \"add-skill notes\"",
-    "ls node_modules/skills/", "du -sh ~/.claude/skills", "git log --oneline -- skills/rudis-perkakas"]) assert.equal(p(COO, c).keputusan, null, c);
+    "ls node_modules/skills/", "du -sh ~/.claude/skills", "git log --oneline -- skills/rudis-perkakas",
+    "grep -rc \"skills add\" skills/", "grep -ic 'add-skill' README.md"]) assert.equal(p(COO, c).keputusan, null, c);
   assert.equal(p(RA, "bun x skills find x").keputusan, "allow");
 });
 
