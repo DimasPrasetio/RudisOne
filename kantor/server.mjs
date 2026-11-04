@@ -269,7 +269,7 @@ function loadTeam() {
     if (st.mtimeMs === teamMtime) return;
     teamMtime = st.mtimeMs;
     const m = new Map();
-    let proyek = null, kolomName = -1;
+    let proyek = null, kolomName = -1, kolomProyek = -1;
     // CRLF (TEAM.md yang ditulis di Windows) diperlakukan sama dengan LF
     for (const line of fs.readFileSync(TEAM_MD, "utf8").split(/\r?\n/)) {
       // "## Engineering · Tim 2 · toko-b", juga "… · RudisOne (platform)" / "… · toko — menunggu pengguna"
@@ -284,12 +284,24 @@ function loadTeam() {
       }
       if (/^##\s/.test(line)) proyek = null;
       const sel = /^\|/.test(line) ? line.split("|").slice(1, -1).map((x) => x.replace(/[`*]/g, "").trim()) : [];
-      if (sel.length && sel.some((x) => x.toLowerCase() === "agent")) { kolomName = sel.findIndex((x) => x.toLowerCase() === "name"); continue; }
+      if (sel.length && sel.some((x) => x.toLowerCase() === "agent")) {
+        kolomName = sel.findIndex((x) => x.toLowerCase() === "name"); kolomProyek = sel.findIndex((x) => x.toLowerCase() === "proyek"); continue;
+      }
       const id = line.match(/local_[0-9a-f-]{8,}/)?.[0];
       // kolom Agent (sel pertama) didahulukan; selain itu nama dikenal di mana pun di baris, terpanjang dulu
       const nama = (sel[0] && namaDiAwal(sel[0])) || line.match(RE_NAMA_BARIS)?.[2];
       const nomor = line.match(POLA_NOMOR_ENGINEER)?.[0] ?? "";
       if (!id || !nama) continue;
+      // baris Tech Lead (buku alamat COO) menetapkan nomor timnya: "(Tim n)" di kolom Agent atau nama sesi `r<n>-lead-…`;
+      // proyek dari kolom Proyek atau judul bagian. Lebih kuat dari tebakan dari sesi (yang bergantung urutan & jendela 48 jam).
+      if (kanonik(nama) === "Tech Lead") {
+        const nTim = Number(sel[0]?.match(/\(Tim\s*(\d)\)/)?.[1] ?? (kolomName >= 0 ? sel[kolomName] : "").match(/^r(\d)-lead-/)?.[1]);
+        const pTim = (kolomProyek >= 0 ? sel[kolomProyek] : "") || proyek;
+        if (pTim && NOMOR_TIM.includes(nTim)) {
+          for (const [p2, n2] of timProyek) if (n2 === nTim && p2 !== pTim) timProyek.delete(p2);   // nomor itu milik proyek ini
+          timProyek.set(pTim, nTim);
+        }
+      }
       const kursi = kursiDari(kanonik(nama), `${nomor || nama} · ${proyek ?? ""}`);
       m.set(id, kursi);
       // nilai kolom Name (mis. `rudis-head-of-strategy`, `r1-lead-<proyek>`) juga dipakai sebagai tujuan pesan
@@ -329,7 +341,7 @@ function ingestLine(s, line) {
   if (o.isSidechain && !s.asisten) return; // langkah subagent di transkrip induk; transkrip asisten sendiri dibaca terpisah
   const ts = o.timestamp ? Date.parse(o.timestamp) : 0;
   if (ts && !s.mulai) s.mulai = ts;
-  if (o.cwd) { s.cwd = o.cwd; if (RE_WORKTREE.test(o.cwd)) s.cwdWorktree = o.cwd; }
+  if (o.cwd) { s.cwd = o.cwd; s.cwdAwal ??= o.cwd; if (RE_WORKTREE.test(o.cwd)) s.cwdWorktree = o.cwd; }
   switch (o.type) {
     case "agent-setting": s.agentSetting = o.agentSetting ?? s.agentSetting; return;
     case "custom-title": s.title = o.customTitle ?? s.title; return;
@@ -544,8 +556,10 @@ const PERAN_WORKTREE = { lead: "Tech Lead", bsa: "Business Systems Analyst", se1
 const RE_PERAN_WORKTREE = /[\\/]\.claude[\\/]worktrees[\\/]r(\d+)-(lead|bsa|se1|se2)-/;
 /** Nomor tim dari nama worktree (`r<n>-…`), hanya 1–3 (kursi yang ada), selain itu null. */
 const nomorWorktree = (cwd) => { const n = Number(String(cwd ?? "").match(RE_PERAN_WORKTREE)?.[1]); return NOMOR_TIM.includes(n) ? n : null; };
+/** Folder tempat sesi dibuka (bukan folder terakhir): sesi COO yang `cd` ke worktree tim untuk memeriksa tetap COO. */
+const folderSesi = (s) => s.cwdAwal ?? s.cwd ?? "";
 function agentOf(s) {
-  const wt = String(s.cwd ?? "").match(RE_PERAN_WORKTREE)?.[2];
+  const wt = String(folderSesi(s)).match(RE_PERAN_WORKTREE)?.[2];
   if (wt) return PERAN_WORKTREE[wt];
   const setting = kanonik(s.agentSetting);   // id teknis, mis. "system-administrator"
   if (setting && AGENTS.includes(setting)) return setting;
@@ -636,13 +650,13 @@ export function buildState(now = Date.now()) {
   // dipakai bila TEAM.md belum memetakan proyek itu dan nomornya belum dipakai proyek lain.
   for (const k of [...kandidat].sort((a, b) => (a.s.mulai || 0) - (b.s.mulai || 0))) {
     if (!PERAN_TIM.includes(k.peran)) continue;
-    const p = proyekDari("", k.s.cwd), n = nomorWorktree(k.s.cwd);
+    const p = proyekDari("", folderSesi(k.s)), n = nomorWorktree(folderSesi(k.s));
     if (p && n && !timProyek.has(p) && ![...timProyek.values()].includes(n)) timProyek.set(p, n);
     if (p) nomorTim(p);
   }
   const dikenal = [];
   for (const { s, d, title, peran } of kandidat) {
-    const agent = kursiDari(peran, title, s.cwd);
+    const agent = kursiDari(peran, title, folderSesi(s));
     if (d) localToAgent.set(d.localId, agent);
     dikenal.push({ s, d, title, agent });
   }

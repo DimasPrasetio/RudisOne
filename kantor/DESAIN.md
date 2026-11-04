@@ -67,8 +67,9 @@ Berkas ini memuat prinsip, denah, cerita gerak, kamera, dan token yang berlaku �
   └────────────────┴───────────┴─────────────┴──────────────────┘ y=21 (tepi depan terbuka — diorama)
 ```
 - Meja leader di belakang zonanya **menghadap anggota**; anggota duduk menghadap mejanya (membelakangi kamera bawaan).
-- Kursi tim dipetakan per proyek: nomor tim dari `TEAM.md` (`## Engineering · Tim <n> · <proyek>`), lalu dari nama worktree
-  `r<n>-…`, selain itu nomor kosong terkecil. Papan nama tim menampilkan proyeknya; tim tanpa proyek diredupkan dan
+- Kursi tim dipetakan per proyek: nomor tim dari `TEAM.md` (`## Engineering · Tim <n> · <proyek>`, atau baris Tech Lead di
+  tabel Engineering: "(Tim n)" / nama sesi `r<n>-lead-…`), lalu dari nama worktree `r<n>-…` folder awal sesi, selain itu nomor
+  kosong terkecil. Peran dari worktree dibaca dari folder tempat sesi dibuka (COO yang memeriksa worktree tetap COO). Papan nama tim menampilkan proyeknya; tim tanpa proyek diredupkan dan
   tag mejanya disembunyikan dari denah, panel & linimasa.
 - Hanya sesi RudisOne yang tampil (folder repo ini, worktree `r<n>-…`, `/rudisone`, atau pembuka "… di RudisOne").
 - Jalan: A* di grid 0,5 m (4 arah, penalti belok) dari tapak perabot; semua kursi, kursi tamu, titik santai, dan meja
