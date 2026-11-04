@@ -128,8 +128,9 @@
   .legenda .kendali button:hover, .legenda .jeda:hover { background: color-mix(in srgb, var(--tinta) 5%, transparent); }
   .legenda .kendali button:disabled { opacity: .4; cursor: default; }
   .petunjuk { width: 100%; font-size: 12.5px; }
-  .untuk-sentuh { display: none; }
-  @media (pointer: coarse) { .untuk-sentuh { display: inline; } .untuk-tetikus { display: none; } }
+  .legenda .petunjuk { display: block; }
+  .legenda .petunjuk .untuk-tetikus { display: inline; } .legenda .petunjuk .untuk-sentuh { display: none; }
+  @media (pointer: coarse) { .legenda .petunjuk .untuk-sentuh { display: inline; } .legenda .petunjuk .untuk-tetikus { display: none; } }
   .panggung:focus-visible { outline: 2px solid var(--berpikir); outline-offset: -2px; }
   .petunjuk-sentuh { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 2; pointer-events: none; max-width: 80%; text-align: center;
     font: 600 13px/1.35 var(--teks); color: #fff; background: rgba(20, 30, 40, .78); padding: 8px 12px; border-radius: 10px; }
