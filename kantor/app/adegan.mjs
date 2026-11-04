@@ -22,6 +22,7 @@ const PALET = {
     karpetLounge: "#e4d6c0", monitor: "#262d35", layarMati: "#3a4652", pot: "#c7a07c", daun: "#4f9d69", daun2: "#3f8a5a",
     bar: "#6f5b4b", batu: "#ddd3c6", mesin: "#59636d", rak: "#2b3640", putih: "#f7f7f4", jendela: "#d7ecfa",
     langit: "#ffffff", tanah: "#d9d3c9", hemi: 0.95, matahari: "#fff1dc", kuatMatahari: 3.0, env: 0.35, cahayaJendela: "#fff6df", kuatCahayaJendela: 0.22,
+    kapLampu: "#e9e3d6", map: "#efe2bf", selesai: "#148a9c", tintaPapan: "#24303c",
   },
   gelap: {
     lantai: "#1b2530", lorong: "#18212b", sisiLantai: "#0f161d", dinding: "#222d38", dindingAtas: "#2e3e4e",
@@ -30,7 +31,22 @@ const PALET = {
     karpetLounge: "#2c2721", monitor: "#151a20", layarMati: "#0b1118", pot: "#7a5a42", daun: "#3f8a5a", daun2: "#33734b",
     bar: "#3a3029", batu: "#5a4f45", mesin: "#3d454d", rak: "#1a222a", putih: "#c9cdd2", jendela: "#28405a",
     langit: "#7f9cc4", tanah: "#1a1f26", hemi: 0.8, matahari: "#ffd9a8", kuatMatahari: 1.3, env: 0.3, cahayaJendela: "#7aa6d8", kuatCahayaJendela: 0.07,
+    kapLampu: "#8d877b", map: "#a8996f", selesai: "#3fb6c8", tintaPapan: "#1d2833",
   },
+};
+/**
+ * Suasana mengikuti jam (WIB): pengali/tint di atas PALET. tint* = campuran ke warna fase (0 = palet apa adanya).
+ * pos = arah matahari relatif pusat lantai (sore lebih rendah → bayangan lebih panjang). lampu = kekuatan lampu meja/lantai.
+ */
+export const WAKTU = {
+  pagi:  { langit: "#d8e9ff", tintLangit: 0.5, hemi: 1.05, matahari: "#fff8ee", kuatMatahari: 0.95, pos: [-8, 22, -16], env: 1.05,
+           jendela: "#d6ecff", tintJendela: 0.45, cahayaJendela: "#fffaf0", kuatCahayaJendela: 1.4, lampu: 0 },
+  siang: { langit: "#ffffff", tintLangit: 0, hemi: 1.0, matahari: null, kuatMatahari: 1.0, pos: [-13, 24, -15], env: 1.0,
+           jendela: null, tintJendela: 0, cahayaJendela: null, kuatCahayaJendela: 1.0, lampu: 0 },
+  sore:  { langit: "#ffc184", tintLangit: 0.7, hemi: 0.9, matahari: "#ff9a45", kuatMatahari: 1.0, pos: [-22, 11, -8], env: 0.8,
+           jendela: "#ffbf73", tintJendela: 0.8, cahayaJendela: "#ff9a3d", kuatCahayaJendela: 2.6, lampu: 0.5 },
+  malam: { langit: "#ffd3a0", tintLangit: 0.75, hemi: 0.66, matahari: "#9db2ff", kuatMatahari: 0.1, pos: [-13, 24, -15], env: 0.55,
+           jendela: "#0e1b30", tintJendela: 0.93, cahayaJendela: "#000000", kuatCahayaJendela: 0, lampu: 1 },
 };
 const ZONA_TINT = { terang: 0.2, gelap: 0.08 };
 
@@ -88,12 +104,106 @@ function teksturBlob() {     // bayangan kontak karakter
   g.fillStyle = grad; g.fillRect(0, 0, 64, 64);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
 }
+function teksturGenangan() {   // genangan cahaya lampu (malam): pusat hangat, tepi lembut
+  const c = document.createElement("canvas"); c.width = c.height = 64;
+  const g = c.getContext("2d"), grad = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  grad.addColorStop(0, "rgba(255,255,255,1)"); grad.addColorStop(0.45, "rgba(255,255,255,.45)"); grad.addColorStop(1, "rgba(255,255,255,0)");
+  g.fillStyle = grad; g.fillRect(0, 0, 64, 64);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
 function teksturGrafik() {   // layar panel pemantauan IT Operations
   return kanvas(128, (g, n) => {
     g.fillStyle = "#0d1a14"; g.fillRect(0, 0, n, n);
     g.strokeStyle = "#34c38a"; g.lineWidth = 3; g.beginPath();
     for (let i = 0; i <= 8; i++) g.lineTo(8 + i * 14, 80 - ((i * 37) % 50));
     g.stroke(); g.fillStyle = "#2a7fff"; for (let i = 0; i < 5; i++) g.fillRect(12 + i * 22, 100, 14, 18 - i * 3);
+  });
+}
+
+// ---------------- isi papan (kanvas): hanya ID, judul, status tugas dari register ----------------
+const HURUF = '"Geist", ui-sans-serif, system-ui, sans-serif', HURUF_JUDUL = '"Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif';
+const WARNA_ST = { berjalan: "#1f9d6a", selesai: "#148a9c", terhambat: "#d9930b", penyelarasan: "#d9930b", ditinjau: "#3b7bd8", baru: "#3b7bd8" };
+const warnaSt = (st, p) => (st === "selesai" ? p.selesai : WARNA_ST[st] ?? "#8a97a6");
+/** Teks dipotong dengan "…" agar muat `lebar` piksel. */
+function muat(g, teks, lebar) {
+  if (g.measureText(teks).width <= lebar) return teks;
+  let lo = 0, hi = teks.length;
+  while (lo < hi) { const m = (lo + hi + 1) >> 1; if (g.measureText(`${teks.slice(0, m)}…`).width <= lebar) lo = m; else hi = m - 1; }
+  return `${teks.slice(0, lo).trimEnd()}…`;
+}
+/** Bungkus teks ke beberapa baris (maks. `baris`; baris terakhir dipotong "…"). */
+function bungkus(g, teks, lebar, baris) {
+  const kata = String(teks).split(/\s+/), hasil = [];
+  let kini = "";
+  for (let i = 0; i < kata.length; i++) {
+    const coba = kini ? `${kini} ${kata[i]}` : kata[i];
+    if (g.measureText(coba).width <= lebar || !kini) { kini = coba; continue; }
+    if (hasil.length === baris - 1) { hasil.push(muat(g, `${kini} ${kata.slice(i).join(" ")}`, lebar)); return hasil; }
+    hasil.push(kini); kini = kata[i];
+  }
+  if (kini) hasil.push(hasil.length === baris - 1 ? muat(g, kini, lebar) : kini);
+  return hasil.slice(0, baris);
+}
+function kotakBulat(g, x, y, w, h, r) { g.beginPath(); g.roundRect ? g.roundRect(x, y, w, h, r) : g.rect(x, y, w, h); }
+/** Papan tulis tim: judul tim/proyek + daftar tugas berjalan (spidol). */
+function gambarPapanTulis(g, c, data, p) {
+  const W = c.width, pad = 36;
+  g.fillStyle = "#5b3fb8"; g.font = `650 40px ${HURUF_JUDUL}`; g.textBaseline = "alphabetic";
+  g.fillText(muat(g, data.judul, W - 2 * pad), pad, 66);
+  g.fillRect(pad, 82, Math.min(W - 2 * pad, g.measureText(data.judul).width), 4);
+  const daftar = data.tugas ?? [];
+  if (!daftar.length) { g.fillStyle = "#8a97a6"; g.font = `500 32px ${HURUF}`; g.fillText("Belum ada tugas berjalan", pad, 160); return; }
+  daftar.slice(0, 4).forEach((t, i) => {
+    const y = 148 + i * 64;
+    g.fillStyle = warnaSt(t.status, p); g.beginPath(); g.arc(pad + 12, y - 11, 11, 0, Math.PI * 2); g.fill();
+    g.fillStyle = p.tintaPapan; g.font = `650 32px ${HURUF}`; g.fillText(t.id, pad + 36, y);
+    const x = pad + 46 + g.measureText(t.id).width;
+    g.font = `500 31px ${HURUF}`;
+    const ekor = t.status === "berjalan" ? "" : ` · ${t.status}`;
+    g.fillText(muat(g, `${t.judul}${ekor}`, W - pad - x), x, y);
+  });
+  if (daftar.length > 4) { g.fillStyle = "#5e6e7e"; g.font = `500 28px ${HURUF}`; g.fillText(`+${daftar.length - 4} tugas lagi`, pad + 36, 148 + 4 * 64 - 8); }
+}
+/** Papan strategi (Corporate Strategy): satu catatan tempel per tugas berjalan. */
+function gambarPapanCatatan(g, c, data, p) {
+  const W = c.width, pad = 32;
+  g.fillStyle = p.tintaPapan; g.font = `650 40px ${HURUF_JUDUL}`; g.textBaseline = "alphabetic";
+  g.fillText(muat(g, data.judul, W - 2 * pad), pad, 62);
+  const daftar = data.tugas ?? [];
+  if (!daftar.length) { g.fillStyle = "#8a97a6"; g.font = `500 32px ${HURUF}`; g.fillText("Belum ada tugas berjalan", pad, 150); return; }
+  const warna = ["#bfe8ec", "#cdebcb", "#f6e3a1"], lebar = (W - 2 * pad - 2 * 28) / 3, tinggi = c.height - 110;
+  daftar.slice(0, 3).forEach((t, i) => {
+    const x = pad + i * (lebar + 28), y = 92;
+    g.fillStyle = "rgba(0,0,0,.12)"; kotakBulat(g, x + 6, y + 8, lebar, tinggi - 20, 10); g.fill();
+    g.fillStyle = warna[i]; kotakBulat(g, x, y, lebar, tinggi - 20, 10); g.fill();
+    g.fillStyle = "#1d2833"; g.font = `650 32px ${HURUF}`; g.fillText(t.id, x + 22, y + 52);
+    g.font = `500 30px ${HURUF}`;
+    bungkus(g, t.judul, lebar - 44, 6).forEach((b, k) => g.fillText(b, x + 22, y + 98 + k * 40));
+    g.fillStyle = warnaSt(t.status, p); g.font = `600 26px ${HURUF}`; g.fillText(t.status, x + 22, y + tinggi - 46);
+  });
+  if (daftar.length > 3) { g.fillStyle = "#5e6e7e"; g.font = `500 26px ${HURUF}`; g.fillText(`+${daftar.length - 3} lagi`, W - pad - 110, 62); }
+}
+/** Papan tugas Ruang Pimpinan: Berjalan · Antre & lainnya · Selesai hari ini. */
+function gambarPapanTugas(g, c, data, p) {
+  const W = c.width, pad = 28, gap = 18, lebar = (W - 2 * pad - 2 * gap) / 3;
+  g.fillStyle = p.tintaPapan; g.font = `650 40px ${HURUF_JUDUL}`; g.textBaseline = "alphabetic";
+  g.fillText("Papan tugas", pad, 60);
+  const xSub = pad + g.measureText("Papan tugas").width + 16;
+  g.fillStyle = "#5e6e7e"; g.font = `500 24px ${HURUF}`; g.fillText("dari register tugas", xSub, 60);
+  const kolom = [["Berjalan", data.berjalan], ["Antre & lainnya", data.lain], ["Selesai hari ini", data.selesai]];
+  kolom.forEach(([nama, daftar = []], k) => {
+    const x = pad + k * (lebar + gap);
+    g.fillStyle = "rgba(29,40,51,.035)"; kotakBulat(g, x, 84, lebar, c.height - 84 - pad, 12); g.fill();
+    g.fillStyle = p.tintaPapan; g.font = `650 26px ${HURUF}`; g.fillText(muat(g, `${nama} · ${daftar.length}`, lebar - 28), x + 14, 120);
+    if (!daftar.length) { g.fillStyle = "#8a97a6"; g.font = `500 22px ${HURUF}`; g.fillText("—", x + 14, 166); }
+    daftar.slice(0, 4).forEach((t, i) => {
+      const y = 138 + i * 86;
+      g.fillStyle = "#ffffff"; kotakBulat(g, x + 10, y, lebar - 20, 74, 8); g.fill();
+      g.fillStyle = warnaSt(t.status, p); g.fillRect(x + 10, y, 7, 74);
+      g.fillStyle = "#1d2833"; g.font = `650 22px ${HURUF}`; g.fillText(muat(g, t.status === "berjalan" || t.status === "selesai" ? t.id : `${t.id} · ${t.status}`, lebar - 52), x + 28, y + 30);
+      g.font = `500 21px ${HURUF}`; g.fillText(muat(g, t.judul, lebar - 52), x + 28, y + 60);
+    });
+    if (daftar.length > 4) { g.fillStyle = "#5e6e7e"; g.font = `500 21px ${HURUF}`; g.fillText(`+${daftar.length - 4} lagi`, x + 14, c.height - pad - 12); }
   });
 }
 
@@ -132,10 +242,11 @@ class Pembangun {
 const KOTAK = new THREE.BoxGeometry(1, 1, 1);
 const SILINDER = new THREE.CylinderGeometry(1, 1, 1, 24);
 const BOLA = new THREE.IcosahedronGeometry(1, 2);
+const KERUCUT = new THREE.CylinderGeometry(0.6, 1, 1, 20);   // kap lampu
 
 // ---------------- perabot ----------------
 /** Gambar satu perabot dari data denah ke pembangun `b`. Monitor (layar per meja) dikumpulkan ke `layar`. */
-function gambarPerabot(b, o, layar) {
+function gambarPerabot(b, o, layar, ekstra = { lampu: [], berkas: {} }) {
   const { x, y, w, d } = o;
   switch (o.jenis) {
     case "meja": case "meja-pimpinan": {
@@ -154,6 +265,16 @@ function gambarPerabot(b, o, layar) {
       b.kotak("monitor", mx - 0.22, kb - 0.07, tinggi, 0.44, 0.14, 0.018);
       b.kotak("putih", x + (hadapDepan ? w - 0.45 : 0.25), y + d / 2 - 0.12, tinggi, 0.22, 0.29, 0.01);
       if (besar) b.silinder("putih", x + w - 0.45, y + 0.35, tinggi, 0.045, 0.1);
+      // lampu meja (menyala sore/malam): di sudut belakang meja anggota / sudut depan-kiri meja pimpinan
+      const [lx, ly] = hadapDepan ? [x + w - 0.16, y + 0.16] : [x + 0.18, y + d - 0.2];
+      b.silinder("logamGelap", lx, ly, tinggi, 0.07, 0.02);
+      b.silinder("logam", lx, ly, tinggi + 0.02, 0.012, 0.32);
+      const dvLampu = TIM[o.agen]?.divisi ?? "";   // kap lampu tim engineering terpisah: padam bila timnya belum dipakai
+      b.tambah(dvLampu.startsWith("tim") ? `kapLampu:${dvLampu}` : "kapLampu", KERUCUT, lx, tinggi + 0.39, ly, { sx: 0.1, sy: 0.12, sz: 0.1 });
+      const kx = x + w / 2 - lx, ky = y + d / 2 - ly, kp = Math.hypot(kx, ky);
+      ekstra.lampu.push({ x: lx + (kx / kp) * 0.24, y: ly + (ky / kp) * 0.24, h: tinggi + 0.004, r: 0.42, divisi: dvLampu });
+      // tempat berkas tugas yang selesai hari ini (lihat aturBerkas)
+      ekstra.berkas[o.agen] = hadapDepan ? { x: x + 0.42, y: y + d / 2 + 0.06, h: tinggi } : { x: x + w - 0.85, y: y + d / 2 + 0.05, h: tinggi };
       break;
     }
     case "kursi": {
@@ -269,6 +390,14 @@ function gambarPerabot(b, o, layar) {
       break;
     }
     case "sofa-ujung": b.kotak("sofa", x, y, 0, w, d, 0.62); break;
+    case "lampu-lantai": {
+      const cx = x + w / 2, cy = y + d / 2;
+      b.silinder("logamGelap", cx, cy, 0, 0.17, 0.03);
+      b.silinder("logam", cx, cy, 0.03, 0.016, 1.45);
+      b.tambah("kapLampu", KERUCUT, cx, 1.58, cy, { sx: 0.22, sy: 0.26, sz: 0.22 });
+      ekstra.lampu.push({ x: cx, y: cy, h: 0.022, r: 1.25 });
+      break;
+    }
     case "sofa-dudukan": {
       b.kotak("sofa", x, y, 0.1, w, d, 0.34);
       if (o.sandaran === "y-") { b.kotak("sofa", x, y, 0.44, w, 0.26, 0.5); b.kotak("sofa", x + 0.03, y + 0.26, 0.44, w - 0.06, d - 0.3, 0.07); }
@@ -395,6 +524,10 @@ export class Adegan {
       cahayaJendela: new THREE.MeshBasicMaterial({ map: teksturCahaya(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }),
       blob: new THREE.MeshBasicMaterial({ map: teksturBlob(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }),
       grafik: new THREE.MeshBasicMaterial({ map: teksturGrafik(), toneMapped: false }),
+      kapLampu: std({ roughness: 0.7 }), map: std({ roughness: 0.75 }),
+      kapLampuTim: Object.fromEntries(NOMOR_TIM.map((n) => [`tim${n}`, std({ roughness: 0.7 })])),
+      genangan: new THREE.MeshBasicMaterial({ map: teksturGenangan(), color: "#ffcf8a", transparent: true, opacity: 0, depthWrite: false,
+        blending: THREE.AdditiveBlending, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -3 }),
       zona: {},
     };
     for (const dv of [...DIVISI, { id: "lounge", warna: WARNA_LOUNGE }]) this.mat.zona[dv.id] = std({ map: ubin, roughness: 0.8 });
@@ -406,12 +539,49 @@ export class Adegan {
     for (const dv of [...DIVISI, { id: "lounge", warna: WARNA_LOUNGE }])
       m.zona[dv.id].color.set(p.lantai).lerp(new THREE.Color(dv.warna), ZONA_TINT[this.gelap ? "gelap" : "terang"]);
     m.zona.pimpinan.map = this.tekstur.kayu; m.zona.pimpinan.color.set(p.kayuLantai); m.zona.pimpinan.roughness = 0.55; m.zona.pimpinan.needsUpdate = true;
-    m.cahayaJendela.color.set(p.cahayaJendela); m.cahayaJendela.opacity = p.kuatCahayaJendela;
-    this.hemi.color.set(p.langit); this.hemi.groundColor.set(p.tanah); this.hemi.intensity = p.hemi;
-    this.matahari.color.set(p.matahari); this.matahari.intensity = p.kuatMatahari;
-    this.scene.environmentIntensity = p.env;
+    // suasana mengikuti jam: tint & pengali fase di atas palet tema
+    const w = WAKTU[this.waktu] ?? WAKTU.siang, campur = (dasar, ke, u) => (ke && u ? new THREE.Color(dasar).lerp(new THREE.Color(ke), u) : new THREE.Color(dasar));
+    m.jendela.color.copy(campur(p.jendela, w.jendela, w.tintJendela));
+    m.cahayaJendela.color.copy(campur(p.cahayaJendela, w.cahayaJendela, w.cahayaJendela ? 0.7 : 0));
+    m.cahayaJendela.opacity = p.kuatCahayaJendela * w.kuatCahayaJendela;
+    this.hemi.color.copy(campur(p.langit, w.langit, w.tintLangit)); this.hemi.groundColor.set(p.tanah); this.hemi.intensity = p.hemi * w.hemi;
+    this.matahari.color.copy(campur(p.matahari, w.matahari, w.matahari ? 0.8 : 0)); this.matahari.intensity = p.kuatMatahari * w.kuatMatahari;
+    this.matahari.position.set(NX / 2 + w.pos[0], w.pos[1], NY / 2 + w.pos[2]);
+    this.scene.environmentIntensity = p.env * w.env;
+    this.terapkanLampu();
     for (const nama of Object.keys(this.layar)) this.aturLayar(nama, this.statusLayar?.[nama] ?? null, true);
+    for (const pp of Object.values(this.papan ?? {})) pp.kunci = null;   // warna tinta papan mengikuti tema
+    if (this.isiPapan) this.aturPapan(this.isiPapan);
+    if (this.isiBerkas) this.aturBerkas(this.isiBerkas, true);
     this.perbaruiBayangan();
+  }
+  /** Lampu meja & lantai menurut fase; kap lampu tim yang belum dipakai tidak menyala. Tidak menyentuh bayangan. */
+  terapkanLampu() {
+    const p = PALET[this.gelap ? "gelap" : "terang"], m = this.mat, w = WAKTU[this.waktu] ?? WAKTU.siang;
+    for (const [dv, km] of [["", m.kapLampu], ...Object.entries(m.kapLampuTim)]) {
+      const nyala = w.lampu > 0 && (!dv || !this.timTerlihat || this.timTerlihat.has(dv));
+      km.color.set(p.kapLampu); km.emissive.set(nyala ? "#ffc97a" : "#000000"); km.emissiveIntensity = nyala ? w.lampu * 1.4 : 0;
+    }
+    m.genangan.opacity = (this.gelap ? 0.38 : 0.62) * w.lampu; this.genangan.visible = w.lampu > 0;
+    this.mintaGambar();
+  }
+  /** Lampu meja tim engineering yang belum dipakai padam (genangan disembunyikan, kap tidak menyala). `terlihat` = Set divisi. */
+  aturLampuTim(terlihat, paksa = false) {
+    const kunci = terlihat ? [...terlihat].sort().join(",") : "*";
+    if (!paksa && kunci === this._kunciLampu) return;
+    this._kunciLampu = kunci; this.timTerlihat = terlihat;
+    (this.lampu ?? []).forEach((l, i) => {
+      const padam = terlihat && l.divisi?.startsWith("tim") && !terlihat.has(l.divisi);
+      this.blobM.makeScale(padam ? 0 : l.r, 1, padam ? 0 : l.r).setPosition(l.x, l.h, l.y); this.genangan.setMatrixAt(i, this.blobM);
+    });
+    this.genangan.instanceMatrix.needsUpdate = true;
+    if (!paksa) this.terapkanLampu();
+  }
+  /** Fase waktu (pagi · siang · sore · malam) → cahaya, jendela, lampu. Hanya menggambar ulang bila fasenya berubah. */
+  aturWaktu(fase) {
+    if (!WAKTU[fase] || fase === this.waktu) return;
+    this.waktu = fase;
+    this.terapkanTema();
   }
 
   // ---------- cahaya ----------
@@ -437,7 +607,7 @@ export class Adegan {
 
   // ---------- ruang & perabot ----------
   bangunRuang() {
-    const b = new Pembangun(), pakaiMat = (k) => (k.startsWith("zona:") ? this.mat.zona[k.slice(5)] : this.mat[k]);
+    const b = new Pembangun(), pakaiMat = (k) => (k.startsWith("zona:") ? this.mat.zona[k.slice(5)] : k.startsWith("kapLampu:") ? this.mat.kapLampuTim[k.slice(9)] : this.mat[k]);
     // lantai: alas (lorong) + zona; tebal lantai (diorama)
     const lantai = (kunci, x0, y0, x1, y1, z = 0) => {
       const g = new THREE.PlaneGeometry(x1 - x0, y1 - y0).rotateX(-Math.PI / 2);
@@ -478,27 +648,22 @@ export class Adegan {
     b.kotak("logam", -0.1, py + 0.5, 0.95, 0.04, 0.16, 0.04, { bayang: false });
     b.kotak("keluar", -0.0, py - 0.31, 2.28, 0.04, 0.62, 0.2, { bayang: false });
     this.mat.keluar = new THREE.MeshBasicMaterial({ color: "#2fa86b", toneMapped: false });
-    // dekor dinding: papan tulis tiap pod, papan strategi
+    // dekor dinding: papan tulis tiap pod, papan strategi, papan tugas — isinya kanvas dari data register (aturPapan),
+    // tidak ada coretan hiasan: papan kosong berarti memang tidak ada tugas berjalan
     for (const dk of this.denah.dekor) {
       if (dk.jenis === "papan-tulis") {
         b.kotak("logam", dk.a - 0.03, 0, dk.z0 - 0.03, dk.b - dk.a + 0.06, 0.04, dk.z1 - dk.z0 + 0.06, { bayang: false });
         b.kotak("putih", dk.a, 0.02, dk.z0, dk.b - dk.a, 0.03, dk.z1 - dk.z0, { bayang: false });
-        for (const [p, q, z] of [[0.3, 1.3, 0.7], [1.5, 2.5, 0.5], [0.4, 1.9, 0.3]]) b.kotak("tinta", dk.a + p, 0.051, dk.z0 + z, q - p, 0.005, 0.025, { bayang: false });
       }
-      if (dk.jenis === "papan-strategi") {
-        b.kotak("putih", 0, dk.a, dk.z0, 0.03, dk.b - dk.a, dk.z1 - dk.z0, { bayang: false });
-        ["catatanBiru", "catatanHijau", "catatanKuning"].forEach((k, kol) => {
-          for (let i = 0; i < 3 - (kol === 2); i++) b.kotak(k, 0.031, dk.a + 0.25 + kol * 1.1, dk.z1 - 0.3 - i * 0.32, 0.005, 0.7, 0.22, { bayang: false });
-        });
+      if (dk.jenis === "papan-strategi" || dk.jenis === "papan-tugas") {
+        if (dk.jenis === "papan-tugas") b.kotak("logam", 0, dk.a - 0.03, dk.z0 - 0.03, 0.035, dk.b - dk.a + 0.06, dk.z1 - dk.z0 + 0.06, { bayang: false });
+        b.kotak("putih", 0, dk.a, dk.z0, 0.04, dk.b - dk.a, dk.z1 - dk.z0, { bayang: false });
       }
     }
-    this.mat.tinta = new THREE.MeshBasicMaterial({ color: "#7c5cd6" });
-    this.mat.catatanBiru = new THREE.MeshStandardMaterial({ color: "#1fa3ae", roughness: 0.8 });
-    this.mat.catatanHijau = new THREE.MeshStandardMaterial({ color: "#3e9e5c", roughness: 0.8 });
-    this.mat.catatanKuning = new THREE.MeshStandardMaterial({ color: "#e0b030", roughness: 0.8 });
     // perabot
-    const layar = [];
-    for (const o of this.denah.perabot) gambarPerabot(b, o, layar);
+    const layar = [], ekstra = { lampu: [], berkas: {} };
+    for (const o of this.denah.perabot) gambarPerabot(b, o, layar, ekstra);
+    this.tempatBerkas = ekstra.berkas;
     this.statis = b.bentuk(pakaiMat);
     this.scene.add(this.statis);
     // layar monitor semua meja = satu InstancedMesh (warna per layar = status); panel grafik IT Operations terpisah
@@ -516,6 +681,15 @@ export class Adegan {
       m.position.set(l.x, l.h, l.y); m.rotation.y = l.ry; m.scale.set(l.w, l.tinggi, 1); m.matrixAutoUpdate = false; m.updateMatrix();
       this.scene.add(m);
     }
+    this.bangunPapan();
+    // berkas tugas yang selesai hari ini di meja pemiliknya = satu InstancedMesh (maks. 3 per meja)
+    this.berkasInst = new THREE.InstancedMesh(new THREE.BoxGeometry(0.23, 0.012, 0.31), this.mat.map, Object.keys(this.tempatBerkas).length * 3);
+    this.berkasInst.count = 0; this.berkasInst.castShadow = false; this.berkasInst.receiveShadow = true; this.scene.add(this.berkasInst);
+    // genangan cahaya lampu meja & lampu lantai (hanya tampil saat lampu menyala) = satu InstancedMesh
+    this.genangan = new THREE.InstancedMesh(new THREE.PlaneGeometry(2, 2).rotateX(-Math.PI / 2), this.mat.genangan, ekstra.lampu.length);
+    this.lampu = ekstra.lampu; this.timTerlihat ??= null;
+    this.aturLampuTim(this.timTerlihat, true);
+    this.genangan.visible = false; this.genangan.renderOrder = 2; this.scene.add(this.genangan);
     // bayangan kontak semua orang = satu InstancedMesh (diperbarui saat menggambar)
     this.blob = new THREE.InstancedMesh(new THREE.PlaneGeometry(0.75, 0.75).rotateX(-Math.PI / 2), this.mat.blob, 48);
     this.blob.count = 0; this.blob.frustumCulled = false; this.scene.add(this.blob);
@@ -542,7 +716,8 @@ export class Adegan {
     return g;
   }
 
-  /** Warna layar monitor sesuai status: bekerja = menyala warna peran; berpikir/menunggu = redup; lainnya mati. */
+  /** Warna layar monitor sesuai keadaan: bekerja = menyala warna peran; berpikir/menunggu = setengah; baru selesai =
+   *  setengah berwarna "selesai"; siap dipanggil = sangat redup (menyala, tidak dipakai); null (tim kosong) = mati. */
   aturLayar(nama, status, paksa = false) {
     this.statusLayar ??= {};
     if (!paksa && nama in this.statusLayar && this.statusLayar[nama] === status) return;   // tidak berubah: tanpa gambar ulang
@@ -551,8 +726,74 @@ export class Adegan {
     const p = PALET[this.gelap ? "gelap" : "terang"], warna = new THREE.Color(TIM[nama].warna), c = new THREE.Color();
     if (status === "bekerja") c.copy(warna).lerp(new THREE.Color("#ffffff"), 0.35);
     else if (status === "berpikir" || status === "menunggu") c.set(p.layarMati).lerp(warna, 0.45);
+    else if (status === "selesai") c.set(p.layarMati).lerp(new THREE.Color(p.selesai), 0.55);
+    else if (status === "siap") c.set(p.layarMati).lerp(warna, 0.16);
     else c.set(p.layarMati);
     this.layarInst.setColorAt(i, c); this.layarInst.instanceColor.needsUpdate = true;
+    this.mintaGambar();
+  }
+  // ---------- jejak kerja: papan (kanvas) & berkas ----------
+  /** Bidang kanvas di depan tiap papan (dinding belakang: menghadap +z; dinding kiri: menghadap +x). 400 px per meter. */
+  bangunPapan() {
+    this.papan = {};
+    for (const dk of this.denah.dekor) {
+      if (!dk.id) continue;
+      const lebar = dk.b - dk.a, tinggi = dk.z1 - dk.z0, PPM = 400;
+      const kanvasEl = document.createElement("canvas");
+      kanvasEl.width = Math.round(lebar * PPM); kanvasEl.height = Math.round(tinggi * PPM);
+      const tekstur = new THREE.CanvasTexture(kanvasEl);
+      tekstur.colorSpace = THREE.SRGBColorSpace; tekstur.anisotropy = 8;
+      const mat = new THREE.MeshStandardMaterial({ map: tekstur, transparent: true, roughness: 0.9, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
+      const me = new THREE.Mesh(new THREE.PlaneGeometry(lebar, tinggi), mat);
+      if (dk.dinding === "kiri") { me.position.set(0.043, (dk.z0 + dk.z1) / 2, (dk.a + dk.b) / 2); me.rotation.y = Math.PI / 2; }
+      else me.position.set((dk.a + dk.b) / 2, (dk.z0 + dk.z1) / 2, 0.053);
+      me.matrixAutoUpdate = false; me.updateMatrix(); me.visible = false;
+      this.scene.add(me);
+      this.papan[dk.id] = { jenis: dk.jenis, kanvas: kanvasEl, tekstur, me, kunci: null };
+    }
+    // huruf lokal baru siap setelah dimuat: gambar ulang papan sekali
+    document.fonts?.ready?.then(() => { for (const pp of Object.values(this.papan)) pp.kunci = null; if (this.isiPapan) this.aturPapan(this.isiPapan); });
+  }
+  /**
+   * Isi papan dari data register: `{ tim1: {judul, tugas:[{id, judul, status}]}, …, corp: {…}, tugas: {berjalan, lain, selesai} }`.
+   * Hanya ID, judul, dan status tugas yang digambar. Kanvas hanya digambar ulang bila isinya berubah.
+   */
+  aturPapan(isi) {
+    this.isiPapan = isi;
+    const p = PALET[this.gelap ? "gelap" : "terang"];
+    for (const [id, pp] of Object.entries(this.papan ?? {})) {
+      const data = isi[id] ?? null, kunci = JSON.stringify([data, this.gelap]);
+      if (pp.kunci === kunci) continue;
+      pp.kunci = kunci;
+      const g = pp.kanvas.getContext("2d");
+      g.clearRect(0, 0, pp.kanvas.width, pp.kanvas.height);
+      if (data) (pp.jenis === "papan-tugas" ? gambarPapanTugas : pp.jenis === "papan-strategi" ? gambarPapanCatatan : gambarPapanTulis)(g, pp.kanvas, data, p);
+      pp.me.visible = !!data;
+      pp.tekstur.needsUpdate = true;
+      this.mintaGambar();
+    }
+  }
+  /** Berkas di meja: `{ kursi: jumlah }` → tumpukan map (maks. 3) di meja pemiliknya. */
+  aturBerkas(jumlah, paksa = false) {
+    const kunci = JSON.stringify(jumlah);
+    if (!paksa && kunci === this._kunciBerkas) return;
+    this._kunciBerkas = kunci; this.isiBerkas = jumlah;
+    const p = PALET[this.gelap ? "gelap" : "terang"], m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), c = new THREE.Color();
+    let n = 0;
+    for (const [nama, k] of Object.entries(jumlah)) {
+      const t = this.tempatBerkas[nama]; if (!t) continue;
+      for (let i = 0; i < Math.min(3, k); i++) {
+        q.setFromEuler(e.set(0, (i % 2 ? 0.14 : -0.1) + i * 0.03, 0));
+        m.compose(new THREE.Vector3(t.x + i * 0.012, t.h + 0.007 + i * 0.014, t.y - i * 0.01), q, new THREE.Vector3(1, 1, 1));
+        this.berkasInst.setMatrixAt(n, m);
+        this.berkasInst.setColorAt(n, c.set(p.map).lerp(new THREE.Color(TIM[nama].warna), 0.18 + 0.12 * i));
+        n++;
+      }
+    }
+    this.berkasInst.count = n;
+    this.berkasInst.instanceMatrix.needsUpdate = true;
+    if (this.berkasInst.instanceColor) this.berkasInst.instanceColor.needsUpdate = true;
+    this.berkasInst.computeBoundingSphere();
     this.mintaGambar();
   }
   aturSorot(nama, tingkat) {   // 0 tidak ada · 1 hover · 2 dipilih

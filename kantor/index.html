@@ -15,7 +15,7 @@
   /* Token sesuai kantor/DESAIN.md › Token (warna 3D: kantor/app/adegan.mjs › PALET) */
   :root {
     --latar: #e8edf2; --permukaan: #ffffff; --tinta: #1d2833; --redup: #5e6e7e; --garis: #d5dde5;
-    --bekerja: #1f9d6a; --berpikir: #3b7bd8; --menunggu: #d9930b; --santai: #8a97a6; --galat: #d64545;
+    --bekerja: #1f9d6a; --berpikir: #3b7bd8; --menunggu: #d9930b; --santai: #8a97a6; --selesai: #148a9c; --galat: #d64545;
     --panggung-atas: #f3f6f9; --panggung-bawah: #dfe6ed;
     --judul: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
     --teks: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -24,10 +24,19 @@
   @media (prefers-color-scheme: dark) {
     :root {
       --latar: #0e151d; --permukaan: #141e28; --tinta: #e4ebf2; --redup: #8fa0b1; --garis: #243241;
-      --bekerja: #34c38a; --berpikir: #5b97ef; --menunggu: #f0aa2a; --santai: #7d8b99; --galat: #ef6461;
+      --bekerja: #34c38a; --berpikir: #5b97ef; --menunggu: #f0aa2a; --santai: #7d8b99; --selesai: #3fb6c8; --galat: #ef6461;
       --panggung-atas: #121c26; --panggung-bawah: #0b1117;
       color-scheme: dark;
     }
+  }
+  /* suasana mengikuti jam (kantor.mjs › perbaruiWaktu): latar panggung ikut hangat sore & gelap malam */
+  :root[data-waktu="pagi"] { --panggung-atas: #f4f8fc; --panggung-bawah: #e0e9f2; }
+  :root[data-waktu="sore"] { --panggung-atas: #f8efe4; --panggung-bawah: #e7d8c6; }
+  :root[data-waktu="malam"] { --panggung-atas: #cfd8e4; --panggung-bawah: #aab6c6; }
+  @media (prefers-color-scheme: dark) {
+    :root[data-waktu="pagi"] { --panggung-atas: #142030; --panggung-bawah: #0c131b; }
+    :root[data-waktu="sore"] { --panggung-atas: #20190f; --panggung-bawah: #120e09; }
+    :root[data-waktu="malam"] { --panggung-atas: #0b1220; --panggung-bawah: #05080e; }
   }
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
@@ -94,14 +103,17 @@
   .tag .aksi-meja { font: 500 11px/1.25 var(--teks); color: var(--redup); }
   .tag .aksi-meja:empty { display: none; }
   .tag.menunggu .aksi-meja { color: var(--menunggu); } .tag.bekerja .aksi-meja { color: var(--bekerja); }
+  .tag.selesai .aksi-meja { color: var(--selesai); font-weight: 600; }
   .tag.menunggu .isi { border-color: var(--menunggu); border-width: 2px; }
+  .tag.selesai .isi { border-color: var(--selesai); border-width: 2px; }
   .tag.dipilih .isi { border-color: var(--warna); border-width: 2px; }
   .tag:hover .isi { background: var(--permukaan); }
-  .tag.absen .isi { opacity: .6; } .tag.santai .isi { opacity: .78; } .tag.katalog .isi { opacity: .45; }
+  /* siap dipanggil: tag lebih tenang dari yang bekerja; saat denah jauh hanya orangnya yang tampil (tanpa lencana) */
+  .tag.siap .isi { opacity: .72; } .tag.siap.dipilih .isi { opacity: 1; }
   .tag.tim-kosong { display: none; }
-  .jauh .tag.absen, .jauh .tag.katalog { display: none; }
+  .jauh .tag.siap:not(.dipilih) { display: none; }
   .jauh .tag .aksi-meja { display: none; }
-  .jauh .tag.menunggu .aksi-meja, .jauh .tag.dipilih .aksi-meja { display: block; }
+  .jauh .tag.menunggu .aksi-meja, .jauh .tag.selesai .aksi-meja, .jauh .tag.dipilih .aksi-meja { display: block; }
 
   /* label di atas kepala: simbol status (+ nama saat di luar meja) */
   .kepala-label .isi { display: inline-flex; align-items: center; gap: 4px; transform: translate(-50%, -100%); white-space: nowrap;
@@ -109,7 +121,7 @@
     box-shadow: 0 1px 2px rgba(10, 20, 30, .2); }
   .kepala-label .simbol { width: 15px; height: 15px; font-size: 9.5px; }
   .kepala-label.di-meja .isi { padding: 1px; } .kepala-label.di-meja .nama-orang { display: none; }
-  .kepala-label[data-status="santai"].di-meja { display: none; }
+  .kepala-label[data-status="siap"].di-meja { display: none; }
   .kepala-label[data-status="menunggu"] .isi { box-shadow: 0 0 0 2px var(--menunggu); }
   .jauh .kepala-label:not([data-status="menunggu"]) .nama-orang { display: none; }
   .jauh .kepala-label:not([data-status="menunggu"]) .isi { padding: 1px; }
@@ -137,10 +149,9 @@
   .simbol { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; color: #fff;
     font-size: 11px; font-weight: 600; line-height: 1; flex: none; }
   .simbol.bekerja { background: var(--bekerja); } .simbol.berpikir { background: var(--berpikir); }
-  .simbol.menunggu { background: var(--menunggu); } .simbol.santai { background: var(--santai); }
-  .simbol.absen { background: transparent; border: 1.5px dashed var(--santai); color: var(--santai); }
-  /* katalog: peran tanpa sesi tetap, dipanggil sebagai subagent saat perlu — redup & netral, bukan "offline" */
-  .simbol.katalog { background: transparent; border: 1.5px dotted color-mix(in srgb, var(--santai) 70%, transparent); }
+  .simbol.menunggu { background: var(--menunggu); } .simbol.santai, .simbol.siap { background: var(--santai); }
+  .simbol.selesai { background: var(--selesai); }
+  .simbol.absen, .simbol.kosong { background: transparent; border: 1.5px dashed var(--santai); color: var(--santai); }
 
   .samping { grid-area: samping; display: flex; flex-direction: column; gap: 18px; min-width: 0; }
   .samping section, .linimasa { padding: 16px 16px 14px; }
@@ -161,9 +172,7 @@
   .tim > li > button[aria-expanded="true"] { background: color-mix(in srgb, var(--warna) 12%, transparent); }
   .avatar { position: relative; width: 34px; height: 34px; border-radius: 50%; background: var(--warna); color: #fff;
     display: grid; place-items: center; font-family: var(--judul); font-weight: 650; font-size: 12.5px; }
-  li.absen .avatar { background: transparent; border: 1.5px dashed var(--santai); color: var(--redup); }
-  li.katalog .avatar { background: color-mix(in srgb, var(--warna) 14%, transparent); color: var(--redup); opacity: .7; }
-  li.katalog .nama { color: var(--redup); font-weight: 500; }
+  li.selesai .keadaan b { color: var(--selesai); }
   .tim .sub { display: inline-block; font-size: 11.5px; font-weight: 600; color: var(--warna); border: 1px solid color-mix(in srgb, var(--warna) 45%, transparent);
     border-radius: 6px; padding: 0 5px; margin-left: 4px; }
   .avatar .simbol { position: absolute; right: -4px; bottom: -4px; width: 17px; height: 17px; font-size: 10px; box-shadow: 0 0 0 2px var(--permukaan); }
@@ -196,6 +205,9 @@
   .aktivitas .titik { width: 8px; height: 8px; border-radius: 50%; background: var(--warna); margin-top: 7px; }
   .aktivitas .rinci { color: var(--redup); overflow-wrap: anywhere; }
   .kosong { color: var(--redup); font-size: 14px; margin: 0; }
+  .selesai-hari-ini h3 { font: 650 14px var(--judul); margin: 14px 0 4px; color: var(--redup); }
+  .selesai-hari-ini .tugas { max-height: 180px; }
+  .selesai-hari-ini .judul { font-weight: 500; }
 
   .linimasa { grid-area: linimasa; }
   .linimasa .kepala { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; }
@@ -247,9 +259,8 @@
       <span aria-hidden="true"><i class="simbol bekerja">▶</i>Bekerja</span>
       <span aria-hidden="true"><i class="simbol berpikir">…</i>Berpikir</span>
       <span aria-hidden="true"><i class="simbol menunggu">!</i>Menunggu Anda</span>
-      <span aria-hidden="true"><i class="simbol santai">–</i>Siaga · sesi hidup, santai di lounge</span>
-      <span aria-hidden="true"><i class="simbol katalog"></i>Katalog · dipanggil saat perlu</span>
-      <span aria-hidden="true"><i class="simbol absen"></i>Sesi tetap belum masuk</span>
+      <span aria-hidden="true"><i class="simbol selesai">✓</i>Baru selesai (≤ 10 mnt)</span>
+      <span aria-hidden="true"><i class="simbol siap">–</i>Siap dipanggil · di meja, sesekali ngopi</span>
       <span class="kendali" role="group" aria-label="Kamera denah">
         <button type="button" id="putar-kiri" aria-label="Putar denah ke kiri">⟲</button>
         <button type="button" id="putar-kanan" aria-label="Putar denah ke kanan">⟳</button>
@@ -270,6 +281,10 @@
     <section class="kartu" aria-labelledby="judul-tugas">
       <h2 id="judul-tugas">Tugas berjalan <span class="hitung" id="hitung-tugas"></span></h2>
       <ul class="tugas" id="tugas"></ul>
+      <div class="selesai-hari-ini" id="selesai-hari-ini" hidden>
+        <h3>Selesai hari ini <span class="hitung"></span></h3>
+        <ul class="tugas"></ul>
+      </div>
     </section>
     <section class="kartu" aria-labelledby="judul-tim">
       <h2 id="judul-tim">Tim per divisi</h2>
@@ -286,7 +301,7 @@
     <div class="jalur-wrap"><div class="jalur" id="jalur"></div></div>
   </section>
 
-  <p class="catatan">Data dibaca dari sesi Claude di laptop ini dan tidak dikirim ke mana pun; halaman ini juga tidak memuat apa pun dari internet. Sesi tetap hanya COO dan Tech Lead proyek aktif; IT Operations dibentuk saat ada tugas server/insiden/deploy; peran lain adalah katalog yang dipanggil sebagai subagent saat dibutuhkan, lalu bekerja di kursinya dengan penanda “subagent dari …”. Gerak karakter menggambarkan kejadian nyata: atasan memanggil dari mejanya dan bawahan datang ke kursi tamu untuk menerima tugas, laporan dibawa naik ke atasan, dan yang sedang santai ngopi di lounge.</p>
+  <p class="catatan">Data dibaca dari sesi Claude di laptop ini dan tidak dikirim ke mana pun; halaman ini juga tidak memuat apa pun dari internet. Sesi tetap hanya COO dan Tech Lead proyek aktif; IT Operations dibentuk saat ada tugas server/insiden/deploy; peran lain adalah katalog yang dipanggil sebagai subagent saat dibutuhkan, lalu bekerja di kursinya dengan penanda “subagent dari …”. Semua jabatan selalu hadir di mejanya; “Bekerja” hanya tampil bila ada sesi atau subagent yang benar-benar berjalan, “Baru selesai” bila pekerjaannya berakhir kurang dari 10 menit lalu, selain itu “Siap dipanggil” (sesekali istirahat ke lounge). Gerak karakter menggambarkan kejadian nyata: atasan memanggil dari mejanya dan bawahan datang ke kursi tamu untuk menerima tugas, laporan dibawa naik ke atasan. Papan tulis tim, papan tugas, dan berkas di meja hanya berisi ID & judul tugas dari register. Cahaya mengikuti jam WIB.</p>
 </main>
 
 <script type="module" src="/app/kantor.mjs"></script>

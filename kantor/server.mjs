@@ -144,6 +144,8 @@ const RECENT_FILE_MS = 48 * 3600e3; // file transkrip yang dipindai
 const IN_OFFICE_MS = 24 * 3600e3; // sesi dianggap "di kantor"
 const TOOL_STALE_MS = 20 * 60e3; // alat yang tak kunjung selesai dianggap terhenti
 const THINK_MS = 3 * 60e3; // jeda wajar antara hasil alat dan langkah berikutnya
+/** Kursi yang pekerjaan nyatanya (sesi dengan alat / subagent peran) berakhir < 10 menit lalu → "Baru selesai". */
+export const BARU_SELESAI_MS = 10 * 60e3;
 const MAX_EVENTS = 300; // per sesi; cukup untuk linimasa 60 menit
 const TIMELINE_MIN = 60;
 
@@ -267,7 +269,7 @@ function loadTeam() {
     if (st.mtimeMs === teamMtime) return;
     teamMtime = st.mtimeMs;
     const m = new Map();
-    let proyek = null, kolomName = -1;
+    let proyek = null, kolomName = -1, kolomProyek = -1;
     // CRLF (TEAM.md yang ditulis di Windows) diperlakukan sama dengan LF
     for (const line of fs.readFileSync(TEAM_MD, "utf8").split(/\r?\n/)) {
       // "## Engineering · Tim 2 · toko-b", juga "… · RudisOne (platform)" / "… · toko — menunggu pengguna"
@@ -282,12 +284,25 @@ function loadTeam() {
       }
       if (/^##\s/.test(line)) proyek = null;
       const sel = /^\|/.test(line) ? line.split("|").slice(1, -1).map((x) => x.replace(/[`*]/g, "").trim()) : [];
-      if (sel.length && sel.some((x) => x.toLowerCase() === "agent")) { kolomName = sel.findIndex((x) => x.toLowerCase() === "name"); continue; }
+      if (sel.length && sel.some((x) => x.toLowerCase() === "agent")) {
+        kolomName = sel.findIndex((x) => x.toLowerCase() === "name"); kolomProyek = sel.findIndex((x) => x.toLowerCase() === "proyek"); continue;
+      }
       const id = line.match(/local_[0-9a-f-]{8,}/)?.[0];
       // kolom Agent (sel pertama) didahulukan; selain itu nama dikenal di mana pun di baris, terpanjang dulu
       const nama = (sel[0] && namaDiAwal(sel[0])) || line.match(RE_NAMA_BARIS)?.[2];
       const nomor = line.match(POLA_NOMOR_ENGINEER)?.[0] ?? "";
       if (!id || !nama) continue;
+      // baris Tech Lead (buku alamat COO) menetapkan nomor timnya: "(Tim n)" di kolom Agent atau nama sesi `r<n>-lead-…`;
+      // proyek dari kolom Proyek atau judul bagian. Lebih kuat dari tebakan dari sesi (yang bergantung urutan & jendela 48 jam).
+      // hanya baris tabel (bukan komentar riwayat `<!-- … -->` yang juga memuat local_… dan nama peran)
+      if (sel.length && kanonik(nama) === "Tech Lead") {
+        const nTim = Number(sel[0]?.match(/\(Tim\s*(\d)\)/)?.[1] ?? String(sel[kolomName] ?? "").match(/^r(\d)-lead-/)?.[1]);
+        const pTim = String(sel[kolomProyek] ?? "").trim() || proyek;
+        if (pTim && NOMOR_TIM.includes(nTim)) {
+          for (const [p2, n2] of timProyek) if (n2 === nTim && p2 !== pTim) timProyek.delete(p2);   // nomor itu milik proyek ini
+          timProyek.set(pTim, nTim);
+        }
+      }
       const kursi = kursiDari(kanonik(nama), `${nomor || nama} · ${proyek ?? ""}`);
       m.set(id, kursi);
       // nilai kolom Name (mis. `rudis-head-of-strategy`, `r1-lead-<proyek>`) juga dipakai sebagai tujuan pesan
@@ -327,7 +342,7 @@ function ingestLine(s, line) {
   if (o.isSidechain && !s.asisten) return; // langkah subagent di transkrip induk; transkrip asisten sendiri dibaca terpisah
   const ts = o.timestamp ? Date.parse(o.timestamp) : 0;
   if (ts && !s.mulai) s.mulai = ts;
-  if (o.cwd) { s.cwd = o.cwd; if (RE_WORKTREE.test(o.cwd)) s.cwdWorktree = o.cwd; }
+  if (o.cwd) { s.cwd = o.cwd; s.cwdAwal ??= o.cwd; if (RE_WORKTREE.test(o.cwd)) s.cwdWorktree = o.cwd; }
   switch (o.type) {
     case "agent-setting": s.agentSetting = o.agentSetting ?? s.agentSetting; return;
     case "custom-title": s.title = o.customTitle ?? s.title; return;
@@ -493,19 +508,42 @@ export function tugasDariJson(reg) {
       perkakas: bersih(t.perkakas), diperbarui: waktuLokal(t.diperbarui), faseSejak: t.fase_sejak ?? null, kemajuan: kemajuanFase(t) }))
     .slice(0, 30);
 }
-let tugasCache = { kunci: "", isi: [] };
+const tanggalLokal = (ms) => { const d = new Date(ms); return `${d.getFullYear()}-${dua(d.getMonth() + 1)}-${dua(d.getDate())}`; };
+/** Tugas berstatus selesai yang ditutup pada hari yang sama (tanggal lokal device) dengan `kini` — untuk berkas di meja
+ *  & papan tugas. Hanya metadata: ID, judul, pemilik, waktu tutup (tanpa bukti/isi). */
+export function selesaiDariJson(reg, kini = Date.now()) {
+  if (!reg || !Array.isArray(reg.tugas)) return [];
+  const hari = tanggalLokal(kini);
+  return reg.tugas
+    .filter((t) => t && /^T-\d{8}-\d+/.test(t.id ?? "") && /^selesai/i.test(t.status ?? ""))
+    .map((t) => {
+      // selesai_pada (tanggal lokal register) = penentu hari: `diperbarui` ikut berubah setiap `register.sh ubah`, juga
+      // pada tugas yang sudah lama ditutup. Jam tutup hanya dari `diperbarui` bila tanggalnya sama.
+      const d = Date.parse(t.diperbarui ?? ""), sp = /^\d{4}-\d{2}-\d{2}/.exec(String(t.selesai_pada ?? ""))?.[0];
+      const tgl = sp ?? (Number.isNaN(d) ? "" : tanggalLokal(d));
+      return { t, ts: !Number.isNaN(d) && tanggalLokal(d) === tgl ? d : null, tgl };
+    })
+    .filter((x) => x.tgl === hari)
+    .sort((a, b) => (b.ts ?? 0) - (a.ts ?? 0))
+    .map(({ t, ts }) => ({ id: t.id, tugas: clip(t.judul, 90), pemilik: bersih(t.pemilik), ts }))
+    .slice(0, 20);
+}
+let tugasCache = { kunci: "", isi: [], reg: null };
 /** register-tugas.json bila ada (dan terbaca), selain itu register-tugas.md lama. */
 function muatTugas() {
-  for (const [file, urai] of [[REGISTER_JSON, (t) => tugasDariJson(JSON.parse(t))], [REGISTER, bacaRegister]]) {
+  for (const [file, urai] of [[REGISTER_JSON, (t) => { const reg = JSON.parse(t); return { isi: tugasDariJson(reg), reg }; }],
+    [REGISTER, (t) => ({ isi: bacaRegister(t), reg: null })]]) {
     let st;
     try { st = fs.statSync(file); } catch { continue; }
     const kunci = `${file}|${st.mtimeMs}|${st.size}`;
     if (kunci === tugasCache.kunci) return segarkanKemajuan(tugasCache.isi);
-    try { tugasCache = { kunci, isi: urai(fs.readFileSync(file, "utf8")) }; return segarkanKemajuan(tugasCache.isi); } catch { /* rusak → sumber berikutnya */ }
+    try { tugasCache = { kunci, ...urai(fs.readFileSync(file, "utf8")) }; return segarkanKemajuan(tugasCache.isi); } catch { /* rusak → sumber berikutnya */ }
   }
-  tugasCache = { kunci: "", isi: [] };
+  tugasCache = { kunci: "", isi: [], reg: null };
   return tugasCache.isi;
 }
+/** Tugas yang selesai hari ini (register JSON yang sudah dimuat `muatTugas`; register MD lama → kosong). */
+const muatSelesai = (kini) => selesaiDariJson(tugasCache.reg, kini);
 /** Menit berjalan dihitung ulang setiap kali dibaca (cache hanya mengikuti berkas register). */
 const segarkanKemajuan = (isi) => isi.map((t) => (t.faseSejak ? { ...t, kemajuan: kemajuanFase({ fase: t.fase, fase_sejak: t.faseSejak }) } : t));
 
@@ -519,8 +557,10 @@ const PERAN_WORKTREE = { lead: "Tech Lead", bsa: "Business Systems Analyst", se1
 const RE_PERAN_WORKTREE = /[\\/]\.claude[\\/]worktrees[\\/]r(\d+)-(lead|bsa|se1|se2)-/;
 /** Nomor tim dari nama worktree (`r<n>-…`), hanya 1–3 (kursi yang ada), selain itu null. */
 const nomorWorktree = (cwd) => { const n = Number(String(cwd ?? "").match(RE_PERAN_WORKTREE)?.[1]); return NOMOR_TIM.includes(n) ? n : null; };
+/** Folder tempat sesi dibuka (bukan folder terakhir): sesi COO yang `cd` ke worktree tim untuk memeriksa tetap COO. */
+const folderSesi = (s) => s.cwdAwal ?? s.cwd ?? "";
 function agentOf(s) {
-  const wt = String(s.cwd ?? "").match(RE_PERAN_WORKTREE)?.[2];
+  const wt = String(folderSesi(s)).match(RE_PERAN_WORKTREE)?.[2];
   if (wt) return PERAN_WORKTREE[wt];
   const setting = kanonik(s.agentSetting);   // id teknis, mis. "system-administrator"
   if (setting && AGENTS.includes(setting)) return setting;
@@ -611,13 +651,13 @@ export function buildState(now = Date.now()) {
   // dipakai bila TEAM.md belum memetakan proyek itu dan nomornya belum dipakai proyek lain.
   for (const k of [...kandidat].sort((a, b) => (a.s.mulai || 0) - (b.s.mulai || 0))) {
     if (!PERAN_TIM.includes(k.peran)) continue;
-    const p = proyekDari("", k.s.cwd), n = nomorWorktree(k.s.cwd);
+    const p = proyekDari("", folderSesi(k.s)), n = nomorWorktree(folderSesi(k.s));
     if (p && n && !timProyek.has(p) && ![...timProyek.values()].includes(n)) timProyek.set(p, n);
     if (p) nomorTim(p);
   }
   const dikenal = [];
   for (const { s, d, title, peran } of kandidat) {
-    const agent = kursiDari(peran, title, s.cwd);
+    const agent = kursiDari(peran, title, folderSesi(s));
     if (d) localToAgent.set(d.localId, agent);
     dikenal.push({ s, d, title, agent });
   }
@@ -646,9 +686,19 @@ export function buildState(now = Date.now()) {
       }
     }
   };
+  /** kursi → waktu pekerjaan nyata terakhir berakhir (hanya bila < BARU_SELESAI_MS). */
+  const selesaiKursi = new Map();
+  const tandaiSelesai = (kursi, ts) => {
+    if (ts && now - ts < BARU_SELESAI_MS && ts > (selesaiKursi.get(kursi) ?? 0)) selesaiKursi.set(kursi, ts);
+  };
   for (const { s, d, title, agent } of dikenal) {
     if (d?.archived || now - s.lastTs > IN_OFFICE_MS) continue; // diarsipkan / sudah lama
     let st = sessionStatus(s, now);
+    // giliran kerja yang memakai alat lalu berhenti (bukan sekadar menerima pesan) → baru selesai pada langkah terakhirnya
+    if (st.status === "santai") {
+      const alat = s.events.findLast((e) => e.kind === "alat");
+      if (alat && s.lastTs - alat.ts < 15 * 60e3) tandaiSelesai(agent, s.lastTs);
+    }
     if (d?.awaiting && st.status !== "menunggu") // sesi berhenti menunggu keputusan pengguna (mis. izin)
       st = { status: "menunggu", label: "Menunggu keputusan Anda", detail: d.perintah ?? "", icon: "tunggu", since: s.lastTs };
     byAgent.get(agent)?.push({ title, cwd: s.cwd?.replace(HOME, "~") ?? "", lastTs: s.lastTs, ...st });
@@ -667,9 +717,10 @@ export function buildState(now = Date.now()) {
     const peran = peranSubagent(s);
     if (peran) {
       const berjalan = !selesai && now - s.lastTs <= TOOL_STALE_MS;
-      const kursi = kursiSubagent(peran, induk, s, berjalan ? byAgent : null);
+      // kursi saat berjalan diingat: setelah selesai, "baru selesai" & log tetap di kursi yang sama (mis. SE #2 bila #1 terisi)
+      const kursi = berjalan ? (s.kursiTerakhir = kursiSubagent(peran, induk, s, byAgent)) : s.kursiTerakhir ?? kursiSubagent(peran, induk, s, null);
       catat(s, kursi);                       // linimasa & log tetap tercatat setelah subagent selesai
-      if (!berjalan) continue;               // selesai → kursi kembali ke katalog
+      if (!berjalan) { if (selesai) tandaiSelesai(kursi, s.lastTs); continue; }   // selesai → kursi kembali ke katalog
       let st = sessionStatus(s, now);
       if (st.status === "santai") st = { status: "berpikir", label: "Berpikir", detail: "", icon: "pikir", since: s.lastTs };  // subagent berjalan = bekerja
       byAgent.get(kursi)?.push({ title: deskripsi || "subagent", cwd: s.cwd?.replace(HOME, "~") ?? "", lastTs: s.lastTs, ...st,
@@ -691,22 +742,25 @@ export function buildState(now = Date.now()) {
     const top = sessions[0];
     const timelineAgent = timeline.get(name);
     const kursiTetap = tetap(name);
+    const selesaiTs = selesaiKursi.has(name) ? { ts: selesaiKursi.get(name) } : null;
     if (!top) {
       return kursiTetap
         ? { name, present: false, status: "absen", mode: "absen", tetap: true, label: "Belum masuk", detail: "", icon: "absen",
-            since: 0, lastTs: 0, subagent: null, sessions: [], timeline: timelineAgent }
+            since: 0, lastTs: 0, subagent: null, selesai: selesaiTs, sessions: [], timeline: timelineAgent }
         : { name, present: false, status: "absen", mode: "katalog", tetap: false, label: "Dipanggil saat perlu", detail: "", icon: "absen",
-            since: 0, lastTs: 0, subagent: null, sessions: [], timeline: timelineAgent };
+            since: 0, lastTs: 0, subagent: null, selesai: selesaiTs, sessions: [], timeline: timelineAgent };
     }
     const mode = sessions.some((x) => x.subagent || x.status !== "santai") ? "aktif" : "siaga";
+    const kerja = top.status !== "santai";
     return { name, present: true, status: top.status, mode, tetap: kursiTetap, label: top.label, detail: top.detail, icon: top.icon,
       since: top.since, lastTs: Math.max(...sessions.map((x) => x.lastTs)), subagent: sessions.find((x) => x.subagent)?.subagent ?? null,
-      sessions, timeline: timelineAgent };
+      selesai: !kerja && selesaiKursi.has(name) ? { ts: selesaiKursi.get(name) } : null, sessions, timeline: timelineAgent };
   });
   feed.sort((a, b) => b.ts - a.ts);
   const tim = [...timProyek].map(([proyek, n]) => ({ n, proyek })).sort((a, b) => a.n - b.n);
   asisten.sort((a, b) => a.mulai - b.mulai);
-  return { now, agents, feed: feed.slice(0, 80), tugas: muatTugas(), tim, asisten: asisten.slice(0, 30) };
+  const tugas = muatTugas();
+  return { now, agents, feed: feed.slice(0, 80), tugas, selesaiHariIni: muatSelesai(now), tim, asisten: asisten.slice(0, 30) };
 }
 
 // ---------- kesehatan: versi & sumber data ----------

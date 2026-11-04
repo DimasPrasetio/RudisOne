@@ -15,7 +15,9 @@ Berkas ini memuat prinsip, denah, cerita gerak, kamera, dan token yang berlaku �
 
 ## Prinsip
 1. **Status selalu terbaca tanpa animasi** (warna + simbol + teks); animasi hanya memperkuat.
-2. **Jujur:** kursi tanpa sesi tampil apa adanya (katalog/absen); data basi atau koneksi putus selalu ditampilkan.
+2. **Jujur:** semua jabatan hadir di mejanya, tetapi "Bekerja" hanya dari sesi/subagent yang benar-benar berjalan; "Siap
+   dipanggil" menyebut keadaan sesinya apa adanya (sesi terbuka · dipanggil sebagai subagent · dibuka COO saat ada tugas);
+   papan & berkas hanya berisi tugas register (papan kosong = memang tidak ada tugas); data basi atau koneksi putus selalu ditampilkan.
 3. **Struktur organisasi terlihat:** denah mencerminkan rantai komando — atasan memanggil dari mejanya, bawahan
    menghampiri; laporan dibawa naik. Papan nama zona **selalu tampil**.
 4. **Privasi:** hanya metadata aktivitas (nama alat, deskripsi singkat ≤ 50 karakter, nama berkas) — tidak pernah isi
@@ -43,6 +45,9 @@ Berkas ini memuat prinsip, denah, cerita gerak, kamera, dan token yang berlaku �
 | Peta tertanam di halaman yang digulir: satu jari menggulir halaman, dua jari menggerakkan peta (Google Maps `gestureHandling: cooperative`) | HP: **satu jari menggulir halaman, dua jari menggeser & mencubit denah**; petunjuk singkat muncul saat satu jari digeser di denah |
 | Label HTML di atas kanvas (CSS2D): teks tajam & ikut CSS, tidak terbaca sebagai bagian 3D; panel HTML = padanan pembaca layar (forum three.js aksesibilitas) | Label = elemen HTML yang mengikuti titik 3D; tag meja = tombol (klik = rincian); panel samping = padanan penuh |
 | Label tidak boleh bertumpuk; deconfliction berprioritas (ArcGIS label deconfliction, *avoid-overlap*) | Papan zona ditempatkan dulu dan tidak pernah disembunyikan; lalu gelembung > "!" menunggu > nama > tag meja — yang bertabrakan digeser ±1 baris, baru disembunyikan |
+| Kantor virtual terasa "hidup" karena kehadiran rekan, bukan karena aktivitas palsu (Gather, Roam: avatar tetap di meja saat diam) | Semua jabatan hadir **Siap dipanggil** di mejanya; sesekali maks. 3 orang ngopi lalu kembali; "Bekerja" hanya dari data nyata |
+| Jejak kerja yang tertinggal (papan tulis, berkas) memberi konteks tanpa membuka rincian (Pixel Agents, Claude-Office) | Papan tulis tim, papan strategi, papan tugas Ruang Pimpinan, dan map di meja — semua dari register (ID + judul) |
+| Pencahayaan siang/malam memberi rasa waktu (Bruno Simon *my-room-in-3d*: varian cahaya terpanggang) | Cahaya mengikuti jam WIB: pagi sejuk, siang netral, sore keemasan, malam jendela gelap + lampu meja menyala |
 | Kinerja: batasi pixel ratio, render saat perlu, kurangi draw call dengan penggabungan & instancing (panduan three.js performance CloudAI-X r186, MDN WebGL best practices) | Pixel ratio ≤ 2 (HP 1,5), perabot statis digabung per material, layar monitor & bayangan kontak = satu `InstancedMesh`, tiap orang = satu `SkinnedMesh` |
 | DevTools CPU throttling tidak memperlambat GPU (Chrome for Developers) | Angka HP dari emulasi dilabeli "GPU laptop — optimistis" |
 | Pesan galat: apa yang terjadi + yang bisa dicoba, tanpa "maaf"/jargon (GOV.UK error message) | Tanpa WebGL 2: kotak pesan menggantikan denah, panel tetap lengkap |
@@ -62,8 +67,9 @@ Berkas ini memuat prinsip, denah, cerita gerak, kamera, dan token yang berlaku �
   └────────────────┴───────────┴─────────────┴──────────────────┘ y=21 (tepi depan terbuka — diorama)
 ```
 - Meja leader di belakang zonanya **menghadap anggota**; anggota duduk menghadap mejanya (membelakangi kamera bawaan).
-- Kursi tim dipetakan per proyek: nomor tim dari `TEAM.md` (`## Engineering · Tim <n> · <proyek>`), lalu dari nama worktree
-  `r<n>-…`, selain itu nomor kosong terkecil. Papan nama tim menampilkan proyeknya; tim tanpa proyek diredupkan dan
+- Kursi tim dipetakan per proyek: nomor tim dari `TEAM.md` (`## Engineering · Tim <n> · <proyek>`, atau baris Tech Lead di
+  tabel Engineering: "(Tim n)" / nama sesi `r<n>-lead-…`), lalu dari nama worktree `r<n>-…` folder awal sesi, selain itu nomor
+  kosong terkecil. Peran dari worktree dibaca dari folder tempat sesi dibuka (COO yang memeriksa worktree tetap COO). Papan nama tim menampilkan proyeknya; tim tanpa proyek diredupkan dan
   tag mejanya disembunyikan dari denah, panel & linimasa.
 - Hanya sesi RudisOne yang tampil (folder repo ini, worktree `r<n>-…`, `/rudisone`, atau pembuka "… di RudisOne").
 - Jalan: A* di grid 0,5 m (4 arah, penalti belok) dari tapak perabot; semua kursi, kursi tamu, titik santai, dan meja
@@ -90,24 +96,56 @@ Berkas ini memuat prinsip, denah, cerita gerak, kamera, dan token yang berlaku �
 | Atasan → bawahan `[Diterima]` | Atasan "Diterima ✓", bawahan "Terima kasih" di tempat — tanpa berjalan |
 | `[Tinjau]` | Peninjau dipanggil ke meja pemberi tinjauan |
 | Sesama `[Konsultasi]`/`[Jawaban]`/`[Info]` | Pengirim menghampiri meja penerima, gelembung tanya-jawab, kembali |
-| Santai | Ke bar kopi (memegang cangkir), lalu duduk di sofa/meja bundar; bila ada teman di dekatnya, mengobrol bergantian |
-| Sesi muncul / diarsipkan | Masuk lewat pintu ke mejanya / keluar lewat pintu |
+| Siap dipanggil | Duduk bersandar di mejanya, layar sangat redup. Sesekali (tiap 3–8 menit, maks. 3 orang bersamaan) istirahat ±1 menit: ke bar kopi (memegang cangkir), lalu duduk di lounge; bila ada teman, mengobrol ringan — obrolan tidak pernah mengklaim pekerjaan. COO tetap di mejanya; hemat gerak = semua di meja |
+| Pekerjaan nyata berakhir (sesi berhenti setelah memakai alat, subagent peran selesai) | Tetap di mejanya 10 menit sebagai **Baru selesai**: bersandar, dua lengan terentang ke atas, label "Selesai N mnt lalu", lalu kembali Siap dipanggil |
+| Tim mendapat proyek / kehilangan proyek | Anggota tim masuk lewat pintu ke mejanya / keluar lewat pintu |
 | Subagent umum (asisten) | Asisten muncul di samping pemanggil, bekerja di meja berdiri tim, lalu menyerahkan hasil dan pergi |
 
 Pose di meja: bekerja = mengetik (atau membaca untuk alat baca/web), berpikir = tangan di dagu, menunggu Anda = angkat
-tangan + **cincin amber di lantai**, santai di meja = duduk. Atasan mengikuti rantai komando di `protokol.md`.
+satu tangan + **cincin amber di lantai**, baru selesai = bersandar dengan dua lengan ke atas (V), siap dipanggil = bersandar,
+tangan di pangkuan. Atasan mengikuti rantai komando di `protokol.md`.
 
 ## Keadaan peran
 Hanya inti yang hidup sebagai sesi (COO dan Tech Lead tim yang punya proyek); IT Operations dibentuk saat dibutuhkan;
 peran lain dipanggil sebagai subagent `rudis-<id-peran>`.
-- **`mode` di /state:** *aktif* · *siaga* (sesi hidup tapi santai — ke lounge) · *katalog* (tidak ada sesi; dipanggil saat
+- **`mode` di /state:** *aktif* · *siaga* (sesi hidup tapi santai) · *katalog* (tidak ada sesi; dipanggil saat
   perlu) · *absen* (kursi sesi tetap yang belum masuk). `status` lama tetap dikirim agar klien lama tidak rusak.
+- **Keadaan tampil** (`kantor/app/jejak.mjs` › `keadaanTampil`, diuji `kantor/jejak.test.mjs`): *Bekerja* ▶ / *Berpikir* … /
+  *Menunggu Anda* ! hanya bila `present` dan status kerja dari server; *Baru selesai* ✓ bila `selesai.ts` < 10 menit lalu;
+  selain itu *Siap dipanggil* – (siaga, katalog, dan absen). Tim tanpa proyek: meja kosong & redup.
+- **`selesai` di /state** (server): `{ ts }` bila pekerjaan nyata kursi itu berakhir < 10 menit lalu — sesi berstatus santai
+  yang langkah terakhirnya ≤ 15 menit setelah pemakaian alat terakhir, atau subagent peran yang selesai; `null` saat bekerja.
+- **`selesaiHariIni` di /state** (server): tugas register berstatus selesai yang ditutup hari ini (tanggal lokal) — hanya
+  ID, judul, pemilik, waktu tutup; kolom bukti tidak pernah dikirim.
 - **Subagent peran duduk di kursinya** (`agentType` `rudis-<id-peran>`, atau pembuka "Kamu adalah <Jabatan> …"); subagent
   bertipe lain tampil sebagai asisten. Selesai → kursi kembali ke katalog; langkahnya tetap di log & linimasa.
-- **Tampilan katalog:** tag meja redup (opasitas .45), simbol bertitik, teks "Dipanggil saat perlu"; tag absen/katalog
-  disembunyikan saat denah jauh (HP / seluruh denah) agar tidak menutupi yang aktif.
+- **Tampilan siap dipanggil:** karakter duduk di mejanya, tag meja tenang (opasitas .72, simbol abu-abu –); saat denah jauh
+  (HP / seluruh denah) tag siap disembunyikan — orangnya tetap tampil tanpa lencana, jadi lencana ▶ ✓ ! langsung menonjol.
 - **Penanda subagent:** lencana "subagent · <pemanggil>" di panel tim, baris aksi tag meja "subagent dari <pemanggil>".
-- **Register tugas:** papan "Tugas berjalan" membaca `handoff/register-tugas.json` (ditulis `bin/register.sh`).
+- **Register tugas:** papan "Tugas berjalan" membaca `handoff/register-tugas.json` (ditulis `bin/register.sh`), plus
+  daftar **Selesai hari ini**.
+
+## Jejak kerja nyata (3D, dari register)
+Semua isi hanya **ID + judul + status** tugas (`jejak.mjs` › `papanDivisi`, `papanTugas`, `berkasMeja`); tidak ada coretan
+atau catatan hiasan — papan yang kosong berarti memang tidak ada tugas.
+- **Papan tulis tiap tim** (dinding belakang pod): "Tim n · <proyek> — tugas berjalan", maks. 4 baris (titik warna status).
+  Tim tanpa proyek: papan putih kosong.
+- **Papan strategi Corporate Strategy** (dinding kiri): satu catatan tempel per tugas berjalan divisi itu (maks. 3).
+- **Papan tugas Ruang Pimpinan** (dinding kiri, di samping pintu): tiga kolom Berjalan · Antre & lainnya · Selesai hari ini.
+- **Berkas di meja:** tumpukan map (maks. 3) di meja pemilik tugas yang selesai hari ini (hari = `selesai_pada` register,
+  bukan `diperbarui` yang ikut berubah tiap `register.sh ubah`); rinciannya di panel orang itu.
+- Pemilik "<Jabatan> · <proyek>" yang proyeknya belum dikenal server tidak ditaruh di tim mana pun (hanya di papan tugas).
+- Papan = `CanvasTexture` 400 px/m (huruf lokal), digambar ulang hanya bila isinya berubah.
+
+## Suasana mengikuti jam
+Fase dari jam WIB (`Asia/Jakarta`): pagi 05–11, siang 11–15, sore 15–18, malam 18–05; dicek tiap detik, adegan hanya
+digambar ulang saat fase berganti. Uji: `?jam=pagi|siang|sore|malam` atau `?jam=19:30` (jam di kepala halaman menulis
+"(jam uji)"). Pengali di atas palet tema (`WAKTU` di `adegan.mjs`):
+- **pagi:** langit sejuk kebiruan, bercak cahaya jendela lebih terang; **siang:** palet apa adanya;
+- **sore:** cahaya keemasan dari sudut rendah (bayangan lebih panjang), jendela jingga, lampu setengah menyala;
+- **malam:** jendela biru gelap tanpa bercak matahari, interior hangat, kap lampu meja & lampu lantai menyala + genangan cahaya.
+  Lampu meja tim tanpa proyek tetap padam (meja kosong & redup). Lampu berubah tanpa menghitung ulang bayangan.
+- Latar panggung (`--panggung-*`) ikut fase (`:root[data-waktu]`). Status tetap terbaca di semua fase (label HTML tidak ikut gelap).
 
 ## Lapisan & keterbacaan
 - Kanvas WebGL (ruangan, perabot, orang) → lapisan label HTML: papan zona, tag meja (tombol), label kepala (simbol status
@@ -127,7 +165,8 @@ Warna halaman = variabel CSS di `kantor/index.html` (`:root` dan blok `prefers-c
 - **Dasar (terang / gelap):** latar `#E8EDF2` / `#0E151D`, permukaan `#FFFFFF` / `#141E28`, tinta `#1D2833` / `#E4EBF2`,
   redup `#5E6E7E` / `#8FA0B1`, panggung (gradien di belakang kanvas) `#F3F6F9`→`#DFE6ED` / `#121C26`→`#0B1117`.
 - **Status (terang / gelap):** Bekerja `#1F9D6A` / `#34C38A` (▶), Berpikir `#3B7BD8` / `#5B97EF` (…), Menunggu Anda `#D9930B` /
-  `#F0AA2A` (!), Santai `#8A97A6` / `#7D8B99` (–), Belum masuk = garis putus-putus. Galat `#D64545` / `#EF6461` hanya untuk
+  `#F0AA2A` (!), Baru selesai `#148A9C` / `#3FB6C8` (✓), Siap dipanggil `#8A97A6` / `#7D8B99` (–), tim kosong = garis putus-putus.
+  Layar monitor: bekerja = warna peran terang, berpikir/menunggu = setengah, baru selesai = setengah toska, siap = sangat redup, tim kosong = mati. Galat `#D64545` / `#EF6461` hanya untuk
   galat/terputus.
 - **Identitas peran:** COO `#B8892B`, Head of Strategy `#B07A1F`, Financial Controller `#3E9E5C`, Research Analyst `#1FA3AE`,
   HR Business Partner `#D35F9A`, Tech Lead `#5B3FB8`, Business Systems Analyst `#3D7BD9`, Software Engineer #1 `#7C5CD6` dan #2
@@ -146,8 +185,9 @@ Warna halaman = variabel CSS di `kantor/index.html` (`:root` dan blok `prefers-c
   halus — mengetik, melambai saat menunggu, minum kopi.
 
 ## Kinerja & keadaan khusus
-- Anggaran: draw call ≤ 100 (perabot statis digabung per material ±35, orang 1 per orang, layar & bayangan kontak 1
-  masing-masing), pixel ratio ≤ 2 (HP 1,5), peta bayangan 2048² (HP 1024²) digambar sekali, tanpa post-processing.
+- Anggaran: draw call ≤ 100 (terukur ±70 desktop & HP dengan semua jabatan hadir, ±80 di demo dengan asisten; gambar yang
+  sekaligus menghitung ulang peta bayangan ±97: perabot statis digabung per material ±35, orang 1 per orang, layar, bayangan
+  kontak, map, genangan lampu 1 masing-masing, kap lampu 4, papan 5), pixel ratio ≤ 2 (HP 1,5), peta bayangan 2048² (HP 1024²) digambar sekali, tanpa post-processing.
 - Gambar ulang hanya bila perlu: kamera bergerak, orang/benda bergerak atau beranimasi, data berubah, ukuran/tema berubah.
   Diam + Jeda gerak / reduced-motion → 0 gambar per detik. Ukur dengan `?ukur=1` (bingkai/dtk, gambar/dtk, ms/gambar,
   draw call, segitiga).

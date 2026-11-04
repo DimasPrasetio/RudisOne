@@ -138,10 +138,11 @@ export function aturBarang(o, jenis) {
 /** Pose anggota badan. `w` = detik berjalan (fase gerak), `gerak` = animasi kecil diizinkan (bukan hemat gerak). */
 export function aturPose(o, pose, w = 0, gerak = true) {
   const [ki, ka] = o.kaki, [lKi, lKa] = o.lengan;
-  const duduk = ["duduk", "ketik", "baca", "pikir", "angkat", "duduk-santai"].includes(pose);
+  const duduk = ["duduk", "ketik", "baca", "pikir", "angkat", "duduk-santai", "siap", "selesai"].includes(pose);
   const ayun = pose === "jalan" && gerak ? Math.sin(w * 9) : 0;
   o.tubuh.position.y = duduk ? -0.4 : pose === "jalan" && gerak ? Math.abs(Math.cos(w * 9)) * 0.025 : 0;
-  o.atas.rotation.x = duduk ? -0.05 : pose === "jalan" ? 0.04 : 0;
+  // siap dipanggil = bersandar santai; baru selesai = bersandar, dua lengan terentang ke atas (V) (tanpa animasi)
+  o.atas.rotation.x = pose === "selesai" ? 0.2 : pose === "siap" ? 0.1 : duduk ? -0.05 : pose === "jalan" ? 0.04 : 0;
   if (duduk) {
     for (const k of [ki, ka]) { k.paha.rotation.x = -Math.PI / 2 + 0.05; k.lutut.rotation.x = Math.PI / 2 - 0.05; }
   } else {
@@ -158,10 +159,12 @@ export function aturPose(o, pose, w = 0, gerak = true) {
     case "angkat": kiri = 0.05; kanan = -2.95 + (gerak ? Math.sin(w * 5) * 0.12 : 0); kananZ = -0.15; break;
     case "minum": case "duduk-santai": kanan = o.cangkir.visible ? -1.2 - (gerak ? Math.max(0, Math.sin(w * 0.9)) * 0.7 : 0) : 0.05; kananZ = 0.2; kiri = duduk ? -0.5 : 0.05; break;
     case "duduk": kiri = -0.55; kanan = -0.55; break;
+    case "siap": kiri = -0.42; kanan = -0.42; kiriZ = 0.18; kananZ = -0.18; break;
+    case "selesai": kiri = -2.95; kanan = -2.95; kiriZ = 0.55; kananZ = -0.55; break;   // dua lengan terentang ke atas (V) ≠ menunggu (satu tangan)
     default: if (o.kertas.visible) { kanan = -1.0; kananZ = 0.1; }
   }
   lKi.rotation.set(kiri, 0, kiriZ); lKa.rotation.set(kanan, 0, kananZ);
-  o.kepala.rotation.x = pose === "baca" ? 0.25 : pose === "pikir" ? -0.15 : 0;
+  o.kepala.rotation.x = pose === "baca" ? 0.25 : pose === "pikir" ? -0.15 : pose === "siap" ? 0.18 : pose === "selesai" ? -0.2 : 0;
   o.pose = pose;
 }
 
