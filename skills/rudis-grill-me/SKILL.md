@@ -115,6 +115,9 @@ Selesai bila setiap cabang sudah **dijawab**, **ditemukan sebagai fakta**, **did
 keahlian, atau **diasumsikan** dengan sepengetahuan pengguna. Lalu:
 1. Tunjukkan **ringkasan pemahaman bersama** (≤ 12 baris): hasil · kriteria selesai · lingkup & bukan lingkup ·
    batasan · asumsi · pertanyaan terbuka untuk pelaksana · rencana singkat (siapa mengerjakan, langkah berikutnya).
+   Sertakan **satu kalimat** hasil baris `Kemampuan:` di catatan pemahaman ("skill yang ada cukup" atau "kurang karena …"):
+   isi baris itu saat menyelaraskan; pencarian skill baru hanya bila "kurang" atau pengguna mengoreksi, dan hasilnya cukup
+   satu kalimat — pertanyaan tambahan hanya bila ada kandidat layak pasang (memasang tetap menunggu "ya" pengguna).
 2. Minta persetujuan eksplisit (opsi: "Sepakat, jalankan (Rekomendasi)" / "Ada koreksi").
 3. Koreksi → perbaiki cabang itu saja, tunjukkan ulang ringkasannya. Sepakat → kutip jawabannya persis di catatan
    pemahaman, baru pekerjaan dimulai.
