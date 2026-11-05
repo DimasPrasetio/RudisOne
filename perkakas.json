@@ -86,6 +86,24 @@
       "lisensi": "Proprietary Neuronworks — repo privat"
     },
     {
+      "id": "pptx-neuron",
+      "jenis": "git",
+      "skill": [
+        "pptx-neuron"
+      ],
+      "untuk": "Presentasi PowerPoint resmi Neuronworks (desain & logo Neuron, satu keluarga dengan docx-neuron)",
+      "dipakai_oleh": [
+        "technical-writer",
+        "program-manager"
+      ],
+      "repo": null,
+      "lokal": "~/Documents/Neuron/ai-agent/pptx-neuron",
+      "pasang": "scripts/sync.sh",
+      "prasyarat": "scripts/setup.sh",
+      "lisensi": "Proprietary Neuronworks — repo lokal (belum ada repo GitHub)",
+      "catatan": "tanpa repo sumber: pastikan memakai repo lokal apa adanya (tanpa clone/pull); device tanpa folder lokal itu → pastikan gagal dengan pesan jelas"
+    },
+    {
       "id": "document-skills",
       "jenis": "plugin",
       "skill": [

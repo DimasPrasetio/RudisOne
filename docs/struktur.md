@@ -12,7 +12,7 @@ ruang/<id-peran>/.claude/  ruang sesi ("agent": "<id-peran>", peran = symlink ke
 raci.md                    matriks RASCI + wewenang per peran
 uji/suite/                 suite regresi organisasi (10 tugas × k ulang, sebelum vs sesudah); uji/simulasi-linux/ simulasi jalur Linux
 .githooks/                 hook pre-commit repo (penjaga kebersihan; diaktifkan install.sh)
-perkakas.json              perkakas resmi SDLC + skill luar (docx-neuron, document-skills, frontend-design, docs) dan sumber resminya
+perkakas.json              perkakas resmi SDLC + skill luar (docx-neuron, pptx-neuron, document-skills, frontend-design, docs) dan sumber resminya
 infra.md                   prosedur server, app, domain, alur deploy — generik, tanpa fakta server
 konfigurasi/               per device: server.json (server, aplikasi, DNS; git-ignored) + server.contoh.json
 penyedia.md                registri kemampuan & penyedia (DNS, repo, server) + alur konfigurasi server

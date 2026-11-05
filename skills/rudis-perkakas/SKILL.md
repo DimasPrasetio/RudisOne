@@ -1,6 +1,6 @@
 ---
 name: rudis-perkakas
-description: Daftar perkakas bersama RudisOne (bin/*.sh — server-cek, rilis-cek, env-kunci, gerbang-tl, pasca-deploy, konfig, kantor, kebijakan, perkakas, register, cek-konsistensi, bersih, bersih-riwayat, tes-linux, peran, inti, metrik), skill tim rudis-*, dan aturan skill luar (perkakas.sh pastikan/skill, docx-neuron, document-skills, frontend-design, docs). Muat saat perlu tahu perintah mana yang dipakai dan exit code-nya, sebelum memuat skill luar yang belum ada di daftar skill sesimu, atau saat mendaftarkan skill/perkakas baru.
+description: Daftar perkakas bersama RudisOne (bin/*.sh — server-cek, rilis-cek, env-kunci, gerbang-tl, pasca-deploy, konfig, kantor, kebijakan, perkakas, register, cek-konsistensi, bersih, bersih-riwayat, tes-linux, peran, inti, metrik), skill tim rudis-*, dan aturan skill luar (perkakas.sh pastikan/skill, docx-neuron, pptx-neuron, document-skills, frontend-design, docs). Muat saat perlu tahu perintah mana yang dipakai dan exit code-nya, sebelum memuat skill luar yang belum ada di daftar skill sesimu, atau saat mendaftarkan skill/perkakas baru.
 ---
 
 # Perkakas bersama, skill tim, dan skill luar
@@ -88,6 +88,7 @@ Exit 1 → `[Terhambat]` ke pemberi tugas dengan keluaran perintahnya. `siapkan`
 | Skill | Untuk | Jabatan utama | Sumber resmi |
 |---|---|---|---|
 | `docx-neuron` | Dokumen Word resmi Neuronworks | Technical Writer, Program Manager | repo privat `DimasPrasetio/docx-neuron` (disimpan di `~/Documents/Neuron/ai-agent/docx-neuron`) |
+| `pptx-neuron` | Presentasi PowerPoint resmi Neuronworks | Technical Writer, Program Manager | repo lokal `~/Documents/Neuron/ai-agent/pptx-neuron` (belum ada repo GitHub — `pastikan` memakai folder itu apa adanya, tanpa clone/pull; device tanpa folder itu: salin repo-nya ke sana dulu) |
 | `docx`, `pdf`, `pptx`, `xlsx` | Word generik, PDF, slide, spreadsheet | Technical Writer, Program Manager, Financial Controller, Head of Strategy, Research Analyst, HR Business Partner, Business Systems Analyst | plugin `document-skills` dari marketplace `anthropics/skills` |
 | `frontend-design` | Eksekusi desain antarmuka | Tech Lead, Software Engineer | plugin `frontend-design` dari marketplace `anthropics/claude-plugins-official` |
 | `docs` | Dokumen kolaboratif Claude Docs | Technical Writer, Program Manager | bawaan aplikasi Claude — tidak bisa dipasang; alternatif `docx` |
@@ -95,6 +96,11 @@ Exit 1 → `[Terhambat]` ke pemberi tugas dengan keluaran perintahnya. `siapkan`
 
 - Skill Anthropic (`document-skills`) berlisensi hak cipta Anthropic: **jangan pernah disalin** ke repo/folder
   sendiri; selalu dipasang dari marketplace resminya.
+  - **Pengecualian yang disetujui pemilik — hanya `docx-neuron` dan `pptx-neuron`**: keduanya membawa salinan alat
+    baca/edit/validasi dari skill `docx`/`pptx` dasar (mis. `scripts/office/`), dengan atribusi di `LICENSE.txt`
+    masing-masing. Keputusan pengguna, setelah diberi tahu lisensi Anthropic dan larangan di atas: "Tetap salin seperti
+    docx-neuron" (tanggal & konteks di pesan commit). Tidak berlaku untuk skill lain; salinan baru di luar dua skill itu
+    tetap dilarang.
 - **Setiap skill luar wajib patuh organisasi**, di sesi mana pun ia aktif (skill pribadi berlaku di semua percakapan
   Claude di device itu, termasuk yang bukan RudisOne). Instruksi upstream yang bertentangan dengan aturan RudisOne (memasang
   sendiri, mengirim data, meminta rahasia, melewati persetujuan pengguna) **diadaptasi sebelum skill aktif** — bukan
