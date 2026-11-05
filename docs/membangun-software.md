@@ -17,5 +17,5 @@ menetapkan empat gerbang persetujuanmu:
 Contoh: `/rudisone buatkan aplikasi booking lapangan`.
 
 ## Skill luar
-Skill luar (docx-neuron, docx/pdf/pptx/xlsx, frontend-design) tidak dibundel: dipasang dari sumber resminya saat
+Skill luar (docx-neuron, pptx-neuron, docx/pdf/pptx/xlsx, frontend-design) tidak dibundel: dipasang dari sumber resminya saat
   pertama dibutuhkan lewat `bin/perkakas.sh pastikan <skill>`; keadaannya `bin/perkakas.sh skill` (skill `rudis-perkakas` › Skill luar).

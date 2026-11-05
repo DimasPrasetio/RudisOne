@@ -73,6 +73,56 @@ test("jenis git: repo disimpan di `lokal`, skill dipasang, pemanggilan kedua tid
   assert.match(log.join("\n"), /tersedia \(pribadi\)/);
 });
 
+test("jenis git tanpa repo sumber: folder lokal dipakai apa adanya (tanpa clone/pull); folder lokal tidak ada → gagal jelas, tidak membuat apa pun", () => {
+  // repo lokal tanpa remote (seperti pptx-neuron sebelum punya repo GitHub)
+  const LOKAL = path.join(tmp, "lokal-tanpa-remote", "pptx-neuron");
+  fs.mkdirSync(path.join(LOKAL, "scripts"), { recursive: true });
+  fs.writeFileSync(path.join(LOKAL, "SKILL.md"), "---\nname: pptx-neuron\n---\n");
+  fs.writeFileSync(path.join(LOKAL, "scripts", "sync.sh"), fs.readFileSync(path.join(SUMBER, "scripts", "sync.sh")));
+  fs.writeFileSync(path.join(LOKAL, "scripts", "setup.sh"), "exit 0\n");
+  const gl = (...a) => execFileSync("git", ["-C", LOKAL, ...a], { encoding: "utf8" }).trim();
+  gl("init", "-q", "-b", "main"); gl("add", "-A"); gl("-c", "user.name=u", "-c", "user.email=u@x", "commit", "-qm", "awal");
+  const headAwal = gl("rev-parse", "HEAD");
+  const e = { id: "pptx-neuron", jenis: "git", skill: ["pptx-neuron"], repo: null, lokal: LOKAL, pasang: "scripts/sync.sh", prasyarat: "scripts/setup.sh" };
+  const daftar = [...DAFTAR, e];
+  assert.deepEqual(laporan([e], CLAUDE)[0][0], "..");   // belum terpasang: dilaporkan, bukan galat
+  const log = [];
+  assert.equal(pastikan(daftar, "pptx-neuron", { log: (s) => log.push(s) }), 0);
+  const teks = log.join("\n");
+  assert.match(teks, /memasang pptx-neuron dari repo lokal /);
+  assert.match(teks, /memakai repo lokal .*tanpa repo sumber/);
+  assert.doesNotMatch(teks, /null|repo disimpan|clone .* gagal|repo lokal diperbarui|pull dilewati/);
+  assert.equal(cariSkill("pptx-neuron", CLAUDE).lokasi, "pribadi");
+  assert.equal(gl("rev-parse", "HEAD"), headAwal);   // repo lokal tidak disentuh
+  assert.equal(gl("remote"), "");
+  assert.equal(pastikan(daftar, "pptx-neuron", diam), 0);   // kedua kali: sudah tersedia
+  assert.deepEqual(laporan([e], CLAUDE)[0][0], "ok");
+
+  // device tanpa folder lokal: gagal dengan pesan jelas, tidak clone dan tidak membuat folder
+  const HILANG = path.join(tmp, "tidak-ada", "pptx-x");
+  const e2 = { ...e, id: "pptx-x", skill: ["pptx-x"], lokal: HILANG };
+  const log2 = [];
+  assert.equal(pastikan([e2], "pptx-x", { log: (s) => log2.push(s) }), 1);
+  assert.match(log2.join("\n"), /belum ada di .*tidak punya repo sumber/);
+  assert.ok(!fs.existsSync(HILANG));
+  assert.equal(cariSkill("pptx-x", CLAUDE), null);
+  // entri git tanpa `lokal` sama sekali → galat entri
+  assert.equal(pastikan([{ ...e2, lokal: undefined }], "pptx-x", { log: (s) => log2.push(s) }), 1);
+  assert.match(log2.join("\n"), /tanpa `lokal`/);
+});
+
+test("perkakas.json: pptx-neuron terdaftar sebagai git tanpa repo (pola docx-neuron), dipakai Technical Writer & Program Manager", () => {
+  const m = JSON.parse(fs.readFileSync(new URL("../perkakas.json", import.meta.url), "utf8"));
+  const e = cariEntri(m.skill_luar, "pptx-neuron"), d = cariEntri(m.skill_luar, "docx-neuron");
+  assert.equal(e.id, "pptx-neuron");
+  assert.equal(e.jenis, "git");
+  assert.equal(e.repo, null);
+  assert.equal(e.lokal, "~/Documents/Neuron/ai-agent/pptx-neuron");
+  assert.equal(e.pasang, d.pasang);
+  assert.equal(e.prasyarat, d.prasyarat);
+  assert.deepEqual(e.dipakai_oleh, ["technical-writer", "program-manager"]);
+});
+
 test("jenis plugin: marketplace resmi ditambahkan lalu plugin dipasang; skill plugin lain tidak ikut terhitung", () => {
   assert.equal(pastikan(DAFTAR, "anthropic-skills:pdf", diam), 0);
   const panggilan = fs.readFileSync(path.join(tmp, "panggilan"), "utf8");

@@ -1,7 +1,8 @@
 // Skill luar RudisOne (daftar: perkakas.json › skill_luar; aturan: skill rudis-perkakas › Skill luar). Skill yang dipakai
 // agent tetapi tidak dibundel di repo ini: dicek keberadaannya di device, dan dipasang dari sumber resminya saat
 // pertama dibutuhkan. Dipanggil lewat bin/perkakas.sh [pastikan <skill>|skill].
-//   git       clone repo sumber ke `lokal` (disimpan untuk pemasangan berikutnya), lalu jalankan `pasang`
+//   git       clone repo sumber ke `lokal` (disimpan untuk pemasangan berikutnya), lalu jalankan `pasang`;
+//             tanpa `repo` (repo lokal tanpa remote): `lokal` dipakai apa adanya — tidak di-clone/pull, wajib sudah ada
 //   plugin    `claude plugin marketplace add <sumber>` + `claude plugin install <plugin>` (lisensi Anthropic:
 //             tidak pernah disalin ke repo sendiri — selalu dari marketplace resmi)
 //   platform  bawaan aplikasi Claude (mis. konektor Claude Docs); tidak bisa dipasang → pakai `alternatif`
@@ -79,8 +80,13 @@ export function cariEntri(daftar, target) {
 }
 
 function pasangGit(e, catat, dir) {
+  if (!e.lokal) return catat("!!", `${e.id}: entri git tanpa \`lokal\` — perbaiki perkakas.json › skill_luar`), false;
   const lokal = rumah(e.lokal);
-  if (!fs.existsSync(lokal)) {
+  if (!e.repo) {
+    // Tanpa repo sumber (mis. repo lokal yang belum punya remote): pakai folder lokal apa adanya — tidak clone, tidak pull.
+    if (!fs.existsSync(lokal)) return catat("!!", `${e.id}: belum ada di ${e.lokal} dan tidak punya repo sumber untuk di-clone — salin repo ${e.id} ke folder itu dulu, lalu jalankan pastikan lagi`), false;
+    catat("ok", `${e.id}: memakai repo lokal ${e.lokal} (tanpa repo sumber — tidak di-clone/diperbarui)`);
+  } else if (!fs.existsSync(lokal)) {
     const r = jalankan("git", ["clone", "--quiet", "--depth", "1", e.repo, lokal]);   // dangkal: hanya isi terbaru yang dipasang
     if (!r.ok) return catat("!!", `${e.id}: clone ${e.repo} gagal — ${baris1(r.err)}`), false;
     catat("ok", `${e.id}: repo disimpan di ${e.lokal}`);
@@ -262,7 +268,7 @@ export function pastikan(daftar, target, { dir = folderClaude(), log = console.l
     catat("!!", `${nama}: ${e.catatan}${e.alternatif ? ` — pakai \`${e.alternatif}\` (\`bin/perkakas.sh pastikan ${e.alternatif}\`)` : ""}`);
     return 2;
   }
-  if (!sudah) catat("..", `${nama}: belum terpasang — memasang ${e.id} dari ${e.jenis === "plugin" ? e.marketplace.sumber : e.repo}${e.jenis === "ekosistem" ? ` @ ${String(e.sha).slice(0, 12)}` : ""}`);
+  if (!sudah) catat("..", `${nama}: belum terpasang — memasang ${e.id} dari ${e.jenis === "plugin" ? e.marketplace.sumber : e.repo ?? `repo lokal ${e.lokal}`}${e.jenis === "ekosistem" ? ` @ ${String(e.sha).slice(0, 12)}` : ""}`);
   const ok = e.jenis === "git" ? pasangGit(e, catat, dir) : e.jenis === "plugin" ? pasangPlugin(e, catat, dir)
     : e.jenis === "ekosistem" ? pasangEkosistem(e, catat, dir, root) : (catat("!!", `${e.id}: jenis "${e.jenis}" tidak dikenal`), false);
   const hasil = ok && cariSkill(nama, dir, daftar);
