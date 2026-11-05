@@ -318,16 +318,17 @@ test("hook aktif: core.hooksPath relatif/absolut/~/symlink ke folder yang sama �
   assert.equal(hookAktif(repo, ".githooks", ""), false, "tanpa t.hooks");
 });
 
-test("hook aktif di Windows: pemisah \\ dan /, huruf besar-kecil, bentuk Git Bash /c/…; folder lain tetap belum", () => {
+test("hook aktif di Windows: pemisah \\ dan /, huruf besar-kecil; /c/… (Git Bash) dan folder lain tetap belum", () => {
   const w = (repo, nilai) => hookAktif(repo, nilai, ".githooks", { platform: "win32", home: "C:\\Users\\Budi", realpath: () => null });
   const repo = "C:\\Users\\Budi\\Documents\\Neuron\\ai-agent\\rudis-modules";
   for (const benar of [".githooks", ".\\.githooks", "C:\\Users\\Budi\\Documents\\Neuron\\ai-agent\\rudis-modules\\.githooks",
     "C:/Users/Budi/Documents/Neuron/ai-agent/rudis-modules/.githooks", "c:/users/budi/documents/neuron/ai-agent/rudis-modules/.githooks/",
-    "/c/Users/Budi/Documents/Neuron/ai-agent/rudis-modules/.githooks", "~/Documents/Neuron/ai-agent/rudis-modules/.githooks",
+    "~/Documents/Neuron/ai-agent/rudis-modules/.githooks",
     "~\\Documents\\Neuron\\ai-agent\\rudis-modules\\.githooks"]) {
     assert.equal(w(repo, benar), true, benar);
   }
-  for (const salah of ["", "D:/Users/Budi/Documents/Neuron/ai-agent/rudis-modules/.githooks", "/d/Users/Budi/Documents/Neuron/ai-agent/rudis-modules/.githooks",
+  // /c/… (Git Bash) tidak diterjemahkan: git.exe membacanya sebagai \c\… di drive aktif, bukan C:/…
+  for (const salah of ["", "/c/Users/Budi/Documents/Neuron/ai-agent/rudis-modules/.githooks", "D:/Users/Budi/Documents/Neuron/ai-agent/rudis-modules/.githooks", "/d/Users/Budi/Documents/Neuron/ai-agent/rudis-modules/.githooks",
     "C:/Users/Budi/Documents/Neuron/ai-agent/rudis-monorepo/.githooks", ".git\\hooks"]) {
     assert.equal(w(repo, salah), false, salah);
   }

@@ -344,15 +344,14 @@ const realpathAman = (p) => { try { return fs.realpathSync.native(p); } catch { 
 /**
  * Apakah core.hooksPath (nilai dari `git config --path`) menunjuk folder `<repo>/<hooks>`?
  * Relatif dihitung dari akar worktree (aturan git); absolut, `~`, symlink (realpath bila folder ada) dan — di Windows —
- * pemisah `\` / `/`, huruf besar-kecil, dan bentuk Git Bash `/c/…` dianggap sama. Kosong → belum aktif.
+ * pemisah `\` / `/` dan huruf besar-kecil dianggap sama. Kosong → belum aktif. Bentuk Git Bash `/c/…` sengaja TIDAK
+ * diterjemahkan: git.exe tidak membacanya sebagai `C:/…`, jadi nilai itu memang belum mengaktifkan hook.
  */
 export function hookAktif(repo, nilai, hooks, { platform = process.platform, home = os.homedir(), realpath = realpathAman } = {}) {
   if (!nilai?.trim() || !hooks) return false;
   const win = platform === "win32", p = win ? path.win32 : path.posix;
   const ke = (s) => {
-    let x = s.trim().replace(/^~(?=[\\/]|$)/, home);
-    if (win) x = x.replace(/^\/([a-zA-Z])(?=\/|$)/, "$1:/");
-    const abs = p.resolve(repo, x);
+    const abs = p.resolve(repo, s.trim().replace(/^~(?=[\\/]|$)/, home));
     const n = p.normalize(realpath(abs) ?? abs);
     return win ? n.toLowerCase() : n;
   };
