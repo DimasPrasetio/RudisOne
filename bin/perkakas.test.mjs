@@ -7,7 +7,7 @@ import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { deteksiProyek, jenisProyek, normalSumber, periksaAllowlist, rencanaSdd, sumberDiizinkan, tugasEngineeringBerjalan } from "./perkakas.mjs";
+import { deteksiProyek, hookAktif, jenisProyek, normalSumber, periksaAllowlist, rencanaSdd, sumberDiizinkan, tugasEngineeringBerjalan } from "./perkakas.mjs";
 import { jalankanSh, palsu, zipFolder } from "./lib/uji-util.mjs";
 
 const SKRIP = path.join(path.dirname(fileURLToPath(import.meta.url)), "perkakas.mjs");
@@ -296,6 +296,56 @@ test("siapkan di device kosong: clone keduanya, pasang skill, aktifkan hook", ()
   assert.equal(sh("git", ["-C", SKILL, "config", "core.hooksPath"]), ".githooks");
   const v = perkakas("versi").stdout.trim();
   assert.match(v, /^rudis@[0-9a-f]{7,} lib@[0-9a-f]{7,}$/);
+});
+
+test("hook aktif: core.hooksPath relatif/absolut/~/symlink ke folder yang sama → aktif; kosong/folder lain → belum", () => {
+  const repo = path.join(tmp, "repo-hook"), hooks = path.join(repo, ".githooks");
+  fs.mkdirSync(hooks, { recursive: true });
+  assert.equal(hookAktif(repo, ".githooks", ".githooks"), true);
+  assert.equal(hookAktif(repo, "./.githooks/", ".githooks"), true);
+  assert.equal(hookAktif(repo, hooks, ".githooks"), true);
+  assert.equal(hookAktif(repo, `${hooks}/`, ".githooks"), true);
+  assert.equal(hookAktif(repo, path.join(repo, "sub", "..", ".githooks"), ".githooks"), true);
+  assert.equal(hookAktif(repo, "~/x/.githooks", ".githooks", { home: tmp }), false);
+  assert.equal(hookAktif(repo, "~/repo-hook/.githooks", ".githooks", { home: tmp }), true);
+  const tautan = path.join(tmp, "tautan-repo-hook");
+  fs.symlinkSync(repo, tautan, "junction");   // junction: Windows tanpa hak admin; diabaikan di OS lain
+  assert.equal(hookAktif(tautan, hooks, ".githooks"), true, "repo lewat symlink, hooksPath ke folder nyata");
+  assert.equal(hookAktif(repo, path.join(tautan, ".githooks"), ".githooks"), true, "hooksPath lewat symlink");
+  for (const salah of ["", "   ", undefined, ".git/hooks", "hooks", path.join(tmp, ".githooks"), path.join(repo, ".githooks-lain"), "/"]) {
+    assert.equal(hookAktif(repo, salah, ".githooks"), false, `nilai ${JSON.stringify(salah)}`);
+  }
+  assert.equal(hookAktif(repo, ".githooks", ""), false, "tanpa t.hooks");
+});
+
+test("hook aktif di Windows: pemisah \\ dan /, huruf besar-kecil, bentuk Git Bash /c/…; folder lain tetap belum", () => {
+  const w = (repo, nilai) => hookAktif(repo, nilai, ".githooks", { platform: "win32", home: "C:\\Users\\Budi", realpath: () => null });
+  const repo = "C:\\Users\\Budi\\Documents\\Neuron\\ai-agent\\rudis-modules";
+  for (const benar of [".githooks", ".\\.githooks", "C:\\Users\\Budi\\Documents\\Neuron\\ai-agent\\rudis-modules\\.githooks",
+    "C:/Users/Budi/Documents/Neuron/ai-agent/rudis-modules/.githooks", "c:/users/budi/documents/neuron/ai-agent/rudis-modules/.githooks/",
+    "/c/Users/Budi/Documents/Neuron/ai-agent/rudis-modules/.githooks", "~/Documents/Neuron/ai-agent/rudis-modules/.githooks",
+    "~\\Documents\\Neuron\\ai-agent\\rudis-modules\\.githooks"]) {
+    assert.equal(w(repo, benar), true, benar);
+  }
+  for (const salah of ["", "D:/Users/Budi/Documents/Neuron/ai-agent/rudis-modules/.githooks", "/d/Users/Budi/Documents/Neuron/ai-agent/rudis-modules/.githooks",
+    "C:/Users/Budi/Documents/Neuron/ai-agent/rudis-monorepo/.githooks", ".git\\hooks"]) {
+    assert.equal(w(repo, salah), false, salah);
+  }
+  assert.equal(w("C:/Users/Budi/rudis-modules", "C:\\Users\\Budi\\rudis-modules\\.githooks"), true, "akar repo ber-/ dari git");
+});
+
+test("siapkan: core.hooksPath absolut ke .githooks tidak memberi peringatan palsu; folder lain/kosong tetap diperingatkan", () => {
+  const cekHook = () => perkakas("cek").stdout.split("\n").filter((b) => b.includes("rudis-modules") && b.includes("hook pre-commit"));
+  try {
+    sh("git", ["-C", LIB, "config", "core.hooksPath", path.join(LIB, ".githooks")]);
+    assert.deepEqual(cekHook(), []);
+    sh("git", ["-C", LIB, "config", "core.hooksPath", path.join(tmp, "hook-lain")]);
+    assert.match(cekHook().join("\n"), /belum aktif \(core\.hooksPath kini: .*hook-lain\)/);
+    sh("git", ["-C", LIB, "config", "--unset", "core.hooksPath"]);
+    assert.match(cekHook().join("\n"), /belum aktif — jalankan: git -C ~\/Documents\/Neuron\/ai-agent\/rudis-modules config core\.hooksPath \.githooks/);
+  } finally {
+    sh("git", ["-C", LIB, "config", "core.hooksPath", ".githooks"]);
+  }
 });
 
 test("versi baru ditunda selama tugas Engineering berjalan, lalu --paksa memperbarui", () => {
