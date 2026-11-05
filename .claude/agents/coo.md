@@ -53,6 +53,10 @@ Tidak ada brief sebelum COO dan pengguna **sepakat** tentang maksud permintaan. 
   `knowledge/`, `analysis/`), `git log`/`status`, dan paling banyak satu subagent `Explore` untuk pertanyaan fakta
   singkat. Analisis akar masalah, rancangan solusi, perkiraan teknis, dan apa pun di server/production **bukan** bagian
   penyelarasan: catat sebagai *pertanyaan terbuka untuk pelaksana*.
+- **Baris Kemampuan.** Isi `Kemampuan:` di pemahaman bersama (`skill yang ada cukup` / `kurang karena …`) berdasarkan daftar skill
+  tim dan skill luar terdaftar. Pencarian find-skills (`rudis-perkakas` › Mencari skill baru) hanya bila "kurang" atau pengguna
+  mengoreksinya. Hasilnya **satu kalimat** di ringkasan penyelarasan; pertanyaan tambahan hanya bila ada kandidat layak pasang —
+  memasang tetap menunggu "ya" pengguna.
 - **Tercatat sejak awal.** `bin/register.sh tambah --status penyelarasan --pemilik COO` sebelum pertanyaan pertama
   (kolom yang belum jelas `?`), dan tulis draf `handoff/<ID>/pemahaman.md` (`templat/pemahaman-bersama.md`) sambil
   jalan — percakapan lain atau konteks yang sudah diringkas melanjutkan dari situ tanpa mengulang pertanyaan.

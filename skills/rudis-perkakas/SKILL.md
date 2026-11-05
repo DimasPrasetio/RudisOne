@@ -108,7 +108,8 @@ Exit 1 → `[Terhambat]` ke pemberi tugas dengan keluaran perintahnya. `siapkan`
   memperingatkan skill di `~/.claude/skills` yang tidak terdaftar (`skill-tak-terdaftar`).
 
 ### Mencari skill baru (find-skills) — hanya saat ada kekurangan kemampuan
-Tugas biasa tidak memakai langkah ini. Pemicunya: penyelarasan COO atau peran yang bekerja menemukan kemampuan yang
+Tugas biasa tidak memakai langkah ini. Pemicunya: baris `Kemampuan:` di pemahaman bersama bernilai "kurang" (atau pengguna
+mengoreksinya "cukup"), atau penyelarasan COO atau peran yang bekerja menemukan kemampuan yang
 tidak dimiliki skill tim maupun skill luar terdaftar (pertanyaan terbuka / `[Permintaan layanan]` ke COO).
 1. **Cari** — Research Analyst (atau COO): `bin/perkakas.sh pastikan find-skills`, lalu ikuti `SKILL.md`-nya **hanya untuk
    mencari**: `DO_NOT_TRACK=1 npx -y skills@<versi> find <kata kunci>` (versi = `cli` di entri `find-skills` — hook

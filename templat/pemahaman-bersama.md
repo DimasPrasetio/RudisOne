@@ -20,6 +20,10 @@ Diperbarui: YYYY-MM-DD HH:MM
 <!-- Bisa diamati dan dicek. Disalin ke brief; laporan menjawab per nomor; COO memverifikasi per nomor. -->
 1. <kriteria> — cara cek: <tes, layar, angka, dokumen>
 
+## Kemampuan
+<!-- Satu baris, diisi COO saat menyelaraskan: skill yang ada cukup / kurang karena <…>. find-skills hanya bila "kurang" atau pengguna mengoreksi. -->
+Kemampuan: skill yang ada cukup | kurang karena <kemampuan yang belum ada>
+
 ## Lingkup
 - **Termasuk:** <…>
 - **Tidak termasuk (sengaja):** <…>
