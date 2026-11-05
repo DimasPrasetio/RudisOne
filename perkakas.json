@@ -96,12 +96,11 @@
         "technical-writer",
         "program-manager"
       ],
-      "repo": null,
+      "repo": "https://github.com/DimasPrasetio/pptx-neuron.git",
       "lokal": "~/Documents/Neuron/ai-agent/pptx-neuron",
       "pasang": "scripts/sync.sh",
       "prasyarat": "scripts/setup.sh",
-      "lisensi": "Proprietary Neuronworks — repo lokal (belum ada repo GitHub)",
-      "catatan": "tanpa repo sumber: pastikan memakai repo lokal apa adanya (tanpa clone/pull); device tanpa folder lokal itu → pastikan gagal dengan pesan jelas"
+      "lisensi": "Proprietary Neuronworks — repo privat"
     },
     {
       "id": "document-skills",

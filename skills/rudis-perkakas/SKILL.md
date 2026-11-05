@@ -88,7 +88,7 @@ Exit 1 → `[Terhambat]` ke pemberi tugas dengan keluaran perintahnya. `siapkan`
 | Skill | Untuk | Jabatan utama | Sumber resmi |
 |---|---|---|---|
 | `docx-neuron` | Dokumen Word resmi Neuronworks | Technical Writer, Program Manager | repo privat `DimasPrasetio/docx-neuron` (disimpan di `~/Documents/Neuron/ai-agent/docx-neuron`) |
-| `pptx-neuron` | Presentasi PowerPoint resmi Neuronworks | Technical Writer, Program Manager | repo lokal `~/Documents/Neuron/ai-agent/pptx-neuron` (belum ada repo GitHub — `pastikan` memakai folder itu apa adanya, tanpa clone/pull; device tanpa folder itu: salin repo-nya ke sana dulu) |
+| `pptx-neuron` | Presentasi PowerPoint resmi Neuronworks | Technical Writer, Program Manager | repo privat `DimasPrasetio/pptx-neuron` (disimpan di `~/Documents/Neuron/ai-agent/pptx-neuron`) |
 | `docx`, `pdf`, `pptx`, `xlsx` | Word generik, PDF, slide, spreadsheet | Technical Writer, Program Manager, Financial Controller, Head of Strategy, Research Analyst, HR Business Partner, Business Systems Analyst | plugin `document-skills` dari marketplace `anthropics/skills` |
 | `frontend-design` | Eksekusi desain antarmuka | Tech Lead, Software Engineer | plugin `frontend-design` dari marketplace `anthropics/claude-plugins-official` |
 | `docs` | Dokumen kolaboratif Claude Docs | Technical Writer, Program Manager | bawaan aplikasi Claude — tidak bisa dipasang; alternatif `docx` |
