@@ -74,7 +74,7 @@ test("jenis git: repo disimpan di `lokal`, skill dipasang, pemanggilan kedua tid
 });
 
 test("jenis git tanpa repo sumber: folder lokal dipakai apa adanya (tanpa clone/pull); folder lokal tidak ada → gagal jelas, tidak membuat apa pun", () => {
-  // repo lokal tanpa remote (seperti pptx-neuron sebelum punya repo GitHub)
+  // repo lokal tanpa remote (mis. skill lokal yang belum punya repo GitHub; dukungan ini tetap dipertahankan)
   const LOKAL = path.join(tmp, "lokal-tanpa-remote", "pptx-neuron");
   fs.mkdirSync(path.join(LOKAL, "scripts"), { recursive: true });
   fs.writeFileSync(path.join(LOKAL, "SKILL.md"), "---\nname: pptx-neuron\n---\n");
@@ -111,12 +111,14 @@ test("jenis git tanpa repo sumber: folder lokal dipakai apa adanya (tanpa clone/
   assert.match(log2.join("\n"), /tanpa `lokal`/);
 });
 
-test("perkakas.json: pptx-neuron terdaftar sebagai git tanpa repo (pola docx-neuron), dipakai Technical Writer & Program Manager", () => {
+test("perkakas.json: pptx-neuron terdaftar sebagai git dengan repo privat GitHub (pola docx-neuron), dipakai Technical Writer & Program Manager", () => {
   const m = JSON.parse(fs.readFileSync(new URL("../perkakas.json", import.meta.url), "utf8"));
   const e = cariEntri(m.skill_luar, "pptx-neuron"), d = cariEntri(m.skill_luar, "docx-neuron");
   assert.equal(e.id, "pptx-neuron");
   assert.equal(e.jenis, "git");
-  assert.equal(e.repo, null);
+  assert.equal(e.repo, "https://github.com/DimasPrasetio/pptx-neuron.git");
+  assert.equal(e.lisensi, d.lisensi);
+  assert.equal(e.catatan, undefined);
   assert.equal(e.lokal, "~/Documents/Neuron/ai-agent/pptx-neuron");
   assert.equal(e.pasang, d.pasang);
   assert.equal(e.prasyarat, d.prasyarat);
