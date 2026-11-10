@@ -39,7 +39,7 @@ const BAWAAN = {
   responsDiizinkan: [], // RegExp terhadap "METODE /jalur STATUS", mis. /GET \/auth\/me 401/
   tombolPenjaga: [/^(Tinggalkan|Buang perubahan|Buang|Keluar tanpa menyimpan|Discard|Leave)/i], // dialog "Perubahan belum disimpan"
   tungguHp: 1500, // HP: sasaran yang belum ada di halaman ditunggu sesingkat ini sebelum menu samping dicoba dibuka
-  tugasDariAwal: false, // true = tiap s.tugas mulai dari rute awal sesi (selalu berlaku saat UJI_TUGAS diisi, termasuk @galat)
+  tugasDariAwal: false, // true = tiap s.tugas mulai dari rute awal sesi (selalu berlaku saat UJI_TUGAS=@galat)
   waktuHabis: 8000, // per aksi; login/goto memakai waktuMuat
   waktuMuat: 30000,
   jeda: 250,
@@ -287,12 +287,13 @@ class Sesi {
   /**
    * Jalankan satu tugas alur (fungsi `fn(s)`) dengan penangkap galat. Bila env UJI_TUGAS="masuk,keluar" diisi, hanya tugas yang namanya
    * memuat salah satu kata itu yang dijalankan — uji ulang sebatas butir yang berubah tanpa mengulang semuanya. `UJI_TUGAS=@galat` =
-   * hanya tugas yang galat di hasil.json sebelumnya (nama persis). Saat UJI_TUGAS diisi (atau opsi `tugasDariAwal`), tiap tugas mulai dari
+   * hanya tugas yang galat di hasil.json sebelumnya (nama persis). Saat `@galat` (atau opsi `tugasDariAwal`), tiap tugas mulai dari
    * rute awal sesi agar galat/keadaan tugas lain tidak merembet.
    */
   async tugas(nama, fn) {
     if (this.uji.saring && !cocokSaring(nama, this.uji.saring)) return undefined;
-    const dariAwal = !!(this.uji.saring || this.uji.opsi.tugasDariAwal);
+    // rute awal tetap: @galat atau opsi tugasDariAwal (UJI_TUGAS=<kata> biasa tetap seperti dulu)
+    const dariAwal = !!(this.uji.saring?.galat || this.uji.opsi.tugasDariAwal);
     this._tugasAktif = nama;
     try {
       return await this.coba(nama, async (s) => { if (dariAwal) await s.keAwal(); return fn(s); });
@@ -300,17 +301,21 @@ class Sesi {
   }
   /** Kembali ke rute awal sesi (`uji.sesi(…, { awal })`): tutup penghalang, lalu pergi bila belum di sana. */
   async keAwal() {
+    const { baseUrl, waktuMuat } = this.uji.opsi;
+    // belum di aplikasi (sesi `masuk: false` masih about:blank): pushState SPA tak bisa → muat rute awal penuh
+    if (!this.page.url().startsWith(baseUrl)) { await this.page.goto(baseUrl + this.awal, { timeout: waktuMuat }); await this.tenang(); return; }
     await this.tutupPenghalang();
-    let di = "";
-    try { const u = new URL(this.page.url()); di = u.pathname + u.search; } catch { /* about:blank */ }
-    if (di !== this.awal) await this.pergi(this.awal);
+    const u = new URL(this.page.url());
+    if (u.pathname + u.search !== this.awal) await this.pergi(this.awal);
   }
   /** URL + sasaran + ±5 nama tampak terdekat untuk galat "sasaran tidak ditemukan" (bukan galat lain, mis. pemeriksaan skrip). */
   async diagnosaGalat(e) {
     const pesan = String(e?.message ?? e);
     let url = this.page.url();
     try { const u = new URL(url); url = u.pathname + u.search; } catch { /* biarkan apa adanya */ }
-    const sasaran = sasaranDariGalat(pesan) ?? (/Timeout|waiting for|tidak ditemukan|not found|strict mode/i.test(pesan) ? deskripsiSasaran(this._sasaranTerakhir) : null);
+    // cadangan: sasaran aksi kit terakhir di langkah ini — bukan untuk galat navigasi (goto/waitForURL), yang tak punya sasaran
+    const cadangan = /Timeout|tidak ditemukan|not found|strict mode/i.test(pesan) && !/navigat|goto|waitForURL|waitForLoadState/i.test(pesan);
+    const sasaran = sasaranDariGalat(pesan) ?? (cadangan ? deskripsiSasaran(this._sasaranTerakhir) : null);
     if (!sasaran) return { url };
     const dom = await this.page.evaluate(ambilDom).catch(() => null);
     const kandidat = dom ? kandidatTerdekat(teksSasaran(sasaran), daftarNamaDom(dom), 5).map(formatKandidat) : [];
@@ -319,6 +324,7 @@ class Sesi {
   /** Jalankan langkah yang mungkin gagal tanpa menghentikan seluruh uji: galat dicatat sebagai langkah GALAT + tangkapan.
    *  Galat sasaran (selektor salah/belum muncul) mencetak URL + ±5 nama tampak terdekat ke stdout dan hasil.json › galat. */
   async coba(nama, fn) {
+    this._sasaranTerakhir = null; // sasaran dari langkah/tugas lain tidak boleh muncul di diagnosa galat langkah ini
     try { return await fn(this); } catch (e) {
       const pesan = String(e.message).split("\n")[0].slice(0, 200);
       const g = { nama, tugas: this._tugasAktif ?? nama, peran: this.peran, perangkat: this.perangkat, pesan, ...(await this.diagnosaGalat(e).catch(() => ({}))) };

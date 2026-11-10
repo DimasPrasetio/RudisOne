@@ -346,3 +346,21 @@ test("perilaku lama tetap bawaan: tanpa UJI_TUGAS semua tugas jalan, tanpa kemba
     assert.deepEqual(await jalankanTugas(uji, halamanTiruan(), ["barang-masuk", "barang-masuk-gagal", "keluar"]), ["barang-masuk", "barang-masuk-gagal"]);
   });
 });
+
+test("tinjauan T-20261110-3: kata UJI_TUGAS tidak memindah rute; sesi belum login (about:blank) dimuat penuh; log aksi/navigasi bukan sasaran", async () => {
+  await ujiDengan("masuk", {}, async (buat) => {
+    const page = halamanTiruan("http://localhost:5173/stock/in");
+    assert.deepEqual(await jalankanTugas(buat(), page, ["barang-masuk"]), ["barang-masuk"]);
+    assert.deepEqual(page.pergi, [], "UJI_TUGAS=<kata> tanpa tugasDariAwal: perilaku lama, tidak berpindah rute");
+  });
+  await ujiDengan("@galat", { "hasil/hasil.json": { galat: [{ nama: "masuk-sandi-salah", tugas: "masuk-sandi-salah" }] } }, async (buat) => {
+    const uji = buat(), page = halamanTiruan("about:blank");
+    assert.deepEqual(await jalankanTugas(uji, page, ["masuk-sandi-salah"]), ["masuk-sandi-salah"]);
+    assert.deepEqual(page.pergi, ["http://localhost:5173/stock"], "about:blank: goto rute awal, bukan pushState");
+    assert.equal(uji.galat.length, 0);
+  });
+  const klikNonaktif = "locator.click: Timeout 8000ms exceeded.\nCall log:\n  - waiting for getByRole('button', { name: 'Simpan' })\n    - locator resolved to <button disabled>Simpan</button>\n  - attempting click action\n    2 × waiting for element to be visible, enabled and stable";
+  assert.equal(sasaranDariGalat(klikNonaktif), "getByRole('button', { name: 'Simpan' })", "baris 'element to be …' dilewati");
+  assert.equal(sasaranDariGalat("page.waitForURL: Timeout 30000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\""), null);
+  assert.equal(sasaranDariGalat("x: Timeout\n  - waiting for locator('#a').first() to be visible"), "locator('#a').first()");
+});

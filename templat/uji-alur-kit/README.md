@@ -37,9 +37,10 @@ Pilih lewat opsi `mode` atau env `UJI_MODE=cepat|penuh` (PowerShell: `$env:UJI_M
    9 tugas (2 peran) × 2 perangkat ≈ 6 mnt — mengulanginya tiap perbaikan skrip adalah penyebab utama uji lambat (mode cepat: ± 2 mnt). Galat skrip tertangkap
    (`tugas`/`coba`) dan tidak menghentikan uji; langkah GALAT = skrip/selektor salah, bukan temuan aplikasi. Galat sasaran mencetak **URL + ±5 nama
    tampak terdekat** (stdout, `ringkasan.md`, `hasil.json` › `galat`) — perbaiki selektor dari situ, lalu **`UJI_TUGAS=@galat node uji.mjs`**
-   menjalankan ulang **hanya tugas yang galat** di `hasil.json` terbaru (eksekusi penuh atau `@galat` sebelumnya; nama persis). Saat `UJI_TUGAS`
-   diisi (atau opsi `tugasDariAwal: true`, dipakai `contoh-uji.mjs`) tiap tugas mulai dari rute awal sesi — tulis tugas yang berdiri sendiri
-   (menavigasi sendiri), jangan mengandalkan layar terakhir tugas sebelumnya.
+   menjalankan ulang **hanya tugas yang galat** di `hasil.json` terbaru (eksekusi penuh atau `@galat` sebelumnya; nama persis). Dengan `@galat`
+   (atau opsi `tugasDariAwal: true`, dipakai `contoh-uji.mjs`) tiap tugas mulai dari rute awal sesi — tulis tugas yang berdiri sendiri
+   (menavigasi sendiri), jangan mengandalkan layar terakhir tugas sebelumnya. Tanpa `tugasDariAwal`, `UJI_TUGAS=<kata>` tetap seperti dulu (tugas
+   mulai dari layar terakhir), sehingga hasil uji ulang parsial bisa berbeda dari eksekusi penuh — pakai `tugasDariAwal: true`.
 5. **Isi templat**: `hasil/ringkasan.md` memuat baris matriks dan tabel calon temuan; `hasil/hasil.json` memuat semuanya per
    langkah. Kit hanya MENEMUKAN calon temuan — kamu memutuskan tingkat, mengaitkan kode sumber (A#/G#/K#/R#/N#), usulan, dan
    jenis tindak lanjut; temuan yang tak bisa dirujuk ke aturan/heuristik dibuang.
@@ -67,7 +68,7 @@ Kasus gagal sengaja: `snap(nama, { gagal: true })` (respons 4xx dianggap diharap
 - `mulaiUji(opsi)` → `uji`. Opsi penting: `baseUrl`, `apiUrl`, `keluaran`, `akun {peran:{email,sandi}}`, `login {path,email,sandi,kirim,next}`,
   `pergiDengan` (`goto` | `spa`), `menu {tautan,pemicuHp}`, `teksTerlarang`, `polaAngka`, `abaikanKonsol`, `responsDiizinkan`,
   `penghalang` (daftar selektor dialog/overlay), `fotoPenuh` (true | false | null = tanpa tangkapan), `tungguHp` (ms, bawaan 1500: tunggu singkat
-  sebelum menu samping HP dicoba dibuka), `tugasDariAwal` (bawaan false; true = tiap `s.tugas` mulai dari rute awal sesi — selalu berlaku saat `UJI_TUGAS` diisi). `PRESET_RUDIS` mengisi
+  sebelum menu samping HP dicoba dibuka), `tugasDariAwal` (bawaan false; true = tiap `s.tugas` mulai dari rute awal sesi — selalu berlaku saat `UJI_TUGAS=@galat`). `PRESET_RUDIS` mengisi
   login `?next=`, `pergiDengan: "spa"` (token di memori; `goto` biasa memutus login), dan sidebar shadcn.
 - `await uji.peta({ peran, perangkat, awal, menuMaks })` → `hasil/peta.md` + `peta.json` (bawaan: semua akun, perangkat pertama mode ini) · `await uji.tutup()` (tutup browser tanpa menulis hasil).
 - `uji.perangkatUji` (cepat `["hp"]`, penuh `["hp","komputer"]`) · `uji.cakupan({ tugasUji, tugasSemua })` · `uji.mode`.

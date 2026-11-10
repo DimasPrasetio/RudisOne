@@ -246,7 +246,8 @@ export function deskripsiSasaran(t) {
 /** Sasaran dari pesan galat Playwright ("waiting for getByRole('button', { name: 'Simpan' })"); null bila bukan galat sasaran. */
 export function sasaranDariGalat(pesan) {
   const baris = String(pesan ?? "").split("\n").map((b) => b.trim());
-  const tunggu = baris.map((b) => b.match(/waiting for (.+?)(?: to be \w+)?$/)).filter(Boolean).map((m) => m[1]);
+  // hanya baris locator ("waiting for getByRole(…)", "locator(…)"); "element to be visible, enabled…", "navigation …", "event …" dilewati
+  const tunggu = baris.map((b) => b.match(/waiting for ((?:getBy\w+|locator|frameLocator|internal:)\S*.*?)(?: to be \w+)?$/)).filter(Boolean).map((m) => m[1]);
   if (tunggu.length) return tunggu[tunggu.length - 1].replace(/^-\s*/, "");
   const kit = String(pesan ?? "").match(/tidak ditemukan[^:]*:\s*(.+)$/m); // galat kit sendiri, mis. pilihOpsi "<select>: X"
   return kit ? kit[1].trim() : null;
