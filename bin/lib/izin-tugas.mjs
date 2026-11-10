@@ -48,8 +48,20 @@ const rapat = (s) => String(s ?? "").replace(/\s+/g, " ").trim();
  *  ("ya", "lanjut") atas pertanyaan lain tidak pernah menjadi izin gabung/kirim. Bersihkan = bagian dari menggabung. */
 export const KATA_AKSI = { gabung: /gabung|merge|satukan|versi utama|cabang utama/i, push: /kirim|push|github|gitlab|unggah/i,
   bersihkan: /gabung|merge|bersih|hapus salinan|worktree/i };
-const teksAsisten = (y) => (Array.isArray(y.message?.content) ? y.message.content : [])
-  .map((b) => (b?.type === "text" ? b.text : b?.type === "tool_use" ? JSON.stringify(b.input ?? {}) : "")).join("\n");
+/** Pertanyaan terakhir di satu baris asisten: `ask` alat wrap_up, atau kalimat bertanda tanya terakhir di blok teks terakhir
+ *  (tanpa tanda tanya: kalimat terakhir). Isi alat lain (perintah Bash, dll.) tidak pernah dihitung. */
+function tanyaAsisten(y) {
+  const c = Array.isArray(y.message?.content) ? y.message.content : [];
+  for (let i = c.length - 1; i >= 0; i--) {
+    const b = c[i];
+    if (b?.type === "tool_use" && /wrap_up$/.test(String(b.name)) && typeof b.input?.ask === "string") return b.input.ask;
+    if (b?.type === "text" && String(b.text).trim()) {
+      const kal = String(b.text).split(/(?<=[.!?])\s+|\n+/).map((x) => x.trim()).filter(Boolean);
+      return [...kal].reverse().find((x) => x.includes("?")) ?? kal.at(-1) ?? "";
+    }
+  }
+  return "";
+}
 
 /** Waktu (ISO) pesan pengguna terbaru di transkrip `file` yang SAMA UTUH dengan `kutip` — diketik (origin manusia) atau
  *  jawaban AskUserQuestion (tool_use-nya terbukti bernama AskUserQuestion; jawaban alat lain tidak dihitung) — di jendela
@@ -81,13 +93,17 @@ export function buktiKetikan(file, kutip, { sejakMs = 0, sampaiMs = Infinity, ko
     const iso = new Date(waktu).toISOString();
     // pesan UTUH sama dengan kutipan (bukan sekadar memuatnya: "jangan gabung & kirim" ≠ "gabung & kirim")
     if (ketikanPengguna(x) && rapat(teksPesanPengguna(x).replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, "")) === k) {
+      // konteks = kalimat tanya terakhir COO sebelum pesan ini (blok teks terakhir; tanpa isi perintah/alat lain) atau
+      // pertanyaan kotak langkah berikutnya (wrap_up › ask), ditambah kutipan itu sendiri
       let kt = k;
       for (let j = i - 1, n = 0; j >= 0 && n < 400; j--) {
         if (!ls[j].includes('"assistant"') && !ls[j].includes('"user"')) continue;
         const y = urai(ls[j]); n++;
         if (!y) continue;
-        if (y.type === "user" && ketikanPengguna(y)) break;       // giliran sebelumnya
-        if (y.type === "assistant") kt = `${teksAsisten(y)}\n${kt}`;
+        if (y.type === "user" && ketikanPengguna(y)) break;
+        if (y.type !== "assistant") continue;
+        const t = tanyaAsisten(y);
+        if (t) { kt = `${t}\n${k}`; break; }
       }
       if (konteks(kt)) return iso;
       continue;
@@ -140,31 +156,44 @@ export function daftarWorktree(dir) {
 /** URL push origin efektif (insteadOf/pushInsteadOf diterapkan git). Lebih dari satu URL push → null (push ke semua URL). */
 export const urlPushOrigin = (dir) => { const r = git(dir, ["remote", "get-url", "--push", "--all", "origin"]); const u = r.ok ? r.out.trim().split("\n").filter(Boolean) : []; return u.length === 1 ? u[0] : null; };
 /** sha cabang di origin saat ini (bukan ref pelacak lokal yang bisa diubah agent). */
-const shaOrigin = (dir, cb) => { const r = git(dir, ["ls-remote", "--heads", "origin", `refs/heads/${cb}`], { timeout: 15000 }); const m = r.ok ? r.out.match(/^([0-9a-f]{40,64})\s+refs\/heads\//m) : null; return m ? m[1] : null; };
+/** sha cabang di URL push yang sudah diverifikasi (bukan nama `origin`, yang memakai URL fetch); URL yang ditulis ulang
+ *  url.*.insteadOf → null. */
+const shaOrigin = (dir, url, cb) => { const g = git(dir, ["ls-remote", "--get-url", url]); if (!g.ok || g.out.trim() !== url) return null; const r = git(dir, ["ls-remote", "--heads", url, `refs/heads/${cb}`], { timeout: 15000 }); const m = r.ok ? r.out.match(/^([0-9a-f]{40,64})\s+refs\/heads\//m) : null; return m ? m[1] : null; };
 /** Konfigurasi repo (lokal/worktree) yang membuat git menjalankan program lain atau mengubah tujuan/arti push & gabung —
  *  izin tidak berlaku selama ada (padanan persisten `git -c …`). core.hooksPath hanya boleh path relatif di dalam repo
  *  (hook-nya diperiksa terpisah). */
 const CONFIG_RAWAN = /^(include\.|includeif\.|core\.(sshcommand|fsmonitor|gitproxy|askpass|editor|pager|alternaterefscommand)$|filter\.|merge\.[^.]+\.driver$|diff\.[^.]+\.(command|textconv)$|remote\.origin\.(push|mirror|receivepack|uploadpack|proxy|vcs|pushurl)$|push\.|gpg\.|credential\.|url\.|submodule\.|uploadpack\.|protocol\.)/;
+/** Lingkup global/system/command (`~/.gitconfig` bukan berkas terlindung): kunci yang mengubah tujuan/arti push (remote.origin.*
+ *  selain url/fetch, push.* selain default/autoSetupRemote/followTags) atau menjalankan program pada transport. Kunci umum
+ *  milik pengguna (credential.helper, filter.lfs, url.*.insteadOf) tidak membatalkan izin — URL push & dasar pindai
+ *  diverifikasi terpisah. */
+const CONFIG_RAWAN_LUAR = /^(remote\.origin\.(?!url$|fetch$)|push\.(?!default$|autosetupremote$|followtags$)|core\.(sshcommand|gitproxy)$)/;
 export function configRawan(dir) {
   const r = git(dir, ["config", "--list", "--show-scope"]);
   if (!r.ok) return "konfigurasi repo tidak terbaca";
   for (const l of r.out.split("\n")) {
-    const m = l.match(/^(local|worktree)\t([^=]+)=(.*)$/);
+    const m = l.match(/^(local|worktree|global|system|command)\t([^=]+)=(.*)$/);
     if (!m) continue;
     const k = m[2].toLowerCase();
+    if (m[1] !== "local" && m[1] !== "worktree") { if (CONFIG_RAWAN_LUAR.test(k)) return `konfigurasi git ${m[1]} ${k} (mengubah tujuan push atau menjalankan program)`; continue; }
     if (k === "core.hookspath") { if (path.isAbsolute(m[3]) || m[3].startsWith("~") || m[3].split(/[\\/]/).includes("..")) return `core.hooksPath di luar repo (${m[3]})`; continue; }
     if (CONFIG_RAWAN.test(k)) return `konfigurasi repo ${k} (dapat menjalankan program lain atau mengubah tujuan)`;
   }
   return null;
 }
-const HOOK_AKSI = { gabung: ["pre-merge-commit", "prepare-commit-msg", "commit-msg", "post-merge", "post-commit", "reference-transaction"],
-  push: ["pre-push", "reference-transaction"], bersihkan: ["reference-transaction", "post-checkout"] };
-/** Hook git yang akan berjalan untuk aksi ini (folder hook efektif, juga core.hooksPath) → nama hook pertama, atau null. */
-export function hookAktif(dir, jenis) {
+/** Hook yang TIDAK pernah berjalan pada merge/push/branch -d/worktree remove (commit biasa, rebase, am, sisi server, …).
+ *  Hook lain mana pun yang ada di folder hook efektif membatalkan izin (daftar putih, bukan daftar hitam: post-index-change,
+ *  pre-auto-gc, reference-transaction, … ikut tertangkap). */
+const HOOK_AMAN = new Set(["pre-commit", "pre-applypatch", "applypatch-msg", "post-applypatch", "pre-rebase", "post-rewrite", "sendemail-validate",
+  "pre-receive", "update", "post-receive", "post-update", "proc-receive", "push-to-checkout", "p4-changelist", "p4-prepare-changelist", "p4-post-changelist", "p4-pre-submit"]);
+/** Hook git yang bisa berjalan untuk aksi ini (folder hook efektif, juga core.hooksPath) → nama hook pertama, atau null. */
+export function hookAktif(dir) {
   const r = git(dir, ["rev-parse", "--path-format=absolute", "--git-path", "hooks"]);
   if (!r.ok) return "folder hook tidak terbaca";
   const d = r.out.trim();
-  return (HOOK_AKSI[jenis] ?? []).find((h) => { try { return fs.statSync(path.join(d, h)).isFile(); } catch { return false; } }) ?? null;
+  let isi = [];
+  try { isi = fs.readdirSync(d); } catch { return null; }   // folder hook tidak ada
+  return isi.find((h) => { if (h.endsWith(".sample") || HOOK_AMAN.has(h)) return false; try { return fs.statSync(path.join(d, h)).isFile(); } catch { return false; } }) ?? null;
 }
 /** Cabang bawaan repo: origin/HEAD, selain itu cabang checkout utama. */
 export function cabangBawaan(akar) {
@@ -296,7 +325,7 @@ export function periksaIzin(c, o) {
       if (!sama(info.toplevel, info.akar)) return "gabung hanya di checkout utama";
       if (cabangSekarang(info.akar) !== iz.cabang) return `checkout utama tidak di cabang ${iz.cabang}`;
       if (!adaRef(info.akar, c.ref)) return `${c.ref} tidak ada`;
-      const rawan = configRawan(info.akar) ?? (hookAktif(info.akar, "gabung") && `hook ${hookAktif(info.akar, "gabung")} akan berjalan`);
+      const rawan = configRawan(info.akar) ?? (hookAktif(info.akar) && `hook ${hookAktif(info.akar)} akan berjalan`);
       if (rawan) return rawan;
       const st = git(info.akar, ["status", "--porcelain", "--untracked-files=no"]);
       if (!st.ok || st.out.trim()) return "checkout utama punya perubahan yang belum di-commit";
@@ -317,10 +346,10 @@ export function periksaIzin(c, o) {
       if (!okRef.includes(c.refspec)) return `refspec ${c.refspec} di luar izin (hanya ${cb})`;
       const url = urlPushOrigin(info.akar);
       if (!url || url !== iz.origin) return "URL push origin berbeda dari saat izin ditulis (atau lebih dari satu URL push)";
-      const rawan = configRawan(info.akar) ?? (hookAktif(info.akar, "push") && `hook ${hookAktif(info.akar, "push")} akan berjalan`);
+      const rawan = configRawan(info.akar) ?? (hookAktif(info.akar) && `hook ${hookAktif(info.akar)} akan berjalan`);
       if (rawan) return rawan;
       // dasar = sha cabang di origin SEKARANG (ls-remote), bukan refs/remotes lokal yang bisa digeser tanpa prompt
-      const dasar = shaOrigin(info.akar, cb);
+      const dasar = shaOrigin(info.akar, url, cb);
       if (!dasar || !adaRef(info.akar, dasar)) return `cabang ${cb} di origin tidak terbaca atau belum ada di lokal — dasar pemindaian tidak diketahui`;
       if (!tergabung(info.akar, dasar, cb)) return "push bukan maju-cepat dari origin (butuh force)";
       const t = pindaiRahasia(info.akar, `${dasar}..refs/heads/${cb}`);
@@ -331,7 +360,7 @@ export function periksaIzin(c, o) {
     // bersihkan
     const wts = daftarWorktree(info.akar);
     if (!wts) return "daftar worktree tidak terbaca";
-    const rawanB = configRawan(info.akar) ?? (hookAktif(info.akar, "bersihkan") && `hook ${hookAktif(info.akar, "bersihkan")} akan berjalan`);
+    const rawanB = configRawan(info.akar) ?? (hookAktif(info.akar) && `hook ${hookAktif(info.akar)} akan berjalan`);
     if (rawanB) return rawanB;
     if (c.sub === "worktree") {
       const w = wts.slice(1).find((x) => sama(nyata(x.path) ?? x.path, nyata(c.path) ?? c.path));

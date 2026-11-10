@@ -156,6 +156,14 @@ test("push: allow hanya ke origin terkonfigurasi, maju-cepat, tanpa force, setel
   tulis(path.join(REPO, ".git", "hooks", "pre-push"), "#!/bin/sh\n"); fs.chmodSync(path.join(REPO, ".git", "hooks", "pre-push"), 0o755);
   assert.match(coo("git push origin main").alasan, /hook pre-push/);
   fs.rmSync(path.join(REPO, ".git", "hooks", "pre-push"));
+  // hook lain yang bisa berjalan (daftar putih: pre-commit dll. boleh) dan konfigurasi global yang mengubah tujuan push
+  for (const h of ["post-index-change", "pre-auto-gc"]) {
+    tulis(path.join(REPO, ".git", "hooks", h), "#!/bin/sh\n"); assert.notEqual(kep("git push origin main"), "allow", h); fs.rmSync(path.join(REPO, ".git", "hooks", h));
+  }
+  tulis(path.join(REPO, ".git", "hooks", "pre-commit"), "#!/bin/sh\n"); assert.equal(kep("git push origin main"), "allow", "pre-commit tidak berjalan saat push"); fs.rmSync(path.join(REPO, ".git", "hooks", "pre-commit"));
+  const GLOBAL = path.join(tmp, "gitconfig-global"); fs.writeFileSync(GLOBAL, "[remote \"origin\"]\n\tpush = +refs/heads/main:refs/heads/lain\n");
+  process.env.GIT_CONFIG_GLOBAL = GLOBAL;
+  try { assert.match(coo("git push origin main").alasan, /konfigurasi git global remote\.origin\.push/); } finally { delete process.env.GIT_CONFIG_GLOBAL; }
   assert.equal(kep("git push origin main"), "allow");
   // ref pelacak lokal digeser (update-ref) tidak mengecilkan rentang pindai: dasar = ls-remote
   tulis(path.join(REPO, "k2.txt"), `k = "AKIA${"QRSTUVWXYZABCDEF"}"\n`); g(REPO, "add", "-A"); g(REPO, "commit", "-qm", "rahasia 2");
@@ -195,6 +203,11 @@ test("izin: kedaluwarsa, tugas selesai, repo lain, dan bukti ketikan pengguna", 
   tulisRegister([tugas(ID, { izin: [izinEntri({ kutip: "Ya, lanjut" })] })]);
   assert.notEqual(kep(P, { transcript_path: transkrip(tanyaCOO("Lanjut uji tampilan di HP?"), ketik("Ya, lanjut")) }), "allow");
   assert.equal(kep(P, { transcript_path: transkrip(tanyaCOO("Hasil siap. Kirim ke GitHub sekarang?"), ketik("Ya, lanjut")) }), "allow");
+  // kata aksi hanya di kalimat lain atau di isi perintah alat, bukan di pertanyaannya → bukan izin
+  assert.notEqual(kep(P, { transcript_path: transkrip(tanyaCOO("Hasil siap, sebelum push saya cek dulu. Lanjut ke laporan biaya bulan ini?"), ketik("Ya, lanjut")) }), "allow");
+  assert.notEqual(kep(P, { transcript_path: transkrip(baris({ type: "assistant", message: { content: [{ type: "tool_use", id: "b1", name: "Bash", input: { command: "git status # push nanti" } }, { type: "text", text: "Lanjut ke laporan biaya?" }] } }), ketik("Ya, lanjut")) }), "allow");
+  // pertanyaan di kotak langkah berikutnya (wrap_up › ask) dihitung
+  assert.equal(kep(P, { transcript_path: transkrip(baris({ type: "assistant", message: { content: [{ type: "tool_use", id: "w1", name: "mcp__ccd_turn__wrap_up", input: { recap: "x", ask: "Kirim ke GitHub sekarang?" } }] } }), ketik("Ya, lanjut")) }), "allow");
   // bukti terikat waktu izin ditulis: ketikan 7 jam sebelum izin dibuat tidak dihitung
   assert.notEqual(kep(P, { transcript_path: transkrip(tanyaCOO("Kirim ke GitHub?", kini - 8 * JAM), ketik("Ya, lanjut", kini - 7 * JAM)) }), "allow");
   registerBaku();
@@ -283,7 +296,7 @@ test("berkas terlindung: hanya target tulis nyata (fixture sementara, badan here
   for (const c of [
     `T=${T}/root; mkdir -p $T/handoff && cp ${ROOT}/handoff/register-tugas.json $T/handoff/`,
     `S=${T}/salin; mkdir -p $S && cd $S && printf x > konfigurasi/infra.md`,
-    `for v in a b; do d=$(mktemp -d); cp ${SINI}/../kebijakan-akses.json $d/; done`,
+    `d=$(mktemp -d); cp ${SINI}/../kebijakan-akses.json $d/`,
     `cd ${T} && cat > d.html <<'EOF'\n<i>(COO)</i> > konfigurasi\ncp -r /tmp/x ~/.claude/skills/x\nEOF`,
     `cd ~/.claude/skills && unzip -p ${T}/a.docx docProps/core.xml | grep -o creator`,
     `cd ${T}; f=catatan.md; sed -i '' -e 's/bin\\/kebijakan.mjs 50/bin\\/kebijakan.mjs 51/' $f`,
@@ -308,7 +321,9 @@ test("variabelPasti/gantiVariabel: penugasan kedua, pengisi lain, dan ekspansi a
   assert.equal(v("T=/a; export T").has("T"), false);
   assert.equal(v("T=/a; export U=1").get("T"), "/a");
   assert.equal(v("export HOME=/x; cp k $HOME/").has("HOME"), false);
-  assert.equal(v("for v in a; do T=/a; done").get("T"), "/a");
+  assert.equal(v("for v in a; do T=/a; done").has("T"), false, "penugasan di dalam blok tidak pasti");
+  assert.equal(v("T=/a; if x; then :; fi; U=/b").has("U"), false, "sesudah blok pertama tidak pasti");
+  assert.equal(v("IFS=_; T=/a").size, 0, "IFS diubah: tidak ada yang pasti");
   assert.equal(v('T=/a; bash -c "T=/b"').has("T"), false);
   assert.equal(v("echo ${T:=/x}; T=/a").has("T"), false);
   assert.match(v("d=$(mktemp -d)").get("d"), new RegExp(`^${os.tmpdir().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
@@ -394,10 +409,13 @@ test("tinjauan putaran 1: variabel/cd yang tak pasti tidak melonggarkan penjaga 
     "cd ~ && cd /tidak-ada; echo x >> .zshrc", `echo x >> ~${os.userInfo().username}/.zshrc`, "cd ~ && echo x >> ~+/.zshrc", "builtin cd ~/.claude && echo '{}' > settings.json",
     `sed -i 's/a/b/w ${os.homedir()}/.zshrc' /tmp/x.txt`]) assert.equal(d(c, "/tmp"), "ask", c);
   for (const c of ["if git push --force origin main; then :; fi", "while git stash drop; do :; done", "until git reset --hard HEAD~3; do :; done",
-    "if true; then :; elif git push --force origin main; then :; fi", "case x in x) git push --force origin main;; esac", "GIT push --force origin main"]) assert.equal(d(c), "ask", c);
+    "if true; then :; elif git push --force origin main; then :; fi", "case x in x) git push --force origin main;; esac", "GIT push --force origin main",
+    "if g''it push --force origin main; then :; fi", "if \\git push --force origin main; then :; fi", "if \"git\" push --force origin main; then :; fi", "while git \"stash\" drop; do :; done"]) assert.equal(d(c), "ask", c);
+  for (const c of ["if false; then\nT=/tmp/aman\nfi\necho x >> $HOME$T/.zshrc", "f() {\nT=/tmp/aman\n}\necho x >> $HOME$T/.zshrc", "while false; do\nT=/tmp/aman\ndone\necho x >> $HOME$T/.zshrc",
+    "case a in b)\nT=/tmp/aman\n;; esac\necho x >> $HOME$T/.zshrc", "IFS=_; T=/tmp/a_$HOME; echo x | tee $T/.zshrc"]) assert.equal(d(c, "/tmp"), "ask", c);
   // sesi pribadi: 9 aksi git yang dulu dijaga aturan ask settings tetap ditanya; git lain tidak disentuh
   const P = path.join(tmp, "pribadi");
   for (const c of ["git push origin main", "git stash", "git stash pop", "git restore a", "git checkout -- a", "git checkout HEAD -- a", "git branch -D x", "git worktree remove x",
-    "for i in 1; do git push; done"]) assert.equal(d(c, P), "ask", c);
+    "for i in 1; do git push; done", 'git "push" --force origin main', '"git" push origin main', "\\git push origin main", "g''it push origin main", "git worktree 'remove' ../wt"]) assert.equal(d(c, P), "ask", c);
   for (const c of ["git status", "git stash list", "git checkout main", "git branch -d x", "git log --grep 'git push'", "git commit -m 'git push nanti'"]) assert.equal(d(c, P), null, c);
 });

@@ -737,6 +737,35 @@ const AWAL_CLAUDE = `${AWAL_SHELL}(?:[^\\s;&|()\`'"]*\\/)?claude(?:\\.exe)?\\s+`
 /** Padanan 9 aturan ask git lama (ASK_GIT_DICABUT) untuk sesi di luar RudisOne, juga dalam bentuk tersembunyi. */
 const GIT_PRIBADI = new RegExp(`${AWAL_SHELL}(?:[^\\s;&|()\`'"]*\\/)?[Gg][Ii][Tt](?:\\s+(?:-C|-c|--git-dir|--work-tree)\\s+\\S+|\\s+--?[\\w-]+(?:=\\S*)?)*\\s+`
   + "(?:push\\b|stash(?:\\s+(?:push|pop|apply)\\b|\\s*(?=$|[)`;&|\\n]))|restore\\b|branch\\s+(?:[^;&|\\n`)]*\\s)?-D\\b|worktree\\s+remove\\b|checkout\\s+(?:[^;&|\\n`)]*\\s)?--(?=\\s|$))");
+/** Argumen git (sesudah opsi global) bila segmen MENJALANKAN git — nama program dinilai sesudah kutip/escape dibuang dan
+ *  tanpa beda huruf (`"git"`, `g''it`, `\\git`, `GIT`, /path/git), melewati kata kunci (if/while/then/…), pola case `x)`,
+ *  penugasan awalan, dan pembungkus (sudo/xargs/env/…); selain itu null. Pelengkap pola teks mentah. */
+const KUNCI_AWAL_GIT = /^(if|elif|while|until|then|do|else|!|\{|time|case|in|esac)$/;
+const PEMBUNGKUS_GIT = /^(sudo|doas|xargs|env|exec|command|builtin|nohup|nice|stdbuf|caffeinate|setsid|g?timeout)$/;
+export function argGit(teks) {
+  const coba = [teks]; const tutup = teks.indexOf(")"); if (tutup >= 0) coba.push(teks.slice(tutup + 1));
+  for (const t of coba) {
+    const w = (urai(t).segmen[0]?.kata ?? []).map((k) => k.nilai);
+    let i = 0;
+    while (i < w.length) {
+      if (KUNCI_AWAL_GIT.test(w[i]) || /^[A-Za-z_]\w*=/.test(w[i])) { i++; continue; }
+      if (PEMBUNGKUS_GIT.test(path.basename(w[i]))) { i++; while (i < w.length && (/^-/.test(w[i]) || /^\d+(\.\d+)?[smhd]?$/.test(w[i]) || /^[A-Za-z_]\w*=/.test(w[i]))) i++; continue; }
+      break;
+    }
+    if (!/^git(\.exe)?$/i.test(path.basename(w[i] ?? ""))) continue;
+    let j = i + 1;
+    while (j < w.length && w[j].startsWith("-")) j += ["-C", "-c", "--git-dir", "--work-tree", "--namespace"].includes(w[j]) ? 2 : 1;
+    return w.slice(j).join(" ");
+  }
+  return null;
+}
+const ARG_GIT_PRIBADI = /^(push\b|stash(\s+(push|pop|apply)\b|\s*$)|restore\b|branch\s+(.*\s)?-D\b|worktree\s+remove\b|checkout\s+(.*\s)?--(\s|$))/;
+/** Jumlah segmen (teks asli dan teks kode) yang menjalankan git dengan argumen cocok `re` — ambil yang terbanyak. */
+function hitungArgGit(cmd, re) {
+  const n = (segs, abai = []) => segs.filter((s) => { if (abai.includes(s.teks.trim())) return false; const a = argGit(s.teks); return a !== null && re.test(a); }).length;
+  // badan heredoc ke program selain shell = teks berkas, bukan perintah
+  return Math.max(n(urai(cmd).segmen, badanHeredoc(cmd)), n(urai(teksKode(cmd)).segmen));
+}
 /** git push / git perusak (pola penyedia git di kebijakan) di posisi perintah mana pun — lapis gagal-tertutup analisisBash. */
 function gitMentahRe(K) {
   const g = K.penyedia?.git;
@@ -1631,6 +1660,12 @@ export function variabelPasti(cmd, u = urai(cmd)) {
   const v = new Map();
   const hanyaHome = () => { const h = /(^|[^\w$.-])HOME\+?=/.test(kode) ? new Map() : new Map([["HOME", HOME]]); h.posisi = new Map(); h.akhir = new Map(); return h; };
   if (PENGISI_SEMUA.test(kode)) return hanyaHome();
+  // IFS memecah nilai tanpa spasi menjadi beberapa kata → tidak ada variabel yang pasti (HOME pun tidak)
+  if (/(^|[^\w$.-])IFS\+?=|\bIFS\b/.test(kode)) { const h = new Map(); h.posisi = new Map(); h.akhir = new Map(); return h; }
+  // hanya penugasan tingkat teratas SEBELUM blok pertama (if/while/until/for/case/select/{ }/( )/fungsi): penugasan di dalam
+  // blok bisa tidak berjalan, dan sesudah blok baris lepas pun bisa masih di dalamnya
+  const blok = u.segmen.findIndex((s) => /^(if|while|until|for|case|select|function|\{|\(|[A-Za-z_][\w-]*\s*\(\s*\))(\s|$|;)|^[^=\s]*\)/.test(s.teks.trim()) || /\(\s*\)\s*\{?$/.test(s.teks.trim()));
+  const batasBlok = blok < 0 ? Infinity : blok;
   const hitung = new Map();
   for (const m of kode.matchAll(/(?:^|[^\w$.-])([A-Za-z_]\w*)\+?=/g)) hitung.set(m[1], (hitung.get(m[1]) ?? 0) + 1);
   for (const m of kode.matchAll(/(?:^|[^\w$.-])([A-Za-z_]\w*)\+=/g)) hitung.set(m[1], 99);
@@ -1644,16 +1679,14 @@ export function variabelPasti(cmd, u = urai(cmd)) {
   u.segmen.forEach((s, idx) => {
     // hanya penugasan yang PASTI berjalan: segmen pertama atau sesudah ; / baris baru (bukan sesudah && || | &), dan bukan
     // bagian pipa atau latar (subshell); di badan if/else tidak dihitung
+    if (idx >= batasBlok) return;
     if (!["&&", ";", "\n", undefined].includes(s.sesudah) || ![";", "\n", undefined].includes(u.segmen[idx - 1]?.sesudah)) return;
-    const kunci = s.kata[0]?.nilai;
-    if (/^(then|else|\{|!)$/.test(kunci ?? "")) return;
-    const akhir = kunci === "do" ? u.segmen.findIndex((x, j) => j > idx && x.kata[0]?.nilai === "done") : -1;
-    if (kunci === "do" && akhir < 0) return;
+    const akhir = -1;
     const catat = (nama, nilai) => { if (nilai !== null && !/\s/.test(nilai) && !/^~[^/]/.test(nilai)) { v.set(nama, nilai); v.posisi.set(nama, idx); if (akhir >= 0) v.akhir.set(nama, akhir); } };
     const mk = s.teks.trim().replace(KATA_KUNCI_AWAL, "").match(/^([A-Za-z_]\w*)=\$\(\s*mktemp(?:\s+-[dq]+)*(?:\s+-t\s+[\w.-]+)?\s*\)$/);
     if (mk) { if (hitung.get(mk[1]) === 1) catat(mk[1], path.join(os.tmpdir(), `mktemp-${mk[1]}`)); return; }
     let kata = s.kata;
-    while (kata.length && /^(do|then|else|\{|!)$/.test(kata[0].nilai)) kata = kata.slice(1);
+    if (/^(do|then|else|\{|!)$/.test(kata[0]?.nilai ?? "")) return;
     if (!kata.length || s.alih.length || !kata.every((k) => /^[A-Za-z_]\w*=/.test(k.nilai))) return;
     for (const k of kata) {
       const i = k.nilai.indexOf("="), nama = k.nilai.slice(0, i);
@@ -1801,7 +1834,9 @@ function analisisBash(input, K) {
   // xargs, bash -c …) → ditanya: hook tetap melihatnya walau aturan ask git di settings sudah dicabut pemasang
   const reGit = gitMentahRe(K);
   const gitMentah = (k) => (reGit ? [...k.matchAll(reGit)].length : 0);
-  if (gitMentah(teksKode(cmd)) > u.segmen.reduce((n, s, i) => n + ((hasil[i].aksi ?? []).some((a) => a.kemampuan === "repo" && a.jenjang === 3) ? gitMentah(teksKode(s.teks)) : 0), 0))
+  const g = K.penyedia?.git;
+  const reArg = g?.lokal_perusak && g?.tulis_remote ? new RegExp(`${g.tulis_remote}|${g.lokal_perusak}`) : null;
+  if (Math.max(gitMentah(teksKode(cmd)), reArg ? hitungArgGit(cmd, reArg) : 0) > u.segmen.reduce((n, s, i) => n + ((hasil[i].aksi ?? []).some((a) => a.kemampuan === "repo" && a.jenjang === 3) ? gitMentah(teksKode(s.teks)) : 0), 0))
     aksi.push({ kemampuan: "repo", jenjang: 3, aksi: "git push / git yang menimpa kerja dalam bentuk yang tidak dikenali (loop, $( ), bash -c, xargs …)" });
   // CLI skill: pasang/ubah (`skills add …`) dalam bentuk yang tidak diurai sebagai segmen CLI skill → ditanya
   if (K.skills_cli) {
@@ -2099,7 +2134,8 @@ function putuskanDasar(input, K) {
   const sesi = kenaliSesi(input, K);
   if (!sesi.rudisOne) {
     // sesi di luar RudisOne: 9 aksi git yang dulu dijaga aturan ask settings (dicabut pemasang) tetap ditanya — perilaku lama
-    if (input.tool_name === "Bash" && GIT_PRIBADI.test(teksKode(String(input.tool_input?.command ?? ""))))
+    const c0 = String(input.tool_input?.command ?? "");
+    if (input.tool_name === "Bash" && (GIT_PRIBADI.test(teksKode(c0)) || hitungArgGit(c0, ARG_GIT_PRIBADI) > 0))
       return { keputusan: "ask", sesi, aksi: [], alasan: "Pengaman git RudisOne (pengganti aturan ask git di settings): push, stash, restore, checkout --, branch -D, atau worktree remove — tetap ditanya seperti sebelumnya" };
     return { keputusan: null, alasan: "bukan sesi RudisOne", sesi };
   }
