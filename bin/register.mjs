@@ -7,12 +7,15 @@
 //     jalur SDD (opsional, skill rudis-sdd): --mode-saat-mulai A|B|- --jalur-awal x --jalur-akhir y --reroute "alasan"; nilai "" menghapus
 //   tampil [--json] [--semua]         ringkasan tugas aktif (urut prioritas lalu dibuat)
 //   kunci-cek <ID> | --kunci a,b [--kecuali ID]   keluar 1 + daftar tugas aktif yang berbagi kunci; 0 bila bebas
+//   izin <ID> --repo <path> --aksi gabung,push,bersihkan --kutip "<kata pengguna persis>" [--sampai <ISO>]  izin tugas (COO,
+//     saat kesepakatan; kutipan harus ada di handoff/<ID>/pemahaman.md yang disepakati; maks. 24 jam) · izin <ID> --cabut [--repo <path>]
 //   validasi · bangkitkan · impor [--dari <md>] [--timpa] · rapikan (buang selesai/dibatalkan > 14 hari)
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { AKSI_IZIN, cabangBawaan, infoRepo, IZIN_MAKS_JAM, urlPushOrigin, validasiIzin } from "./lib/izin-tugas.mjs";
 
 const INI = fileURLToPath(import.meta.url);
 const ROOT = path.resolve(path.dirname(INI), "..");
@@ -35,7 +38,7 @@ const RE_JALUR = /^[a-z0-9][a-z0-9+-]{0,39}$/;
 const REROUTE_MAKS = 200;
 // fase_sejak: kapan fase sekarang dimulai (diisi otomatis saat --fase berubah) — Kantor membandingkannya dengan
 // anggaran waktu per fase (skill rudis-sdlc › rakit-paralel.md › Anggaran waktu).
-const KOLOM_TUGAS = new Set(["id", ...TEKS, "prioritas", "status", ...DAFTAR, "dibuat", "diperbarui", "selesai_pada", "bukti", "fase_sejak", ...JALUR]);
+const KOLOM_TUGAS = new Set(["id", ...TEKS, "prioritas", "status", ...DAFTAR, "dibuat", "diperbarui", "selesai_pada", "bukti", "fase_sejak", ...JALUR, "izin"]);
 /** Kolom yang boleh "?" — hanya selama status penyelarasan. */
 const BOLEH_TANYA = new Set(["folder", "divisi", "pemilik", "prioritas", "fase", "perkakas"]);
 const RAPIKAN_HARI = 14;
@@ -88,6 +91,11 @@ export function validasi(reg) {
     }
     if ("reroute" in t && (typeof t.reroute !== "string" || !t.reroute.trim() || /[\n|]/.test(t.reroute) || t.reroute.length > REROUTE_MAKS)) {
       g.push(`${di}: reroute harus alasan satu baris tanpa "|" (≤ ${REROUTE_MAKS} karakter)`);
+    }
+    // izin tugas (bin/lib/izin-tugas.mjs): larik entri per repo
+    if ("izin" in t) {
+      if (!Array.isArray(t.izin) || !t.izin.length) g.push(`${di}: izin harus larik tidak kosong`);
+      else t.izin.forEach((iz, k) => { for (const e of validasiIzin(iz)) g.push(`${di}: izin[${k}]: ${e}`); });
     }
     if ("jalur_akhir" in t && !("jalur_awal" in t)) g.push(`${di}: jalur_akhir butuh jalur_awal`);
     else if ("jalur_akhir" in t && t.jalur_akhir !== t.jalur_awal && !("reroute" in t)) g.push(`${di}: jalur_akhir (${t.jalur_akhir}) ≠ jalur_awal (${t.jalur_awal}) wajib reroute (alasan re-route)`);
@@ -264,6 +272,67 @@ export function ubah(id, opsi, lokasi) {
   }, { ...lokasi, bolehBaru: false });
 }
 
+const rapat = (s) => String(s ?? "").replace(/\s+/g, " ").trim();
+/** pemahaman.md tugas (atau induknya untuk sub-tugas T-…-n.k) yang berstatus disepakati dan memuat `kutip`; galat bila tidak. */
+function kutipanDisepakati(id, kutip, handoff) {
+  const calon = [id, id.replace(/\.\d+$/, "")];
+  for (const x of [...new Set(calon)]) {
+    let teks;
+    try { teks = fs.readFileSync(path.join(handoff, x, "pemahaman.md"), "utf8"); } catch { continue; }
+    if (!/^Status:\s*disepakati\b/m.test(teks)) throw new Error(`handoff/${x}/pemahaman.md belum berstatus disepakati`);
+    if (!rapat(teks).includes(rapat(kutip))) throw new Error(`kutipan tidak ada di handoff/${x}/pemahaman.md — tulis kata pengguna persis seperti di bagian Kesepakatan`);
+    return x;
+  }
+  throw new Error(`handoff/${id}/pemahaman.md tidak ada`);
+}
+/** Izin tugas: aksi integrasi yang disepakati pengguna (gabung/push/bersihkan) untuk satu repo, berlaku selama tugas aktif dan
+ *  paling lama 24 jam. Hook kebijakan memeriksa ulang setiap syaratnya saat aksi dijalankan (bin/lib/izin-tugas.mjs). */
+export function beriIzin(id, opsi, lokasi) {
+  const json = lokasi?.json ?? berkasJson();
+  const handoff = path.dirname(json);
+  if (opsi.cabut) {
+    const repoCabut = opsi.repo ? (infoRepo(path.resolve(opsi.repo))?.akar ?? path.resolve(opsi.repo)) : null;
+    return perbarui((reg) => {
+      const t = reg.tugas.find((x) => x.id === id);
+      if (!t) throw new Error(`tugas tidak ditemukan: ${id}`);
+      const sisa = (t.izin ?? []).filter((iz) => repoCabut && iz.repo !== repoCabut);
+      if (sisa.length) t.izin = sisa; else delete t.izin;
+      t.diperbarui = new Date().toISOString();
+      return t;
+    }, { ...lokasi, bolehBaru: false });
+  }
+  for (const k of ["repo", "aksi", "kutip"]) if (!opsi[k] || opsi[k] === true) throw new Error(`--${k} wajib`);
+  const aksi = pisahDaftar(opsi.aksi);
+  const salah = aksi.filter((a) => !AKSI_IZIN.includes(a));
+  if (salah.length || !aksi.length) throw new Error(`--aksi hanya ${AKSI_IZIN.join(",")} (bukan: ${salah.join(",")})`);
+  const info = infoRepo(path.resolve(String(opsi.repo)));
+  if (!info) throw new Error(`bukan repo git: ${opsi.repo}`);
+  if (info.akar !== info.toplevel) throw new Error(`--repo harus checkout utama repo (${info.akar}), bukan worktree`);
+  const cabang = cabangBawaan(info.akar);
+  if (!cabang) throw new Error("cabang utama repo tidak diketahui (origin/HEAD tidak ada dan HEAD terlepas)");
+  const origin = urlPushOrigin(info.akar);
+  if (aksi.includes("push") && !origin) throw new Error("izin push butuh remote origin yang terkonfigurasi");
+  kutipanDisepakati(id, opsi.kutip, handoff);
+  const dibuat = new Date();
+  const batas = new Date(dibuat.getTime() + IZIN_MAKS_JAM * 3600e3);
+  let sampai = batas;
+  if (opsi.sampai) {
+    const s = new Date(String(opsi.sampai));
+    if (Number.isNaN(+s) || s <= dibuat) throw new Error("--sampai harus waktu ISO di masa depan");
+    if (s > batas) throw new Error(`--sampai paling lama ${IZIN_MAKS_JAM} jam dari sekarang`);
+    sampai = s;
+  }
+  const entri = { repo: info.akar, cabang, origin, aksi, kutip: rapat(opsi.kutip), dibuat: dibuat.toISOString(), sampai: sampai.toISOString() };
+  return perbarui((reg) => {
+    const t = reg.tugas.find((x) => x.id === id);
+    if (!t) throw new Error(`tugas tidak ditemukan: ${id}`);
+    if (TUTUP.has(t.status) || t.status === "penyelarasan") throw new Error(`izin hanya untuk tugas aktif yang sudah disepakati (status ${t.status})`);
+    t.izin = [...(t.izin ?? []).filter((iz) => iz.repo !== entri.repo), entri];
+    t.diperbarui = new Date().toISOString();
+    return t;
+  }, { ...lokasi, bolehBaru: false });
+}
+
 /** Dua kunci berbenturan bila sama, atau yang satu awalan yang lain pada batas ":" atau "/" (repo:kasir ⊃ repo:kasir:print). */
 export function kunciBentrok(a, b) {
   if (a === b) return true;
@@ -409,7 +478,7 @@ export function impor({ dari = berkasMd(), timpa = false, json = berkasJson(), m
 }
 
 // ---------- CLI ----------
-const BENDERA = new Set(["json", "semua", "timpa"]);
+const BENDERA = new Set(["json", "semua", "timpa", "cabut"]);
 /** ["ubah", "T-1", "--status", "x", "--json"] → {pos: ["ubah", "T-1"], opsi: {status: "x", json: true}} */
 export function uraiArg(argv) {
   const pos = [], opsi = {};
@@ -431,7 +500,8 @@ export function uraiArg(argv) {
 function ringkas(t) {
   const kunci = t.kunci.length ? ` · kunci ${t.kunci.join(", ")}` : "";
   const jalur = t.jalur_awal ? ` · jalur ${t.mode_saat_mulai ? `${t.mode_saat_mulai}:` : ""}${t.jalur_awal}${t.jalur_akhir && t.jalur_akhir !== t.jalur_awal ? `→${t.jalur_akhir}` : ""}` : "";
-  return `${t.id}  [${t.prioritas}] ${t.status.padEnd(12)} ${t.judul} — ${t.pemilik}${kunci}${jalur}`;
+  const izin = t.izin?.length ? ` · izin ${[...new Set(t.izin.flatMap((x) => x.aksi))].join(",")} s.d. ${waktuLokal(t.izin.map((x) => x.sampai).sort().at(-1))}` : "";
+  return `${t.id}  [${t.prioritas}] ${t.status.padEnd(12)} ${t.judul} — ${t.pemilik}${kunci}${jalur}${izin}`;
 }
 
 export function main(argv) {
@@ -450,6 +520,13 @@ export function main(argv) {
         if (!arg) { console.error("register: ubah <ID> --<kolom> <nilai> …"); return 2; }
         const t = ubah(arg, opsi, { json, md });
         console.log(ringkas(t));
+        return 0;
+      }
+      case "izin": {
+        if (!arg) { console.error('register: izin <ID> --repo <path> --aksi gabung,push,bersihkan --kutip "<kata pengguna persis>" [--sampai <ISO>] | izin <ID> --cabut [--repo <path>]'); return 2; }
+        const t = beriIzin(arg, opsi, { json, md });
+        const iz = t.izin ?? [];
+        console.log(iz.length ? iz.map((x) => `${t.id} izin ${x.aksi.join(",")} · ${x.repo} (${x.cabang}) · sampai ${waktuLokal(x.sampai)} · "${x.kutip}"`).join("\n") : `${t.id}: izin dicabut`);
         return 0;
       }
       case "tampil": {

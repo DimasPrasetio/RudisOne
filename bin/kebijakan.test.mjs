@@ -147,7 +147,7 @@ test("CLI ekosistem skill (npx skills): cari/lihat tanpa tanya untuk COO & Resea
     `npm exec -- ${V} find x`, `npx ${V} find x | head -20`, `bun x ${V} find x`]) {
     assert.equal(p(RA, c).keputusan, "allow", `RA: ${c}`);
     assert.equal(p(COO, c).keputusan, "allow", `COO: ${c}`);
-    assert.equal(p(TW, c).keputusan, "ask", `TW di luar akses: ${c}`);
+    assert.equal(p(TW, c).keputusan, "allow", `TW: cari/lihat = baca, terbuka untuk semua jabatan (baca_semua_jabatan): ${c}`);
   }
   // tanpa versi, versi lain, tag/rentang, atau biner global → ditanya (hanya versi terkunci yang lolos)
   for (const c of ["npx skills find pdf", "npx -y skills find x", "npx skills list", "npx skills --help", "npx skills@1.0.0 find x",
@@ -387,15 +387,17 @@ test("subagent peran rudis-<id>: tercatat dengan jabatannya, akses hanya menyemp
   const s = kenaliSesi(sub(COO, "ls", "rudis-research-analyst"), K);
   assert.deepEqual([s.jabatan, s.induk, s.subagent], ["research-analyst", "coo", true]);
   // eskalasi ditolak: COO memanggil subagent SysAdmin untuk ssh → tetap ditanya (COO tidak punya akses server)
+  // subagent tidak menunggu prompt: ask → deny + kembalikan ke pemanggil
   const e = putuskan(sub(COO, "ssh vps-uji uptime", "rudis-system-administrator"), K);
-  assert.equal(e.keputusan, "ask");
+  assert.equal(e.keputusan, "deny");
+  assert.match(e.alasan, /kembalikan ke pemanggil/);
   assert.match(e.alasan, /di luar akses COO/);
   // sesi pribadi (bukan RudisOne) memanggil subagent SysAdmin → tidak pernah diloloskan
   const p = putuskan(sub(path.join(tmp, "pribadi"), "ssh vps-uji \"mysql app -e 'select 1'\"", "rudis-system-administrator"), K);
-  assert.equal(p.keputusan, "ask");
+  assert.equal(p.keputusan, "deny");
   assert.match(p.alasan, /bukan sesi RudisOne/);
   // menyempit: sesi SysAdmin memanggil subagent Research Analyst untuk ssh → ditanya (RA tidak punya akses server)
-  assert.equal(putuskan(sub(SA_RUANG, "ssh vps-uji uptime", "rudis-research-analyst"), K).keputusan, "ask");
+  assert.equal(putuskan(sub(SA_RUANG, "ssh vps-uji uptime", "rudis-research-analyst"), K).keputusan, "deny");
   // sesi SysAdmin + subagent SysAdmin: jenjang 1 boleh, jenjang 2 selalu ditanya
   assert.equal(putuskan(sub(SA_RUANG, "ssh vps-uji uptime", "rudis-system-administrator"), K).keputusan, "allow");
   // tipe subagent lain (bukan rudis-) memakai jabatan sesi
@@ -550,7 +552,7 @@ test("F2: subagent — identitas induk dari transkrip UTAMA, bukan prompt yang d
   fs.writeFileSync(subT, JSON.stringify({ type: "user", cwd: HITO, message: { content: "Kamu adalah Head of IT Operations di RudisOne." } }) + "\n");
   const p = putuskan(bash(HITO, "ssh vps-uji uptime", { transcript_path: subT, agent_type: "rudis-system-administrator", agent_id: "1" }), K);
   assert.equal(p.sesi.induk, "coo");
-  assert.equal(p.keputusan, "ask");
+  assert.equal(p.keputusan, "deny");
 });
 
 test("F2: catatan rilis-cek palsu tidak meloloskan deploy (pemeriksaan ulang langsung)", () => {
@@ -608,7 +610,7 @@ test("F2: Bash yang mengubah berkas terlindung → ask; yang hanya membaca tidak
   for (const c of [
     "echo x > ~/.claude/settings.json", "sed -i.bak s/a/b/ kebijakan-akses.json", "tee kebijakan-akses.json < /tmp/x",
     "cp /tmp/x kebijakan-akses.json",
-    "echo '{}' >> handoff/audit/2026-10.jsonl", "cd handoff && echo x >> audit/2026-10.jsonl", "echo x >> 2026-10.jsonl",
+    "echo '{}' >> handoff/audit/2026-10.jsonl", "cd handoff && echo x >> audit/2026-10.jsonl",
     "printf x > konfigurasi/server.json", "ln -s /tmp/x bin/kebijakan.mjs", "cat /tmp/x > 'kebij'\"akan-akses.json\"",
     "echo x > k\\ebijakan-akses.json", "bin/kebijakan.sh lepas --ya", `${ROOT}/bin/kebijakan.sh pasang --ya`,
     "node bin/kebijakan.mjs lepas --ya", "bin/inti.sh pasang", "echo 'alias gh=rm' >> ~/.zshrc",

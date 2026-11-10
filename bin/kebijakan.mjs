@@ -22,6 +22,7 @@ import { execFileSync } from "node:child_process";
 import { dariBash, jalankan as jalankanProses, osLogis, posix } from "./lib/platform.mjs";
 import { fileURLToPath } from "node:url";
 import { bacaKonfig, FILE_KONFIG } from "./konfig.mjs";
+import { calonGit, ketikanPengguna, periksaIzin, teksPesanPengguna } from "./lib/izin-tugas.mjs";
 
 const HOME = os.homedir();
 const INI = fileURLToPath(import.meta.url);
@@ -78,13 +79,6 @@ function jabatanDariTeks(teks, K) {
   const m = String(teks).match(/Kamu adalah \**([A-Za-z][A-Za-z &-]*?)\**(?:\s*#\d)?\s+di RudisOne/);
   if (!m) return null;
   return petaNama(K).find(([n]) => m[1].trim() === n)?.[1] ?? null;
-}
-function teksPesanPengguna(baris) {
-  if (baris?.type !== "user" || !baris.message || baris.isMeta) return "";
-  const c = baris.message.content;
-  if (typeof c === "string") return c;
-  if (Array.isArray(c)) return c.filter((b) => b?.type === "text").map((b) => b.text).join("\n");
-  return "";
 }
 /** Hanya /rudisone yang DIKETIK pengguna. Pemanggilan Skill oleh model sendiri tidak dihitung (model yang terinjeksi
  *  bisa menjadikan dirinya COO) — sesi yang memanggil RudisOne lewat bahasa biasa tetap jalan, hanya tanpa jenjang COO. */
@@ -662,13 +656,16 @@ function klasifikasiSegmen(s, K, ctx) {
     let rest = args;
     if (nama === "git") while (rest.length && rest[0].startsWith("-")) rest = rest.slice(["-C", "-c", "--git-dir", "--work-tree"].includes(rest[0]) ? 2 : 1);
     const a = rest.join(" ");
+    // calon aksi izin tugas (gabung/push/bersihkan cabang tugas) — dinilai di analisisBash hanya untuk sesi COO utama
+    // (bin/lib/izin-tugas.mjs); bentuk dengan variabel/glob/pengalihan berkas/awalan env tidak pernah menjadi calon
+    const izinGit = nama === "git" && dasarAman ? calonGit(args, ctx.basisIzin) : null;
     // git yang menimpa/menghapus kerja (stash, reset --hard, checkout --, clean -f, restore, hapus worktree/branch) — protokol
     // › Ruang kerja Engineering: jenjang 3, selalu ditanya di sesi RudisOne; padanan aman bin/rudis-git.sh
     if (p.lokal_perusak && new RegExp(p.lokal_perusak).test(a))
-      return { aman: false, aksi: [{ kemampuan: p.kemampuan, jenjang: 3, aksi: `${nama} ${a} — menimpa/menghapus kerja (bin/rudis-git.sh untuk checkpoint/rollback)`.slice(0, 120) }] };
+      return { aman: false, izinGit, aksi: [{ kemampuan: p.kemampuan, jenjang: 3, aksi: `${nama} ${a} — menimpa/menghapus kerja (bin/rudis-git.sh untuk checkpoint/rollback)`.slice(0, 120) }] };
     // git: push = jenjang 3; git lain = perintah lokal biasa, TIDAK pernah ikut diloloskan.
     if (p.tulis_remote) return new RegExp(p.tulis_remote).test(a)
-      ? { aman: false, aksi: [{ kemampuan: p.kemampuan, jenjang: 3, aksi: `${nama} ${a}`.slice(0, 80) }] } : { aman: false };
+      ? { aman: false, izinGit, aksi: [{ kemampuan: p.kemampuan, jenjang: 3, aksi: `${nama} ${a}`.slice(0, 80) }] } : { aman: false, izinGit };
     const amanCli = dasarAman && !/\$ENV|\benv\b|--show-token/.test(a) && !(rest[0] === "auth" && rest.some((x) => /^-[A-Za-z]*t/.test(x)));
     if ((p.baca ?? []).some((r) => new RegExp(r).test(a))) return { aman: amanCli, aksi: [{ kemampuan: p.kemampuan, jenjang: 1, aksi: `${id} baca` }] };
     if (p.api_baca && rest[0] === "api" && !apiTulis(rest.slice(1)))
@@ -869,9 +866,12 @@ function asli(p) {
 let _terlindung = null;
 function daftarTerlindung() {
   if (_terlindung) return _terlindung;
+  // lokasi bawaan register & audit selalu ikut, juga saat env menunjuk lokasi lain (uji, simulasi)
   const berkas = [path.join(ROOT, "kebijakan-akses.json"), FILE_KEBIJAKAN, INI, FILE_KONFIG, path.join(HOME, ".claude.json"), FILE_REGISTER,
+    path.join(ROOT, "handoff", "register-tugas.json"),
     ...[".zshrc", ".zshenv", ".zprofile", ".bashrc", ".bash_profile", ".profile"].map((f) => path.join(HOME, f))];
   const folder = [path.join(ROOT, "bin"), path.join(ROOT, "konfigurasi"), path.join(ROOT, "agen"), path.join(ROOT, "skills"), DIR_AUDIT,
+    path.join(ROOT, "handoff", "audit"),
     ...["shell-snapshots", "agents", "skills", "commands"].map((f) => path.join(HOME, ".claude", f))];
   const semua = (xs) => [...new Set(xs.flatMap((x) => [path.resolve(x), asli(x)].filter(Boolean)).map(normal))];
   return (_terlindung = { berkas: semua(berkas), folder: semua(folder), proyek: semua([path.join(HOME, ".claude", "projects")]),
@@ -918,7 +918,8 @@ export function targetTulis(s, cwd) {
   for (const a of s.alih) if (/>/.test(a.op) && !/&$/.test(a.op) && a.target && !/^\/dev\//.test(a.target)) out.push({ path: a.target, leluhur: false });
   const w = s.kata.map((x) => x.nilai);
   let i = 0;
-  while (i < w.length && /^[A-Za-z_][A-Za-z0-9_]*=/.test(w[i])) i++;
+  // penugasan awalan dan kata kunci shell di depan perintah (`do cp …`, `then rm …`) dilewati
+  while (i < w.length && (/^[A-Za-z_][A-Za-z0-9_]*=/.test(w[i]) || /^(do|then|else|if|while|until|\{|!)$/.test(w[i]))) i++;
   const prog = path.basename(w[i] ?? "");
   const args = w.slice(i + 1);
   const bukanOpsi = (xs) => { const r = []; let habis = false; for (const x of xs) { if (habis || !x.startsWith("-") || x === "-") r.push(x); else if (x === "--") habis = true; } return r; };
@@ -934,11 +935,25 @@ export function targetTulis(s, cwd) {
     const tujuan = t >= 0 ? args[t + 1] : (args.find((x) => x.startsWith("--target-directory="))?.slice(19) ?? p.at(-1));
     if (tujuan && (p.length > 1 || t >= 0)) for (const x of keDir(tujuan, p.filter((x) => x !== tujuan))) out.push({ path: x, leluhur: false });
   } else if (SUNTING_DI_TEMPAT.test(prog) && args.some((x) => /^-[A-Za-z]*i/.test(x) || /^--in-place/.test(x))) {
-    for (const x of bukanOpsi(args)) out.push({ path: x, leluhur: false });
+    // skrip sunting (nilai -e/-f/--expression/--file; sed tanpa -e: argumen posisi pertama) bukan berkas yang ditulis;
+    // BSD `sed -i ''` = akhiran cadangan kosong. Yang tersisa = berkas yang disunting di tempat.
+    const sed = /^g?sed$/.test(prog), berkas = [];
+    let skrip = false, habis = false;
+    for (let j = 0; j < args.length; j++) {
+      const x = args[j];
+      if (habis || !x.startsWith("-") || x === "-") { berkas.push(x); continue; }
+      if (x === "--") { habis = true; continue; }
+      if (sed && /^-[A-Za-z]*i$/.test(x) && args[j + 1] === "") { j++; continue; }
+      const nilaiSkrip = sed ? /^-[A-Za-z]*[ef]$|^--(expression|file)$/ : /^-[A-Za-z]*[eE]$/;
+      if (nilaiSkrip.test(x)) { skrip = true; j++; continue; }
+      if (sed ? /^-[A-Za-z]*[ef].|^--(expression|file)=/.test(x) : /^-[A-Za-z]*[eE]./.test(x)) skrip = true;
+    }
+    for (const x of sed && !skrip ? berkas.slice(1) : berkas) out.push({ path: x, leluhur: false });
   } else if (prog === "dd") {
     for (const x of args) if (x.startsWith("of=")) out.push({ path: x.slice(3), leluhur: false });
   } else if (prog === "tar" || prog === "unzip" || prog === "bsdtar") {
-    const ekstrak = prog === "unzip" || args.some((x) => /^(-[A-Za-z]*x|--extract|x[A-Za-z]*$)/.test(x));
+    // unzip -p (ke stdout), -l/-v (daftar), -t (uji), -z (komentar), -Z (zipinfo) tidak mengekstrak berkas
+    const ekstrak = prog === "unzip" ? !args.some((x) => /^-[A-Za-z]*[plvtzZ]/.test(x)) : args.some((x) => /^(-[A-Za-z]*x|--extract|x[A-Za-z]*$)/.test(x));
     if (ekstrak) {
       const dir = args.map((x, j) => (x === "-C" || x === "--directory" || x === "-d" ? args[j + 1] : /^-C./.test(x) ? x.slice(2) : x.startsWith("--directory=") ? x.slice(12) : null)).find(Boolean);
       out.push({ path: dir ?? ".", leluhur: false });
@@ -1582,6 +1597,75 @@ function envPerintah(cmd, input, K) {
   return null;
 }
 
+// ---------- variabel yang nilainya pasti (hanya untuk penilaian target tulis) ----------
+/** Pengisi variabel yang tidak dimodelkan (perulangan, read, export/declare/local, eval, source, ${x:=…}) — bila ada, hanya
+ *  HOME yang dianggap pasti. Dinilai atas teks kode (isi kutip bukan kode, kecuali bash -c). */
+const KATA_KUNCI_AWAL = /^(?:(?:do|then|else|\{|!)\s+)+/;
+const AWAL_PERINTAH = String.raw`(?:^|[;&|(\n\`{]|\b(?:then|do|else|if|while|until)\s)\s*`;
+/** Pengisi yang bisa menugaskan variabel APA PUN (eval, source/., let) → hanya HOME yang pasti. */
+const PENGISI_SEMUA = new RegExp(`${AWAL_PERINTAH}(eval|source|\\.|let)(\\s|$)`);
+/** Pengisi bernama (for/select/read/export/declare/…/printf -v): setiap pengenal di pernyataan itu → tidak pasti. */
+const PENGISI_NAMA = new RegExp(`${AWAL_PERINTAH}(?:for|select|read|export|declare|typeset|local|readonly|unset|mapfile|readarray|getopts|printf\\s+-v)\\b[^;&|\\n]*`, "g");
+/** Map nama → nilai untuk variabel yang PASTI di seluruh perintah: tepat satu penugasan berupa segmen sendiri dengan nilai
+ *  harfiah (atau tersusun dari variabel pasti lain), atau `X=$(mktemp [-d])` (folder/berkas sementara baru). Penugasan
+ *  kedua, `+=`, atau pengisi lain → variabel itu tidak pasti. HOME dari lingkungan kecuali ditugaskan. */
+export function variabelPasti(cmd, u = urai(cmd)) {
+  const kode = teksKode(String(cmd));
+  const v = new Map();
+  if (PENGISI_SEMUA.test(kode)) return /(^|[^\w$.-])HOME\+?=/.test(kode) ? new Map() : new Map([["HOME", HOME]]);
+  const hitung = new Map();
+  for (const m of kode.matchAll(/(?:^|[^\w$.-])([A-Za-z_]\w*)\+?=/g)) hitung.set(m[1], (hitung.get(m[1]) ?? 0) + 1);
+  for (const m of kode.matchAll(/(?:^|[^\w$.-])([A-Za-z_]\w*)\+=/g)) hitung.set(m[1], 99);
+  for (const m of kode.matchAll(PENGISI_NAMA)) for (const n of m[0].matchAll(/[A-Za-z_]\w*/g)) hitung.set(n[0], 99);
+  // ${X:=…} / ${X=…} / ${X:?…} menugaskan atau bergantung pada X
+  for (const m of String(cmd).matchAll(/\$\{(\w+):?[=?]/g)) hitung.set(m[1], 99);
+  if (!hitung.has("HOME")) v.set("HOME", HOME);
+  for (const s of u.segmen) {
+    const mk = s.teks.trim().replace(KATA_KUNCI_AWAL, "").match(/^([A-Za-z_]\w*)=\$\(\s*mktemp(?:\s+-[dq]+)*(?:\s+-t\s+[\w.-]+)?\s*\)$/);
+    if (mk) { if (hitung.get(mk[1]) === 1) v.set(mk[1], path.join(os.tmpdir(), `mktemp-${mk[1]}`)); continue; }
+    let kata = s.kata;
+    while (kata.length && /^(do|then|else|\{|!)$/.test(kata[0].nilai)) kata = kata.slice(1);
+    if (!kata.length || s.alih.length || !kata.every((k) => /^[A-Za-z_]\w*=/.test(k.nilai))) continue;
+    for (const k of kata) {
+      const i = k.nilai.indexOf("="), nama = k.nilai.slice(0, i);
+      if (hitung.get(nama) !== 1 || k.glob) continue;
+      const nilai = k.ekspansi ? gantiVariabel(k.nilai.slice(i + 1), v) : k.nilai.slice(i + 1);
+      if (nilai !== null) v.set(nama, nilai);
+    }
+  }
+  return v;
+}
+/** `$X`/`${X}` diganti nilai pasti; ada ekspansi lain ($1, ${x:-y}, $( ), variabel tak diketahui) → null. */
+export function gantiVariabel(s, vars) {
+  let gagal = false;
+  const out = String(s).replace(/\$(?:\{([A-Za-z_]\w*)\}|([A-Za-z_]\w*))/g, (_, a, b) => { const n = a ?? b; if (!vars.has(n)) { gagal = true; return ""; } return vars.get(n); });
+  return gagal || out.includes("$") || out.includes("`") ? null : out;
+}
+
+// ---------- izin tugas: penghubung ke bin/lib/izin-tugas.mjs ----------
+/** Izin tugas hanya dipakai sesi COO utama yang transkripnya ada (bukan subagent, bukan sesi Tech Lead/anggota). */
+function sesiIzin(input, K) {
+  // agent_id hanya ada di dalam subagent (agent_type juga ada di sesi utama yang dimulai dengan --agent)
+  if (input.agent_id || !input.transcript_path) return false;
+  const s = kenaliSesi(input, K);
+  return s.rudisOne && !s.subagent && s.jabatan === "coo";
+}
+function bacaRegister() { try { return JSON.parse(fs.readFileSync(FILE_REGISTER, "utf8")); } catch { return null; } }
+/** Berkas yang membuat gabung dijalankan pengguna sendiri: berkas terlindung hook ini, settings/agents/hook proyek
+ *  (`.claude/`, `.mcp.json`, `.githooks/`, `.husky/`), dan installer RudisOne. */
+function pengamanGabung(rel, abs, akar) {
+  const r = String(rel).replaceAll("\\", "/");
+  if (NAMA_TERLINDUNG.some((x) => x.test(r))) return r;
+  if (/(^|\/)\.(claude|githooks|husky)\//.test(r) || /(^|\/)\.mcp\.json$/i.test(r)) return r;
+  if (normal(asli(akar) ?? akar) === normal(asli(ROOT) ?? ROOT) && /^install\.(sh|mjs|cmd)$/i.test(r)) return r;
+  return sebabTerlindung(abs, false, false);
+}
+/** Repo RudisOne publik: penjaga kebersihan berkas produk (bin/bersih.mjs) wajib lulus sebelum push diloloskan. */
+function bersihRepo(akar) {
+  const r = jalankanProses(process.execPath, [path.join(ROOT, "bin", "bersih.mjs")], { timeout: 20000, encoding: "utf8", stdio: ["ignore", "ignore", "ignore"], env: { ...process.env, RUDISONE_ROOT: akar } });
+  return r.status === 0;
+}
+
 /** Analisis lengkap satu perintah Bash. */
 function analisisBash(input, K) {
   const cmd = String(input.tool_input?.command ?? "");
@@ -1601,24 +1685,56 @@ function analisisBash(input, K) {
     if (!INTERPRETER_HEREDOC.test(cmd.slice(cmd.lastIndexOf("\n", m.index) + 1, m.index))) continue;
     for (const t of m[3].split(/\n|&&|\|\||[;&|]/).map((x) => x.trim()).filter(Boolean)) { const n = badan.indexOf(t); if (n >= 0) badan.splice(n, 1); }
   }
+  // Penilaian target tulis memakai variabel yang nilainya pasti (variabelPasti) dan folder kerjanya sendiri (cdTulis), terpisah
+  // dari ctx yang dipakai penilaian baca/allow — supaya fixture di folder sementara (`T=/tmp/x; cp … $T/handoff/`) tidak
+  // ditanya, tanpa melonggarkan apa pun yang diloloskan.
+  const vars = variabelPasti(cmd, u);
+  let cdTulis = ctx.cwd;
+  // Folder kerja yang PASTI untuk calon izin tugas: cd harfiah yang hanya diikuti `&&` sampai segmen git (cd gagal → git
+  // tidak berjalan). Pemisah lain (`;`, `||`, `|`, `&`, baris baru) sesudah ada cd → tidak pasti → tanpa izin.
+  let adaCd = false, semuaDan = true;
+  const izinSesi = () => (ctx._izinSesi ??= sesiIzin(input, K));
   for (const s of u.segmen) {
+    ctx.basisIzin = !adaCd ? ctx.awal : semuaDan ? ctx.cwd : null;
     let h = klasifikasiSegmen(s, K, ctx);
     // badan heredoc ke program selain shell (cat > f <<EOF … EOF) adalah teks berkas, bukan perintah: tanpa aksi kebijakan
-    // (claude, git perusak, server) dan tanpa penilaian env — targetTulis tetap memeriksa segmen sebagaimana adanya
+    // (claude, git perusak, server), tanpa penilaian env, dan tanpa target tulis (baris `cp x ~/.claude/…` di badan hanya teks)
     const tBadan = s.teks.trim(), nBadan = badan.indexOf(tBadan);
     const diBadan = !!tBadan && nBadan >= 0;
     if (diBadan) { badan.splice(nBadan, 1); h = { aman: false }; }
+    // izin tugas (bin/lib/izin-tugas.mjs): hanya sesi COO utama, perintah polos tanpa ekspansi/kompleks
+    if (h.izinGit && !u.kompleks && !u.ekspansi && izinSesi()) {
+      const r = periksaIzin(h.izinGit, { reg: bacaRegister(), transkrip: input.transcript_path, root: ROOT, pengaman: pengamanGabung, bersih: bersihRepo });
+      if (r.ok) h = { aman: true, aksi: [{ kemampuan: "repo", jenjang: 3, jenis: "izin-tugas", izin: r.id, aksi: `${s.teks.trim()}`.slice(0, 120) }] };
+      else for (const a of h.aksi ?? []) a.izinAlasan = r.alasan;
+    }
     hasil.push(h);
     if (h.ubahSendiri) ubahSendiri = true;
 
     // hanya TARGET PENULISAN nyata yang diperiksa (pengalihan keluar, tee, sed/perl -i, cp/mv/rm/…,
     // git checkout/restore/… dengan path). Membaca, menjalankan, menguji, atau sekadar menyebut path → bukan urusan ini.
-    for (const t of targetTulis(s, ctx.cwd)) {
+    // Path yang lokasinya pasti (variabel diketahui, tanpa glob, folder diketahui) dinilai menurut LOKASINYA; pola nama
+    // (NAMA_TERLINDUNG) hanya untuk path yang lokasinya tak bisa dipastikan.
+    if (!diBadan) for (const t of targetTulis(s, cdTulis)) {
       if (sebut) break;
-      if (NAMA_TERLINDUNG.some((r) => r.test(path.sep === "\\" ? t.path.replaceAll("\\", "/") : t.path))) { sebut = t.path; break; }
+      const mentah = path.sep === "\\" ? t.path.replaceAll("\\", "/") : t.path;
+      const p = gantiVariabel(mentah, vars);
+      const pasti = p !== null && !/[*?[]/.test(p) && (path.isAbsolute(rumah(p)) || !!cdTulis);
+      if (pasti) { sebut = sebabTerlindung(path.resolve(cdTulis ?? "/", rumah(p)), !t.leluhur, t.leluhur ? "semua" : false); continue; }
+      if (NAMA_TERLINDUNG.some((r) => r.test(mentah))) { sebut = t.path; break; }
       if (ctx.cwd) sebut = sebabTerlindung(path.resolve(ctx.cwd, rumah(t.path)), false, t.leluhur ? "semua" : false);
     }
     const k0 = s.kata[0]?.nilai ?? "";
+    const ubahCwd = k0 === "cd" || /^(pushd|popd)$/.test(k0);
+    if (ubahCwd) adaCd = true;
+    // `a | b && c`: pipa tetap satu daftar && (c hanya bila a|b berhasil); cd yang dipipakan berjalan di subshell → tidak pasti
+    if (!["&&", "|", "|&", undefined].includes(s.sesudah) || (ubahCwd && s.sesudah !== "&&" && s.sesudah !== undefined)) semuaDan = false;
+    if (/^(pushd|popd)$/.test(k0)) cdTulis = null;
+    else if (k0 === "cd") {
+      const argT = s.kata.slice(1).filter((x) => !/^-[LP]$/.test(x.nilai));
+      const tujuan = argT.length === 1 && !argT[0].glob && argT[0].nilai !== "-" ? gantiVariabel(argT[0].nilai, vars) : null;
+      cdTulis = argT.length === 0 ? HOME : tujuan !== null && cdTulis ? path.resolve(cdTulis, rumah(tujuan)) : tujuan !== null && path.isAbsolute(rumah(tujuan)) ? rumah(tujuan) : null;
+    }
     if (/^(pushd|popd)$/.test(k0)) ctx.cwd = null;
     else if (k0 === "cd") {
       const arg = s.kata.slice(1).filter((x) => !/^-[LP]$/.test(x.nilai));
@@ -1734,6 +1850,15 @@ export function catatTolakEnv(input, p) {
   return rec;
 }
 
+/** Allow lewat izin tugas → satu catatan audit sebelum aksi dijalankan, dengan kolom `izin` (ID tugas pemberi izin). */
+export function catatIzin(input, p) {
+  const rec = { waktu: new Date().toISOString(), sesi: input.session_id ?? null, jabatan: p.sesi?.jabatan ?? null, tugas: tugasAudit(input),
+    cwd: input.cwd ?? null, alat: input.tool_name, ringkasan: samarkan(String(input.tool_input?.command ?? "")),
+    jenis: "izin-tugas", jenjang: 3, kemampuan: "repo", izin: p.izin.join(","), aksi: p.aksi.filter((a) => a.izin).map((a) => a.aksi).join("; ").slice(0, 200) };
+  try { tambahAudit(rec); } catch { /* audit opsional */ }
+  return rec;
+}
+
 function berkasAudit(tgl = new Date()) { return path.join(DIR_AUDIT, `${tgl.toISOString().slice(0, 7)}.jsonl`); }
 
 // ---- rantai hash audit (L3b): setiap baris memuat sha256(rantai sebelumnya + isi). Menyunting/menghapus/menyisipkan
@@ -1788,16 +1913,6 @@ export function bacaAudit(bulan = 2) {
     try { for (const l of fs.readFileSync(berkasAudit(d), "utf8").split("\n")) if (l.trim()) try { out.push(JSON.parse(l)); } catch { /* baris rusak */ } } catch { /* belum ada */ }
   }
   return out;
-}
-/** Ketikan pengguna sendiri (bukan pesan lintas sesi, notifikasi, hand-back subagent, ekspansi skill, atau hasil alat). */
-function ketikanPengguna(baris) {
-  if (baris?.type !== "user" || baris.isMeta) return false;
-  const c = baris.message?.content;
-  if (Array.isArray(c) && c.some((b) => b?.type === "tool_result")) return false;
-  const k = baris.origin?.kind;
-  if (k && k !== "human") return false;
-  const t = teksPesanPengguna(baris).replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, "").trim();
-  return !!t && !/<cross-session-message\b|<task-notification\b|The session "[^"]*" you started/.test(t);
 }
 /** ID tugas dari pesan masuk sesi itu (brief "[Tugas dari …] T-…", [Revisi], dst.), bukan dari teks yang ditulis agent
  *  atau isi berkas — kosong lebih jujur daripada salah. Transkrip dibaca MUNDUR per potongan (maks. `maks` byte; sesi
@@ -1897,6 +2012,15 @@ function rilisSiap(repo, sha, K) {
 /** { keputusan: "allow" | "ask" | null, alasan } — null = biarkan alur izin biasa.
  *  `allow` hanya bila SETIAP bagian panggilan dikenali aman; berkas terlindung selalu `ask` di sesi mana pun. */
 export function putuskan(input, K) {
+  const p = putuskanDasar(input, K);
+  // Subagent berjalan di latar: prompt izin di sana menggantung tanpa terlihat pengguna. Di sesi RudisOne, "ask" untuk
+  // subagent menjadi "deny" dengan arahan mengembalikan langkah itu ke pemanggil (yang meminta persetujuan lewat COO).
+  if (p.keputusan === "ask" && (input.agent_id || p.sesi?.subagent) && (p.sesi ?? kenaliSesi(input, K)).rudisOne)
+    return { ...p, keputusan: "deny", subagentTolak: true,
+      alasan: `${p.alasan} · Subagent tidak menunggu prompt izin: jangan jalankan langkah ini dan jangan mencari jalan lain — kembalikan ke pemanggil di laporanmu (perintah persis + alasannya); pemanggil/COO yang meminta persetujuan pemilik.` };
+  return p;
+}
+function putuskanDasar(input, K) {
   const k = klasifikasi(input, K);
   // penjaga .env: membaca isi berkas env di sesi RudisOne → deny tanpa prompt (dicatat di audit oleh pemanggil hook)
   if (k.env) {
@@ -1931,15 +2055,21 @@ export function putuskan(input, K) {
   const nama = sesi.jabatan ? K.jabatan[sesi.jabatan]?.nama ?? sesi.jabatan : "jabatan tak dikenal";
   const tanya = [];
   const namaInduk = sesi.induk ? K.jabatan[sesi.induk]?.nama ?? sesi.induk : null;
+  // akses BACA untuk semua jabatan (kebijakan-akses.json › baca_semua_jabatan): jenjang 1 kemampuan itu tidak dibatasi jabatan
+  const bacaTerbuka = new Set(K.baca_semua_jabatan?.kemampuan ?? []);
   for (const a of aksi) {
+    // tercakup izin tugas (sesi COO utama, syarat diperiksa di analisisBash › periksaIzin)
+    if (a.izin) continue;
     const akses = K.kemampuan[a.kemampuan]?.akses;
     if (sesi.subagent) {
       if (!sesi.induk) { tanya.push(`${a.aksi} — subagent ${nama} dipanggil sesi yang bukan sesi RudisOne`); continue; }
+      if (a.jenjang === 1 && bacaTerbuka.has(a.kemampuan)) continue;
       if (akses && !akses.includes(sesi.induk)) { tanya.push(`${a.aksi} — di luar akses ${namaInduk} (pemanggil subagent ${nama})`); continue; }
       if (a.jenjang === 2) { tanya.push(`${a.aksi} — jenjang 2 tidak dijalankan subagent tanpa prompt`); continue; }
     }
+    if (a.jenjang === 1 && bacaTerbuka.has(a.kemampuan)) continue;
     if (sesi.jabatan && akses && !akses.includes(sesi.jabatan)) { tanya.push(`${a.aksi} — di luar akses ${nama} (${K.kemampuan[a.kemampuan].nama})`); continue; }
-    if (a.jenjang === 3) { tanya.push(`${a.aksi} — jenjang 3, keputusan pemilik`); continue; }
+    if (a.jenjang === 3) { tanya.push(`${a.aksi} — jenjang 3, keputusan pemilik${a.izinAlasan ? ` (izin tugas tidak berlaku: ${a.izinAlasan})` : ""}`); continue; }
     if (a.jenjang === 2) {
       const aturan = K.jenjang2[a.jenis];
       if (!aturan || !sesi.jabatan || !aturan.jabatan.includes(sesi.jabatan)) { tanya.push(`${a.aksi} — jenjang 2 bukan wewenang ${nama}`); continue; }
@@ -1951,7 +2081,8 @@ export function putuskan(input, K) {
   if (tanya.length) return { keputusan: "ask", alasan: `RudisOne · ${nama}: ${tanya.join("; ")}`, sesi, aksi };
   if (!dipahami) return { keputusan: null, alasan: "perintah memuat bagian yang tidak dikenali aman oleh kebijakan", sesi, aksi };
   const maks = Math.max(...aksi.map((a) => a.jenjang));
-  return { keputusan: "allow", alasan: `RudisOne · ${nama}: jenjang ${maks} — ${aksi.map((a) => a.aksi).join("; ")}`, sesi, aksi };
+  const izin = [...new Set(aksi.map((a) => a.izin).filter(Boolean))];
+  return { keputusan: "allow", alasan: `RudisOne · ${nama}: jenjang ${maks}${izin.length ? ` (izin tugas ${izin.join(", ")})` : ""} — ${aksi.map((a) => a.aksi).join("; ")}`, sesi, aksi, ...(izin.length ? { izin } : {}) };
 }
 
 /** Jumlah baris data yang masuk ke transkrip dari keluaran mysql (batch: satu baris per record, minus kepala;
@@ -2055,22 +2186,32 @@ export function kekuranganIzin(s = bacaSettings()) {
   const deny = new Set(s.permissions?.deny ?? []);
   return ATURAN_IZIN_ENV.filter((a) => !deny.has(a));
 }
+/** Aturan `ask` git yang dulu dipasang pemilik untuk aksi yang kini diputuskan hook (jenjang 3 + izin tugas). Dokumen resmi
+ *  Claude Code (permissions › precedence): aturan ask yang cocok TETAP memunculkan prompt walau hook mengembalikan allow —
+ *  jadi izin tugas tidak berlaku selama aturan ini ada. Hanya ke-9 teks persis ini yang dicabut pemasang; deny dan aturan
+ *  lain tidak disentuh. Tanpa aturan ini hook tetap menanyai/menolak aksi yang sama (git perusak, push) di sesi RudisOne. */
+export const ASK_GIT_DICABUT = ["Bash(git checkout * -- *)", "Bash(git stash)", "Bash(git stash push *)", "Bash(git stash pop *)",
+  "Bash(git stash apply *)", "Bash(git restore *)", "Bash(git branch -D *)", "Bash(git worktree remove *)", "Bash(git push *)"];
+/** Aturan ask git lama yang masih ada di settings (pemasang belum dijalankan ulang). */
+export const askGitTersisa = (s = bacaSettings()) => (s.permissions?.ask ?? []).filter((a) => ASK_GIT_DICABUT.includes(a));
 /** Settings sesudah pemasangan (murni; idempoten): hook kebijakan di setiap peristiwa (entri milik sistem lain tidak
- *  disentuh, entri kita diganti versi kini) + aturan deny Read .env ditambahkan tanpa menghapus aturan yang ada. */
+ *  disentuh, entri kita diganti versi kini) + aturan deny Read .env ditambahkan tanpa menghapus aturan yang ada + 9 aturan
+ *  ask git lama (ASK_GIT_DICABUT) dicabut. */
 export function settingsTerpasang(s0) {
   const s = JSON.parse(JSON.stringify(s0 ?? {}));
   s.hooks ??= {};
   for (const ev of PERISTIWA) { s.hooks[ev] = (s.hooks[ev] ?? []).filter((e) => !milikKita(e)); s.hooks[ev].push(entriHook()); }
   s.permissions ??= {};
   s.permissions.deny = [...(s.permissions.deny ?? []), ...kekuranganIzin(s)];
+  if (Array.isArray(s.permissions.ask) && askGitTersisa(s).length) s.permissions.ask = s.permissions.ask.filter((a) => !ASK_GIT_DICABUT.includes(a));
   return s;
 }
 async function pasang(opsi) {
   const s = bacaSettings();
   const baru = settingsTerpasang(s);
   if (JSON.stringify(baru) === JSON.stringify(s)) { console.log(`Sudah terpasang di ${SETTINGS}.`); return 0; }
-  const izin = kekuranganIzin(s);
-  console.log(`Akan memasang kebijakan RudisOne di ${SETTINGS} (hook PreToolUse + PostToolUse: Bash, Read/Grep/Glob, Write/Edit & MCP${izin.length ? `; aturan deny: ${izin.join(" ")}` : ""}):`);
+  const izin = kekuranganIzin(s), cabut = askGitTersisa(s);
+  console.log(`Akan memasang kebijakan RudisOne di ${SETTINGS} (hook PreToolUse + PostToolUse: Bash, Read/Grep/Glob, Write/Edit & MCP${izin.length ? `; aturan deny: ${izin.join(" ")}` : ""}${cabut.length ? `; mencabut aturan ask git lama (kini diputuskan hook): ${cabut.join(" ")}` : ""}):`);
   console.log(`  ${entriHook().hooks[0].command}`);
   console.log("Hook hanya bertindak di sesi RudisOne (kecuali berkas terlindung); aturan izin yang sudah ada tidak diubah/dihapus; cadangan settings dibuat dulu.");
   if (!(await konfirmasi("Pasang sekarang?", opsi))) { console.log("Dibatalkan."); return 1; }
@@ -2126,6 +2267,7 @@ export async function main(argv) {
       if (input.hook_event_name === "PreToolUse") {
         const p = putuskan(input, K);
         if (p.keputusan === "deny" && p.env) catatTolakEnv(input, p);
+        if (p.keputusan === "allow" && p.izin?.length) catatIzin(input, p);
         if (p.keputusan) process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: p.keputusan, permissionDecisionReason: p.alasan } }));
       } else if (input.hook_event_name === "PostToolUse" || input.hook_event_name === "PostToolUseFailure") catatSesudah(input, K);
     } catch { /* gagal terbuka: alur izin biasa berlaku */ }
@@ -2140,6 +2282,8 @@ export async function main(argv) {
     if (kurang.length) { ok = false; console.log(`Hook terpasang versi lama (kurang: ${kurang.join(", ")}) — jalankan installer: ${ROOT}/install.sh`); }
     const izin = ok ? kekuranganIzin() : [];
     if (izin.length) { ok = false; console.log(`Aturan deny .env belum lengkap (kurang: ${izin.join(" ")}) — jalankan installer: ${ROOT}/install.sh`); }
+    const askLama = ok ? askGitTersisa() : [];
+    if (askLama.length) { ok = false; console.log(`Aturan ask git lama masih ada (${askLama.length}: ${askLama.join(" ")}) — izin tugas tidak berlaku selama itu; jalankan installer: ${ROOT}/install.sh`); }
     if (ok && hookDimatikan()) { ok = false; console.log(`Semua hook dimatikan (disableAllHooks: true di ${SETTINGS}) — kebijakan tidak berjalan.`); }
     if (ok && !programHookAda()) { ok = false; console.log(`Program yang dipanggil hook tidak ditemukan (Node berpindah versi?) — pemilik menjalankan ulang: ${ROOT}/bin/kebijakan.sh lepas && ${ROOT}/bin/kebijakan.sh pasang`); }
     try {
