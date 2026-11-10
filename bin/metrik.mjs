@@ -5,6 +5,19 @@
 //
 //   node bin/metrik.mjs tugas <ID> [--json] [--sejak YYYY-MM-DD] [--atribusi dasar|diperluas|keduanya]
 //                                  [--tarif <file.json>] [--tanpa-biaya]
+//   node bin/metrik.mjs tugas <ID> --simpan [--judul …] [--json]   hitung, cetak baris ringkas, dan tambahkan ke metrik.jsonl
+//
+// Ringkasan awet (handoff/metrik.jsonl; override RUDISONE_METRIK_SIMPAN): satu baris JSON per pencatatan, ditulis sebelum
+// bin/bersih-riwayat.mjs membuang handoff/<ID>/ (transkrip sumbernya kelak juga dibersihkan Claude Code). Baris bisa lebih
+// dari satu per ID (dicatat ulang manual / pembersihan diulang): pembaca memakai baris TERAKHIR per `id`.
+// Kolom (v 1) — hanya angka dan metadata register, tanpa isi pesan, judul sesi, atau cwd:
+//   v, id, dicatat (ISO), sumber ("bersih-riwayat" | "manual"), atribusi, galat (null | pesan singkat),
+//   induk + catatan (hanya sub-tugas T-…-n.k: angka tidak dihitung — metrik induk sudah mencakup giliran sub-tugasnya),
+//   dari register (null bila tak ada): judul, status, folder, divisi, fase, dibuat, selesai_pada,
+//   angka (null bila galat/sub-tugas): sesi_terlibat, subagent, giliran, panggilan_api, token_total, token_output,
+//   biaya_usd (null bila --tanpa-biaya), rentang_ms, waktu_aktif_ms, waktu_aktif_subagent_ms, pesan_keluar, revisi_m2,
+//   start_session {panggilan, gagal}, beban_keputusan {pertanyaan, prompt_pengguna, prompt_izin, total},
+//   ask_user_question {panggilan, pertanyaan}, prompt_pengguna_coo.
 //
 // Format transkrip yang dipakai (diperiksa pada Claude Code 2.1.x):
 //  - baris {type:"assistant", message:{id, model, usage, content:[satu blok]}, timestamp, isSidechain}: satu pesan API
@@ -27,7 +40,10 @@ const HOME = os.homedir();
 const PROJECTS = () => process.env.RUDISONE_METRIK_PROJECTS || path.join(HOME, ".claude", "projects");
 const DESKTOP = () => process.env.RUDISONE_METRIK_DESKTOP || folderDesktop();
 
+const ROOT = () => process.env.RUDISONE_ROOT ? path.resolve(process.env.RUDISONE_ROOT) : path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const AUDIT = () => process.env.RUDISONE_AUDIT || path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "handoff", "audit");
+/** Berkas ringkasan metrik awet: RUDISONE_METRIK_SIMPAN, selain itu <root>/handoff/metrik.jsonl. */
+export const berkasMetrik = (root = ROOT()) => process.env.RUDISONE_METRIK_SIMPAN || path.join(root, "handoff", "metrik.jsonl");
 /** Anggaran keputusan pengguna per jenis tugas: sasaran, bukan aturan keras. */
 export const ANGGARAN_KEPUTUSAN = { bug: 3, fitur: 5 };
 export const POLA_ID = /T-\d{8}-\d+/;
@@ -461,6 +477,63 @@ export function bebanKeputusan(id, intervensi, { jenis = null, dirAudit = AUDIT(
   return { pertanyaan, prompt_pengguna, prompt_izin, total, jenis, anggaran, dalam_anggaran: anggaran == null ? null : total <= anggaran };
 }
 
+/** Metrik lengkap satu ID + beban keputusan (X14), seperti keluaran CLI. */
+export function hitungMetrik(id, { sejak = null, atribusi = "dasar", tarif = muatTarif(), biaya = true, jenis = null, dirAudit = AUDIT() } = {}) {
+  const h = metrikTugas(id, { sejak, atribusi, tarif, biaya });
+  h.total.beban_keputusan = bebanKeputusan(id, h.total.intervensi, { jenis, dirAudit });
+  return h;
+}
+
+// ---------- ringkasan awet (handoff/metrik.jsonl) ----------
+export const POLA_SUB = /^(T-\d{8}-\d+)\.\d+$/;
+export const KOLOM_REGISTER = ["judul", "status", "folder", "divisi", "fase", "dibuat", "selesai_pada"];
+/** Kolom register yang ikut ke baris ringkas (yang tak ada → null). */
+export const infoRegister = (t = {}) => Object.fromEntries(KOLOM_REGISTER.map((k) => [k, t?.[k] ?? null]));
+
+/** Satu baris ringkas dari hasil metrikTugas/hitungMetrik (`h` null → angka null, mis. galat atau sub-tugas).
+ *  info: {id, sumber, dicatat, galat, …kolom register}. Kolom: lihat kepala berkas. */
+export function ringkasMetrik(h, info = {}) {
+  const t = h?.total ?? null;
+  const id = info.id ?? h?.id ?? null;
+  const sub = POLA_SUB.exec(String(id ?? ""));
+  const b = t?.beban_keputusan;
+  const baris = { v: 1, id, dicatat: new Date(info.dicatat ?? Date.now()).toISOString(), sumber: info.sumber ?? "manual",
+    atribusi: h?.atribusi ?? null, galat: info.galat ?? null };
+  if (sub) Object.assign(baris, { induk: sub[1], catatan: "sub-tugas — lihat induk" });
+  return Object.assign(baris, infoRegister(info), {
+    sesi_terlibat: t?.sesi_terlibat ?? null, subagent: t?.subagent ?? null, giliran: t?.giliran ?? null,
+    panggilan_api: t?.panggilan_api ?? null, token_total: t?.token.total ?? null, token_output: t?.token.output ?? null,
+    biaya_usd: t?.biaya_usd_perkiraan ?? null, rentang_ms: t?.rentang_ms ?? null,
+    waktu_aktif_ms: t?.waktu_aktif_ms ?? null, waktu_aktif_subagent_ms: t?.waktu_aktif_subagent_ms ?? null,
+    pesan_keluar: t?.pesan.keluar ?? null, revisi_m2: t?.revisi.total_m2 ?? null,
+    start_session: t ? { panggilan: t.start_session.panggilan, gagal: t.start_session.gagal } : null,
+    beban_keputusan: b ? { pertanyaan: b.pertanyaan, prompt_pengguna: b.prompt_pengguna, prompt_izin: b.prompt_izin, total: b.total } : null,
+    ask_user_question: t ? { panggilan: t.intervensi.ask_user_question.panggilan, pertanyaan: t.intervensi.ask_user_question.pertanyaan } : null,
+    prompt_pengguna_coo: t?.intervensi.prompt_pengguna_coo ?? null,
+  });
+}
+
+/** Baris ringkas untuk ID mana pun tanpa melempar: sub-tugas → baris tanpa angka (induk mencakupnya); galat penghitung →
+ *  baris dengan `galat` dan angka null. `hitung(id)` → hasil hitungMetrik (bisa disuntik untuk uji). */
+export function ringkasTugas(id, info = {}, { hitung = (x) => hitungMetrik(x) } = {}) {
+  if (POLA_SUB.test(id)) return ringkasMetrik(null, { ...info, id });
+  try { return ringkasMetrik(hitung(id), { ...info, id }); }
+  catch (e) { return ringkasMetrik(null, { ...info, id, galat: potong(barisPertama(e?.message ?? e), 200) || "galat" }); }
+}
+
+/** Tambahkan satu baris ke berkas ringkasan (append; pembaca memakai baris terakhir per ID). → path berkas */
+export function simpanRingkas(baris, { berkas = berkasMetrik() } = {}) {
+  fs.mkdirSync(path.dirname(berkas), { recursive: true });
+  fs.appendFileSync(berkas, `${JSON.stringify(baris)}\n`);
+  return berkas;
+}
+
+/** Entri register untuk ID (untuk --simpan); register tak ada/rusak → null. */
+function entriRegister(id) {
+  const f = process.env.RUDISONE_REGISTER_JSON || path.join(ROOT(), "handoff", "register-tugas.json");
+  try { return JSON.parse(fs.readFileSync(f, "utf8")).tugas?.find((t) => t.id === id) ?? null; } catch { return null; }
+}
+
 // ---------- tampilan teks ----------
 const fmt = (n) => (n == null ? "—" : Number(n).toLocaleString("id-ID"));
 const menit = (ms) => (ms == null ? "—" : `${(ms / 60000).toFixed(1)} mnt`);
@@ -484,10 +557,12 @@ export function formatTeks(h) {
 
 function main(argv) {
   const [cmd, id, ...rest] = argv;
-  const opsi = { json: false, sejak: null, atribusi: "dasar", tarif: null, biaya: true, jenis: null };
+  const opsi = { json: false, sejak: null, atribusi: "dasar", tarif: null, biaya: true, jenis: null, simpan: false, judul: null };
   for (let i = 0; i < rest.length; i++) {
     const a = rest[i];
     if (a === "--json") opsi.json = true;
+    else if (a === "--simpan") opsi.simpan = true;
+    else if (a === "--judul" && rest[i + 1] != null) opsi.judul = rest[++i];
     else if (a === "--sejak") opsi.sejak = rest[++i];
     else if (a === "--atribusi") opsi.atribusi = rest[++i];
     else if (a === "--tarif") opsi.tarif = rest[++i];
@@ -496,18 +571,24 @@ function main(argv) {
     else { console.error(`Opsi tidak dikenal: ${a}`); return 2; }
   }
   if (cmd !== "tugas" || !id || !POLA_ID.test(id)) {
-    console.error("Pakai: node bin/metrik.mjs tugas <T-YYYYMMDD-n> [--json] [--sejak YYYY-MM-DD] [--atribusi dasar|diperluas|keduanya] [--tarif file.json] [--tanpa-biaya] [--jenis bug|fitur]");
+    console.error("Pakai: node bin/metrik.mjs tugas <T-YYYYMMDD-n> [--json] [--sejak YYYY-MM-DD] [--atribusi dasar|diperluas|keduanya] [--tarif file.json] [--tanpa-biaya] [--jenis bug|fitur] [--simpan [--judul …]]");
     return 2;
   }
+  if (opsi.simpan && opsi.atribusi === "keduanya") { console.error("--simpan: pilih satu atribusi (dasar | diperluas)"); return 2; }
   if (opsi.sejak && !/^\d{4}-\d{2}-\d{2}$/.test(opsi.sejak)) { console.error("--sejak harus YYYY-MM-DD"); return 2; }
   if (opsi.jenis && !(opsi.jenis in ANGGARAN_KEPUTUSAN)) { console.error(`--jenis: ${Object.keys(ANGGARAN_KEPUTUSAN).join(" | ")}`); return 2; }
   if (!["dasar", "diperluas", "keduanya"].includes(opsi.atribusi)) { console.error("--atribusi: dasar | diperluas | keduanya"); return 2; }
   const tarif = muatTarif(opsi.tarif ?? undefined);
-  const jalan = (atribusi) => {
-    const h = metrikTugas(id, { sejak: opsi.sejak, atribusi, tarif, biaya: opsi.biaya });
-    h.total.beban_keputusan = bebanKeputusan(id, h.total.intervensi, { jenis: opsi.jenis });
-    return h;
-  };
+  const jalan = (atribusi) => hitungMetrik(id, { sejak: opsi.sejak, atribusi, tarif, biaya: opsi.biaya, jenis: opsi.jenis });
+  if (opsi.simpan) {
+    // sub-tugas: tanpa angka (metrikTugas hanya menerima ID induk; metrik induk sudah mencakup giliran sub-tugasnya)
+    const info = { ...infoRegister(entriRegister(id) ?? {}), ...(opsi.judul != null ? { judul: opsi.judul } : {}), id, sumber: "manual" };
+    const baris = POLA_SUB.test(id) ? ringkasMetrik(null, info) : ringkasMetrik(jalan(opsi.atribusi), info);
+    const berkas = simpanRingkas(baris);
+    console.log(JSON.stringify(baris));
+    if (!opsi.json) console.error(`metrik ${id} disimpan → ${berkas}`);
+    return 0;
+  }
   if (opsi.atribusi === "keduanya") {
     const h = { id, dasar: jalan("dasar"), diperluas: jalan("diperluas") };
     console.log(opsi.json ? JSON.stringify(h, null, 2) : `${formatTeks(h.dasar)}\n\n${formatTeks(h.diperluas)}`);
