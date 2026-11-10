@@ -308,6 +308,17 @@ test("audit: ID tugas dari brief lama di transkrip panjang dan dari branch tugas
   assert.equal(bacaAudit().at(-1).tugas, "T-20260101-7");
   catatSesudah({ ...bash(COO, "git push origin main", { transcript_path: ber }), hook_event_name: "PostToolUse", tool_response: { stdout: "" } }, K);
   assert.equal(bacaAudit().at(-1).tugas, "T-20260101-8");
+  // sesi yang dimulai di luar worktree agent (COO, checkout pengguna di branch rudis/…): transkrip dulu, branch cadangan
+  const proyek = path.join(tmp, "proyek-coo");
+  fs.mkdirSync(path.join(proyek, ".git"), { recursive: true });
+  fs.writeFileSync(path.join(proyek, ".git", "HEAD"), "ref: refs/heads/rudis/T-20260101-9\n");
+  const segar = transkrip("audit-coo-cabang", [{ type: "user", cwd: proyek, origin: { kind: "human" }, message: { content: "/rudisone" } },
+    { type: "user", origin: { kind: "peer" }, message: { content: "<cross-session-message from=\"tl\">\n[Laporan divisi Engineering] T-20260101-10 · x\n</cross-session-message>" } }]);
+  assert.equal(modul.tugasAudit({ cwd: proyek, transcript_path: segar }), "T-20260101-10");
+  const polos = transkrip("audit-coo-cabang-2", [{ type: "user", cwd: proyek, origin: { kind: "human" }, message: { content: "/rudisone" } }]);
+  assert.equal(modul.tugasAudit({ cwd: proyek, transcript_path: polos }), "T-20260101-9");
+  // sesi worktree yang cd ke checkout lain tetap membaca branch folder kerjanya saat itu
+  assert.equal(modul.tugasAudit({ cwd: proyek, transcript_path: tanpa }), "T-20260101-9");
 });
 
 

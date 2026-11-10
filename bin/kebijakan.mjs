@@ -1862,10 +1862,15 @@ export function tugasDariCabang(cwd) {
   } catch { return null; }
 }
 
-/** ID tugas untuk catatan audit: branch tugas folder kerja (pekerjaan yang sedang diubah — juga saat brief tugas lain
- *  sudah masuk antrean sesi itu), lalu pesan masuk ber-ID di transkrip sesi (induk untuk subagent). */
+/** ID tugas untuk catatan audit. Sesi/subagent yang DIMULAI di worktree agent (`.claude/worktrees/…`, folder awal dari kepala
+ *  transkripnya — tidak ikut `cd`): branch tugas folder kerja dulu (pekerjaan yang sedang diubah, juga saat brief tugas lain
+ *  sudah antre), lalu transkrip. Sesi lain (COO, checkout pengguna yang kebetulan di branch rudis/…): pesan masuk ber-ID di
+ *  transkrip dulu, branch hanya cadangan. */
 export function tugasAudit(input) {
-  return tugasDariCabang(input?.cwd) ?? tugasTerakhir(transkripInduk(input?.transcript_path));
+  const awal = input?.transcript_path ? kepalaTranskrip(input.transcript_path).cwd : null;
+  const dariTranskrip = () => tugasTerakhir(transkripInduk(input?.transcript_path));
+  if (awal && /[\\/]\.claude[\\/]worktrees[\\/][^\\/]+/.test(String(awal))) return tugasDariCabang(input?.cwd) ?? dariTranskrip();
+  return dariTranskrip() ?? tugasDariCabang(input?.cwd);
 }
 
 // ---------- keputusan ----------
