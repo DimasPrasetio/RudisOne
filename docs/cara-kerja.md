@@ -43,5 +43,6 @@ folder kerja, dan kunci sumber daya di register tugas COO (`handoff/register-tug
 aktif (sisanya antre/diparkir), dan Kantor menampilkan papan **Tugas berjalan** (skill `rudis-multitugas`).
 Riwayat tidak menumpuk: tiap `/rudisone` COO menjalankan `bin/bersih-riwayat.sh --jalankan`, yang membuang tugas
 selesai/dibatalkan lebih dari 24 jam (entri register + `handoff/<ID>/`, satu baris audit tersisa di
-`handoff/bersih-riwayat.jsonl`). Worktree dan branch `rudis/<ID>` yang sudah ter-merge hanya **diusulkan** (`--usulan-git`)
+`handoff/bersih-riwayat.jsonl`, dan ringkasan angka tiap tugas — waktu, biaya, putaran revisi, keputusan — tetap
+tersimpan di `handoff/metrik.jsonl`). Worktree dan branch `rudis/<ID>` yang sudah ter-merge hanya **diusulkan** (`--usulan-git`)
 dan baru dihapus setelah kamu setuju; coba kapan saja tanpa risiko: `bin/bersih-riwayat.sh --rinci` (dry-run).
