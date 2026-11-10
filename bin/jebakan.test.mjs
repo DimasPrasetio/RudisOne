@@ -100,6 +100,26 @@ test("CLI: baca/letak/cek, exit 0/1/2, argumen salah → 2; jebakan.sh membungku
   }
 });
 
+test("baca tidak mengikuti tautan: .rudisone/jebakan.md → .env (atau .rudisone bertautan ke luar) → exit 2 tanpa isi", (t) => {
+  const p = proyek("tautan", { ".env": "DB_DSN=rahasia-jangan-tercetak\n" });
+  fs.mkdirSync(path.join(p, ".rudisone"), { recursive: true });
+  try { fs.symlinkSync(path.join(p, ".env"), path.join(p, ".rudisone", "jebakan.md")); } catch { t.skip("symlink tidak tersedia"); return; }
+  const out = [], err = [];
+  process.env.RUDISONE_ROOT = ROOT;
+  try {
+    assert.equal(main([p], { keluar: (s) => out.push(s), galat: (s) => err.push(s) }), 2);
+    assert.ok(!out.join("").includes("rahasia-jangan") && !err.join("").includes("rahasia-jangan"));
+    assert.match(err[0], /bukan berkas biasa/);
+    // folder .rudisone bertautan ke luar proyek
+    const luar = proyek("luar-tautan", { "jebakan.md": daftar(butir("2026-11-10", 1)) });
+    const q = proyek("tautan-dir");
+    fs.symlinkSync(luar, path.join(q, ".rudisone"));
+    err.length = 0;
+    assert.equal(main([q], { keluar: (s) => out.push(s), galat: (s) => err.push(s) }), 2);
+    assert.match(err[0], /di luar folder asalnya/);
+  } finally { delete process.env.RUDISONE_ROOT; }
+});
+
 test("isi daftar repo ini & templat sah; penjaga bersih hanya melewati tanggal butir daftar jebakan", () => {
   for (const rel of [".rudisone/jebakan.md", "templat/jebakan.md"]) {
     const f = path.join(SINI, "..", rel);

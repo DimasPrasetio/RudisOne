@@ -104,6 +104,17 @@ export function letakJebakan(folder, { root = ROOT() } = {}) {
 
 const TAMPIL = { repo: "repo proyek", device: "komputer ini", bibit: "bibit di komputer ini" };
 
+/** Isi daftar hanya bila berkas biasa (bukan tautan) yang secara fisik ada di dalam `induk` — perkakas ini berjalan tanpa
+ *  prompt dan mencetak isi, jadi tautan ke berkas lain (mis. .env) tidak pernah diikuti. → teks, atau null + alasan. */
+export function bacaAman(p, induk) {
+  try {
+    if (!fs.lstatSync(p).isFile()) return { teks: null, alasan: "bukan berkas biasa (tautan/folder) — tidak dibaca" };
+    const asli = fs.realpathSync(p), dasar = fs.realpathSync(induk);
+    if (!asli.startsWith(dasar + path.sep)) return { teks: null, alasan: "di luar folder asalnya — tidak dibaca" };
+    return { teks: fs.readFileSync(asli, "utf8"), alasan: null };
+  } catch (e) { return { teks: null, alasan: `tidak terbaca (${e.code ?? e.message})` }; }
+}
+
 /** Teks `baca`: letak, isi, lalu temuan. */
 export function formatBaca(l, temuan, isi) {
   const out = [`Jebakan · ${TAMPIL[l.jenis]} — ${l.path}`, `  (${l.alasan})`];
@@ -137,7 +148,10 @@ export function main(argv, { keluar = (s) => process.stdout.write(`${s}\n`), gal
   if (!fs.existsSync(arg[0]) || !fs.statSync(arg[0]).isDirectory()) { galat(`folder tidak ada: ${arg[0]}`); return 2; }
   const l = letakJebakan(arg[0]);
   if (perintah === "letak") { keluar(json ? JSON.stringify(l) : `${l.jenis} ${l.path}`); return 0; }
-  const isi = l.ada ? fs.readFileSync(l.path, "utf8") : "";
+  const induk = l.jenis === "repo" ? path.resolve(arg[0]) : path.join(ROOT(), "catatan");
+  const baca = l.ada ? bacaAman(l.path, induk) : { teks: "", alasan: null };
+  if (baca.teks === null) { galat(`jebakan: ${l.path} ${baca.alasan}`); return 2; }
+  const isi = baca.teks;
   const temuan = l.ada ? periksaJebakan(isi, { sekarang }) : [];
   keluar(json ? JSON.stringify({ ...l, butir: l.ada ? uraiJebakan(isi).butir : [], temuan }) : formatBaca(l, temuan, isi));
   return kodeKeluar(temuan);
