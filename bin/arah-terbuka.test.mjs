@@ -71,3 +71,16 @@ test("CLI: RUDISONE_ROOT, --json, pemakaian salah → 3; tanpa catatan/register 
   assert.equal(kosong.status, 0);
   assert.match(kosong.stdout, /tidak ada/);
 });
+
+test("subfolder mewarisi keputusan repo induknya; .md yang berupa folder dilewati; RUDISONE_METRIK_SIMPAN dihormati", () => {
+  const sub = arahTerbuka({ root: ROOT, folder: path.join(PUSTAKA, "modules", "gudang") });
+  assert.deepEqual(sub.catatan.map((p) => p.baris), [3, 6]);                    // ID tugas folder induk (metrik.jsonl & register)
+  assert.deepEqual(sub.register.map((t) => t.id), ["T-20260101-4"]);
+  fs.mkdirSync(path.join(ROOT, "catatan", "folder.md"));
+  try { assert.equal(poinCatatan(path.join(ROOT, "catatan")).length, 5); } finally { fs.rmdirSync(path.join(ROOT, "catatan", "folder.md")); }
+  const lain = path.join(tmp, "metrik-lain.jsonl");
+  fs.writeFileSync(lain, `${JSON.stringify({ id: "T-20260101-1", folder: path.join(tmp, "proyek-z") })}\n`);
+  process.env.RUDISONE_METRIK_SIMPAN = lain;
+  try { assert.deepEqual(arahTerbuka({ root: ROOT, folder: path.join(tmp, "proyek-z") }).catatan.map((p) => p.baris), [3]); }
+  finally { delete process.env.RUDISONE_METRIK_SIMPAN; }
+});

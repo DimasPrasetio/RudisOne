@@ -273,6 +273,17 @@ test("audit: ID tugas dari brief lama di transkrip panjang dan dari branch tugas
   assert.equal(tugasTerakhir(t1, { potongan: 4093 }), "T-20260101-5");
   assert.equal(tugasTerakhir(t1, { maks: 524288 }), null);                          // batas baca dihormati
   assert.equal(tugasTerakhir(path.join(tmp, "tidak-ada.jsonl")), null);
+  // ketikan pengguna tanpa ID yang lebih baru memutus: ID laporan lama tidak dibawa ke permintaan baru (sesi COO)
+  const lapor = { type: "user", origin: { kind: "peer" }, message: { content: "<cross-session-message from=\"tl\">\n[Laporan divisi Engineering] T-20260101-5 · x\n</cross-session-message>" } };
+  const ketik = { type: "user", origin: { kind: "human" }, message: { content: "tolong gabungkan hasil tugas baru" } };
+  assert.equal(tugasTerakhir(transkrip("audit-putus", [lapor, ...pengisi, ketik, ...pengisi])), null);
+  assert.equal(tugasTerakhir(transkrip("audit-putus-lama", [lapor, ...pengisi, { type: "user", message: { content: "lanjut" } }])), null);   // format lama tanpa origin
+  // bukan ketikan pengguna → tidak memutus: notifikasi, pesan lintas sesi tanpa ID, ekspansi skill, pengingat sistem saja
+  const bukan = [{ type: "user", origin: { kind: "task-notification" }, message: { content: "<task-notification>selesai</task-notification>" } },
+    { type: "user", message: { content: "<cross-session-message from=\"x\">halo</cross-session-message>" } },
+    { type: "user", isMeta: true, message: { content: "isi skill" } },
+    { type: "user", message: { content: [{ type: "text", text: "<system-reminder>pengingat</system-reminder>" }] } }];
+  assert.equal(tugasTerakhir(transkrip("audit-tak-putus", [lapor, ...pengisi, ...bukan])), "T-20260101-5");
   // branch: worktree (berkas .git → gitdir) dan repo biasa; subfolder ikut; branch lain / HEAD terlepas → null
   const utama = path.join(tmp, "repo-cabang");
   const wt = path.join(ROOT, ".claude", "worktrees", "r2-lead-rudisone-uji");
@@ -288,12 +299,14 @@ test("audit: ID tugas dari brief lama di transkrip panjang dan dari branch tugas
   fs.writeFileSync(path.join(gd, "HEAD"), "0123456789abcdef0123456789abcdef01234567\n");
   assert.equal(tugasDariCabang(wt), null);
   fs.writeFileSync(path.join(gd, "HEAD"), "ref: refs/heads/rudis/T-20260101-7\n");
-  // catatan audit: transkrip tanpa pesan ber-ID → ID dari branch folder kerja; transkrip ber-ID tetap didahulukan
+  // catatan audit: branch tugas folder kerja didahulukan (brief tugas lain yang antre tidak mengambil alih); tanpa branch → transkrip
   const tanpa = transkrip("audit-cabang", [{ type: "user", cwd: wt, message: { content: "lanjutkan" } }]);
   catatSesudah({ ...bash(wt, "git push origin rudis/T-20260101-7", { transcript_path: tanpa }), hook_event_name: "PostToolUse", tool_response: { stdout: "" } }, K);
   assert.equal(bacaAudit().at(-1).tugas, "T-20260101-7");
   const ber = transkrip("audit-cabang-2", [{ type: "user", cwd: wt, message: { content: "[Tugas dari COO] T-20260101-8 · lain" } }]);
   catatSesudah({ ...bash(wt, "git push origin rudis/T-20260101-7", { transcript_path: ber }), hook_event_name: "PostToolUse", tool_response: { stdout: "" } }, K);
+  assert.equal(bacaAudit().at(-1).tugas, "T-20260101-7");
+  catatSesudah({ ...bash(COO, "git push origin main", { transcript_path: ber }), hook_event_name: "PostToolUse", tool_response: { stdout: "" } }, K);
   assert.equal(bacaAudit().at(-1).tugas, "T-20260101-8");
 });
 

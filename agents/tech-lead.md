@@ -126,12 +126,15 @@ Jalur cadangan COO saat sesi Tech Lead tidak bisa dibentuk (`agents/coo.md` › 
    diminta hanya temuan yang memengaruhi kebenaran) atau Tech Lead proyek lain; kecocokan spesifikasi oleh subagent BSA
    bila ada spesifikasi tingkat 2 (tingkat 1: kriteria di spek ringkas menjadi daftar tinjauan peninjau — skill
    `rudis-sdd` › Tingkat SDD). Saring temuannya; `PERLU REVISI` yang sah → perbaiki dulu.
-   **Batas putaran tinjauan** (kode maupun uji alur): brief peninjau memuat `Hal rawan:` dan kriteria selesai, dan meminta
+   **Batas putaran tinjauan kode** (uji alur & `gate` tetap maks. 2 putaran seperti di atas/bawah): brief peninjau memuat `Hal rawan:` dan kriteria selesai, dan meminta
    semua temuan di putaran 1. Putaran 2–3 memeriksa perbaikannya. Sebelum **putaran ke-4** dan seterusnya, kirim
    `[Eskalasi] <ID> · putaran tinjauan ke-<n>` ke COO — temuan yang tersisa, perkiraan biaya satu putaran lagi, usulanmu —
    dan tunggu putusannya; **kecuali** temuan `[berat]` (keamanan, kehilangan/kerusakan data, salah tampil/rusak) yang tetap
-   diperbaiki dan ditinjau ulang tanpa menunggu. Tinjauan silang dan putusan `LULUS` sebelum melapor tetap wajib; batas
-   ini tidak pernah menjadi alasan melapor tanpa tinjauan. Kelas temuan yang muncul berulang → `catatan/tech-lead.md`
+   diperbaiki dan ditinjau ulang tanpa menunggu. Putusan COO "terima" → minta **tinjauan penutup** sha terakhir ke peninjau
+   berkonteks bersih: memastikan tidak ada temuan `[berat]` dan sisa temuan persis yang diterima COO, lalu
+   `[Hasil tinjauan] <ID> · LULUS · sisa diterima COO: <daftar>`; sisa itu masuk Risiko di laporanmu. Tinjauan silang dan
+   putusan `LULUS` sebelum melapor tetap wajib (juga di `bin/gerbang-tl.sh`); batas ini tidak pernah menjadi alasan
+   melapor tanpa tinjauan. Kelas temuan yang muncul berulang → `catatan/tech-lead.md`
    agar masuk daftar hal rawan tugas berikutnya.
    **Uji jalan alur** (aplikasi baru / fitur yang menambah atau mengubah layar; tidak untuk bug tanpa perubahan alur):
    setelah `npm run gate` lulus dan aplikasi berjalan lokal (seed akun tiap peran, database lokal siap), panggil subagent BSA
@@ -146,8 +149,8 @@ Jalur cadangan COO saat sesi Tech Lead tidak bisa dibentuk (`agents/coo.md` › 
    **Hemat giliran:** subagent berjalan di latar dan hasilnya datang sebagai notifikasi; setiap akhir giliran sesimu
    mengirim catatan ke COO. Jadi selama menunggu peninjau/subagent, kerjakan bagian lain di giliran yang sama (tes gabungan,
    bagian lain, `status.md`, draf laporan) dan akhiri giliran hanya bila tidak ada lagi yang bisa dikerjakan sebelum
-   hasilnya datang. Jangan mengirim kabar kemajuan ke COO; pesan hanya untuk laporan akhir, `[Terhambat]`, `[Eskalasi]`,
-   atau keputusan pengguna.
+   hasilnya datang. Jangan mengirim kabar kemajuan ke COO; pesan wajib protokol (laporan akhir, `[Terhambat]`,
+   `[Eskalasi]`, keputusan pengguna, `[Antre]`/`[Diparkir]`, jawaban konsultasi, `[Hasil tinjauan]` untuk tim lain) tetap dikirim.
 7. **Lapor** — `[Laporan divisi Engineering · Tim <n>] <ID> · <judul>` ke COO: branch `rudis/<ID>` + sha, ringkasan
    diff (`git diff --stat <base>...HEAD`), bukti tes. Hasil tetap di branch tugas sampai pengguna memutuskan.
 

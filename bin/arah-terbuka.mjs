@@ -9,12 +9,13 @@
 // "status: terbuka", "status: menunggu …", atau "menunggu keputusan". Register: tugas aktif berstatus terhambat/diparkir/
 // penyelarasan (menunggu jawaban), dan kolom bukti tugas apa pun yang memuat penanda yang sama.
 // Relevan dengan <folder> bila poin menyebut nama folder itu (nama dasar, tanpa peduli huruf besar) atau ID tugas yang
-// foldernya = <folder> atau di dalamnya; --kata menambah kecocokan kata kunci (mis. nama standar). Tanpa <folder> dan
+// foldernya = <folder>, di dalamnya, atau induknya; --kata menambah kecocokan kata kunci (mis. nama standar). Tanpa <folder> dan
 // --kata: semua yang terbuka. Ini daftar bahan, bukan putusan: COO menilai apakah keputusannya menyangkut tugas baru.
 // Exit: 0 (juga bila tidak ada) · 3 pemakaian salah.
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { berkasMetrik } from "./metrik.mjs";
 
 const INI = fileURLToPath(import.meta.url);
 const ROOT_BAWAAN = path.resolve(path.dirname(INI), "..");
@@ -27,6 +28,9 @@ const normal = (p) => {
   return process.platform === "linux" ? r : r.toLowerCase();
 };
 const dalamAtauSama = (anak, induk) => anak === induk || anak.startsWith(induk.endsWith(path.sep) ? induk : induk + path.sep);
+/** Folder tugas dan folder yang ditanyakan saling berkait: sama, salah satu di dalam yang lain (keputusan untuk repo induk
+ *  juga berlaku bagi subfoldernya, dan sebaliknya). */
+const berkait = (a, b) => dalamAtauSama(a, b) || dalamAtauSama(b, a);
 
 /** Poin catatan: baris `- …` di kolom 0 + baris lanjutan yang menjorok. → [{ berkas, baris, teks }] */
 export function poinCatatan(dir) {
@@ -34,7 +38,8 @@ export function poinCatatan(dir) {
   let daftar = [];
   try { daftar = fs.readdirSync(dir).filter((f) => f.endsWith(".md")).sort(); } catch { return hasil; }
   for (const f of daftar) {
-    const ls = fs.readFileSync(path.join(dir, f), "utf8").split(/\r?\n/);
+    let ls;
+    try { ls = fs.readFileSync(path.join(dir, f), "utf8").split(/\r?\n/); } catch { continue; }   // folder/tak terbaca → lewati
     let kini = null;
     ls.forEach((l, i) => {
       if (/^- /.test(l)) { if (kini) hasil.push(kini); kini = { berkas: `catatan/${f}`, baris: i + 1, teks: l.slice(2).trim() }; }
@@ -62,13 +67,13 @@ function petaFolder(tugas, berkasMetrik) {
 
 /** → { folder, kata, catatan: [...], register: [...], diperiksa: { poin, tugas } } */
 export function arahTerbuka({ root = ROOT_BAWAAN, folder = null, kata = [], register = path.join(root, "handoff", "register-tugas.json"),
-  metrik = path.join(root, "handoff", "metrik.jsonl") } = {}) {
+  metrik = berkasMetrik(root) } = {}) {
   const tugas = bacaJson(register)?.tugas ?? [];
   const folderId = petaFolder(tugas, metrik);
   const f = folder ? normal(folder) : null;
   const namaF = f ? path.basename(f) : null;
   const kataKecil = kata.map((k) => k.toLowerCase()).filter(Boolean);
-  const idCocok = (id) => { const x = folderId.get(id) ?? folderId.get(id.split(".")[0]); return !!(f && x && dalamAtauSama(x, f)); };
+  const idCocok = (id) => { const x = folderId.get(id) ?? folderId.get(id.split(".")[0]); return !!(f && x && berkait(x, f)); };
   const relevan = (teks) => {
     if (!f && !kataKecil.length) return true;
     const kecil = teks.toLowerCase();
@@ -83,7 +88,7 @@ export function arahTerbuka({ root = ROOT_BAWAAN, folder = null, kata = [], regi
     const menunggu = STATUS_MENUNGGU.has(t.status);
     const buktiTerbuka = t.bukti && terbuka(String(t.bukti));
     if (!menunggu && !buktiTerbuka) continue;
-    const milikFolder = f && t.folder && dalamAtauSama(normal(t.folder), f);
+    const milikFolder = f && t.folder && t.folder !== "?" && berkait(normal(t.folder), f);
     if (!milikFolder && !relevan(`${t.judul ?? ""} ${t.bukti ?? ""}`)) continue;
     reg.push({ id: t.id, judul: t.judul ?? "", status: t.status, sebab: menunggu ? `status ${t.status}` : "bukti memuat penanda terbuka" });
   }

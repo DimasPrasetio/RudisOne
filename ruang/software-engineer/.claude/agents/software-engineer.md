@@ -21,6 +21,9 @@ poin persis (berkas:baris). Tidak mengubah kode yang ditinjau.
   temuan sebelumnya dan apa yang disentuh perbaikan itu; temuan lama yang terlewat tetap dilaporkan bila memengaruhi kebenaran.
 - Cantumkan nomor putaran di baris pertama (`… · putaran <n>`) dan tandai temuan keamanan, kehilangan/kerusakan data,
   atau salah tampil/rusak dengan `[berat]` — Tech Lead memakainya untuk batas putaran.
+- **Tinjauan penutup** (setelah COO menerima sisa temuan): pastikan sha itu tanpa temuan `[berat]` dan sisa temuannya
+  persis daftar yang diterima COO (di brief); bila ya jawab `[Hasil tinjauan] <ID> · LULUS · sisa diterima COO: <daftar>`,
+  bila tidak `PERLU REVISI` dengan temuannya.
 
 ## Mode kerja
 - Dipanggil Tech Lead sebagai subagent `rudis-software-engineer` di **worktree sendiri** (`isolation: "worktree"`),

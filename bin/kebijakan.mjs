@@ -1789,10 +1789,21 @@ export function bacaAudit(bulan = 2) {
   }
   return out;
 }
+/** Ketikan pengguna sendiri (bukan pesan lintas sesi, notifikasi, hand-back subagent, ekspansi skill, atau hasil alat). */
+function ketikanPengguna(baris) {
+  if (baris?.type !== "user" || baris.isMeta) return false;
+  const c = baris.message?.content;
+  if (Array.isArray(c) && c.some((b) => b?.type === "tool_result")) return false;
+  const k = baris.origin?.kind;
+  if (k && k !== "human") return false;
+  const t = teksPesanPengguna(baris).replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, "").trim();
+  return !!t && !/<cross-session-message\b|<task-notification\b|The session "[^"]*" you started/.test(t);
+}
 /** ID tugas dari pesan masuk sesi itu (brief "[Tugas dari …] T-…", [Revisi], dst.), bukan dari teks yang ditulis agent
- *  atau isi berkas — di sesi COO yang membahas banyak tugas hasilnya sering kosong, dan kosong lebih jujur daripada salah.
- *  Transkrip dibaca MUNDUR per potongan sampai pesan ber-ID ketemu (maks. `maks` byte): sesi panjang menaruh brief-nya
- *  jauh sebelum ekor 512 KB, sehingga pembacaan ekor saja meninggalkan sebagian besar baris audit tanpa ID. */
+ *  atau isi berkas — kosong lebih jujur daripada salah. Transkrip dibaca MUNDUR per potongan (maks. `maks` byte; sesi
+ *  panjang menaruh brief-nya jauh sebelum ekor 512 KB) sampai pesan ber-ID terakhir — tetapi berhenti dengan null di
+ *  ketikan pengguna tanpa ID yang lebih baru: permintaan baru pengguna (mis. di sesi COO yang membahas banyak tugas)
+ *  memulai konteks baru, jadi ID laporan lama tidak dibawa ke aksi sesudahnya. */
 export function tugasTerakhir(transcript, { maks = 64 << 20, potongan = 524288 } = {}) {
   let fd;
   try { fd = fs.openSync(transcript, "r"); } catch { return null; }
@@ -1817,6 +1828,7 @@ export function tugasTerakhir(transcript, { maks = 64 << 20, potongan = 524288 }
         let baris; try { baris = JSON.parse(ls[i]); } catch { continue; }
         const m = teksPesanPengguna(baris).match(/^\s*\[[^\]]{1,80}\]\s*(T-\d{8}-\d+(?:\.\d+)?)/m);
         if (m) return m[1];
+        if (ketikanPengguna(baris)) return null;
       }
     }
     return null;
@@ -1850,9 +1862,10 @@ export function tugasDariCabang(cwd) {
   } catch { return null; }
 }
 
-/** ID tugas untuk catatan audit: pesan masuk ber-ID di transkrip sesi (induk untuk subagent), lalu branch tugas folder kerja. */
+/** ID tugas untuk catatan audit: branch tugas folder kerja (pekerjaan yang sedang diubah — juga saat brief tugas lain
+ *  sudah masuk antrean sesi itu), lalu pesan masuk ber-ID di transkrip sesi (induk untuk subagent). */
 export function tugasAudit(input) {
-  return tugasTerakhir(transkripInduk(input?.transcript_path)) ?? tugasDariCabang(input?.cwd);
+  return tugasDariCabang(input?.cwd) ?? tugasTerakhir(transkripInduk(input?.transcript_path));
 }
 
 // ---------- keputusan ----------

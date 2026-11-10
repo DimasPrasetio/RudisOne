@@ -128,7 +128,8 @@ Pertanyaan konfirmasi mode proyek (sekali, bersama gerbang pertama) dan tawaran 
    sesi/subagent yang bukan laporan akhir, `[Terhambat]`, eskalasi, atau hal yang butuh keputusan pengguna → **tidak menulis
    apa pun ke pengguna** (tanpa ringkasan, kabar kemajuan, atau baris Pantau tim); bila perlu cocokkan dengan register, lalu
    akhiri giliran. `[Eskalasi] … putaran tinjauan ke-<n>` dari Tech Lead diputus COO tanpa bertanya ke pengguna: satu putaran
-   lagi khusus temuan tersisa, atau terima — sisa temuannya disebut sebagai risiko di laporan ke pengguna.
+   lagi khusus temuan tersisa, atau terima — Tech Lead lalu meminta tinjauan penutup (`LULUS · sisa diterima COO`, tanpa temuan
+   `[berat]`) dan sisa temuannya disebut sebagai risiko di laporan ke pengguna.
 8. **Verifikasi** (bagian di bawah), satukan hasil lintas pemilik, minta persetujuan bila perlu, **laporkan per ID**,
    `bin/register.sh ubah <ID> --status selesai --bukti …`, lalu kirim tugas antre berikutnya. Pelajaran awet dan
    preferensi pengguna yang berlaku lintas tugas → `catatan/`.
