@@ -184,14 +184,15 @@ test("hook end-to-end: deny di stdout + satu baris audit", () => {
 
 test("pemasangan: matcher mencakup Read/Grep/Glob; aturan deny .env idempoten & tidak menghapus aturan lain", () => {
   assert.ok(["Read", "Grep", "Glob", "Bash"].every((a) => new RegExp(MATCHER).test(a)));
-  const awal = { permissions: { deny: ["Read(**/.env)", "Bash(git reset --hard *)"], ask: ["Bash(git push *)"] },
+  const awal = { permissions: { deny: ["Read(**/.env)", "Bash(git reset --hard *)"], ask: ["Bash(git push *)", "Bash(git stash)", "Edit(~/.zshrc)", "Bash(git push --force *)"] },
     hooks: { PreToolUse: [{ matcher: "Bash", hooks: [{ type: "command", command: "/lain/hook.sh" }] }] } };
   const s1 = settingsTerpasang(awal);
   const s2 = settingsTerpasang(s1);
   assert.deepEqual(s2, s1, "idempoten");
   for (const a of ATURAN_IZIN_ENV) assert.ok(s1.permissions.deny.includes(a), a);
   assert.ok(s1.permissions.deny.includes("Bash(git reset --hard *)") && s1.permissions.deny.includes("Read(**/.env)"));
-  assert.deepEqual(s1.permissions.ask, ["Bash(git push *)"]);
+  // 9 aturan ask git lama dicabut (persis), aturan ask lain — termasuk yang mirip — tidak disentuh
+  assert.deepEqual(s1.permissions.ask, ["Edit(~/.zshrc)", "Bash(git push --force *)"]);
   assert.ok(s1.hooks.PreToolUse.some((e) => e.hooks[0].command === "/lain/hook.sh"), "hook sistem lain tidak disentuh");
   assert.equal(s1.hooks.PreToolUse.length, 2);
   assert.deepEqual(kekuranganIzin(s1), []);

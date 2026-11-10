@@ -33,14 +33,16 @@ sesi saat dibutuhkan) yang memakainya dengan aturan ini; sesi pribadi pengguna t
 `penyedia.md`. Aturan mesin: `kebijakan-akses.json`, dibaca hook `bin/kebijakan.mjs` di setiap panggilan `Bash`,
 `Write`/`Edit` dan alat MCP. Jabatan dibaca dari folder **awal** sesi (baris pertama transkrip) atau pembuka peran di pesan
 **pertama** — `cd` ke `ruang/<id>` lain tidak mengubah jabatan. Setiap kemampuan (DNS, hosting, server, data production, rilis, repositori, sesi latar backend cli) punya daftar jabatan yang boleh
-memakainya; jabatan lain selalu ditanya, walau sekadar membaca.
+memakainya; jabatan lain ditanya untuk aksi ubah. **Aksi baca (jenjang 1)** repositori, status rilis, daftar sesi, cek kunci
+`.env`, dan cari skill terbuka untuk semua jabatan (`kebijakan-akses.json` › `baca_semua_jabatan`); server, data production,
+DNS, hosting, dan sesi latar tetap per jabatan, juga untuk membaca.
 
 ## 4a. Ringkasan jenjang (tabel dari protokol inti)
 | Jenjang | Isi | Yang terjadi |
 |---|---|---|
 | 1 — baca | daftar record, status CI, cek & log server, baca repo | berjalan tanpa tanya |
 | 2 — rutin | deploy app terdaftar setelah `rilis-cek` SIAP ≤ 24 jam · tambah record subdomain · repo privat baru (COO) | pemilik menyetujui sekali di chat COO, kutipannya di brief |
-| 3 — berisiko | hapus/overwrite DNS, apex/MX, restart, `sudo`, ubah config, tulis data production, push, PR, merge, repo publik, perintah server di luar daftar baca | prompt izin di sesi agent |
+| 3 — berisiko | hapus/overwrite DNS, apex/MX, restart, `sudo`, ubah config, tulis data production, push, PR, merge, repo publik, perintah server di luar daftar baca | prompt izin di sesi agent — kecuali tercakup **izin tugas** (§4b); di subagent: ditolak, dikembalikan ke pemanggil |
 
 ## 4. Jenjang 2 dan 3
 - Jenjang 2 berjalan tanpa prompt **bila syarat mesin terpenuhi** (deploy app terdaftar dengan `rilis-cek` SIAP ≤ 24
@@ -51,6 +53,31 @@ memakainya; jabatan lain selalu ditanya, walau sekadar membaca.
 - Jenjang 3 memunculkan prompt izin di sesi agent; COO memberi pemilik tautan sesinya. Aksi berisiko lain: COO
   menanyakan pengguna dulu (rencana persis + dampak + rollback dari divisi), lalu brief yang mengutip persetujuannya.
   Aksi yang sering berulang: sarankan pengguna menambah izin tetap khusus.
+- **Subagent tidak menunggu prompt.** Di sesi RudisOne, keputusan "tanya" untuk subagent menjadi "tolak" dengan arahan
+  mengembalikan langkah itu ke pemanggil (perintah persis + alasan di laporannya). Prompt di subagent latar menggantung
+  tanpa terlihat pengguna; pemanggil/COO yang meminta persetujuan.
+
+## 4b. Izin tugas (kerja otomatis setelah kesepakatan)
+Saat pengguna menyepakati penyelesaian (mis. "Gabung & kirim"), COO menulis `bin/register.sh izin <ID> --repo <checkout
+utama> --aksi gabung,push,bersihkan --kutip "<kata pengguna persis>"` (kutipan harus ada di `handoff/<ID>/pemahaman.md`
+yang disepakati). Hook (`bin/lib/izin-tugas.mjs`) lalu meloloskan, **hanya di sesi COO utama** dan hanya bila setiap syarat
+terpenuhi saat itu juga: tugas aktif, izin belum kedaluwarsa (sampai tugas selesai, maks. 24 jam), repo sama, kutipan
+= pesan/jawaban utuh yang diketik/dipilih pengguna di percakapan itu dalam 24 jam, dan perintahnya polos (tanpa variabel, loop, `$( )`):
+- **gabung** `git -C <repo> merge --no-ff --no-edit refs/heads/rudis/<ID>` (ref penuh) — checkout utama di cabang izin, bersih, dan **tidak
+  mengubah berkas pengaman** (kebijakan, settings, hook, audit, installer, `bin/`/`skills/`/`agen/` RudisOne, `.claude/`
+  proyek); gabung yang mengubahnya dijalankan pengguna sendiri.
+- **push** `git -C <repo> push origin main` — satu URL push origin yang sama dengan saat izin ditulis, maju-cepat dari sha
+  di origin (`ls-remote`), tanpa force/delete, dan pemindai rahasia lulus atas semua commit yang dikirim termasuk commit
+  gabung (repo RudisOne: juga `bin/bersih.mjs`).
+- **bersihkan** `git -C <repo> worktree remove <path>` / `git -C <repo> branch -d rudis/<ID>[-…]` — cabang tugas yang sudah
+  tergabung dan bersih; tanpa `--force`.
+Satu langkah git per perintah; konfigurasi/hook repo yang menjalankan program lain (core.sshCommand, filter, merge driver,
+`remote.origin.push`, hook pre-push/post-merge, …) membatalkan izin. Kutipan = jawaban atas pertanyaan terakhir COO yang
+menyebut versi utama / GitHub / push (bukan "kirim" saja), ≤ 6 jam sebelum izin ditulis. Tidak pernah tercakup: server/aplikasi live, data production, DNS, pesan ke orang lain, berkas pengaman, git yang menimpa
+kerja (stash/reset/checkout --). Setiap allow lewat izin tercatat di audit (`jenis: izin-tugas`, kolom `izin`). Izin
+dicabut: `bin/register.sh izin <ID> --cabut`. Aturan `ask` git lama di settings pengguna menimpa allow hook (dokumen
+resmi Claude Code); pemasang RudisOne mencabut 9 aturan itu — `bin/kebijakan.sh cek` melaporkannya bila masih ada. Di sesi
+di luar RudisOne hook tetap menanyai ke-9 aksi git itu (perilaku lama tidak berubah).
 
 ## 5. Jejak audit
 Setiap aksi jenjang 2–3 yang dijalankan, setiap `rilis-cek`, setiap SELECT data production (`baca-data`, dengan jumlah

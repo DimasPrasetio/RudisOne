@@ -432,7 +432,7 @@ export function cekDevice(root = ROOT) {
   // D3 hook
   for (const [s, nama] of [["kebijakan", "hook kebijakan akses"], ["inti", "hook pemuat ulang inti"]]) {
     try { execFileSync(process.execPath, [path.join(root, "bin", `${s}.mjs`), "cek"], { stdio: "ignore" }); }
-    catch { catat("peringatan", `hook-${s}`, `${nama} belum terpasang — pemilik menjalankan: ${root}/bin/${s}.sh pasang`); }
+    catch { catat("peringatan", `hook-${s}`, `${nama} belum terpasang atau belum mutakhir (bin/${s}.sh cek) — pemilik menjalankan installer: ${root}/install.sh`); }
   }
   // D4 TEAM.md vs sesi hidup
   const team = path.join(root, "TEAM.md");
