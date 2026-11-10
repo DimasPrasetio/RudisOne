@@ -75,6 +75,38 @@ test("letakJebakan: repo ada menang; kartu artefak handoff → komputer ini; bib
   assert.equal(letakJebakan(wt, o).device, path.join(ROOT, "catatan", "jebakan", "utama.md"));
 });
 
+test("letakJebakan dari worktree: kartu cadangan handoff/kartu/<checkout utama>.md berlaku; nama sama repo lain → berkas bersidik", () => {
+  const o = { root: ROOT };
+  // proyek pustaka milik klien: kartu cadangan per device (artefak handoff) dicari dengan nama checkout utama, bukan nama worktree
+  const klien = proyek("klien-wt", { "modules.lock.json": "{}" });
+  git(klien, "init", "-q", "-b", "main"); git(klien, "add", "-A"); git(klien, "commit", "-qm", "awal");
+  const wt = path.join(tmp, "r1-lead-klien-wt");
+  git(klien, "worktree", "add", "-q", "-b", "rudis/T-20260101-2", wt);
+  fs.mkdirSync(path.join(ROOT, "handoff", "kartu"), { recursive: true });
+  fs.writeFileSync(path.join(ROOT, "handoff", "kartu", "klien-wt.md"), "---\nmode: A\nartefak: handoff\n---\n");
+  assert.equal(letakJebakan(klien, o).jenis, "device");
+  assert.equal(letakJebakan(wt, o).jenis, "device", "dari worktree pun repo klien tidak ditulisi");
+  // dua repo bernama sama: berkas yang terikat (repo:) ke repo lain tidak dipakai
+  const a1 = proyek(path.join("a", "api")), b1 = proyek(path.join("b", "api"));
+  const biasa = path.join(ROOT, "catatan", "jebakan", "api.md");
+  fs.writeFileSync(biasa, `# Jebakan api\nrepo: ${a1}\n${butir("2026-11-10", 1)}\n`);
+  assert.equal(letakJebakan(a1, o).device, biasa);
+  const lain = letakJebakan(b1, o).device;
+  assert.notEqual(lain, biasa);
+  assert.match(path.basename(lain), /^api-[0-9a-f]{8}\.md$/);
+  assert.equal(letakJebakan(b1, o).ada, false);
+  // tanpa repo: dianggap milik repo yang membaca; baca memperingatkan agar baris repo: ditambahkan
+  fs.writeFileSync(biasa, `# Jebakan api\n${butir("2026-11-10", 1)}\n`);
+  assert.equal(letakJebakan(b1, o).device, biasa);
+  const out = [];
+  process.env.RUDISONE_ROOT = ROOT;
+  try { assert.equal(main([b1], { keluar: (s) => out.push(s), galat: () => {}, sekarang: new Date("2026-11-10T00:00:00Z") }), 1); }
+  finally { delete process.env.RUDISONE_ROOT; }
+  assert.match(out[0], /jebakan-repo/);
+  // pengecualian penjaga bersih hanya untuk daftar di akar repo
+  assert.deepEqual(periksaBerkas("sub/.rudisone/jebakan.md", `${butir("2026-11-10", 1)}\n`).map((x) => x.jenis), ["tanggal-riwayat"]);
+});
+
 test("CLI: baca/letak/cek, exit 0/1/2, argumen salah → 2; jebakan.sh membungkus mjs", () => {
   const io = () => { const out = [], err = []; return { out, err, opsi: { keluar: (s) => out.push(s), galat: (s) => err.push(s), sekarang: new Date("2026-11-10T00:00:00Z") } }; };
   process.env.RUDISONE_ROOT = ROOT;

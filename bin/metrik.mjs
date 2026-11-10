@@ -37,6 +37,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { agentsCli, folderDesktop, normalAgents, sumberBaca } from "./sesi.mjs";
+import { nilaiBaris } from "./gerbang-tl.mjs";
 
 const HOME = os.homedir();
 const PROJECTS = () => process.env.RUDISONE_METRIK_PROJECTS || path.join(HOME, ".claude", "projects");
@@ -520,9 +521,10 @@ export function ringkasMetrik(h, info = {}) {
  *  status.md `Jebakan: kena N, baru M` (kena = butir daftar jebakan proyek yang terjadi lagi; baru = butir yang ditambahkan);
  *  tinjauan.md: banyaknya `[Hasil tinjauan] <ID>` (sub-ID tidak ikut). Berkas/baris tak ada → null. */
 export function jebakanTugas(dir, id) {
-  const baca = (n) => { try { return fs.readFileSync(path.join(dir, n), "utf8"); } catch { return null; } };
+  // hanya berkas biasa ≤ 1 MB (tautan ke FIFO/berkas raksasa tidak boleh menggantung bersih-riwayat otomatis)
+  const baca = (n) => { try { const p = path.join(dir, n), s = fs.lstatSync(p); return s.isFile() && s.size <= 1 << 20 ? fs.readFileSync(p, "utf8") : null; } catch { return null; } };
   const st = baca("status.md");
-  const baris = st?.match(/^[ \t>*-]*\**Jebakan\**[ \t]*:\**[ \t]*(.+)$/im)?.[1] ?? "";
+  const baris = st == null ? "" : nilaiBaris(st, "Jebakan") ?? "";   // pengurai yang sama dengan gerbang-tl (juga sebaris dengan ·)
   const kena = baris.match(/\bkena\s+(\d+)/i), baru = baris.match(/\bbaru\s+(\d+)/i);
   const tj = baca("tinjauan.md");
   const esc = String(id).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

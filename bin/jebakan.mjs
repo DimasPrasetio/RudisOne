@@ -7,10 +7,12 @@
 //   bin/jebakan.sh cek <berkas>… [--json]     periksa format & ukuran
 // Letak (satu daftar per proyek):
 //   repo proyek  <folder>/.rudisone/jebakan.md — proyek standar Rudis (ikut ke rekan lewat git), di samping kartu proyek
-//   komputer ini <RudisOne>/catatan/jebakan/<nama-repo>.md — proyek lama/klien/stack lain (per device, tidak di-commit);
+//   komputer ini <RudisOne>/catatan/jebakan/<nama-repo>.md — proyek lama/klien/stack lain (per device, tidak di-commit); baris
+//                `repo: <path checkout utama>` mengikat berkas ke satu repo (nama sama, repo lain → <nama-repo>-<sidik8>.md);
 //                berkas ini berbaris `pindah: repo` = BIBIT: isi awal untuk proyek standar yang dipindah Tech Lead proyek itu
 //                ke .rudisone/jebakan.md pada tugas berikutnya di proyek itu
 // Exit: 0 bersih · 1 ada peringatan · 2 ada galat (format salah, rahasia) atau argumen salah.
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
@@ -33,7 +35,7 @@ const nilaiBagian = (isi, kunci) => isi.split(" · ").map((b) => b.match(new Reg
 
 /** Urai teks daftar → { judul, pindah, butir: [{ baris, tanggal, kena, isi, sumber, diperiksa }], salah: [{ baris, pesan }] }. */
 export function uraiJebakan(teks) {
-  const hasil = { judul: null, pindah: false, butir: [], salah: [] };
+  const hasil = { judul: null, pindah: false, repo: null, butir: [], salah: [] };
   let pagar = false, komentar = false;
   String(teks).split(/\r?\n/).forEach((l, i) => {
     const no = i + 1;
@@ -42,6 +44,8 @@ export function uraiJebakan(teks) {
     if (komentar || /^\s*<!--/.test(l)) { komentar = !/-->/.test(l); return; }
     if (!hasil.judul && /^# /.test(l)) { hasil.judul = l.slice(2).trim(); return; }
     if (/^pindah:\s*repo\s*$/i.test(l.trim())) { hasil.pindah = true; return; }
+    const r = !hasil.butir.length && l.match(/^repo:\s*(\S.*?)\s*$/);
+    if (r) { hasil.repo = r[1]; return; }
     if (!/^\s*[-*+]\s/.test(l)) return;
     const m = l.match(POLA_BUTIR);
     if (!m) { hasil.salah.push({ baris: no, pesan: "butir bukan `- YYYY-MM-DD · kena N · <jebakan> → <cara menghindari> · sumber: …`" }); return; }
@@ -85,13 +89,27 @@ export function akarUtama(folder) {
   return gd && path.basename(gd) === ".git" ? path.dirname(gd) : path.resolve(folder);
 }
 
+const samaRepo = (a, b) => { const n = (p) => { let x = path.resolve(p); try { x = fs.realpathSync(x); } catch { /* belum ada */ } return process.platform === "win32" ? x.toLowerCase() : x; }; return n(a) === n(b); };
+/** Berkas per device untuk checkout utama `utama`: <nama>.md, kecuali berkas itu terikat (`repo:`) ke repo lain bernama sama
+ *  → <nama>-<sidik8 path>.md. Berkas tanpa `repo:` dianggap milik repo ini (baca memperingatkan agar barisnya ditambahkan). */
+export function berkasDevice(utama, root = ROOT()) {
+  const dir = path.join(root, "catatan", "jebakan"), nama = path.basename(utama);
+  const biasa = path.join(dir, `${nama}.md`);
+  let terikat = null;
+  try { terikat = uraiJebakan(fs.readFileSync(biasa, "utf8")).repo; } catch { return biasa; }
+  if (!terikat || samaRepo(terikat.replace(/^~(?=\/|$)/, process.env.HOME ?? ""), utama)) return biasa;
+  const n = process.platform === "win32" ? path.resolve(utama).toLowerCase() : path.resolve(utama);
+  return path.join(dir, `${nama}-${crypto.createHash("sha256").update(n).digest("hex").slice(0, 8)}.md`);
+}
+
 /** Letak daftar jebakan proyek → { jenis: repo|device|bibit, path, repo, device, ada, alasan }. */
 export function letakJebakan(folder, { root = ROOT() } = {}) {
   const dir = path.resolve(folder);
-  const nama = path.basename(akarUtama(dir));
+  const utama = akarUtama(dir);
   const repo = path.join(dir, REL_REPO);
-  const device = path.join(root, "catatan", "jebakan", `${nama}.md`);
-  const kartu = bacaKartu(dir, root)?.data ?? {};
+  const device = berkasDevice(utama, root);
+  // kartu: milik branch ini dulu, lalu checkout utama (juga cadangan handoff/kartu/<nama checkout utama>.md)
+  const kartu = (bacaKartu(dir, root) ?? bacaKartu(utama, root))?.data ?? {};
   const hasil = (jenis, p, alasan) => ({ jenis, path: p, repo, device, ada: fs.existsSync(p), alasan });
   if (fs.existsSync(repo)) return hasil("repo", repo, `${REL_REPO} ada di repo proyek`);
   const bibit = fs.existsSync(device) && uraiJebakan(fs.readFileSync(device, "utf8")).pindah;
@@ -118,7 +136,7 @@ export function bacaAman(p, induk) {
 /** Teks `baca`: letak, isi, lalu temuan. */
 export function formatBaca(l, temuan, isi) {
   const out = [`Jebakan · ${TAMPIL[l.jenis]} — ${l.path}`, `  (${l.alasan})`];
-  if (l.jenis === "bibit") out.push(`  Pindahkan isinya ke ${l.repo} di branch tugas (tanpa baris \`pindah: repo\`), lalu hapus bibit ini setelah branch digabung.`);
+  if (l.jenis === "bibit") out.push(`  Pindahkan isinya ke ${l.repo} di branch tugas (tanpa baris \`pindah: repo\`/\`repo:\`); bibit ini dihapus setelah daftar repo ada di branch utama.`);
   if (l.jenis === "repo" && fs.existsSync(l.device)) out.push(`  Catatan: ${l.device} juga ada — daftar repo yang berlaku; hapus berkas per device bila isinya sudah dipindah.`);
   if (!l.ada) out.push("  Belum ada daftar. Buat dari templat/jebakan.md saat jebakan pertama ditemukan.");
   else out.push("", isi.trimEnd());
@@ -153,6 +171,8 @@ export function main(argv, { keluar = (s) => process.stdout.write(`${s}\n`), gal
   if (baca.teks === null) { galat(`jebakan: ${l.path} ${baca.alasan}`); return 2; }
   const isi = baca.teks;
   const temuan = l.ada ? periksaJebakan(isi, { sekarang }) : [];
+  if (l.ada && l.jenis !== "repo" && !uraiJebakan(isi).repo)
+    temuan.push({ tingkat: "peringatan", kode: "jebakan-repo", baris: 0, pesan: `tambahkan baris \`repo: ${akarUtama(path.resolve(arg[0]))}\` di bawah judul agar daftar per device ini tidak dipakai repo lain yang bernama sama` });
   keluar(json ? JSON.stringify({ ...l, butir: l.ada ? uraiJebakan(isi).butir : [], temuan }) : formatBaca(l, temuan, isi));
   return kodeKeluar(temuan);
 }

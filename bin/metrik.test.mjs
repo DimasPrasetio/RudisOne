@@ -252,6 +252,18 @@ test("jebakanTugas: status.md Jebakan + jumlah [Hasil tinjauan] <ID> (sub-ID tid
   assert.deepEqual(j, { jebakan: { kena: 2, baru: 1 }, putaran_tinjauan: 2 });
   fs.writeFileSync(path.join(d, "status.md"), "Jebakan: kena 2\n");
   assert.equal(jebakanTugas(d, "T-20260101-1").jebakan, null, "tanpa 'baru' → null, bukan setengah");
+  // silang dengan gerbang-tl: bentuk yang diterima gerbang juga terbaca metrik (sebaris dengan ·, markdown tebal)
+  const { periksaStatus } = await import("./gerbang-tl.mjs");
+  for (const st of ["- Repo: /x · Base: main · Jebakan: kena 1, baru 2\nselesai sisa langkah berikutnya\n", "- Repo: /x\n- Base: main\n- **Jebakan:** kena 1, baru 2\nselesai sisa langkah berikutnya\n"]) {
+    fs.writeFileSync(path.join(d, "status.md"), st);
+    assert.deepEqual(periksaStatus(st).kurang, [], st);
+    assert.deepEqual(jebakanTugas(d, "T-20260101-1").jebakan, { kena: 1, baru: 2 }, st);
+  }
+  // tautan / bukan berkas biasa → tidak dibaca
+  fs.rmSync(path.join(d, "status.md"));
+  let tautan = true;
+  try { fs.symlinkSync(path.join(d, "tinjauan.md"), path.join(d, "status.md")); } catch { tautan = false; }
+  if (tautan) assert.equal(jebakanTugas(d, "T-20260101-1").jebakan, null);
   const b = ringkasMetrik(null, { id: "T-20260101-1", ...j });
   assert.deepEqual([b.jebakan, b.putaran_tinjauan], [{ kena: 2, baru: 1 }, 2]);
 });

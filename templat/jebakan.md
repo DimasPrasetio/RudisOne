@@ -3,7 +3,8 @@
      di proyek ini (`bin/jebakan.sh baca <folder>`), dimasukkan ke `Hal rawan:` brief SE & peninjau, dan diperbarui sebelum
      melapor (agents/tech-lead.md › Alur tugas). Letak: `.rudisone/jebakan.md` di repo proyek standar Rudis, atau
      `catatan/jebakan/<nama-repo>.md` di komputer ini untuk proyek lama/klien/stack lain (bin/jebakan.mjs › letakJebakan).
-     Bibit per device diberi baris `pindah: repo` di bawah judul; baris itu dibuang saat dipindah ke repo.
+     Daftar per device diberi baris `repo: <path checkout utama>` di bawah judul (mengikatnya ke satu repo); bibit per device
+     juga baris `pindah: repo`. Kedua baris itu dibuang saat isinya dipindah ke repo.
 
      Satu butir per jebakan, satu baris:
        - YYYY-MM-DD · kena N · <jebakan> → <cara menghindari> · sumber: <sha/ID> [· diperiksa: <tes/pemeriksa>]

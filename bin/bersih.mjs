@@ -53,7 +53,7 @@ const POLA = [
 export const dikecualikan = (rel) => DIKECUALIKAN.test(rel);
 /** Daftar jebakan proyek (templat/jebakan.md): tanggal "terakhir terbukti" di awal butir adalah bagian format (dipakai untuk
  *  membuang butir basi), bukan riwayat — hanya tanggal itu yang dilewati; ID tugas & isi lain tetap diperiksa. */
-const DAFTAR_JEBAKAN = /(^|\/)\.rudisone\/jebakan\.md$/;
+const DAFTAR_JEBAKAN = /^\.rudisone\/jebakan\.md$/;
 const tanpaTanggalButir = (l) => l.replace(/^(\s*-\s+)20\d{2}-\d{2}-\d{2}(?= · kena \d+ · )/, "$1");
 
 /** Temuan untuk satu berkas: path terlarang, lalu pola isi per baris. → [{ rel, baris, jenis, cuplikan }] */
