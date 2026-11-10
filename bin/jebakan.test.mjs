@@ -143,8 +143,25 @@ test("cek hanya membaca berkas daftar jebakan biasa ≤ 1 MB: kunci SSH, kredens
   let x = io(); assert.equal(main(["cek", raksasa], x.opsi), 2); assert.match(x.out[0], /lebih dari 1048576 byte/);
   fs.rmSync(raksasa);
   try { fs.symlinkSync(path.join(kunci, "id_rsa"), raksasa); } catch { t.diagnostic("symlink tidak tersedia"); return; }
-  x = io(); assert.equal(main(["cek", raksasa], x.opsi), 2); assert.match(x.out[0], /bukan berkas biasa/);
+  x = io(); assert.equal(main(["cek", raksasa], x.opsi), 2); assert.match(x.out[0], /bukan berkas (biasa|daftar jebakan)/);
   assert.ok(!/private key/i.test(x.out[0]));
+  // folder bernama sah yang bertautan ke luar (.rudisone → .ssh, catatan/jebakan → .aws) → ditolak tanpa bentuk
+  fs.writeFileSync(path.join(kunci, "catatan.md"), "-----BEGIN OPENSSH PRIVATE KEY-----\n");
+  fs.writeFileSync(path.join(aws, "kredensial.md"), "aws_access_key_id = AKIAABCDEFGHIJKLMNOP\n");
+  const q = proyek("cek-tautan-dir"); fs.symlinkSync(kunci, path.join(q, ".rudisone"));
+  const r = proyek(path.join("cek-tautan-kat", "catatan")); fs.symlinkSync(aws, path.join(r, "jebakan"));
+  for (const f of [path.join(q, ".rudisone", "catatan.md"), path.join(r, "jebakan", "kredensial.md")]) {
+    x = io(); assert.equal(main(["cek", f], x.opsi), 2, f);
+    assert.match(x.out[0], /bukan berkas daftar jebakan/); assert.ok(!/private key|kunci AWS|:1 /.test(x.out[0]), x.out[0]);
+  }
+  // hardlink bernama sah ke kunci privat: baca & cek menolak, isi tidak tercetak
+  const h = proyek("cek-hardlink"); fs.mkdirSync(path.join(h, ".rudisone"));
+  try { fs.linkSync(path.join(kunci, "id_rsa"), path.join(h, ".rudisone", "jebakan.md")); } catch { t.diagnostic("hardlink tidak tersedia"); return; }
+  x = io(); assert.equal(main(["cek", path.join(h, ".rudisone", "jebakan.md")], x.opsi), 2); assert.match(x.out[0], /hardlink/);
+  process.env.RUDISONE_ROOT = ROOT;
+  try { x = io(); assert.equal(main([h], x.opsi), 2); } finally { delete process.env.RUDISONE_ROOT; }
+  assert.match(x.err[0], /hardlink/);
+  assert.ok(!/OPENSSH|b3BlbnNzaC1rZXk/.test(x.out.join("") + x.err.join("")));
 });
 
 test("CLI: baca/letak/cek, exit 0/1/2, argumen salah → 2; jebakan.sh membungkus mjs", () => {

@@ -138,6 +138,8 @@ export function bacaAman(p, induk) {
   try {
     const st = fs.lstatSync(p);
     if (!st.isFile()) return { teks: null, alasan: "bukan berkas biasa (tautan/folder/perangkat) — tidak dibaca" };
+    // hardlink: nama di dalam induk, isi milik berkas lain (mis. kunci privat) — checkout git & berkas yang ditulis Edit ber-nlink 1
+    if (st.nlink > 1) return { teks: null, alasan: "berkas bertaut keras (hardlink) — tidak dibaca" };
     if (st.size > MAKS_BACA) return { teks: null, alasan: `lebih dari ${MAKS_BACA} byte — tidak dibaca` };
     const asli = fs.realpathSync(p), dasar = fs.realpathSync(induk);
     if (!asli.startsWith(dasar + path.sep)) return { teks: null, alasan: "di luar folder asalnya — tidak dibaca" };
@@ -176,8 +178,11 @@ export function main(argv, { keluar = (s) => process.stdout.write(`${s}\n`), gal
   if (perintah === "cek") {
     const semua = [];
     for (const f of arg) {
-      if (!berkasDaftar(f)) { semua.push({ berkas: f, tingkat: "galat", kode: "jebakan-baca", baris: 0, pesan: "bukan berkas daftar jebakan (jebakan.md, .rudisone/*.md, catatan/jebakan/*.md) — tidak dibaca" }); continue; }
-      const b = bacaAman(f, path.dirname(path.resolve(f)));
+      // nama sah dinilai pada path yang diketik DAN path fisiknya: folder .rudisone/ atau catatan/jebakan/ bertautan ke luar ditolak
+      let nyata = null;
+      try { nyata = fs.realpathSync(path.resolve(f)); } catch { /* tidak ada: ditolak di bawah */ }
+      if (!berkasDaftar(f) || !nyata || !berkasDaftar(nyata)) { semua.push({ berkas: f, tingkat: "galat", kode: "jebakan-baca", baris: 0, pesan: "bukan berkas daftar jebakan (jebakan.md, .rudisone/*.md, catatan/jebakan/*.md) — tidak dibaca" }); continue; }
+      const b = bacaAman(nyata, path.dirname(nyata));
       if (b.teks === null) { semua.push({ berkas: f, tingkat: "galat", kode: "jebakan-baca", baris: 0, pesan: b.alasan }); continue; }
       for (const t of periksaJebakan(b.teks, { sekarang })) semua.push({ berkas: f, ...t });
     }
