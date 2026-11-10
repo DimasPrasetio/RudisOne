@@ -730,9 +730,19 @@ const SUB_CLAUDE = new Set(["agents", "attach", "auth", "auto-mode", "config", "
   "mcp", "migrate-installer", "plugin", "plugins", "project", "respawn", "rm", "setup-token", "stop", "ultrareview", "update", "upgrade"]);
 /** Lapis gagal-tertutup: teks perintah yang menyebut `claude` di posisi perintah dengan aksi sesi/bypass, tetapi bentuknya
  *  tidak dikenali pengurai (bash -c, sudo, xargs, kata kunci shell, $( ), opsi pembungkus bernilai, --bg=…) → jenjang 3. */
-const AWAL_CLAUDE = "(?:(?:^|[\\n;&|({`!]|\\$\\(|\\b(?:then|do|else)\\s|-c\\s*[\"'])\\s*"
-  + "|\\b(?:sudo|xargs|setsid|exec|env|nohup|g?timeout|stdbuf|nice|command|time|caffeinate)\\s(?:[^;&|\\n`)]*\\s)?)"
-  + "(?:[^\\s;&|()`'\"]*\\/)?claude(?:\\.exe)?\\s+";
+const AWAL_SHELL = "(?:(?:^|[\\n;&|({`!]|\\$\\(|\\b(?:then|do|else)\\s|-c\\s*[\"'])\\s*"
+  + "|\\b(?:sudo|xargs|setsid|exec|env|nohup|g?timeout|stdbuf|nice|command|time|caffeinate)\\s(?:[^;&|\\n`)]*\\s)?)";
+const AWAL_CLAUDE = `${AWAL_SHELL}(?:[^\\s;&|()\`'"]*\\/)?claude(?:\\.exe)?\\s+`;
+/** git push / git perusak (pola penyedia git di kebijakan) di posisi perintah mana pun — lapis gagal-tertutup analisisBash. */
+function gitMentahRe(K) {
+  const g = K.penyedia?.git;
+  if (!g?.lokal_perusak || !g?.tulis_remote) return null;
+  // pola kebijakan berjangkar ^ (dinilai per segmen); di teks utuh `$` akhir-segmen = akhir teks atau pemisah perintah
+  const pola = (x) => String(x).replace(/^\^/, "").replaceAll("\\s*$", "\\s*(?=$|[)`;&|\\n])");
+  try {
+    return new RegExp(`${AWAL_SHELL}(?:[^\\s;&|()\`'"]*\\/)?git(?:\\s+(?:-C|-c|--git-dir|--work-tree)\\s+\\S+|\\s+--?[\\w-]+(?:=\\S*)?)*\\s+(?:${pola(g.tulis_remote)}|${pola(g.lokal_perusak)})`, "g");
+  } catch { return null; }
+}
 const CLAUDE_SESI_MENTAH = new RegExp(`${AWAL_CLAUDE}(?:[^;&|\\n\`)]*\\s)?(?:--bg|--background|stop|kill|respawn|rm|attach)\\b`);
 const CLAUDE_BYPASS_MENTAH = new RegExp(`${AWAL_CLAUDE}[^;&|\\n\`)]*bypass`, "i");
 const HEREDOC = /<<-?\s*(['"]?)([A-Za-z_]\w*)\1[^\n]*\n([\s\S]*?)(?:\n[ \t]*\2[ \t]*(?=\n|$)|$)/g;
@@ -760,7 +770,7 @@ export function teksKode(t) {
     const isi = t.slice(i + 1, j);
     // isi kutip = kode: setelah `-c` (perilaku lama), `--call`, `eval`, atau opsi gabungan shell (`bash -lc`, `sh -xc`) — bukan `grep -rc`
     if (/(^|[\s;&|(])(-c|--call|eval)\s*$|(^|[\s;&|(/])(ba|z|da|k)?sh\s+(-\S+\s+)*-[A-Za-z]*c\s*$/.test(out)) out += ` ; ${isi} ;`;
-    else if (c === '"') out += ` ${[...isi.matchAll(/\$\(([^)]*)\)?|`([^`]*)`?/g)].map((m) => `; ${m[1] ?? m[2] ?? ""}`).join(" ")} `;
+    else if (c === '"') out += ` ${[...isi.replace(/\\[`$\\]/g, "").matchAll(/\$\(([^)]*)\)?|`([^`]*)`?/g)].map((m) => `; ${m[1] ?? m[2] ?? ""}`).join(" ")} `;
     else out += " ";
     i = j;
   }
@@ -1754,6 +1764,12 @@ function analisisBash(input, K) {
     + [...k.matchAll(new RegExp(CLAUDE_BYPASS_MENTAH.source, "gi"))].length;
   if (sesiMentah(teksKode(cmd)) > u.segmen.reduce((n, s, i) => n + (hasil[i].claude ? sesiMentah(teksKode(s.teks)) : 0), 0))
     aksi.push({ kemampuan: "sesi", jenjang: 3, aksi: "perintah claude untuk sesi latar dalam bentuk yang tidak dikenali" });
+  // git push / git perusak di posisi perintah dalam bentuk yang tidak diurai sebagai segmen git (`$( )`, backtick, loop,
+  // xargs, bash -c …) → ditanya: hook tetap melihatnya walau aturan ask git di settings sudah dicabut pemasang
+  const reGit = gitMentahRe(K);
+  const gitMentah = (k) => (reGit ? [...k.matchAll(reGit)].length : 0);
+  if (gitMentah(teksKode(cmd)) > u.segmen.reduce((n, s, i) => n + ((hasil[i].aksi ?? []).some((a) => a.kemampuan === "repo" && a.jenjang === 3) ? gitMentah(teksKode(s.teks)) : 0), 0))
+    aksi.push({ kemampuan: "repo", jenjang: 3, aksi: "git push / git yang menimpa kerja dalam bentuk yang tidak dikenali (loop, $( ), bash -c, xargs …)" });
   // CLI skill: pasang/ubah (`skills add …`) dalam bentuk yang tidak diurai sebagai segmen CLI skill → ditanya
   if (K.skills_cli) {
     const tulisMentah = (k) => [...k.matchAll(new RegExp(SKILLS_TULIS_MENTAH.source, "g"))].length + [...k.matchAll(new RegExp(ADD_SKILL_MENTAH.source, "gi"))].length;
