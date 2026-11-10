@@ -1727,7 +1727,7 @@ export function samarkan(s) { let t = String(s); for (const r of RAHASIA) t = t.
 /** Penolakan baca .env tercatat di audit (jenjang 3, tanpa nilai; ringkasan disamarkan). */
 export function catatTolakEnv(input, p) {
   const rec = { waktu: new Date().toISOString(), sesi: input.session_id ?? null, jabatan: p.sesi?.jabatan ?? null,
-    ...(p.sesi?.subagent ? { subagent: input.agent_type, induk: p.sesi.induk } : {}), tugas: tugasTerakhir(transkripInduk(input.transcript_path)),
+    ...(p.sesi?.subagent ? { subagent: input.agent_type, induk: p.sesi.induk } : {}), tugas: tugasAudit(input),
     cwd: input.cwd ?? null, alat: input.tool_name, ringkasan: samarkan(p.ringkasan ?? ""),
     jenis: "baca-rahasia-ditolak", jenjang: 3, kemampuan: null, aksi: `baca ${p.env.berkas}`.slice(0, 200), sebab: p.env.sebab };
   try { tambahAudit(rec); } catch { /* audit opsional — penolakan tetap berlaku */ }
@@ -1790,20 +1790,69 @@ export function bacaAudit(bulan = 2) {
   return out;
 }
 /** ID tugas dari pesan masuk sesi itu (brief "[Tugas dari …] T-…", [Revisi], dst.), bukan dari teks yang ditulis agent
- *  atau isi berkas — di sesi COO yang membahas banyak tugas hasilnya sering kosong, dan kosong lebih jujur daripada salah. */
-function tugasTerakhir(transcript) {
+ *  atau isi berkas — di sesi COO yang membahas banyak tugas hasilnya sering kosong, dan kosong lebih jujur daripada salah.
+ *  Transkrip dibaca MUNDUR per potongan sampai pesan ber-ID ketemu (maks. `maks` byte): sesi panjang menaruh brief-nya
+ *  jauh sebelum ekor 512 KB, sehingga pembacaan ekor saja meninggalkan sebagian besar baris audit tanpa ID. */
+export function tugasTerakhir(transcript, { maks = 64 << 20, potongan = 524288 } = {}) {
+  let fd;
+  try { fd = fs.openSync(transcript, "r"); } catch { return null; }
   try {
-    const st = fs.statSync(transcript), n = Math.min(st.size, 524288), fd = fs.openSync(transcript, "r"), b = Buffer.alloc(n);
-    fs.readSync(fd, b, 0, n, st.size - n); fs.closeSync(fd);
-    let id = null;
-    for (const l of b.toString("utf8").split("\n")) {
-      if (!l.includes('"user"')) continue;
-      let baris; try { baris = JSON.parse(l); } catch { continue; }
-      const m = teksPesanPengguna(baris).match(/^\s*\[[^\]]{1,80}\]\s*(T-\d{8}-\d+(?:\.\d+)?)/m);
-      if (m) id = m[1];
+    let pos = fs.fstatSync(fd).size, ekor = Buffer.alloc(0), dibaca = 0;
+    while (pos > 0 && dibaca < maks) {
+      const n = Math.min(potongan, pos);
+      pos -= n; dibaca += n;
+      const b = Buffer.alloc(n);
+      fs.readSync(fd, b, 0, n, pos);
+      const blok = Buffer.concat([b, ekor]);
+      let awal = 0;
+      if (pos > 0) {                                     // baris pertama blok mungkin terpotong → disambung potongan berikutnya
+        const i = blok.indexOf(10);
+        if (i < 0) { ekor = blok; continue; }
+        ekor = blok.subarray(0, i);
+        awal = i + 1;
+      }
+      const ls = blok.subarray(awal).toString("utf8").split("\n");
+      for (let i = ls.length - 1; i >= 0; i--) {
+        if (!ls[i].includes('"user"')) continue;
+        let baris; try { baris = JSON.parse(ls[i]); } catch { continue; }
+        const m = teksPesanPengguna(baris).match(/^\s*\[[^\]]{1,80}\]\s*(T-\d{8}-\d+(?:\.\d+)?)/m);
+        if (m) return m[1];
+      }
     }
-    return id;
+    return null;
+  } catch { return null; } finally { fs.closeSync(fd); }
+}
+
+/** ID tugas dari branch folder kerja saat itu: `rudis/<ID>` atau `rudis/<ID>-…` (worktree Tech Lead/SE). Dibaca langsung
+ *  dari HEAD git (tanpa proses git); folder di luar repo, HEAD terlepas, atau branch lain → null. */
+export function tugasDariCabang(cwd) {
+  if (!cwd) return null;
+  try {
+    let d = path.resolve(rumah(cwd));
+    for (let i = 0; i < 64; i++) {
+      const g = path.join(d, ".git");
+      let st = null; try { st = fs.statSync(g); } catch { /* naik */ }
+      if (st) {
+        let gitdir = g;
+        if (st.isFile()) {
+          const m = fs.readFileSync(g, "utf8").match(/^gitdir:\s*(.+?)\s*$/m);
+          if (!m) return null;
+          gitdir = path.resolve(d, m[1]);
+        }
+        const head = fs.readFileSync(path.join(gitdir, "HEAD"), "utf8");
+        return head.match(/^ref: refs\/heads\/rudis\/(T-\d{8}-\d+(?:\.\d+)?)(?:-\S*)?\s*$/)?.[1] ?? null;
+      }
+      const atas = path.dirname(d);
+      if (atas === d) return null;
+      d = atas;
+    }
+    return null;
   } catch { return null; }
+}
+
+/** ID tugas untuk catatan audit: pesan masuk ber-ID di transkrip sesi (induk untuk subagent), lalu branch tugas folder kerja. */
+export function tugasAudit(input) {
+  return tugasTerakhir(transkripInduk(input?.transcript_path)) ?? tugasDariCabang(input?.cwd);
 }
 
 // ---------- keputusan ----------
@@ -1911,7 +1960,7 @@ export function catatSesudah(input, K) {
   }
   if (!rekam.length) return null;
   const dasar = { waktu: new Date().toISOString(), sesi: input.session_id ?? null, jabatan: sesi.jabatan,
-    ...(sesi.subagent ? { subagent: input.agent_type, induk: sesi.induk } : {}), tugas: tugasTerakhir(transkripInduk(input.transcript_path)),
+    ...(sesi.subagent ? { subagent: input.agent_type, induk: sesi.induk } : {}), tugas: tugasAudit(input),
     cwd: input.cwd ?? null, alat: input.tool_name, ringkasan: samarkan(ringkasan) };
   fs.mkdirSync(DIR_AUDIT, { recursive: true });
   for (const r of rekam) tambahAudit({ ...dasar, ...r });

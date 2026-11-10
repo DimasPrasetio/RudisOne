@@ -53,7 +53,8 @@ Object.assign(process.env, {
   RUDISONE_SETTINGS_USER: path.join(tmp, "claude", "settings.json"),
   RUDISONE_SERVER: KONFIG,
 });
-const { putuskan, catatSesudah, muatKebijakan, pisahSegmen, kata, samarkan, bacaAudit, statusPasang } = await import("./kebijakan.mjs");
+const modul = await import("./kebijakan.mjs");
+const { putuskan, catatSesudah, muatKebijakan, pisahSegmen, kata, samarkan, bacaAudit, statusPasang } = modul;
 const K = muatKebijakan();
 
 const SA = path.join(ROOT, "ruang", "system-administrator");
@@ -257,6 +258,45 @@ test("audit: deploy & DNS tercatat dengan ID tugas, rahasia disamarkan", () => {
   catatSesudah({ ...bash(SA, "ssh vps-uji uptime"), hook_event_name: "PostToolUse", tool_response: { stdout: "up" } }, K);
   assert.equal(bacaAudit().length, jumlah);                                      // baca tidak diaudit
 });
+
+test("audit: ID tugas dari brief lama di transkrip panjang dan dari branch tugas folder kerja", () => {
+  const { tugasTerakhir, tugasDariCabang } = modul;
+  // brief di awal, lalu > 1 MB keluaran alat tanpa ID: dulu hanya ekor 512 KB dibaca → ID hilang
+  const isi = "x".repeat(4000);
+  const pengisi = Array.from({ length: 300 }, (_, i) => ({ type: "user", message: { content: [{ type: "tool_result", content: `${isi}${i}` }] } }));
+  const t = transkrip("audit-panjang", [{ type: "user", cwd: COO, message: { content: "<cross-session-message from=\"x\">\n[Tugas dari COO] T-20260101-5 · uji\n</cross-session-message>" } },
+    ...pengisi, { type: "user", message: { content: "[Revisi] T-20260101-6 · ulang" } }, ...pengisi]);
+  assert.ok(fs.statSync(t).size > 2 * 524288);
+  assert.equal(tugasTerakhir(t), "T-20260101-6");                                  // pesan ber-ID TERAKHIR yang menang
+  assert.equal(tugasTerakhir(t, { potongan: 4096 }), "T-20260101-6");               // potongan kecil: baris terpotong disambung
+  const t1 = transkrip("audit-panjang-1", [{ type: "user", message: { content: "[Tugas dari COO] T-20260101-5 · ✓ unicode" } }, ...pengisi]);
+  assert.equal(tugasTerakhir(t1, { potongan: 4093 }), "T-20260101-5");
+  assert.equal(tugasTerakhir(t1, { maks: 524288 }), null);                          // batas baca dihormati
+  assert.equal(tugasTerakhir(path.join(tmp, "tidak-ada.jsonl")), null);
+  // branch: worktree (berkas .git → gitdir) dan repo biasa; subfolder ikut; branch lain / HEAD terlepas → null
+  const utama = path.join(tmp, "repo-cabang");
+  const wt = path.join(ROOT, ".claude", "worktrees", "r2-lead-rudisone-uji");
+  const gd = path.join(utama, ".git", "worktrees", "r2");
+  fs.mkdirSync(gd, { recursive: true }); fs.mkdirSync(path.join(wt, "bin"), { recursive: true });
+  fs.writeFileSync(path.join(wt, ".git"), `gitdir: ${gd}\n`);
+  fs.writeFileSync(path.join(gd, "HEAD"), "ref: refs/heads/rudis/T-20260101-7-se1\n");
+  fs.writeFileSync(path.join(utama, ".git", "HEAD"), "ref: refs/heads/main\n");
+  assert.equal(tugasDariCabang(path.join(wt, "bin")), "T-20260101-7");
+  assert.equal(tugasDariCabang(utama), null);
+  fs.writeFileSync(path.join(gd, "HEAD"), "ref: refs/heads/rudis/T-20260101-7.2\n");
+  assert.equal(tugasDariCabang(wt), "T-20260101-7.2");
+  fs.writeFileSync(path.join(gd, "HEAD"), "0123456789abcdef0123456789abcdef01234567\n");
+  assert.equal(tugasDariCabang(wt), null);
+  fs.writeFileSync(path.join(gd, "HEAD"), "ref: refs/heads/rudis/T-20260101-7\n");
+  // catatan audit: transkrip tanpa pesan ber-ID → ID dari branch folder kerja; transkrip ber-ID tetap didahulukan
+  const tanpa = transkrip("audit-cabang", [{ type: "user", cwd: wt, message: { content: "lanjutkan" } }]);
+  catatSesudah({ ...bash(wt, "git push origin rudis/T-20260101-7", { transcript_path: tanpa }), hook_event_name: "PostToolUse", tool_response: { stdout: "" } }, K);
+  assert.equal(bacaAudit().at(-1).tugas, "T-20260101-7");
+  const ber = transkrip("audit-cabang-2", [{ type: "user", cwd: wt, message: { content: "[Tugas dari COO] T-20260101-8 · lain" } }]);
+  catatSesudah({ ...bash(wt, "git push origin rudis/T-20260101-7", { transcript_path: ber }), hook_event_name: "PostToolUse", tool_response: { stdout: "" } }, K);
+  assert.equal(bacaAudit().at(-1).tugas, "T-20260101-8");
+});
+
 
 test("hook CLI: keluaran JSON PreToolUse dan gagal terbuka", () => {
   const jalankan = (stdin) => execFileSync(process.execPath, [path.join(SINI, "kebijakan.mjs"), "hook"], { input: stdin, env: process.env }).toString();

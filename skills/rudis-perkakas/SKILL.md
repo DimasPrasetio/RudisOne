@@ -1,6 +1,6 @@
 ---
 name: rudis-perkakas
-description: Daftar perkakas bersama RudisOne (bin/*.sh — server-cek, rilis-cek, env-kunci, gerbang-tl, pasca-deploy, konfig, kantor, kebijakan, perkakas, register, cek-konsistensi, bersih, bersih-riwayat, tes-linux, peran, inti, metrik), skill tim rudis-*, dan aturan skill luar (perkakas.sh pastikan/skill, docx-neuron, pptx-neuron, document-skills, frontend-design, docs). Muat saat perlu tahu perintah mana yang dipakai dan exit code-nya, sebelum memuat skill luar yang belum ada di daftar skill sesimu, atau saat mendaftarkan skill/perkakas baru.
+description: Daftar perkakas bersama RudisOne (bin/*.sh — server-cek, rilis-cek, env-kunci, gerbang-tl, pasca-deploy, konfig, kantor, kebijakan, perkakas, register, cek-konsistensi, bersih, bersih-riwayat, tes-linux, peran, inti, metrik, arah-terbuka), skill tim rudis-*, dan aturan skill luar (perkakas.sh pastikan/skill, docx-neuron, pptx-neuron, document-skills, frontend-design, docs). Muat saat perlu tahu perintah mana yang dipakai dan exit code-nya, sebelum memuat skill luar yang belum ada di daftar skill sesimu, atau saat mendaftarkan skill/perkakas baru.
 ---
 
 # Perkakas bersama, skill tim, dan skill luar
@@ -29,6 +29,7 @@ description: Daftar perkakas bersama RudisOne (bin/*.sh — server-cek, rilis-ce
 | `bin/peran.sh [bangun\|cek]` | Bangkitkan definisi subagent `agen/rudis-<id-peran>.md` dari `agents/<id-peran>.md` + `protokol.md`; `cek` = gagal bila basi | 0 · 1 basi |
 | `bin/inti.sh [cek\|pasang\|lepas\|hook]` | Hook `SessionStart` yang memuat ulang protokol inti + peran setelah kompaksi di sesi RudisOne di folder proyek. `pasang`/`lepas` hanya oleh pemilik | 0 · 1 belum terpasang |
 | `node bin/metrik.mjs tugas <ID> [--jenis bug\|fitur]` | Metrik per tugas dari transkrip (token, sesi, pesan, revisi, intervensi, waktu) + beban keputusan X14 vs anggaran (bug ≤3, fitur ≤5) — definisi di kepala `bin/metrik.mjs` | 0 · 1 |
+| `bin/arah-terbuka.sh [<folder>] [--kata <kunci>]… [--json]` | Keputusan arah yang masih terbuka (bahan baris `Arah terbuka:` penyelarasan): poin `catatan/*.md` bertanda TERBUKA / `status: terbuka\|menunggu` / "menunggu keputusan" yang menyebut folder itu (nama dasar), ID tugas folder itu (register + `handoff/metrik.jsonl`), atau `--kata`; plus tugas register yang terhambat/diparkir/penyelarasan atau bukti-nya memuat penanda itu. Read-only; daftar bahan, bukan putusan | 0 · 3 pemakaian salah |
 | `node uji/suite/jalankan.mjs --ref <git-ref> --nama <label>` | Suite regresi organisasi (10 tugas × k ulang) — `uji/suite/README.md`; jalankan setiap protokol/peran berubah | 0 · 1 |
 
 Templat di `~/Documents/Neuron/ai-agent/RudisOne/templat/`: `brief-tugas.md`, `laporan-tugas.md`, `register-tugas.md`, `status-tugas.md`, `team.md`,

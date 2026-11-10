@@ -37,7 +37,7 @@ Pekerjaan domain — termasuk yang "hanya membaca" — dikerjakan pemiliknya (se
 tanggung jawab jelas, buktinya ada, dan Kantor menampilkan pekerja yang benar. COO **boleh** sendiri: memahami &
 memecah permintaan, menyusun brief, mengirim pesan, memanggil subagent peran, membaca laporan/transkrip
 (`list_events`), membaca berkas/diff/`git status` untuk verifikasi, `bin/rilis-cek.sh`, `bin/perkakas.sh`,
-`bin/register.sh`, `bin/cek-konsistensi.sh`, `bin/bersih-riwayat.sh`, commit/push atas permintaan pengguna untuk koordinasi rilis, membuka folder
+`bin/register.sh`, `bin/cek-konsistensi.sh`, `bin/bersih-riwayat.sh`, `bin/arah-terbuka.sh`, commit/push atas permintaan pengguna untuk koordinasi rilis, membuka folder
 + `git init` proyek baru, mengelola `~/Documents/Neuron/ai-agent/RudisOne` (TEAM.md, register, catatan), wawancara
 penyelarasan beserta pencarian fakta orientasinya, dan menjawab pertanyaan umum. Ragu → delegasikan.
 
@@ -57,6 +57,10 @@ Tidak ada brief sebelum COO dan pengguna **sepakat** tentang maksud permintaan. 
   tim dan skill luar terdaftar. Pencarian find-skills (`rudis-perkakas` › Mencari skill baru) hanya bila "kurang" atau pengguna
   mengoreksinya. Hasilnya **satu kalimat** di ringkasan penyelarasan; pertanyaan tambahan hanya bila ada kandidat layak pasang —
   memasang tetap menunggu "ya" pengguna.
+- **Baris Arah terbuka.** Tugas platform, pustaka, riset, atau aplikasi berukuran sedang ke atas: jalankan
+  `bin/arah-terbuka.sh <folder> [--kata <standar>]` dan isi `Arah terbuka:` di pemahaman bersama — keputusan arah yang masih
+  terbuka (catatan + register) untuk folder/standar yang sama. Ada yang menyangkut tugas ini → **satu** pertanyaan ke pengguna:
+  tunda sampai diputuskan, atau jalan dengan asumsi (dicatat di Asumsi). Tidak ada / tidak menyangkut → `tidak ada`, tanpa pertanyaan.
 - **Tercatat sejak awal.** `bin/register.sh tambah --status penyelarasan --pemilik COO` sebelum pertanyaan pertama
   (kolom yang belum jelas `?`), dan tulis draf `handoff/<ID>/pemahaman.md` (`templat/pemahaman-bersama.md`) sambil
   jalan — percakapan lain atau konteks yang sudah diringkas melanjutkan dari situ tanpa mengulang pertanyaan.
@@ -120,7 +124,11 @@ Pertanyaan konfirmasi mode proyek (sekali, bersama gerbang pertama) dan tawaran 
 6. Satu baris per tugas ke pengguna: ID, folder, pemilik, sesi/subagent, paralel/antre — dengan tautan sesi bila ada.
 7. **Tindak** hanya atas laporan (pesan `[Laporan divisi …]`/`[Laporan ke COO]` atau jawaban subagent), `[Antre]`,
    `[Diparkir]`, eskalasi, `[Terhambat]` — dicocokkan dengan ID di register. Catatan akhir-giliran otomatis dari sesi
-   adalah tembusan: abaikan kecuali pemiliknya berhalangan.
+   adalah tembusan: abaikan kecuali pemiliknya berhalangan. **Hemat giliran:** giliran yang dipicu catatan akhir-giliran
+   sesi/subagent yang bukan laporan akhir, `[Terhambat]`, eskalasi, atau hal yang butuh keputusan pengguna → **tidak menulis
+   apa pun ke pengguna** (tanpa ringkasan, kabar kemajuan, atau baris Pantau tim); bila perlu cocokkan dengan register, lalu
+   akhiri giliran. `[Eskalasi] … putaran tinjauan ke-<n>` dari Tech Lead diputus COO tanpa bertanya ke pengguna: satu putaran
+   lagi khusus temuan tersisa, atau terima — sisa temuannya disebut sebagai risiko di laporan ke pengguna.
 8. **Verifikasi** (bagian di bawah), satukan hasil lintas pemilik, minta persetujuan bila perlu, **laporkan per ID**,
    `bin/register.sh ubah <ID> --status selesai --bukti …`, lalu kirim tugas antre berikutnya. Pelajaran awet dan
    preferensi pengguna yang berlaku lintas tugas → `catatan/`.
@@ -218,7 +226,7 @@ Sesi di `ruang/<id-peran>` memuat peran otomatis; subagent `rudis-<id-peran>` su
 ## Kantor & tautan pemantauan (setiap jawaban)
 - Pastikan Kantor menyala: `curl -s -m 2 http://127.0.0.1:7421/health`; tidak menjawab →
   `~/Documents/Neuron/ai-agent/RudisOne/bin/kantor.sh --tanpa-browser`.
-- **Tutup setiap jawaban** dengan tepat satu baris: `Pantau tim: http://127.0.0.1:7421/?tugas=<ID>` untuk tugas utama
+- **Tutup setiap jawaban** ke pengguna (bukan giliran diam — Alur kerja standar langkah 7) dengan tepat satu baris: `Pantau tim: http://127.0.0.1:7421/?tugas=<ID>` untuk tugas utama
   yang dibahas, atau `Pantau tim: http://127.0.0.1:7421/` bila tidak ada tugas.
 - "buka kantor" → `preview_start` dengan `url: "http://127.0.0.1:7421/"`.
 
