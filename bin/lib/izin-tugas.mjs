@@ -4,11 +4,11 @@
 // tercakup HANYA bila semua syarat di bawah terpenuhi pada saat itu juga; selain itu keputusan biasa (ask) berlaku.
 //   · dijalankan sesi COO utama (bukan subagent, bukan sesi lain) — agent tidak bisa memakai izin untuk dirinya sendiri
 //   · tugas aktif, izin untuk repo yang sama (realpath checkout utama), belum kedaluwarsa (maks. 24 jam sejak dibuat)
-//   · kutipan izin terbukti DIKETIK/DIPILIH pengguna di transkrip sesi itu dalam 24 jam terakhir (pesan manusia atau
+//   · kutipan izin = pesan UTUH yang DIKETIK/DIPILIH pengguna di transkrip sesi itu dalam 24 jam terakhir (pesan manusia atau
 //     jawaban AskUserQuestion — bukan hasil alat lain, bukan pesan lintas sesi)
 //   · gabung: `git merge [--no-ff|--ff-only|--no-edit|-m …] rudis/<ID>` di checkout utama pada cabang izin, pohon kerja bersih,
 //     dan tidak mengubah berkas pengaman (kebijakan, settings, hook, audit, installer) — gabung semacam itu dijalankan pengguna
-//   · push: `git push origin [<cabang>|HEAD|HEAD:<cabang>]` tanpa force/delete/mirror, URL push origin sama dengan saat izin
+//   · push: `git push origin <cabang>|HEAD|HEAD:<cabang>` (refspec wajib) tanpa force/delete/mirror, URL push origin sama dengan saat izin
 //     ditulis, dan pemindai rahasia lulus atas semua commit yang akan dikirim (repo RudisOne: juga bin/bersih.mjs)
 //   · bersihkan: `git worktree remove <path>` / `git branch -d|-D rudis/<ID>[-…]` — cabang tugas yang sudah tergabung ke
 //     cabang izin dan bersih; tanpa --force pada worktree
@@ -81,12 +81,14 @@ export function buktiKetikan(file, kutip, { sejakMs = 0, maks = 128 << 20, poton
           continue;
         }
         if (x.type !== "user") continue;
-        if (!(waktu >= sejakMs)) { if (waktu < sejakMs) return null; continue; }   // lebih tua dari jendela: berhenti
-        if (ketikanPengguna(x) && rapat(teksPesanPengguna(x).replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, "")).includes(k)) return new Date(waktu).toISOString();
+        // lebih tua dari jendela: berhenti — kecuali masih mencari tool_use jawaban AskUserQuestion yang sudah ketemu
+        if (!(waktu >= sejakMs)) { if (waktu < sejakMs && !calon.size) return null; continue; }
+        // pesan/jawaban UTUH sama dengan kutipan (bukan sekadar memuatnya: "jangan gabung & kirim" ≠ "gabung & kirim")
+        if (ketikanPengguna(x) && rapat(teksPesanPengguna(x).replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, "")) === k) return new Date(waktu).toISOString();
         const jawaban = x.toolUseResult?.answers;
         const hasil = Array.isArray(x.message?.content) ? x.message.content.find((b) => b?.type === "tool_result") : null;
         if (hasil && jawaban && typeof jawaban === "object" && Array.isArray(x.toolUseResult?.questions)
-          && Object.values(jawaban).some((v) => rapat(v).includes(k))) calon.set(hasil.tool_use_id, new Date(waktu).toISOString());
+          && Object.values(jawaban).some((v) => rapat(v) === k)) calon.set(hasil.tool_use_id, new Date(waktu).toISOString());
       }
     }
     return null;
@@ -161,8 +163,8 @@ export function calonGit(args, basis) {
   }
   if (sub === "push") {
     if (!opsi.every((o) => /^(-u|--set-upstream|-q|--quiet|-v|--verbose|--porcelain|--progress|--no-progress)$/.test(o))) return null;
-    if (pos[0] !== "origin" || pos.length > 2) return null;
-    return { jenis: "push", dir, refspec: pos[1] ?? null };
+    if (pos[0] !== "origin" || pos.length !== 2) return null;
+    return { jenis: "push", dir, refspec: pos[1] };
   }
   if (sub === "worktree") {
     if (pos[0] !== "remove" || pos.length !== 2 || opsi.length) return null;   // --force / -f tidak pernah tercakup
@@ -264,7 +266,8 @@ export function periksaIzin(c, o) {
       if (!sama(info.toplevel, info.akar)) return "push hanya dari checkout utama";
       const cb = iz.cabang;
       if (cabangSekarang(info.akar) !== cb) return `checkout utama tidak di cabang ${cb}`;
-      const okRef = [null, cb, "HEAD", `HEAD:${cb}`, `${cb}:${cb}`, `refs/heads/${cb}`, `refs/heads/${cb}:refs/heads/${cb}`, `HEAD:refs/heads/${cb}`];
+      // refspec wajib eksplisit: tanpa refspec git memakai remote.origin.push / push.default dari config (bisa +refs/heads/*)
+      const okRef = [cb, "HEAD", `HEAD:${cb}`, `${cb}:${cb}`, `refs/heads/${cb}`, `refs/heads/${cb}:refs/heads/${cb}`, `HEAD:refs/heads/${cb}`];
       if (!okRef.includes(c.refspec)) return `refspec ${c.refspec} di luar izin (hanya ${cb})`;
       const url = urlPushOrigin(info.akar);
       if (!url || url !== iz.origin) return "URL push origin berbeda dari saat izin ditulis";

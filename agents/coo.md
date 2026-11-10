@@ -299,7 +299,7 @@ Sesi di `ruang/<id-peran>` memuat peran otomatis; subagent `rudis-<id-peran>` su
 Bila kesepakatan atau jawaban gerbang pengguna mencakup penyelesaian (mis. "Gabung & kirim"), COO **langsung** menulis izin —
 bukan agent lain, dan hanya dari kata pengguna:
 `bin/register.sh izin <ID> --repo <checkout utama> --aksi gabung,push,bersihkan --kutip "<kata pengguna persis>"` (aksi
-sesuai yang disepakati; kutipan harus ada di `handoff/<ID>/pemahaman.md` › Kesepakatan; berlaku sampai tugas selesai, maks.
+sesuai yang disepakati; kutipan = pesan atau jawaban pengguna UTUH; kutipan harus ada di `handoff/<ID>/pemahaman.md` › Kesepakatan; berlaku sampai tugas selesai, maks.
 24 jam). Hook lalu meloloskan tanpa prompt, **di percakapan COO tempat pengguna menyetujuinya**, perintah polos ini (path
 absolut, satu perintah per panggilan — tanpa variabel `$R`, loop coba-ulang, `$( )`, atau `;` sesudah `cd`):
 - gabung `git -C <repo> merge --no-ff --no-edit rudis/<ID>` → push `git -C <repo> push origin main` → bersihkan

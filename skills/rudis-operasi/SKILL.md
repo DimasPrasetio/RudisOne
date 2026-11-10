@@ -62,7 +62,7 @@ Saat pengguna menyepakati penyelesaian (mis. "Gabung & kirim"), COO menulis `bin
 utama> --aksi gabung,push,bersihkan --kutip "<kata pengguna persis>"` (kutipan harus ada di `handoff/<ID>/pemahaman.md`
 yang disepakati). Hook (`bin/lib/izin-tugas.mjs`) lalu meloloskan, **hanya di sesi COO utama** dan hanya bila setiap syarat
 terpenuhi saat itu juga: tugas aktif, izin belum kedaluwarsa (sampai tugas selesai, maks. 24 jam), repo sama, kutipan
-terbukti diketik/dipilih pengguna di percakapan itu dalam 24 jam, dan perintahnya polos (tanpa variabel, loop, `$( )`):
+= pesan/jawaban utuh yang diketik/dipilih pengguna di percakapan itu dalam 24 jam, dan perintahnya polos (tanpa variabel, loop, `$( )`):
 - **gabung** `git -C <repo> merge --no-ff --no-edit rudis/<ID>` — checkout utama di cabang izin, bersih, dan **tidak
   mengubah berkas pengaman** (kebijakan, settings, hook, audit, installer, `bin/`/`skills/`/`agen/` RudisOne, `.claude/`
   proyek); gabung yang mengubahnya dijalankan pengguna sendiri.
