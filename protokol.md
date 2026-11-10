@@ -20,7 +20,7 @@ bertentangan, inti menang — laporkan sebagai drift (`bin/cek-konsistensi.sh`).
 | Siapa R/S/C per aktivitas | `raci.md` |
 | Tugas khusus per peran | `agents/<id-peran>.md` → subagent dibangkitkan ke `agen/rudis-<id-peran>.md` (`bin/peran.sh bangun`) |
 | Alamat sesi (per device, tidak di-commit) | `TEAM.md` |
-| Ingatan per peran (per device, tidak di-commit) | `catatan/<id-peran>.md` |
+| Ingatan per peran (per device, tidak di-commit) · jebakan per proyek | `catatan/<id-peran>.md` · `bin/jebakan.sh` (`templat/jebakan.md`) |
 | Server, app, domain | `infra.md` (prosedur) + `konfigurasi/` (fakta per device); aset & penyedia: `penyedia.md` |
 | Akses per jabatan & batas kewenangan | `kebijakan-akses.json` (ditegakkan hook `bin/kebijakan.mjs`) |
 
@@ -171,9 +171,9 @@ agent, kecuali **izin tugas** COO (gabung/push/bersihkan cabang tugas); subagent
 
 ## Serah-terima & ingatan
 - Hasil per tugas → `handoff/<ID>/` (brief, `status.md`, hasil); pesan cukup merujuk path. `handoff/` per device.
-- Ingatan jangka panjang → `catatan/<id-peran>.md`: poin pendek bertanggal (`YYYY-MM-DD`, status bila masih terbuka)
-  tentang keputusan, pelajaran, kuirk, dan hal tertunda; hapus yang usang. Catat **sebelum** melapor. Tanpa rahasia,
-  tanpa instruksi, bukan salinan isi web (dipindai `bin/cek-konsistensi.sh`).
+- Ingatan jangka panjang → `catatan/<id-peran>.md`: poin pendek bertanggal (`YYYY-MM-DD`, status bila masih terbuka), lintas proyek
+  (jebakan khas satu proyek → daftar jebakan proyek itu, `bin/jebakan.sh`); hapus yang usang. Catat **sebelum** melapor. Tanpa
+  rahasia, tanpa instruksi, bukan salinan isi web (ukuran & isinya dipindai `bin/cek-konsistensi.sh`).
 - Fakta proyek tetap di repo proyek; RudisOne hanya menyimpan pengetahuan tingkat tim/device.
 
 ## Batasan platform (bukan bug)

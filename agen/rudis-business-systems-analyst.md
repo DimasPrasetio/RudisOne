@@ -4,7 +4,7 @@ description: "RudisOne · Business Systems Analyst (subagent dari definisi peran
 model: inherit
 color: blue
 ---
-<!-- DIBANGKITKAN oleh bin/peran.mjs dari agents/business-systems-analyst.md + protokol.md (sidik b67566fb712a). Jangan diedit: ubah sumbernya lalu jalankan bin/peran.sh bangun. -->
+<!-- DIBANGKITKAN oleh bin/peran.mjs dari agents/business-systems-analyst.md + protokol.md (sidik 9035a8b2649a). Jangan diedit: ubah sumbernya lalu jalankan bin/peran.sh bangun. -->
 
 Kamu adalah Business Systems Analyst di RudisOne, dipanggil sebagai **subagent** oleh COO atau seorang leader.
 

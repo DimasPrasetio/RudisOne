@@ -199,7 +199,8 @@ test("X14 beban keputusan: pertanyaan + prompt pengguna + prompt izin dari audit
 // ---------- ringkasan awet (handoff/metrik.jsonl) ----------
 const KOLOM_RINGKAS = ["v", "id", "dicatat", "sumber", "atribusi", "galat", "judul", "status", "folder", "divisi", "fase", "dibuat", "selesai_pada",
   "sesi_terlibat", "subagent", "giliran", "panggilan_api", "token_total", "token_output", "biaya_usd", "rentang_ms", "waktu_aktif_ms",
-  "waktu_aktif_subagent_ms", "pesan_keluar", "revisi_m2", "start_session", "beban_keputusan", "ask_user_question", "prompt_pengguna_coo"];
+  "waktu_aktif_subagent_ms", "pesan_keluar", "revisi_m2", "start_session", "beban_keputusan", "ask_user_question", "prompt_pengguna_coo",
+  "jebakan", "putaran_tinjauan"];
 const auditKosong = fs.mkdtempSync(path.join(os.tmpdir(), "metrik-audit-kosong-"));
 const infoReg = { judul: "Rapikan skrip deploy", status: "selesai", folder: "/x/proyek", divisi: "Engineering", fase: "—", dibuat: "2026-10-29T08:00:00.000Z", selesai_pada: "2026-10-29" };
 
@@ -239,6 +240,20 @@ test("ringkasTugas: sub-tugas tanpa angka (lihat induk); galat penghitung → ba
   assert.equal(g.galat, "EACCES: transkrip tak terbaca");
   assert.deepEqual([g.sesi_terlibat, g.token_total, g.biaya_usd, g.start_session], [null, null, null, null]);
   assert.equal(g.status, "selesai");
+});
+
+test("jebakanTugas: status.md Jebakan + jumlah [Hasil tinjauan] <ID> (sub-ID tidak ikut); tak ada → null; masuk baris ringkas", async () => {
+  const { jebakanTugas, ringkasMetrik } = await import("./metrik.mjs");
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), "metrik-jebakan-"));
+  assert.deepEqual(jebakanTugas(d, "T-20260101-1"), { jebakan: null, putaran_tinjauan: null });
+  fs.writeFileSync(path.join(d, "status.md"), "# Status\n- Repo: /x · Base: main\n- **Jebakan:** kena 2, baru 1\n");
+  fs.writeFileSync(path.join(d, "tinjauan.md"), "[Hasil tinjauan] T-20260101-1 · PERLU REVISI\n[Hasil tinjauan] T-20260101-1.2 · LULUS\n[Hasil tinjauan] T-20260101-10 · LULUS\n[Hasil tinjauan] T-20260101-1 · LULUS\n");
+  const j = jebakanTugas(d, "T-20260101-1");
+  assert.deepEqual(j, { jebakan: { kena: 2, baru: 1 }, putaran_tinjauan: 2 });
+  fs.writeFileSync(path.join(d, "status.md"), "Jebakan: kena 2\n");
+  assert.equal(jebakanTugas(d, "T-20260101-1").jebakan, null, "tanpa 'baru' → null, bukan setengah");
+  const b = ringkasMetrik(null, { id: "T-20260101-1", ...j });
+  assert.deepEqual([b.jebakan, b.putaran_tinjauan], [{ kena: 2, baru: 1 }, 2]);
 });
 
 test("simpanRingkas: append — dua baris → dua baris JSON; berkas bawaan lewat RUDISONE_METRIK_SIMPAN", async () => {

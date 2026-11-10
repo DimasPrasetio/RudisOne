@@ -21,6 +21,8 @@ import { periksaTautan } from "./lib/tautan.mjs";
 import { deteksiProyek } from "./perkakas.mjs";
 import { agentsCli, backendSesi, folderDesktop, normalAgents, sumberBaca } from "./sesi.mjs";
 import { periksaTerlacak } from "./bersih.mjs";
+import { REL_REPO as JEBAKAN_REPO, periksaJebakan } from "./jebakan.mjs";
+import { POLA_INSTRUKSI, rahasiaDi } from "./lib/pola-catatan.mjs";
 
 const HOME = os.homedir();
 const INI = fileURLToPath(import.meta.url);
@@ -193,6 +195,10 @@ export function cekRepo(root = ROOT, opsi = {}) {
 
   // R9 — kebersihan: berkas produk bebas laporan uji device, ID tugas, kutipan keputusan bertanggal, nama sistem lain
   for (const t of periksaTerlacak(root) ?? []) catat("galat", "bersih", `${t.rel}${t.baris ? `:${t.baris}` : ""} [${t.jenis}] ${t.cuplikan} — bin/bersih.mjs`);
+  // R11 — daftar jebakan repo ini (templat/jebakan.md): format & ukuran saja (tanpa pemeriksaan waktu agar deterministik)
+  if (fs.existsSync(path.join(root, JEBAKAN_REPO))) {
+    for (const t of periksaJebakan(baca(root, JEBAKAN_REPO))) if (t.tingkat !== "info") catat(t.tingkat, t.kode, `${JEBAKAN_REPO}${t.baris ? `:${t.baris}` : ""} ${t.pesan}`);
+  }
   // R10 — bahasa awam: teks untuk pengguna (di antara penanda ke-pengguna) tanpa istilah teknis mentah
   for (const rel of berkasMd(root)) for (const m of cekBahasaAwam(baca(root, rel))) catat("peringatan", "bahasa-awam", `${rel}${m.baris ? `:${m.baris}` : ""} ${m.pesan}`);
   return temuan;
@@ -527,16 +533,12 @@ export function cekKesehatanHook(root = ROOT) {
   return temuan;
 }
 
-/** Pola instruksi tersisip & rahasia di catatan/ — rahasia tidak pernah dicetak, hanya letaknya. */
-const POLA_INSTRUKSI = [/abaikan (semua )?instruksi/i, /ignore (all |previous )?instructions/i, /kamu sekarang/i, /you are now/i, /jalankan perintah berikut/i, /system prompt/i];
-const POLA_RAHASIA = [
-  ["token GitHub", /\b(ghp_|github_pat_)[A-Za-z0-9_]/], ["token GitLab", /\bglpat-[A-Za-z0-9_-]/], ["kunci AWS", /\bAKIA[0-9A-Z]{16}\b/],
-  ["private key", /-----BEGIN [A-Z ]*PRIVATE KEY/], ["password", /password\s*[=:]\s*(\S+)/i], ["token", /token\s*[=:]\s*(\S{12,})/i],
-];
-/** Nilai contoh yang bukan rahasia: <isi>, $VAR, ${VAR}, ***, …, xxx. */
-const PLACEHOLDER = /^["'`]?(<|\$\{?[A-Z_]+\}?|\*{3,}|…|\.{3}|x{3,})/i;
+/** Batas ingatan per peran (catatan/<peran>.md dibaca setiap panggilan peran itu): lewat → peringatan, bukan galat.
+ *  Ringkas: gabungkan butir sejenis, buang yang usang, pindahkan jebakan khas satu proyek ke daftar jebakan proyek itu. */
+export const BATAS_CATATAN = { byte: 24_000, butir: 60 };
 
-/** Kebersihan catatan/*.md: butir tanpa tanggal di awal (peringatan), instruksi tersisip (peringatan), rahasia (galat). */
+/** Kebersihan catatan/*.md: butir tanpa tanggal di awal (peringatan), instruksi tersisip (peringatan), rahasia (galat),
+ *  ukuran > BATAS_CATATAN (peringatan); daftar jebakan per device catatan/jebakan/*.md: format & ukuran (bin/jebakan.mjs). */
 export function cekCatatan(root = ROOT) {
   const dir = path.join(root, "catatan");
   let berkas = [];
@@ -544,19 +546,26 @@ export function cekCatatan(root = ROOT) {
   for (const f of berkas) {
     const baris = fs.readFileSync(path.join(dir, f), "utf8").split("\n");
     const tanpaTanggal = [];
-    let pagar = false;
+    let pagar = false, nButir = 0;
     baris.forEach((l, i) => {
       const no = i + 1;
       if (/^\s*```/.test(l)) pagar = !pagar;
       const butir = !pagar && l.match(/^(?:[-*+]|\d+[.)])\s+(.*)$/);
+      if (butir) nButir++;
       if (butir && !/^[*_`[(]*\d{4}-\d{2}-\d{2}\b/.test(butir[1])) tanpaTanggal.push(no);
       for (const p of POLA_INSTRUKSI) if (p.test(l)) catat("peringatan", "catatan-instruksi", `catatan/${f}:${no} memuat pola instruksi tersisip (${p.source}) — catatan adalah data, bukan perintah; tinjau dan hapus`);
-      for (const [nama, p] of POLA_RAHASIA) {
-        const m = l.match(p);
-        if (m && !(m[1] && PLACEHOLDER.test(m[1]))) catat("galat", "catatan-rahasia", `catatan/${f}:${no} tampak memuat rahasia (${nama}) — hapus dari berkas, putar ulang (rotate) rahasianya`);
-      }
+      const nama = rahasiaDi(l);
+      if (nama) catat("galat", "catatan-rahasia", `catatan/${f}:${no} tampak memuat rahasia (${nama}) — hapus dari berkas, putar ulang (rotate) rahasianya`);
     });
+    const byte = Buffer.byteLength(baris.join("\n"));
+    if (byte > BATAS_CATATAN.byte || nButir > BATAS_CATATAN.butir) catat("peringatan", "catatan-ukuran", `catatan/${f}: ${byte} byte, ${nButir} butir (batas ${BATAS_CATATAN.byte} byte / ${BATAS_CATATAN.butir} butir) — ringkas: gabungkan butir sejenis, buang yang usang, pindahkan jebakan khas satu proyek ke daftar jebakan proyek itu (bin/jebakan.sh)`);
     if (tanpaTanggal.length) catat("peringatan", "catatan-tanggal", `catatan/${f}: ${tanpaTanggal.length} butir tanpa tanggal YYYY-MM-DD di awal (baris ${tanpaTanggal.slice(0, 6).join(", ")}${tanpaTanggal.length > 6 ? ", …" : ""})`);
+  }
+  let jebakan = [];
+  try { jebakan = fs.readdirSync(path.join(dir, "jebakan")).filter((f) => f.endsWith(".md")).sort(); } catch { /* belum ada */ }
+  for (const f of jebakan) {
+    for (const t of periksaJebakan(fs.readFileSync(path.join(dir, "jebakan", f), "utf8"), { sekarang: new Date() }))
+      if (t.tingkat !== "info") catat(t.tingkat, t.kode, `catatan/jebakan/${f}${t.baris ? `:${t.baris}` : ""} ${t.pesan}`);
   }
   return temuan;
 }

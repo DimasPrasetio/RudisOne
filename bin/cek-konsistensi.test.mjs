@@ -263,6 +263,27 @@ test("catatan/: butir tanpa tanggal & instruksi tersisip → peringatan; rahasia
   assert.equal(h.kode, 2);
 });
 
+test("catatan/: ukuran > batas → peringatan (bukan galat); catatan/jebakan/*.md: format & ukuran; .rudisone/jebakan.md repo: format", () => {
+  const butir = (n) => Array.from({ length: n }, (_, i) => `- 2026-10-30 · pelajaran ${i}`).join("\n");
+  const jb = (isi) => `# Jebakan contoh\n\n${isi}\n`;
+  const h = periksaDevice(repoMini((t) => {
+    t("catatan/coo.md", `# Catatan COO\n${butir(61)}\n`);
+    t("catatan/tech-lead.md", `# Catatan TL\n- 2026-10-30 · ${"x".repeat(25_000)}\n`);
+    t("catatan/research-analyst.md", `# Catatan RA\n${butir(60)}\n`);
+    t("catatan/jebakan/proyek-a.md", jb("- 2026-10-30 · kena 1 · a → b · sumber: x\n- 2026-10-30 · tanpa kena → b"));
+    t("catatan/jebakan/proyek-b.md", jb("pindah: repo\n- 2026-10-30 · kena 2 · a → b · sumber: x"));
+  }));
+  const u = dengan(h, "catatan-ukuran");
+  assert.deepEqual(u.map((x) => [x.tingkat, x.pesan.split(":")[0]]).sort(), [["peringatan", "catatan/coo.md"], ["peringatan", "catatan/tech-lead.md"]]);
+  const f = dengan(h, "jebakan-format");
+  assert.deepEqual(f.map((x) => [x.tingkat, x.pesan.split(" ")[0]]), [["galat", "catatan/jebakan/proyek-a.md:4"]]);
+  assert.deepEqual(dengan(h, "jebakan-naik"), [], "info usulan tidak ikut ke cek-konsistensi");
+  // repo: .rudisone/jebakan.md diperiksa formatnya oleh --repo (deterministik: tanpa pemeriksaan basi)
+  const r = repoMini((t) => t(".rudisone/jebakan.md", jb(`- 2000-01-01 · kena 1 · a → b · sumber: abc1234\n- 2026-13-40 · kena 1 · a → b\n${butir(1)}`)));
+  const rp = dengan(periksa(r), "jebakan");
+  assert.deepEqual(rp.map((x) => [x.kode, x.pesan.split(" ")[0]]), [["jebakan-format", ".rudisone/jebakan.md:4"], ["jebakan-format", ".rudisone/jebakan.md:5"]]);
+});
+
 // ---------- --proyek: kartu proyek vs deteksi mesin; --serah: drift spec ----------
 const GIT_ENV = { ...process.env, GIT_AUTHOR_NAME: "Uji", GIT_AUTHOR_EMAIL: "uji@contoh", GIT_COMMITTER_NAME: "Uji", GIT_COMMITTER_EMAIL: "uji@contoh", GIT_CONFIG_NOSYSTEM: "1" };
 const git = (cwd, ...a) => execFileSync("git", ["-c", "core.hooksPath=/dev/null", ...a], { cwd, env: GIT_ENV, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();

@@ -4,7 +4,7 @@ description: "RudisOne · Technical Writer (subagent dari definisi peran). Techn
 model: sonnet
 color: yellow
 ---
-<!-- DIBANGKITKAN oleh bin/peran.mjs dari agents/technical-writer.md + protokol.md (sidik b5e433cdbcd6). Jangan diedit: ubah sumbernya lalu jalankan bin/peran.sh bangun. -->
+<!-- DIBANGKITKAN oleh bin/peran.mjs dari agents/technical-writer.md + protokol.md (sidik c4cc617dae1c). Jangan diedit: ubah sumbernya lalu jalankan bin/peran.sh bangun. -->
 
 Kamu adalah Technical Writer di RudisOne, dipanggil sebagai **subagent** oleh COO atau seorang leader.
 

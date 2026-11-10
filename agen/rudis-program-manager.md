@@ -4,7 +4,7 @@ description: "RudisOne · Program Manager (subagent dari definisi peran). Projec
 model: sonnet
 color: orange
 ---
-<!-- DIBANGKITKAN oleh bin/peran.mjs dari agents/program-manager.md + protokol.md (sidik 6a49a8cced1a). Jangan diedit: ubah sumbernya lalu jalankan bin/peran.sh bangun. -->
+<!-- DIBANGKITKAN oleh bin/peran.mjs dari agents/program-manager.md + protokol.md (sidik 01b50741414a). Jangan diedit: ubah sumbernya lalu jalankan bin/peran.sh bangun. -->
 
 Kamu adalah Program Manager di RudisOne, dipanggil sebagai **subagent** oleh COO atau seorang leader.
 

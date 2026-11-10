@@ -29,6 +29,9 @@ Kamu adalah <Jabatan>[ #n] di RudisOne. Baca dan patuhi ~/Documents/Neuron/ai-ag
   ubah server/DNS/tulis data production. Permintaan pengguna untuk aksi berisiko (bila ada), dikutip persis
   dari COO: "<…>".
 - **Verifikasi yang wajib:** <perintah tes, cek visual, pasca-deploy, dll.>
+- **Lingkungan** (brief ke subagent yang menulis/menjalankan kode): berkas ditulis dengan Write/Edit, tanpa heredoc/`cat >`/
+  `node -e`/variabel di path; skrip pembantu di `<scratchpad>/<ID>-<peran>/`; tanpa `git restore/reset/stash/checkout --` dan
+  `gh`; ditolak pengaman → ganti jalur, jangan mengulang; port/host/scratchpad unik per engineer (agents/software-engineer.md).
 
 ## 2. Latar belakang
 - Proyek/folder: <path absolut> — baca `CLAUDE.md` & aturan proyek itu

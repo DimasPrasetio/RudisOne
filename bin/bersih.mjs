@@ -51,13 +51,19 @@ const POLA = [
 ];
 
 export const dikecualikan = (rel) => DIKECUALIKAN.test(rel);
+/** Daftar jebakan proyek (templat/jebakan.md): tanggal "terakhir terbukti" di awal butir adalah bagian format (dipakai untuk
+ *  membuang butir basi), bukan riwayat — hanya tanggal itu yang dilewati; ID tugas & isi lain tetap diperiksa. */
+const DAFTAR_JEBAKAN = /(^|\/)\.rudisone\/jebakan\.md$/;
+const tanpaTanggalButir = (l) => l.replace(/^(\s*-\s+)20\d{2}-\d{2}-\d{2}(?= · kena \d+ · )/, "$1");
 
 /** Temuan untuk satu berkas: path terlarang, lalu pola isi per baris. → [{ rel, baris, jenis, cuplikan }] */
 export function periksaBerkas(rel, teks) {
   const hasil = [];
   for (const [pola, alasan] of BERKAS_TERLARANG) if (pola.test(rel)) hasil.push({ rel, baris: 0, jenis: "berkas-terlarang", cuplikan: alasan });
   if (dikecualikan(rel) || typeof teks !== "string" || teks.includes("\0")) return hasil;
-  teks.split(/\r?\n/).forEach((l, i) => {
+  const jebakan = DAFTAR_JEBAKAN.test(rel);
+  teks.split(/\r?\n/).forEach((mentah, i) => {
+    const l = jebakan ? tanpaTanggalButir(mentah) : mentah;
     for (const [jenis, re, sah, berlaku] of POLA) {
       if (berlaku && !berlaku(rel)) continue;
       re.lastIndex = 0;
