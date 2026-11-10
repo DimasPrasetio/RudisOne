@@ -331,3 +331,11 @@ test("pemasang di HOME sementara: 9 aturan ask git lama dicabut, deny & aturan l
   assert.equal(c.status, 1);
   assert.match(c.stdout, /Aturan ask git lama masih ada/);
 });
+
+test("git push / git perusak tersembunyi (loop, $( ), bash -c, xargs) tetap ditanya hook; teks yang hanya menyebut tidak", () => {
+  const d = (command) => m.putuskan({ session_id: "gm", cwd: ROOT, tool_name: "Bash", tool_input: { command }, hook_event_name: "PreToolUse" }, K).keputusan ?? null;
+  for (const c of ["for i in 1 2; do out=$(git push origin main 2>&1); done", "echo $(git stash)", "xargs git push origin < f", "bash -c 'git reset --hard'",
+    "git status && git stash pop", "x=`git push origin main`"]) assert.equal(d(c), "ask", c);
+  for (const c of ["git stash list | head", "x=$(git stash list)", "git log --grep 'git push'", 'git commit -m "git push origin"', "cat <<EOF > f\ngit push\nEOF",
+    'echo "Hook menolak \\`git checkout -- <berkas>\\` dan push" >> /tmp/catatan.md']) assert.equal(d(c), null, c);
+});
