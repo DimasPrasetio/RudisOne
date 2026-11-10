@@ -45,9 +45,10 @@ export function ketikanPengguna(baris) {
 const rapat = (s) => String(s ?? "").replace(/\s+/g, " ").trim();
 
 /** Kata yang harus ada di konteks persetujuan (pertanyaan COO atau kutipan itu sendiri) per jenis aksi: jawaban umum
- *  ("ya", "lanjut") atas pertanyaan lain tidak pernah menjadi izin gabung/kirim. Bersihkan = bagian dari menggabung. */
-export const KATA_AKSI = { gabung: /gabung|merge|satukan|versi utama|cabang utama/i, push: /kirim|push|github|gitlab|unggah/i,
-  bersihkan: /gabung|merge|bersih|hapus salinan|worktree/i };
+ *  ("ya", "lanjut") atas pertanyaan lain tidak pernah menjadi izin. Kata umum ("kirim", "gabung") tidak cukup: harus khas
+ *  git (versi/cabang utama, push, GitHub, origin). Bersihkan = bagian dari menggabung. */
+export const KATA_AKSI = { gabung: /merge|versi utama|cabang utama|branch utama|\bmain\b/i, push: /push|github|gitlab|\borigin\b/i,
+  bersihkan: /merge|versi utama|cabang utama|worktree|salinan kerja|cabang tugas/i };
 /** Pertanyaan terakhir di satu baris asisten: `ask` alat wrap_up, atau kalimat bertanda tanya terakhir di blok teks terakhir
  *  (tanpa tanda tanya: kalimat terakhir). Isi alat lain (perintah Bash, dll.) tidak pernah dihitung. */
 function tanyaAsisten(y) {
@@ -127,7 +128,8 @@ export function buktiKetikan(file, kutip, { sejakMs = 0, sampaiMs = Infinity, ko
 
 // ---------- git ----------
 export function git(dir, args, opsi = {}) {
-  const r = spawnSync("git", ["-C", dir, ...args], { encoding: "utf8", timeout: opsi.timeout ?? 10000, maxBuffer: opsi.maxBuffer ?? 16 << 20,
+  // core.fsmonitor=false: hook sendiri tidak pernah menjalankan program fsmonitor konfigurasi (git status dll.)
+  const r = spawnSync("git", ["-c", "core.fsmonitor=false", "-C", dir, ...args], { encoding: "utf8", timeout: opsi.timeout ?? 10000, maxBuffer: opsi.maxBuffer ?? 16 << 20,
     stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, GIT_TERMINAL_PROMPT: "0", GIT_OPTIONAL_LOCKS: "0" } });
   return { ok: !r.error && r.status === 0, out: String(r.stdout ?? ""), status: r.status };
 }
@@ -167,7 +169,7 @@ const CONFIG_RAWAN = /^(include\.|includeif\.|core\.(sshcommand|fsmonitor|gitpro
  *  selain url/fetch, push.* selain default/autoSetupRemote/followTags) atau menjalankan program pada transport. Kunci umum
  *  milik pengguna (credential.helper, filter.lfs, url.*.insteadOf) tidak membatalkan izin — URL push & dasar pindai
  *  diverifikasi terpisah. */
-const CONFIG_RAWAN_LUAR = /^(remote\.origin\.(?!url$|fetch$)|push\.(?!default$|autosetupremote$|followtags$)|core\.(sshcommand|gitproxy)$)/;
+const CONFIG_RAWAN_LUAR = /^(remote\.origin\.(?!url$|fetch$)|push\.(?!default$|autosetupremote$|followtags$)|core\.(sshcommand|gitproxy|fsmonitor|askpass)$|filter\.(?!lfs\.)|merge\.[^.]+\.driver$|gpg\.([^.]+\.)?program$)/;
 export function configRawan(dir) {
   const r = git(dir, ["config", "--list", "--show-scope"]);
   if (!r.ok) return "konfigurasi repo tidak terbaca";
@@ -175,6 +177,7 @@ export function configRawan(dir) {
     const m = l.match(/^(local|worktree|global|system|command)\t([^=]+)=(.*)$/);
     if (!m) continue;
     const k = m[2].toLowerCase();
+    if (m[1] === "command" && k === "core.fsmonitor" && m[3] === "false") continue;   // pemasangan hook sendiri (git())
     if (m[1] !== "local" && m[1] !== "worktree") { if (CONFIG_RAWAN_LUAR.test(k)) return `konfigurasi git ${m[1]} ${k} (mengubah tujuan push atau menjalankan program)`; continue; }
     // core.hooksPath di mana pun boleh: isi folder hook efektifnya diperiksa hookAktif (daftar putih)
     if (k === "core.hookspath") continue;

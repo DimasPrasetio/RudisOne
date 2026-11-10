@@ -206,6 +206,8 @@ test("izin: kedaluwarsa, tugas selesai, repo lain, dan bukti ketikan pengguna", 
   // kata aksi hanya di kalimat lain atau di isi perintah alat, bukan di pertanyaannya → bukan izin
   assert.notEqual(kep(P, { transcript_path: transkrip(tanyaCOO("Hasil siap, sebelum push saya cek dulu. Lanjut ke laporan biaya bulan ini?"), ketik("Ya, lanjut")) }), "allow");
   assert.notEqual(kep(P, { transcript_path: transkrip(baris({ type: "assistant", message: { content: [{ type: "tool_use", id: "b1", name: "Bash", input: { command: "git status # push nanti" } }, { type: "text", text: "Lanjut ke laporan biaya?" }] } }), ketik("Ya, lanjut")) }), "allow");
+  // kata umum "kirim" tanpa ciri git (email) bukan izin push
+  assert.notEqual(kep(P, { transcript_path: transkrip(tanyaCOO("Mau saya kirim ringkasan ini ke email Anda?"), ketik("Ya, lanjut")) }), "allow");
   // pertanyaan di kotak langkah berikutnya (wrap_up › ask) dihitung
   assert.equal(kep(P, { transcript_path: transkrip(baris({ type: "assistant", message: { content: [{ type: "tool_use", id: "w1", name: "mcp__ccd_turn__wrap_up", input: { recap: "x", ask: "Kirim ke GitHub sekarang?" } }] } }), ketik("Ya, lanjut")) }), "allow");
   // bukti terikat waktu izin ditulis: ketikan 7 jam sebelum izin dibuat tidak dihitung
@@ -228,7 +230,7 @@ test("izin: kedaluwarsa, tugas selesai, repo lain, dan bukti ketikan pengguna", 
   // jawaban AskUserQuestion (dipilih pengguna) sah
   const tanya = transkrip(
     baris({ type: "assistant", message: { content: [{ type: "tool_use", id: "tu1", name: "AskUserQuestion", input: {} }] } }),
-    baris({ type: "user", toolUseResult: { questions: [{ question: "Selesaikan?" }], answers: { "Selesaikan?": "Ya, gabung & kirim" } }, message: { content: [{ type: "tool_result", tool_use_id: "tu1", content: "dijawab" }] } }));
+    baris({ type: "user", toolUseResult: { questions: [{ question: "Gabung ke versi utama lalu kirim ke GitHub?" }], answers: { "Gabung ke versi utama lalu kirim ke GitHub?": "Ya, gabung & kirim" } }, message: { content: [{ type: "tool_result", tool_use_id: "tu1", content: "dijawab" }] } }));
   assert.equal(kep(P, { transcript_path: tanya }), "allow");
 });
 
@@ -430,4 +432,20 @@ test("core.hooksPath absolut (seperti repo RudisOne) tidak membatalkan izin; isi
     tulis(path.join(H, "pre-push"), "#!/bin/sh\n");
     assert.equal(lib.hookAktif(REPO), "pre-push");
   } finally { g(REPO, "config", "--unset", "core.hooksPath"); }
+});
+
+test("tinjauan putaran 3: config global yang menjalankan program; teks berpola `x)` di kutip bukan git", () => {
+  const GLOBAL = path.join(tmp, "gitconfig-g3");
+  for (const isi of ["[filter \"evil\"]\n\tsmudge = /tmp/x\n", "[gpg]\n\tprogram = /tmp/x\n", "[core]\n\tfsmonitor = /tmp/x\n", "[merge \"m\"]\n\tdriver = /tmp/x\n"]) {
+    fs.writeFileSync(GLOBAL, isi); process.env.GIT_CONFIG_GLOBAL = GLOBAL;
+    try { assert.match(String(lib.configRawan(REPO)), /konfigurasi git global/, isi); } finally { delete process.env.GIT_CONFIG_GLOBAL; }
+  }
+  fs.writeFileSync(GLOBAL, "[filter \"lfs\"]\n\tsmudge = git-lfs smudge -- %f\n[credential]\n\thelper = osxkeychain\n"); process.env.GIT_CONFIG_GLOBAL = GLOBAL;
+  try { assert.equal(lib.configRawan(REPO), null, "lfs & credential helper pengguna tidak membatalkan izin"); } finally { delete process.env.GIT_CONFIG_GLOBAL; }
+  const d = (cwd, command) => m.putuskan({ session_id: "r3", cwd, tool_name: "Bash", tool_input: { command }, hook_event_name: "PreToolUse" }, K).keputusan ?? null;
+  for (const c of ['echo "Langkah a) git push origin main"', 'echo "1) git stash pop"', `printf '%s\\n' "b) git reset --hard"`]) {
+    assert.equal(d(ROOT, c), null, c); assert.equal(d(path.join(tmp, "pribadi"), c), null, c);
+  }
+  assert.equal(d(ROOT, "case x in a) git push --force origin main;; esac"), "ask");
+  assert.equal(d(ROOT, 'case x in a) "git" push --force origin main;; esac'), "ask");
 });

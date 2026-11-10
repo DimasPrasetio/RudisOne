@@ -743,7 +743,8 @@ const GIT_PRIBADI = new RegExp(`${AWAL_SHELL}(?:[^\\s;&|()\`'"]*\\/)?[Gg][Ii][Tt
 const KUNCI_AWAL_GIT = /^(if|elif|while|until|then|do|else|!|\{|time|case|in|esac)$/;
 const PEMBUNGKUS_GIT = /^(sudo|doas|xargs|env|exec|command|builtin|nohup|nice|stdbuf|caffeinate|setsid|g?timeout)$/;
 export function argGit(teks) {
-  const coba = [teks]; const tutup = teks.indexOf(")"); if (tutup >= 0) coba.push(teks.slice(tutup + 1));
+  // pola case `x)` / `case v in x)` hanya di AWAL segmen dan di luar kutip — `echo "a) git push"` bukan perintah git
+  const coba = [teks]; const pola = teks.trim().match(/^(?:case\s+\S+\s+in\s+)?[^\s'"()`]*\)/); if (pola) coba.push(teks.trim().slice(pola[0].length));
   for (const t of coba) {
     const w = (urai(t).segmen[0]?.kata ?? []).map((k) => k.nilai);
     let i = 0;
