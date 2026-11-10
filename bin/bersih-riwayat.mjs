@@ -16,12 +16,15 @@
 //   bin/bersih-riwayat.sh --usulan-git      cetak perintah git yang perlu disetujui (satu per baris, tanpa ringkasan)
 //   opsi: --rinci (daftar per tugas) · --base <branch> (bawaan main, lalu master) · --json
 // Audit: handoff/bersih-riwayat.jsonl (satu baris per tugas: ID, judul, tanggal, cabang + sha merge).
+// Metrik: sebelum handoff/<ID>/ dihapus, satu baris ringkas metrik tugas ditambahkan ke handoff/metrik.jsonl (bin/metrik.mjs
+// › ringkasMetrik; sumber "bersih-riwayat"; galat penghitung → baris ber-`galat`, pembersihan jalan terus).
 // Exit: 0 berhasil (juga bila tak ada yang dibersihkan) · 1 galat · 3 pemakaian salah.
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { aktif, baca, perbarui } from "./register.mjs";
+import { berkasMetrik, hitungMetrik, infoRegister, ringkasTugas, simpanRingkas } from "./metrik.mjs";
 import { posix } from "./lib/platform.mjs";
 
 const INI = fileURLToPath(import.meta.url);
@@ -205,7 +208,8 @@ export function rencanakan({ root = ROOT_BAWAAN, kini = new Date(), base, cwd = 
     if (lindung.has(t.id)) rencana.tahan.terlindung++;
     else if (!dipilih.has(t.id)) rencana.tahan.belum24++;
   }
-  for (const { tugas: t, tutup } of kand) rencana.tugas.push({ id: t.id, judul: t.judul, status: t.status, selesai_pada: t.selesai_pada, tutup, handoff: periksaHandoff(root, t.id) });
+  for (const { tugas: t, tutup } of kand) rencana.tugas.push({ id: t.id, judul: t.judul, status: t.status, selesai_pada: t.selesai_pada, tutup,
+    handoff: periksaHandoff(root, t.id), info: infoRegister(t) });
   const judulAudit = judulDariAudit(root);
   const per = new Map(tugas.map((t) => [t.id, t]));
   const layak = (id, tipTgl) => {
@@ -236,8 +240,17 @@ function judulDariAudit(root) {
   return m;
 }
 
-/** Eksekusi: hapus folder handoff, catat audit, lalu buang entri register (sekali tulis, divalidasi ulang di dalam kunci). */
-export function eksekusi(rencana, { json = path.join(rencana.root, "handoff", "register-tugas.json"), md } = {}) {
+/** Penghitung metrik bawaan (dengan biaya); audit izin dibaca dari root yang dibersihkan. */
+const hitungBawaan = (root) => (id) => hitungMetrik(id, { biaya: true, dirAudit: process.env.RUDISONE_AUDIT || path.join(root, "handoff", "audit") });
+
+/**
+ * Eksekusi: simpan ringkasan metrik, hapus folder handoff, catat audit, lalu buang entri register (sekali tulis, divalidasi
+ * ulang di dalam kunci). Metrik ditulis SEBELUM folder dihapus; galat penghitung tidak menghentikan pembersihan (baris
+ * tetap ditulis dengan `galat`), tetapi galat MENULIS baris metrik menggagalkan tugas itu (folder dibiarkan).
+ * `hitungMetrik(id)` dan `berkasMetrik` bisa disuntik untuk uji.
+ */
+export function eksekusi(rencana, { json = path.join(rencana.root, "handoff", "register-tugas.json"), md,
+  hitungMetrik: hitung = hitungBawaan(rencana.root), berkasMetrik: berkasM = berkasMetrik(rencana.root) } = {}) {
   const { root, kini } = rencana;
   const gitPer = new Map();
   for (const e of [...(rencana.git?.usulan ?? []), ...(rencana.git?.ditahan ?? [])]) {
@@ -245,10 +258,13 @@ export function eksekusi(rencana, { json = path.join(rencana.root, "handoff", "r
     gitPer.get(e.id).push({ nama: e.cabang, merge: e.merge ?? null, status: e.alasan ? `ditahan: ${e.alasan}` : "diusulkan" });
   }
   const selesai = [], gagal = [];
+  let metrik = 0;
   for (const r of rencana.tugas) {
     const h = r.handoff;
     if (h.ada && !h.aman) { gagal.push({ id: r.id, alasan: `folder handoff tidak aman dihapus (${h.alasan})` }); continue; }
     try {
+      simpanRingkas(ringkasTugas(r.id, { ...r.info, sumber: "bersih-riwayat", dicatat: kini }, { hitung }), { berkas: berkasM });
+      metrik++;
       if (h.ada) fs.rmSync(h.path, { recursive: true, force: true });
       fs.mkdirSync(path.dirname(BERKAS_AUDIT(root)), { recursive: true });
       fs.appendFileSync(BERKAS_AUDIT(root), `${JSON.stringify({ tanggal: kini.toISOString(), id: r.id, judul: r.judul, status: r.status,
@@ -262,7 +278,7 @@ export function eksekusi(rencana, { json = path.join(rencana.root, "handoff", "r
       reg.tugas = reg.tugas.filter((t) => !(selesai.includes(t.id) && boleh.has(t.id)));
     }, { json, ...(md ? { md } : { md: path.join(path.dirname(json), "register-tugas.md") }), bolehBaru: false });
   }
-  return { selesai, gagal };
+  return { selesai, gagal, metrik };
 }
 
 const MB = (b) => (b / 1048576).toFixed(1);
@@ -273,6 +289,7 @@ export function ringkas(rencana, hasil, { jalankan }) {
   const bagian = [];
   if (!n) bagian.push("tidak ada tugas selesai/dibatalkan > 24 jam untuk dibuang");
   else bagian.push(`${jalankan ? `dibuang ${hasil.selesai.length}/${n}` : `akan dibuang ${n}`} tugas (register + handoff, ${MB(byte)} MB)`);
+  if (hasil?.metrik) bagian.push(`metrik disimpan ${hasil.metrik}`);
   if (g?.usulan.length) bagian.push(`usulan git menunggu persetujuan: ${g.usulan.filter((e) => e.worktree).length} worktree + ${g.usulan.length} branch ter-merge (bin/bersih-riwayat.sh --usulan-git)`);
   if (g?.ditahan.length) bagian.push(`${g.ditahan.length} branch ditahan (belum ter-merge/kotor/dipakai)`);
   if (rencana.yatimHandoff.length) bagian.push(`${rencana.yatimHandoff.length} folder handoff tanpa entri register (tidak disentuh)`);
@@ -290,7 +307,7 @@ export function main(argv, env = process.env) {
     else if (a === "--rinci") opsi.rinci = true;
     else if (a === "--json") opsi.json = true;
     else if (a === "--base" && argv[i + 1]) opsi.base = argv[++i];
-    else { console.error(fs.readFileSync(INI, "utf8").split("\n").slice(17, 22).map((l) => l.replace(/^\/\/ ?/, "")).join("\n")); return 3; }
+    else { console.error(fs.readFileSync(INI, "utf8").split("\n").filter((l) => /^\/\/ {3}(bin\/|opsi:)/.test(l)).map((l) => l.replace(/^\/\/ ?/, "")).join("\n")); return 3; }
   }
   if (opsi.jalankan && opsi.usulanGit) { console.error("bersih-riwayat: --jalankan dan --usulan-git tidak digabung"); return 3; }
   const root = env.RUDISONE_ROOT ? path.resolve(env.RUDISONE_ROOT) : ROOT_BAWAAN;
@@ -308,7 +325,7 @@ export function main(argv, env = process.env) {
     const hasil = opsi.jalankan ? eksekusi(rencana, { json, md }) : { selesai: [], gagal: [] };
     if (opsi.json) {
       console.log(JSON.stringify({ jalankan: opsi.jalankan, tugas: rencana.tugas.map((r) => ({ id: r.id, judul: r.judul, status: r.status, selesai_pada: r.selesai_pada, byte: r.handoff.byte ?? 0 })),
-        dibuang: hasil.selesai, gagal: hasil.gagal, git: g && { base: g.base, usulan: g.usulan, ditahan: g.ditahan }, yatimHandoff: rencana.yatimHandoff, tahan: rencana.tahan }, null, 2));
+        dibuang: hasil.selesai, gagal: hasil.gagal, metrik_disimpan: hasil.metrik ?? 0, git: g && { base: g.base, usulan: g.usulan, ditahan: g.ditahan }, yatimHandoff: rencana.yatimHandoff, tahan: rencana.tahan }, null, 2));
     } else {
       console.log(ringkas(rencana, hasil, opsi));
       if (opsi.rinci) {
