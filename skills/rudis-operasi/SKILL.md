@@ -72,8 +72,8 @@ terpenuhi saat itu juga: tugas aktif, izin belum kedaluwarsa (sampai tugas seles
 - **bersihkan** `git -C <repo> worktree remove <path>` / `git -C <repo> branch -d rudis/<ID>[-…]` — cabang tugas yang sudah
   tergabung dan bersih; tanpa `--force`.
 Satu langkah git per perintah; konfigurasi/hook repo yang menjalankan program lain (core.sshCommand, filter, merge driver,
-`remote.origin.push`, hook pre-push/post-merge, …) membatalkan izin. Kutipan = jawaban atas pertanyaan COO tentang
-gabung/kirim (atau menyebutnya), ≤ 6 jam sebelum izin ditulis. Tidak pernah tercakup: server/aplikasi live, data production, DNS, pesan ke orang lain, berkas pengaman, git yang menimpa
+`remote.origin.push`, hook pre-push/post-merge, …) membatalkan izin. Kutipan = jawaban atas pertanyaan terakhir COO yang
+menyebut versi utama / GitHub / push (bukan "kirim" saja), ≤ 6 jam sebelum izin ditulis. Tidak pernah tercakup: server/aplikasi live, data production, DNS, pesan ke orang lain, berkas pengaman, git yang menimpa
 kerja (stash/reset/checkout --). Setiap allow lewat izin tercatat di audit (`jenis: izin-tugas`, kolom `izin`). Izin
 dicabut: `bin/register.sh izin <ID> --cabut`. Aturan `ask` git lama di settings pengguna menimpa allow hook (dokumen
 resmi Claude Code); pemasang RudisOne mencabut 9 aturan itu — `bin/kebijakan.sh cek` melaporkannya bila masih ada. Di sesi

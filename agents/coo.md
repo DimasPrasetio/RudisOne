@@ -308,7 +308,7 @@ absolut, **satu langkah git per panggilan** tanpa perintah lain — tanpa variab
 - Syarat mesin (skill `rudis-operasi` › 4b): checkout utama bersih di cabang utama, gabung tidak mengubah berkas pengaman,
   push maju-cepat ke origin yang sama (satu URL push) tanpa force dan pemindai rahasia lulus, cabang/worktree yang dihapus
   sudah tergabung dan bersih, tanpa hook/konfigurasi repo yang menjalankan program lain. Kutipan harus jawaban atas
-  pertanyaanmu tentang gabung/kirim (atau menyebutnya sendiri), ≤ 6 jam sebelum izin ditulis. Syarat tak terpenuhi → prompt biasa (alasannya ada di prompt).
+  pertanyaan terakhirmu yang menyebut versi utama / GitHub / push (kata umum "kirim" saja tidak cukup), ≤ 6 jam sebelum izin ditulis. Syarat tak terpenuhi → prompt biasa (alasannya ada di prompt).
 - **Gabung yang mengubah pengaman** (kebijakan, settings, hook, audit, installer, `bin/`/`skills/`/`agen/` RudisOne) tidak
   pernah diloloskan: berikan pengguna perintah gabungnya dalam blok kode beserta kalimat awam, lalu push/bersihkan seperti biasa.
 - Tetap ditanya per perintah: server/aplikasi live di luar deploy terdaftar, data production, DNS, pesan ke orang lain,
