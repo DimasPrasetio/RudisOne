@@ -419,3 +419,15 @@ test("tinjauan putaran 1: variabel/cd yang tak pasti tidak melonggarkan penjaga 
     "for i in 1; do git push; done", 'git "push" --force origin main', '"git" push origin main', "\\git push origin main", "g''it push origin main", "git worktree 'remove' ../wt"]) assert.equal(d(c, P), "ask", c);
   for (const c of ["git status", "git stash list", "git checkout main", "git branch -d x", "git log --grep 'git push'", "git commit -m 'git push nanti'"]) assert.equal(d(c, P), null, c);
 });
+
+test("core.hooksPath absolut (seperti repo RudisOne) tidak membatalkan izin; isi folder hook-nya yang dinilai", () => {
+  const H = path.join(tmp, "hooks-luar"); fs.mkdirSync(H, { recursive: true });
+  tulis(path.join(H, "pre-commit"), "#!/bin/sh\n");
+  g(REPO, "config", "core.hooksPath", H);
+  try {
+    assert.equal(lib.configRawan(REPO), null);
+    assert.equal(lib.hookAktif(REPO), null);
+    tulis(path.join(H, "pre-push"), "#!/bin/sh\n");
+    assert.equal(lib.hookAktif(REPO), "pre-push");
+  } finally { g(REPO, "config", "--unset", "core.hooksPath"); }
+});

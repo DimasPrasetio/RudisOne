@@ -160,8 +160,8 @@ export const urlPushOrigin = (dir) => { const r = git(dir, ["remote", "get-url",
  *  url.*.insteadOf → null. */
 const shaOrigin = (dir, url, cb) => { const g = git(dir, ["ls-remote", "--get-url", url]); if (!g.ok || g.out.trim() !== url) return null; const r = git(dir, ["ls-remote", "--heads", url, `refs/heads/${cb}`], { timeout: 15000 }); const m = r.ok ? r.out.match(/^([0-9a-f]{40,64})\s+refs\/heads\//m) : null; return m ? m[1] : null; };
 /** Konfigurasi repo (lokal/worktree) yang membuat git menjalankan program lain atau mengubah tujuan/arti push & gabung —
- *  izin tidak berlaku selama ada (padanan persisten `git -c …`). core.hooksPath hanya boleh path relatif di dalam repo
- *  (hook-nya diperiksa terpisah). */
+ *  izin tidak berlaku selama ada (padanan persisten `git -c …`). core.hooksPath tidak dinilai di sini: isi folder hook
+ *  efektifnya diperiksa hookAktif. */
 const CONFIG_RAWAN = /^(include\.|includeif\.|core\.(sshcommand|fsmonitor|gitproxy|askpass|editor|pager|alternaterefscommand)$|filter\.|merge\.[^.]+\.driver$|diff\.[^.]+\.(command|textconv)$|remote\.origin\.(push|mirror|receivepack|uploadpack|proxy|vcs|pushurl)$|push\.|gpg\.|credential\.|url\.|submodule\.|uploadpack\.|protocol\.)/;
 /** Lingkup global/system/command (`~/.gitconfig` bukan berkas terlindung): kunci yang mengubah tujuan/arti push (remote.origin.*
  *  selain url/fetch, push.* selain default/autoSetupRemote/followTags) atau menjalankan program pada transport. Kunci umum
@@ -176,7 +176,8 @@ export function configRawan(dir) {
     if (!m) continue;
     const k = m[2].toLowerCase();
     if (m[1] !== "local" && m[1] !== "worktree") { if (CONFIG_RAWAN_LUAR.test(k)) return `konfigurasi git ${m[1]} ${k} (mengubah tujuan push atau menjalankan program)`; continue; }
-    if (k === "core.hookspath") { if (path.isAbsolute(m[3]) || m[3].startsWith("~") || m[3].split(/[\\/]/).includes("..")) return `core.hooksPath di luar repo (${m[3]})`; continue; }
+    // core.hooksPath di mana pun boleh: isi folder hook efektifnya diperiksa hookAktif (daftar putih)
+    if (k === "core.hookspath") continue;
     if (CONFIG_RAWAN.test(k)) return `konfigurasi repo ${k} (dapat menjalankan program lain atau mengubah tujuan)`;
   }
   return null;
