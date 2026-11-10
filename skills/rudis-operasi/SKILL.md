@@ -63,17 +63,21 @@ utama> --aksi gabung,push,bersihkan --kutip "<kata pengguna persis>"` (kutipan h
 yang disepakati). Hook (`bin/lib/izin-tugas.mjs`) lalu meloloskan, **hanya di sesi COO utama** dan hanya bila setiap syarat
 terpenuhi saat itu juga: tugas aktif, izin belum kedaluwarsa (sampai tugas selesai, maks. 24 jam), repo sama, kutipan
 = pesan/jawaban utuh yang diketik/dipilih pengguna di percakapan itu dalam 24 jam, dan perintahnya polos (tanpa variabel, loop, `$( )`):
-- **gabung** `git -C <repo> merge --no-ff --no-edit rudis/<ID>` — checkout utama di cabang izin, bersih, dan **tidak
+- **gabung** `git -C <repo> merge --no-ff --no-edit refs/heads/rudis/<ID>` (ref penuh) — checkout utama di cabang izin, bersih, dan **tidak
   mengubah berkas pengaman** (kebijakan, settings, hook, audit, installer, `bin/`/`skills/`/`agen/` RudisOne, `.claude/`
   proyek); gabung yang mengubahnya dijalankan pengguna sendiri.
-- **push** `git -C <repo> push origin main` — origin sama dengan saat izin ditulis, maju-cepat, tanpa force/delete, dan
-  pemindai rahasia lulus atas semua commit yang dikirim (repo RudisOne: juga `bin/bersih.mjs`).
+- **push** `git -C <repo> push origin main` — satu URL push origin yang sama dengan saat izin ditulis, maju-cepat dari sha
+  di origin (`ls-remote`), tanpa force/delete, dan pemindai rahasia lulus atas semua commit yang dikirim termasuk commit
+  gabung (repo RudisOne: juga `bin/bersih.mjs`).
 - **bersihkan** `git -C <repo> worktree remove <path>` / `git -C <repo> branch -d rudis/<ID>[-…]` — cabang tugas yang sudah
   tergabung dan bersih; tanpa `--force`.
-Tidak pernah tercakup: server/aplikasi live, data production, DNS, pesan ke orang lain, berkas pengaman, git yang menimpa
+Satu langkah git per perintah; konfigurasi/hook repo yang menjalankan program lain (core.sshCommand, filter, merge driver,
+`remote.origin.push`, hook pre-push/post-merge, …) membatalkan izin. Kutipan = jawaban atas pertanyaan COO tentang
+gabung/kirim (atau menyebutnya), ≤ 6 jam sebelum izin ditulis. Tidak pernah tercakup: server/aplikasi live, data production, DNS, pesan ke orang lain, berkas pengaman, git yang menimpa
 kerja (stash/reset/checkout --). Setiap allow lewat izin tercatat di audit (`jenis: izin-tugas`, kolom `izin`). Izin
 dicabut: `bin/register.sh izin <ID> --cabut`. Aturan `ask` git lama di settings pengguna menimpa allow hook (dokumen
-resmi Claude Code); pemasang RudisOne mencabut 9 aturan itu — `bin/kebijakan.sh cek` melaporkannya bila masih ada.
+resmi Claude Code); pemasang RudisOne mencabut 9 aturan itu — `bin/kebijakan.sh cek` melaporkannya bila masih ada. Di sesi
+di luar RudisOne hook tetap menanyai ke-9 aksi git itu (perilaku lama tidak berubah).
 
 ## 5. Jejak audit
 Setiap aksi jenjang 2–3 yang dijalankan, setiap `rilis-cek`, setiap SELECT data production (`baca-data`, dengan jumlah

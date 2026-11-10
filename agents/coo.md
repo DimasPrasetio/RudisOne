@@ -301,13 +301,14 @@ bukan agent lain, dan hanya dari kata pengguna:
 `bin/register.sh izin <ID> --repo <checkout utama> --aksi gabung,push,bersihkan --kutip "<kata pengguna persis>"` (aksi
 sesuai yang disepakati; kutipan = pesan atau jawaban pengguna UTUH; kutipan harus ada di `handoff/<ID>/pemahaman.md` › Kesepakatan; berlaku sampai tugas selesai, maks.
 24 jam). Hook lalu meloloskan tanpa prompt, **di percakapan COO tempat pengguna menyetujuinya**, perintah polos ini (path
-absolut, satu perintah per panggilan — tanpa variabel `$R`, loop coba-ulang, `$( )`, atau `;` sesudah `cd`):
-- gabung `git -C <repo> merge --no-ff --no-edit rudis/<ID>` → push `git -C <repo> push origin main` → bersihkan
+absolut, **satu langkah git per panggilan** tanpa perintah lain — tanpa variabel `$R`, loop coba-ulang, `$( )`, atau `;` sesudah `cd`):
+- gabung `git -C <repo> merge --no-ff --no-edit refs/heads/rudis/<ID>` (ref penuh) → push `git -C <repo> push origin main` → bersihkan
   `git -C <repo> worktree remove <worktree>` dan `git -C <repo> branch -d rudis/<ID>` → baru `register.sh ubah <ID> --status selesai`
   (izin berhenti berlaku saat tugas selesai).
 - Syarat mesin (skill `rudis-operasi` › 4b): checkout utama bersih di cabang utama, gabung tidak mengubah berkas pengaman,
-  push maju-cepat ke origin yang sama tanpa force dan pemindai rahasia lulus, cabang/worktree yang dihapus sudah tergabung
-  dan bersih. Syarat tak terpenuhi → prompt biasa (alasannya ada di prompt).
+  push maju-cepat ke origin yang sama (satu URL push) tanpa force dan pemindai rahasia lulus, cabang/worktree yang dihapus
+  sudah tergabung dan bersih, tanpa hook/konfigurasi repo yang menjalankan program lain. Kutipan harus jawaban atas
+  pertanyaanmu tentang gabung/kirim (atau menyebutnya sendiri), ≤ 6 jam sebelum izin ditulis. Syarat tak terpenuhi → prompt biasa (alasannya ada di prompt).
 - **Gabung yang mengubah pengaman** (kebijakan, settings, hook, audit, installer, `bin/`/`skills/`/`agen/` RudisOne) tidak
   pernah diloloskan: berikan pengguna perintah gabungnya dalam blok kode beserta kalimat awam, lalu push/bersihkan seperti biasa.
 - Tetap ditanya per perintah: server/aplikasi live di luar deploy terdaftar, data production, DNS, pesan ke orang lain,
@@ -320,7 +321,8 @@ absolut, satu perintah per panggilan — tanpa variabel `$R`, loop coba-ulang, `
 > Supaya pekerjaan yang sudah Anda setujui bisa berjalan tanpa jendela izin, pengaturan izin di komputer ini perlu
 > diperbarui sekali. Jalankan pemasang RudisOne di terminal (perintah di bawah). Yang berubah: 9 aturan lama yang selalu
 > bertanya sebelum mengirim ke GitHub atau menghapus salinan kerja dihapus, karena keputusannya kini diambil pengaman
-> RudisOne; larangan keras (sandi, rahasia, berkas pengaturan rahasia) tetap utuh, dan cadangan pengaturan dibuat otomatis.
+> RudisOne. Di proyek pribadi di luar RudisOne, pertanyaan yang sama tetap muncul seperti sebelumnya. Larangan keras
+> (sandi, rahasia, berkas pengaturan rahasia) tetap utuh, dan cadangan pengaturan dibuat otomatis.
 > Bisa dibatalkan dengan memulihkan cadangan itu. (rincian: install.sh mencabut aturan ask git di ~/.claude/settings.json)
 <!-- /ke-pengguna -->
 

@@ -49,7 +49,7 @@ tulis(path.join(WT3, ".claude", "settings.json"), "{}\n"); g(WT3, "add", "-A"); 
 // ---------- register + transkrip COO ----------
 const JAM = 3600e3, kini = Date.now();
 const izinEntri = (o = {}) => ({ repo: REPO, cabang: "main", origin: BARE, aksi: ["gabung", "push", "bersihkan"], kutip: "Ya, gabung & kirim",
-  dibuat: new Date(kini - JAM).toISOString(), sampai: new Date(kini + 23 * JAM).toISOString(), ...o });
+  dibuat: new Date(kini - 5 * 60e3).toISOString(), sampai: new Date(kini + 23 * JAM).toISOString(), ...o });
 const tugas = (id, o = {}) => ({ id, judul: "x", folder: REPO, divisi: "Engineering", pemilik: "Tech Lead", prioritas: "normal", status: "berjalan",
   kunci: [], bergantung: [], fase: "—", perkakas: "—", dibuat: new Date(kini).toISOString(), diperbarui: new Date(kini).toISOString(), ...o });
 const tulisRegister = (ts) => fs.writeFileSync(REGISTER, JSON.stringify({ versi: 1, diperbarui: new Date().toISOString(), tugas: ts }));
@@ -65,20 +65,21 @@ function transkrip(...isi) {
   return f;
 }
 const ketik = (teks, waktu = kini - 10 * 60e3) => baris({ type: "user", cwd: ROOT, timestamp: new Date(waktu).toISOString(), origin: { kind: "human" }, message: { role: "user", content: teks } });
-const TR_OK = transkrip(ketik("Ya, gabung & kirim"));
+const tanyaCOO = (teks, waktu = kini - 11 * 60e3) => baris({ type: "assistant", timestamp: new Date(waktu).toISOString(), message: { content: [{ type: "text", text: teks }] } });
+const TR_OK = transkrip(tanyaCOO("Gabung ke versi utama, kirim ke GitHub, lalu bersihkan salinan kerja?"), ketik("Ya, gabung & kirim"));
 const coo = (command, o = {}) => m.putuskan({ session_id: `s-${nTr}`, transcript_path: TR_OK, cwd: REPO, tool_name: "Bash", tool_input: { command }, hook_event_name: "PreToolUse", ...o }, K);
 const kep = (command, o) => coo(command, o).keputusan ?? null;
 
 test("calonGit: hanya bentuk baku yang menjadi calon izin", () => {
   const c = (s) => lib.calonGit(s.split(" ").filter(Boolean), "/r");
-  assert.equal(c(`merge --no-ff --no-edit rudis/${ID}`).jenis, "gabung");
+  assert.equal(c(`merge --no-ff --no-edit refs/heads/rudis/${ID}`).jenis, "gabung");
   assert.equal(c(`merge -m pesan refs/heads/rudis/${ID}`).id, ID);
   assert.equal(c("push origin main").jenis, "push");
   assert.equal(c("push origin"), null, "refspec wajib eksplisit");
   assert.equal(c("-C /x push -u origin main").dir, "/x");
   assert.equal(c("worktree remove /x/wt").jenis, "bersihkan");
   assert.deepEqual(c(`branch -D rudis/${ID} rudis/${ID}-se1`).ids, [ID, ID]);
-  for (const s of [`merge rudis/${ID}-se1`, `merge -s ours rudis/${ID}`, `merge rudis/${ID} rudis/${ID2}`, "merge main", "push --force origin main",
+  for (const s of [`merge rudis/${ID}`, `merge refs/heads/rudis/${ID}-se1`, `merge rudis/${ID}-se1`, `merge -s ours rudis/${ID}`, `merge rudis/${ID} rudis/${ID2}`, "merge main", "push --force origin main",
     "push -f origin main", "push --force-with-lease origin main", "push --mirror origin", "push --delete origin x", "push -d origin x",
     "push upstream main", "push", "push --all origin", "push --tags origin", "push --receive-pack=x origin main", "push --repo=x origin main",
     "worktree remove --force /x", "worktree remove -f /x", "worktree prune", "branch -D main", "branch -D feature/x", "branch rudis/x",
@@ -88,7 +89,7 @@ test("calonGit: hanya bentuk baku yang menjadi calon izin", () => {
 });
 
 test("gabung: tercakup izin → allow di sesi COO; selain itu tidak pernah allow", () => {
-  const M = `git merge --no-ff --no-edit rudis/${ID}`;
+  const M = `git merge --no-ff --no-edit refs/heads/rudis/${ID}`;
   const p = coo(M);
   assert.equal(p.keputusan, "allow", p.alasan);
   assert.deepEqual(p.izin, [ID]);
@@ -97,7 +98,19 @@ test("gabung: tercakup izin → allow di sesi COO; selain itu tidak pernah allow
   assert.notEqual(kep(`git merge --no-ff rudis/${ID2}`), "allow");
   assert.notEqual(kep(`git merge --no-ff rudis/${ID}-se1`), "allow");
   assert.notEqual(kep(`git merge --no-ff rudis/${ID3}`), "allow");
-  assert.match(lib.periksaIzin(lib.calonGit(["merge", `rudis/${ID3}`], REPO), { reg: JSON.parse(fs.readFileSync(REGISTER, "utf8")), transkrip: TR_OK, pengaman: (r) => (/\.claude\//.test(r) ? r : null) }).alasan, /berkas pengaman/);
+  assert.notEqual(kep(`git merge --no-ff refs/heads/rudis/${ID3}`), "allow");
+  assert.match(lib.periksaIzin(lib.calonGit(["merge", `refs/heads/rudis/${ID3}`], REPO), { reg: JSON.parse(fs.readFileSync(REGISTER, "utf8")), transkrip: TR_OK, pengaman: (r) => (/\.claude\//.test(r) ? r : null) }).alasan, /berkas pengaman/);
+  // nama pendek ambigu: tag rudis/<ID> menunjuk isi lain — hanya ref penuh refs/heads/… yang tercakup
+  g(REPO, "tag", `rudis/${ID}`, `rudis/${ID3}`);
+  assert.notEqual(kep(`git merge --no-ff --no-edit rudis/${ID}`), "allow");
+  assert.equal(kep(M), "allow", "ref penuh tetap tepat");
+  g(REPO, "tag", "-d", `rudis/${ID}`);
+  // gabung + push dalam satu perintah: tidak ada yang tercakup (push dinilai atas keadaan sebelum gabung)
+  assert.equal(kep(`${M} && git push origin main`), "ask");
+  // hook repo yang akan berjalan saat gabung
+  tulis(path.join(REPO, ".git", "hooks", "post-merge"), "#!/bin/sh\n"); fs.chmodSync(path.join(REPO, ".git", "hooks", "post-merge"), 0o755);
+  assert.match(coo(M).alasan ?? "", /./); assert.notEqual(kep(M), "allow");
+  fs.rmSync(path.join(REPO, ".git", "hooks", "post-merge"));
   // pohon kerja kotor
   tulis(path.join(REPO, "a.txt"), "ubah\n");
   assert.notEqual(kep(M), "allow");
@@ -110,7 +123,7 @@ test("gabung: tercakup izin → allow di sesi COO; selain itu tidak pernah allow
   // perintah dengan variabel / eval / bash -c tidak pernah tercakup
   for (const c of [`R=${REPO}; git -C $R merge rudis/${ID}`, `eval "git merge rudis/${ID}"`, `bash -c "git merge rudis/${ID}"`, `git merge $(echo rudis/${ID})`])
     assert.notEqual(kep(c), "allow", c);
-  g(REPO, "merge", "-q", "--no-ff", "--no-edit", `rudis/${ID}`);
+  g(REPO, "merge", "-q", "--no-ff", "--no-edit", `refs/heads/rudis/${ID}`);
 });
 
 test("push: allow hanya ke origin terkonfigurasi, maju-cepat, tanpa force, setelah pemindai rahasia lulus", () => {
@@ -130,6 +143,31 @@ test("push: allow hanya ke origin terkonfigurasi, maju-cepat, tanpa force, setel
   assert.match(coo("git push origin main").alasan, /URL push origin berbeda/);
   g(REPO, "remote", "set-url", "--delete", "--push", "origin", path.join(tmp, "lain.git"));
   assert.equal(kep("git push origin main"), "allow");
+  // pushurl kedua (push ke dua repo), remote.origin.push yang memetakan ke cabang lain dengan force, hook pre-push
+  g(REPO, "config", "--add", "remote.origin.pushurl", BARE); g(REPO, "config", "--add", "remote.origin.pushurl", path.join(tmp, "lain.git"));
+  assert.notEqual(kep("git push origin main"), "allow");
+  g(REPO, "config", "--unset-all", "remote.origin.pushurl");
+  g(REPO, "config", "remote.origin.push", "+refs/heads/main:refs/heads/lain");
+  assert.notEqual(kep("git push origin main"), "allow");
+  g(REPO, "config", "--unset-all", "remote.origin.push");
+  for (const [k, v] of [["core.sshCommand", "x"], ["remote.origin.receivepack", "x"], ["include.path", "/tmp/x"], ["push.recurseSubmodules", "on-demand"]]) {
+    g(REPO, "config", k, v); assert.notEqual(kep("git push origin main"), "allow", k); g(REPO, "config", "--unset-all", k);
+  }
+  tulis(path.join(REPO, ".git", "hooks", "pre-push"), "#!/bin/sh\n"); fs.chmodSync(path.join(REPO, ".git", "hooks", "pre-push"), 0o755);
+  assert.match(coo("git push origin main").alasan, /hook pre-push/);
+  fs.rmSync(path.join(REPO, ".git", "hooks", "pre-push"));
+  assert.equal(kep("git push origin main"), "allow");
+  // ref pelacak lokal digeser (update-ref) tidak mengecilkan rentang pindai: dasar = ls-remote
+  tulis(path.join(REPO, "k2.txt"), `k = "AKIA${"QRSTUVWXYZABCDEF"}"\n`); g(REPO, "add", "-A"); g(REPO, "commit", "-qm", "rahasia 2");
+  g(REPO, "update-ref", "refs/remotes/origin/main", "main");
+  assert.match(coo("git push origin main").alasan, /pemindai rahasia: kunci AWS di k2\.txt/);
+  g(REPO, "reset", "-q", "--hard", "HEAD~1"); g(REPO, "fetch", "-q", "origin");
+  // rahasia yang hanya ada di resolusi commit gabung
+  g(REPO, "checkout", "-q", "-b", "sisi"); tulis(path.join(REPO, "z.txt"), "z\n"); g(REPO, "add", "-A"); g(REPO, "commit", "-qm", "sisi");
+  g(REPO, "checkout", "-q", "main"); g(REPO, "merge", "-q", "--no-ff", "--no-commit", "sisi");
+  tulis(path.join(REPO, "s.txt"), `k = "AKIA${"GHIJKLMNOPQRSTUV"}"\n`); g(REPO, "add", "-A"); g(REPO, "commit", "-qm", "gabung sisi");
+  assert.match(coo("git push origin main").alasan, /pemindai rahasia: kunci AWS di s\.txt/);
+  g(REPO, "reset", "-q", "--hard", "HEAD~1"); g(REPO, "branch", "-q", "-D", "sisi");
   // rahasia di commit yang akan dikirim
   tulis(path.join(REPO, "k.txt"), `kunci = "AKIA${"ABCDEFGHIJKLMNOP"}"\n`); g(REPO, "add", "-A"); g(REPO, "commit", "-qm", "rahasia");
   const p = coo("git push origin main");
@@ -153,6 +191,13 @@ test("izin: kedaluwarsa, tugas selesai, repo lain, dan bukti ketikan pengguna", 
   tulisRegister([tugas(ID, { izin: [izinEntri({ aksi: ["gabung"] })] })]);
   assert.notEqual(kep(P), "allow", "aksi tidak diizinkan");
   registerBaku();
+  // bukti terikat konteks: jawaban umum ("Ya, lanjut") atas pertanyaan lain bukan izin; atas pertanyaan gabung/kirim sah
+  tulisRegister([tugas(ID, { izin: [izinEntri({ kutip: "Ya, lanjut" })] })]);
+  assert.notEqual(kep(P, { transcript_path: transkrip(tanyaCOO("Lanjut uji tampilan di HP?"), ketik("Ya, lanjut")) }), "allow");
+  assert.equal(kep(P, { transcript_path: transkrip(tanyaCOO("Hasil siap. Kirim ke GitHub sekarang?"), ketik("Ya, lanjut")) }), "allow");
+  // bukti terikat waktu izin ditulis: ketikan 7 jam sebelum izin dibuat tidak dihitung
+  assert.notEqual(kep(P, { transcript_path: transkrip(tanyaCOO("Kirim ke GitHub?", kini - 8 * JAM), ketik("Ya, lanjut", kini - 7 * JAM)) }), "allow");
+  registerBaku();
   // bukti: tanpa kutipan, kutipan > 24 jam, kutipan hanya di hasil alat lain / pesan lintas sesi → bukan allow
   const tanpa = transkrip(ketik("lanjutkan"));
   const lama = transkrip(ketik("Ya, gabung & kirim", kini - 30 * JAM));
@@ -165,7 +210,7 @@ test("izin: kedaluwarsa, tugas selesai, repo lain, dan bukti ketikan pengguna", 
   for (const [nama, f] of Object.entries({ tanpa, lama, palsuAlat, lintas, meta, bagian })) {
     const p = coo(P, { transcript_path: f });
     assert.notEqual(p.keputusan, "allow", nama);
-    assert.match(p.alasan, /tidak ditemukan sebagai ketikan pengguna/, nama);
+    assert.match(p.alasan, /tidak ditemukan sebagai pesan\/jawaban utuh pengguna/, nama);
   }
   // jawaban AskUserQuestion (dipilih pengguna) sah
   const tanya = transkrip(
@@ -340,4 +385,19 @@ test("git push / git perusak tersembunyi (loop, $( ), bash -c, xargs) tetap dita
     "git status && git stash pop", "x=`git push origin main`"]) assert.equal(d(c), "ask", c);
   for (const c of ["git stash list | head", "x=$(git stash list)", "git log --grep 'git push'", 'git commit -m "git push origin"', "cat <<EOF > f\ngit push\nEOF",
     'echo "Hook menolak \\`git checkout -- <berkas>\\` dan push" >> /tmp/catatan.md']) assert.equal(d(c), null, c);
+});
+
+test("tinjauan putaran 1: variabel/cd yang tak pasti tidak melonggarkan penjaga berkas; sed w; sesi di luar RudisOne", () => {
+  const d = (command, cwd = ROOT) => m.putuskan({ session_id: "r1", cwd, tool_name: "Bash", tool_input: { command }, hook_event_name: "PreToolUse" }, K).keputusan ?? null;
+  for (const c of ["echo x >> $HOME$T/.zshrc; T=/tmp/aman", "false && T=/tmp/aman; echo x >> $HOME$T/.zshrc", "T=/tmp/aman | true; echo x >> $HOME$T/.zshrc",
+    'T="/tmp/a $HOME"; echo x | tee $T/.zshrc', "cd ~/.claude || cd /tmp; echo '{}' > settings.json", "cd ~/.claude; cd /tidak-ada; echo '{}' > settings.json",
+    "cd ~ && cd /tidak-ada; echo x >> .zshrc", `echo x >> ~${os.userInfo().username}/.zshrc`, "cd ~ && echo x >> ~+/.zshrc", "builtin cd ~/.claude && echo '{}' > settings.json",
+    `sed -i 's/a/b/w ${os.homedir()}/.zshrc' /tmp/x.txt`]) assert.equal(d(c, "/tmp"), "ask", c);
+  for (const c of ["if git push --force origin main; then :; fi", "while git stash drop; do :; done", "until git reset --hard HEAD~3; do :; done",
+    "if true; then :; elif git push --force origin main; then :; fi", "case x in x) git push --force origin main;; esac", "GIT push --force origin main"]) assert.equal(d(c), "ask", c);
+  // sesi pribadi: 9 aksi git yang dulu dijaga aturan ask settings tetap ditanya; git lain tidak disentuh
+  const P = path.join(tmp, "pribadi");
+  for (const c of ["git push origin main", "git stash", "git stash pop", "git restore a", "git checkout -- a", "git checkout HEAD -- a", "git branch -D x", "git worktree remove x",
+    "for i in 1; do git push; done"]) assert.equal(d(c, P), "ask", c);
+  for (const c of ["git status", "git stash list", "git checkout main", "git branch -d x", "git log --grep 'git push'", "git commit -m 'git push nanti'"]) assert.equal(d(c, P), null, c);
 });

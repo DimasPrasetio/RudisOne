@@ -2,7 +2,8 @@
 // Kebijakan akses & batas kewenangan RudisOne — hook PreToolUse/PostToolUse Claude Code + perintah pengelola.
 // Jenjang & akses jabatan hanya di sesi RudisOne (COO, divisi, tim engineering); sesi pribadi dilewati tanpa jejak,
 // KECUALI penulisan nyata ke berkas terlindung (kebijakan, konfigurasi, audit, settings, transkrip, rc shell) → ask di
-// sesi mana pun (membaca/menjalankan/menyebut tidak ditanya).
+// sesi mana pun (membaca/menjalankan/menyebut tidak ditanya), dan 9 aksi git yang dulu dijaga aturan ask settings (push,
+// stash, restore, checkout --, branch -D, worktree remove) → ask di sesi di luar RudisOne.
 // Jenjang 1 (baca) → allow · jenjang 2 (rutin, syarat terpenuhi) → allow · jenjang 3 / di luar akses jabatan → ask.
 // `allow` hanya bila SETIAP bagian perintah majemuk dikenali aman; sisanya ke alur izin biasa. Jabatan dari folder AWAL
 // sesi / pesan pertama, bukan folder sekarang. Galat apa pun → keluar 0 tanpa keputusan (gagal terbuka) — larangan
@@ -730,9 +731,12 @@ const SUB_CLAUDE = new Set(["agents", "attach", "auth", "auto-mode", "config", "
   "mcp", "migrate-installer", "plugin", "plugins", "project", "respawn", "rm", "setup-token", "stop", "ultrareview", "update", "upgrade"]);
 /** Lapis gagal-tertutup: teks perintah yang menyebut `claude` di posisi perintah dengan aksi sesi/bypass, tetapi bentuknya
  *  tidak dikenali pengurai (bash -c, sudo, xargs, kata kunci shell, $( ), opsi pembungkus bernilai, --bg=…) → jenjang 3. */
-const AWAL_SHELL = "(?:(?:^|[\\n;&|({`!]|\\$\\(|\\b(?:then|do|else)\\s|-c\\s*[\"'])\\s*"
+const AWAL_SHELL = "(?:(?:^|[\\n;&|({`!)]|\\$\\(|\\b(?:then|do|else|if|elif|while|until)\\s|-c\\s*[\"'])\\s*"
   + "|\\b(?:sudo|xargs|setsid|exec|env|nohup|g?timeout|stdbuf|nice|command|time|caffeinate)\\s(?:[^;&|\\n`)]*\\s)?)";
 const AWAL_CLAUDE = `${AWAL_SHELL}(?:[^\\s;&|()\`'"]*\\/)?claude(?:\\.exe)?\\s+`;
+/** Padanan 9 aturan ask git lama (ASK_GIT_DICABUT) untuk sesi di luar RudisOne, juga dalam bentuk tersembunyi. */
+const GIT_PRIBADI = new RegExp(`${AWAL_SHELL}(?:[^\\s;&|()\`'"]*\\/)?[Gg][Ii][Tt](?:\\s+(?:-C|-c|--git-dir|--work-tree)\\s+\\S+|\\s+--?[\\w-]+(?:=\\S*)?)*\\s+`
+  + "(?:push\\b|stash(?:\\s+(?:push|pop|apply)\\b|\\s*(?=$|[)`;&|\\n]))|restore\\b|branch\\s+(?:[^;&|\\n`)]*\\s)?-D\\b|worktree\\s+remove\\b|checkout\\s+(?:[^;&|\\n`)]*\\s)?--(?=\\s|$))");
 /** git push / git perusak (pola penyedia git di kebijakan) di posisi perintah mana pun — lapis gagal-tertutup analisisBash. */
 function gitMentahRe(K) {
   const g = K.penyedia?.git;
@@ -740,7 +744,7 @@ function gitMentahRe(K) {
   // pola kebijakan berjangkar ^ (dinilai per segmen); di teks utuh `$` akhir-segmen = akhir teks atau pemisah perintah
   const pola = (x) => String(x).replace(/^\^/, "").replaceAll("\\s*$", "\\s*(?=$|[)`;&|\\n])");
   try {
-    return new RegExp(`${AWAL_SHELL}(?:[^\\s;&|()\`'"]*\\/)?git(?:\\s+(?:-C|-c|--git-dir|--work-tree)\\s+\\S+|\\s+--?[\\w-]+(?:=\\S*)?)*\\s+(?:${pola(g.tulis_remote)}|${pola(g.lokal_perusak)})`, "g");
+    return new RegExp(`${AWAL_SHELL}(?:[^\\s;&|()\`'"]*\\/)?[Gg][Ii][Tt](?:\\s+(?:-C|-c|--git-dir|--work-tree)\\s+\\S+|\\s+--?[\\w-]+(?:=\\S*)?)*\\s+(?:${pola(g.tulis_remote)}|${pola(g.lokal_perusak)})`, "g");
   } catch { return null; }
 }
 const CLAUDE_SESI_MENTAH = new RegExp(`${AWAL_CLAUDE}(?:[^;&|\\n\`)]*\\s)?(?:--bg|--background|stop|kill|respawn|rm|attach)\\b`);
@@ -947,7 +951,7 @@ export function targetTulis(s, cwd) {
   } else if (SUNTING_DI_TEMPAT.test(prog) && args.some((x) => /^-[A-Za-z]*i/.test(x) || /^--in-place/.test(x))) {
     // skrip sunting (nilai -e/-f/--expression/--file; sed tanpa -e: argumen posisi pertama) bukan berkas yang ditulis;
     // BSD `sed -i ''` = akhiran cadangan kosong. Yang tersisa = berkas yang disunting di tempat.
-    const sed = /^g?sed$/.test(prog), berkas = [];
+    const sed = /^g?sed$/.test(prog), berkas = [], teksSkrip = [];
     let skrip = false, habis = false;
     for (let j = 0; j < args.length; j++) {
       const x = args[j];
@@ -955,10 +959,13 @@ export function targetTulis(s, cwd) {
       if (x === "--") { habis = true; continue; }
       if (sed && /^-[A-Za-z]*i$/.test(x) && args[j + 1] === "") { j++; continue; }
       const nilaiSkrip = sed ? /^-[A-Za-z]*[ef]$|^--(expression|file)$/ : /^-[A-Za-z]*[eE]$/;
-      if (nilaiSkrip.test(x)) { skrip = true; j++; continue; }
-      if (sed ? /^-[A-Za-z]*[ef].|^--(expression|file)=/.test(x) : /^-[A-Za-z]*[eE]./.test(x)) skrip = true;
+      if (nilaiSkrip.test(x)) { skrip = true; teksSkrip.push(args[j + 1] ?? ""); j++; continue; }
+      if (sed ? /^-[A-Za-z]*[ef].|^--(expression|file)=/.test(x) : /^-[A-Za-z]*[eE]./.test(x)) { skrip = true; teksSkrip.push(x); }
     }
+    if (sed && !skrip) teksSkrip.push(berkas[0] ?? "");
     for (const x of sed && !skrip ? berkas.slice(1) : berkas) out.push({ path: x, leluhur: false });
+    // sed menulis berkas lewat perintah w/W (`w berkas`, `s/a/b/w berkas`) — sisa baris skrip = nama berkas tujuan
+    if (sed) for (const t of teksSkrip) for (const m of t.matchAll(/(?:^|[;\n{}\/0-9$])\s*[gpIiMme0-9]*[wW]\s+([^\n]+)/g)) out.push({ path: m[1].trim(), leluhur: false });
   } else if (prog === "dd") {
     for (const x of args) if (x.startsWith("of=")) out.push({ path: x.slice(3), leluhur: false });
   } else if (prog === "tar" || prog === "unzip" || prog === "bsdtar") {
@@ -1622,27 +1629,38 @@ const PENGISI_NAMA = new RegExp(`${AWAL_PERINTAH}(?:for|select|read|export|decla
 export function variabelPasti(cmd, u = urai(cmd)) {
   const kode = teksKode(String(cmd));
   const v = new Map();
-  if (PENGISI_SEMUA.test(kode)) return /(^|[^\w$.-])HOME\+?=/.test(kode) ? new Map() : new Map([["HOME", HOME]]);
+  const hanyaHome = () => { const h = /(^|[^\w$.-])HOME\+?=/.test(kode) ? new Map() : new Map([["HOME", HOME]]); h.posisi = new Map(); h.akhir = new Map(); return h; };
+  if (PENGISI_SEMUA.test(kode)) return hanyaHome();
   const hitung = new Map();
   for (const m of kode.matchAll(/(?:^|[^\w$.-])([A-Za-z_]\w*)\+?=/g)) hitung.set(m[1], (hitung.get(m[1]) ?? 0) + 1);
   for (const m of kode.matchAll(/(?:^|[^\w$.-])([A-Za-z_]\w*)\+=/g)) hitung.set(m[1], 99);
   for (const m of kode.matchAll(PENGISI_NAMA)) for (const n of m[0].matchAll(/[A-Za-z_]\w*/g)) hitung.set(n[0], 99);
   // ${X:=…} / ${X=…} / ${X:?…} menugaskan atau bergantung pada X
   for (const m of String(cmd).matchAll(/\$\{(\w+):?[=?]/g)) hitung.set(m[1], 99);
+  // nama → indeks segmen penugasannya (berlaku hanya di segmen SESUDAHNYA) dan, untuk penugasan di badan loop (`do X=…`),
+  // indeks `done` penutupnya (berlaku hanya di dalam badan itu: loop yang tidak berjalan membiarkannya kosong)
+  v.posisi = new Map(); v.akhir = new Map();
   if (!hitung.has("HOME")) v.set("HOME", HOME);
-  for (const s of u.segmen) {
+  u.segmen.forEach((s, idx) => {
+    // hanya penugasan yang PASTI berjalan: segmen pertama atau sesudah ; / baris baru (bukan sesudah && || | &), dan bukan
+    // bagian pipa atau latar (subshell); di badan if/else tidak dihitung
+    if (!["&&", ";", "\n", undefined].includes(s.sesudah) || ![";", "\n", undefined].includes(u.segmen[idx - 1]?.sesudah)) return;
+    const kunci = s.kata[0]?.nilai;
+    if (/^(then|else|\{|!)$/.test(kunci ?? "")) return;
+    const akhir = kunci === "do" ? u.segmen.findIndex((x, j) => j > idx && x.kata[0]?.nilai === "done") : -1;
+    if (kunci === "do" && akhir < 0) return;
+    const catat = (nama, nilai) => { if (nilai !== null && !/\s/.test(nilai) && !/^~[^/]/.test(nilai)) { v.set(nama, nilai); v.posisi.set(nama, idx); if (akhir >= 0) v.akhir.set(nama, akhir); } };
     const mk = s.teks.trim().replace(KATA_KUNCI_AWAL, "").match(/^([A-Za-z_]\w*)=\$\(\s*mktemp(?:\s+-[dq]+)*(?:\s+-t\s+[\w.-]+)?\s*\)$/);
-    if (mk) { if (hitung.get(mk[1]) === 1) v.set(mk[1], path.join(os.tmpdir(), `mktemp-${mk[1]}`)); continue; }
+    if (mk) { if (hitung.get(mk[1]) === 1) catat(mk[1], path.join(os.tmpdir(), `mktemp-${mk[1]}`)); return; }
     let kata = s.kata;
     while (kata.length && /^(do|then|else|\{|!)$/.test(kata[0].nilai)) kata = kata.slice(1);
-    if (!kata.length || s.alih.length || !kata.every((k) => /^[A-Za-z_]\w*=/.test(k.nilai))) continue;
+    if (!kata.length || s.alih.length || !kata.every((k) => /^[A-Za-z_]\w*=/.test(k.nilai))) return;
     for (const k of kata) {
       const i = k.nilai.indexOf("="), nama = k.nilai.slice(0, i);
       if (hitung.get(nama) !== 1 || k.glob) continue;
-      const nilai = k.ekspansi ? gantiVariabel(k.nilai.slice(i + 1), v) : k.nilai.slice(i + 1);
-      if (nilai !== null) v.set(nama, nilai);
+      catat(nama, k.ekspansi ? gantiVariabel(k.nilai.slice(i + 1), v) : k.nilai.slice(i + 1));
     }
-  }
+  });
   return v;
 }
 /** `$X`/`${X}` diganti nilai pasti; ada ekspansi lain ($1, ${x:-y}, $( ), variabel tak diketahui) → null. */
@@ -1699,13 +1717,23 @@ function analisisBash(input, K) {
   // dari ctx yang dipakai penilaian baca/allow — supaya fixture di folder sementara (`T=/tmp/x; cp … $T/handoff/`) tidak
   // ditanya, tanpa melonggarkan apa pun yang diloloskan.
   const vars = variabelPasti(cmd, u);
-  let cdTulis = ctx.cwd;
+  // cd yang tidak diurai sebagai segmen `cd <path>` (builtin/command cd, CDPATH=…, pushd, cd di $( ) …) → folder tak pasti
+  const kode = teksKode(cmd);
+  const cdAsing = [...kode.matchAll(/(?:^|[^\w.$\/-])(?:cd|pushd|popd)(?=\s|$|;)/g)].length > u.segmen.filter((s) => /^(cd|pushd|popd)$/.test(s.kata[0]?.nilai ?? "")).length;
+  // izin hanya untuk satu langkah git per perintah, tanpa variabel GIT_* (GIT_DIR, GIT_WORK_TREE …) dan tanpa cd asing
+  const satuIzin = !cdAsing && !/\bGIT_[A-Z0-9_]+=/.test(kode);
+  let cdTulis = ctx.cwd, iSeg = -1;
   // Folder kerja yang PASTI untuk calon izin tugas: cd harfiah yang hanya diikuti `&&` sampai segmen git (cd gagal → git
   // tidak berjalan). Pemisah lain (`;`, `||`, `|`, `&`, baris baru) sesudah ada cd → tidak pasti → tanpa izin.
-  let adaCd = false, semuaDan = true;
+  let adaCd = false, semuaDan = true, adaAtau = false;
   const izinSesi = () => (ctx._izinSesi ??= sesiIzin(input, K));
+  let nIzin = 0;
   for (const s of u.segmen) {
-    ctx.basisIzin = !adaCd ? ctx.awal : semuaDan ? ctx.cwd : null;
+    iSeg++;
+    ctx.basisIzin = cdAsing ? null : !adaCd ? ctx.awal : semuaDan ? ctx.cwd : null;
+    // variabel & folder untuk target tulis: hanya selama rantai dari awal berupa && (penugasan/cd sebelumnya pasti berjalan)
+    const varsKini = new Map([...vars].filter(([n]) => (n === "HOME" && !vars.posisi.has("HOME")) || (vars.posisi.get(n) < iSeg && (vars.akhir.get(n) ?? Infinity) > iSeg)));
+    const cdKini = cdAsing ? null : !adaCd ? ctx.awal : semuaDan ? cdTulis : null;
     let h = klasifikasiSegmen(s, K, ctx);
     // badan heredoc ke program selain shell (cat > f <<EOF … EOF) adalah teks berkas, bukan perintah: tanpa aksi kebijakan
     // (claude, git perusak, server), tanpa penilaian env, dan tanpa target tulis (baris `cp x ~/.claude/…` di badan hanya teks)
@@ -1713,9 +1741,10 @@ function analisisBash(input, K) {
     const diBadan = !!tBadan && nBadan >= 0;
     if (diBadan) { badan.splice(nBadan, 1); h = { aman: false }; }
     // izin tugas (bin/lib/izin-tugas.mjs): hanya sesi COO utama, perintah polos tanpa ekspansi/kompleks
-    if (h.izinGit && !u.kompleks && !u.ekspansi && izinSesi()) {
+    if (h.izinGit && ++nIzin > 1) for (const x of hasil) if (x.izinOk) { x.aman = false; x.aksi = x.asliAksi; }   // >1 langkah izin → tidak ada yang tercakup
+    if (h.izinGit && nIzin === 1 && satuIzin && !u.kompleks && !u.ekspansi && izinSesi()) {
       const r = periksaIzin(h.izinGit, { reg: bacaRegister(), transkrip: input.transcript_path, root: ROOT, pengaman: pengamanGabung, bersih: bersihRepo });
-      if (r.ok) h = { aman: true, aksi: [{ kemampuan: "repo", jenjang: 3, jenis: "izin-tugas", izin: r.id, aksi: `${s.teks.trim()}`.slice(0, 120) }] };
+      if (r.ok) h = { aman: true, izinOk: true, asliAksi: h.aksi ?? [], aksi: [{ kemampuan: "repo", jenjang: 3, jenis: "izin-tugas", izin: r.id, aksi: `${s.teks.trim()}`.slice(0, 120) }] };
       else for (const a of h.aksi ?? []) a.izinAlasan = r.alasan;
     }
     hasil.push(h);
@@ -1725,24 +1754,28 @@ function analisisBash(input, K) {
     // git checkout/restore/… dengan path). Membaca, menjalankan, menguji, atau sekadar menyebut path → bukan urusan ini.
     // Path yang lokasinya pasti (variabel diketahui, tanpa glob, folder diketahui) dinilai menurut LOKASINYA; pola nama
     // (NAMA_TERLINDUNG) hanya untuk path yang lokasinya tak bisa dipastikan.
-    if (!diBadan) for (const t of targetTulis(s, cdTulis)) {
+    if (!diBadan) for (const t of targetTulis(s, cdKini)) {
       if (sebut) break;
       const mentah = path.sep === "\\" ? t.path.replaceAll("\\", "/") : t.path;
-      const p = gantiVariabel(mentah, vars);
-      const pasti = p !== null && !/[*?[]/.test(p) && (path.isAbsolute(rumah(p)) || !!cdTulis);
-      if (pasti) { sebut = sebabTerlindung(path.resolve(cdTulis ?? "/", rumah(p)), !t.leluhur, t.leluhur ? "semua" : false); continue; }
+      const p = gantiVariabel(mentah, varsKini);
+      // ~user, ~+, ~- diekspansi shell ke folder lain → tidak pasti
+      const pasti = p !== null && !/[*?[]/.test(p) && !/^~[^/]/.test(p) && (path.isAbsolute(rumah(p)) || !!cdKini);
+      if (pasti) { sebut = sebabTerlindung(path.resolve(cdKini ?? "/", rumah(p)), !t.leluhur, t.leluhur ? "semua" : false); continue; }
       if (NAMA_TERLINDUNG.some((r) => r.test(mentah))) { sebut = t.path; break; }
       if (ctx.cwd) sebut = sebabTerlindung(path.resolve(ctx.cwd, rumah(t.path)), false, t.leluhur ? "semua" : false);
     }
     const k0 = s.kata[0]?.nilai ?? "";
     const ubahCwd = k0 === "cd" || /^(pushd|popd)$/.test(k0);
-    if (ubahCwd) adaCd = true;
-    // `a | b && c`: pipa tetap satu daftar && (c hanya bila a|b berhasil); cd yang dipipakan berjalan di subshell → tidak pasti
-    if (!["&&", "|", "|&", undefined].includes(s.sesudah) || (ubahCwd && s.sesudah !== "&&" && s.sesudah !== undefined)) semuaDan = false;
+    // Folder pasti hanya bila setiap cd pasti berjalan dan gagalnya menghentikan sisa perintah: cd sesudah `||`/`&` di mana pun
+    // sebelumnya, cd di dalam pipa, cd yang diikuti selain &&, atau pemisah selain && / | sesudah cd → tidak pasti.
+    // `a | b && c`: pipa tetap satu daftar && (c hanya bila a|b berhasil). Sebelum ada cd, `;` tidak mengubah folder.
+    if (ubahCwd) { if (adaAtau || ["|", "|&"].includes(u.segmen[iSeg - 1]?.sesudah) || !["&&", undefined].includes(s.sesudah)) semuaDan = false; adaCd = true; }
+    if (["||", "&"].includes(s.sesudah)) adaAtau = true;
+    if (adaCd && !["&&", "|", "|&", undefined].includes(s.sesudah)) semuaDan = false;
     if (/^(pushd|popd)$/.test(k0)) cdTulis = null;
     else if (k0 === "cd") {
       const argT = s.kata.slice(1).filter((x) => !/^-[LP]$/.test(x.nilai));
-      const tujuan = argT.length === 1 && !argT[0].glob && argT[0].nilai !== "-" ? gantiVariabel(argT[0].nilai, vars) : null;
+      const tujuan = argT.length === 1 && !argT[0].glob && argT[0].nilai !== "-" && !/^~[^/]/.test(argT[0].nilai) ? gantiVariabel(argT[0].nilai, varsKini) : null;
       cdTulis = argT.length === 0 ? HOME : tujuan !== null && cdTulis ? path.resolve(cdTulis, rumah(tujuan)) : tujuan !== null && path.isAbsolute(rumah(tujuan)) ? rumah(tujuan) : null;
     }
     if (/^(pushd|popd)$/.test(k0)) ctx.cwd = null;
@@ -2064,7 +2097,12 @@ function putuskanDasar(input, K) {
   }
   if (ALAT_TULIS.has(input.tool_name)) return { keputusan: null, alasan: "bukan berkas terlindung", sesi: null };
   const sesi = kenaliSesi(input, K);
-  if (!sesi.rudisOne) return { keputusan: null, alasan: "bukan sesi RudisOne", sesi };
+  if (!sesi.rudisOne) {
+    // sesi di luar RudisOne: 9 aksi git yang dulu dijaga aturan ask settings (dicabut pemasang) tetap ditanya — perilaku lama
+    if (input.tool_name === "Bash" && GIT_PRIBADI.test(teksKode(String(input.tool_input?.command ?? ""))))
+      return { keputusan: "ask", sesi, aksi: [], alasan: "Pengaman git RudisOne (pengganti aturan ask git di settings): push, stash, restore, checkout --, branch -D, atau worktree remove — tetap ditanya seperti sebelumnya" };
+    return { keputusan: null, alasan: "bukan sesi RudisOne", sesi };
+  }
   if (k.powershell) return { keputusan: "ask", alasan: "RudisOne · perintah PowerShell tidak dianalisis kebijakan akses — pakai Bash (Git Bash) untuk perkakas RudisOne, atau pemilik menyetujuinya langsung", sesi, aksi: [] };
   const { aksi, dipahami } = k;
   if (!aksi.length) return { keputusan: null, alasan: "bukan aksi infrastruktur", sesi };
@@ -2095,6 +2133,10 @@ function putuskanDasar(input, K) {
     }
   }
   if (tanya.length) return { keputusan: "ask", alasan: `RudisOne · ${nama}: ${tanya.join("; ")}`, sesi, aksi };
+  // izin tugas berlaku hanya untuk perintah yang seluruhnya dipahami: digandeng bagian lain (folder/repo bisa berbeda dari
+  // yang dinilai, mis. builtin cd, export GIT_DIR) → ditanya, bukan diserahkan ke alur biasa
+  if (!dipahami && aksi.some((a) => a.izin)) return { keputusan: "ask", sesi, aksi,
+    alasan: `RudisOne · ${nama}: izin tugas hanya untuk perintah git polos satu langkah (tanpa perintah lain yang tidak dikenali) — ${aksi.filter((a) => a.izin).map((a) => a.aksi).join("; ")}` };
   if (!dipahami) return { keputusan: null, alasan: "perintah memuat bagian yang tidak dikenali aman oleh kebijakan", sesi, aksi };
   const maks = Math.max(...aksi.map((a) => a.jenjang));
   const izin = [...new Set(aksi.map((a) => a.izin).filter(Boolean))];

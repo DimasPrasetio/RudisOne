@@ -6,13 +6,14 @@
 //   · tugas aktif, izin untuk repo yang sama (realpath checkout utama), belum kedaluwarsa (maks. 24 jam sejak dibuat)
 //   · kutipan izin = pesan UTUH yang DIKETIK/DIPILIH pengguna di transkrip sesi itu dalam 24 jam terakhir (pesan manusia atau
 //     jawaban AskUserQuestion — bukan hasil alat lain, bukan pesan lintas sesi)
-//   · gabung: `git merge [--no-ff|--ff-only|--no-edit|-m …] rudis/<ID>` di checkout utama pada cabang izin, pohon kerja bersih,
+//   · gabung: `git merge [--no-ff|--ff-only|--no-edit|-m …] refs/heads/rudis/<ID>` (ref penuh) di checkout utama pada cabang izin, pohon kerja bersih,
 //     dan tidak mengubah berkas pengaman (kebijakan, settings, hook, audit, installer) — gabung semacam itu dijalankan pengguna
 //   · push: `git push origin <cabang>|HEAD|HEAD:<cabang>` (refspec wajib) tanpa force/delete/mirror, URL push origin sama dengan saat izin
 //     ditulis, dan pemindai rahasia lulus atas semua commit yang akan dikirim (repo RudisOne: juga bin/bersih.mjs)
 //   · bersihkan: `git worktree remove <path>` / `git branch -d|-D rudis/<ID>[-…]` — cabang tugas yang sudah tergabung ke
 //     cabang izin dan bersih; tanpa --force pada worktree
-// Bentuk lain (git -c, env GIT_*, opsi di luar daftar, refspec lain, variabel/glob) tidak pernah tercakup.
+// Satu langkah izin per perintah. Bentuk lain (git -c, env GIT_*, opsi di luar daftar, refspec lain, variabel/glob) dan repo
+// dengan konfigurasi/hook yang menjalankan program lain tidak pernah tercakup.
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
@@ -43,56 +44,69 @@ export function ketikanPengguna(baris) {
 }
 const rapat = (s) => String(s ?? "").replace(/\s+/g, " ").trim();
 
-/** Waktu (ISO) pesan pengguna terbaru di transkrip `file` yang memuat `kutip` — diketik (origin manusia) atau jawaban
- *  AskUserQuestion (hasil alat yang tool_use-nya bernama AskUserQuestion; jawaban alat lain tidak dihitung) — dan tidak
- *  lebih tua dari `sejakMs`. Dibaca mundur per potongan (maks. `maks` byte). Tidak ketemu → null. */
-export function buktiKetikan(file, kutip, { sejakMs = 0, maks = 128 << 20, potongan = 1 << 20 } = {}) {
+/** Kata yang harus ada di konteks persetujuan (pertanyaan COO atau kutipan itu sendiri) per jenis aksi: jawaban umum
+ *  ("ya", "lanjut") atas pertanyaan lain tidak pernah menjadi izin gabung/kirim. Bersihkan = bagian dari menggabung. */
+export const KATA_AKSI = { gabung: /gabung|merge|satukan|versi utama|cabang utama/i, push: /kirim|push|github|gitlab|unggah/i,
+  bersihkan: /gabung|merge|bersih|hapus salinan|worktree/i };
+const teksAsisten = (y) => (Array.isArray(y.message?.content) ? y.message.content : [])
+  .map((b) => (b?.type === "text" ? b.text : b?.type === "tool_use" ? JSON.stringify(b.input ?? {}) : "")).join("\n");
+
+/** Waktu (ISO) pesan pengguna terbaru di transkrip `file` yang SAMA UTUH dengan `kutip` — diketik (origin manusia) atau
+ *  jawaban AskUserQuestion (tool_use-nya terbukti bernama AskUserQuestion; jawaban alat lain tidak dihitung) — di jendela
+ *  [sejakMs, sampaiMs], dan yang konteksnya lolos `konteks(teks)`: untuk ketikan = giliran COO sebelum pesan itu + kutipan;
+ *  untuk jawaban = teks pertanyaannya + kutipan. Dibaca dari ekor berkas (maks. `maks` byte). Tidak ketemu → null. */
+export function buktiKetikan(file, kutip, { sejakMs = 0, sampaiMs = Infinity, konteks = () => true, maks = 64 << 20 } = {}) {
   const k = rapat(kutip);
   if (k.length < 2 || !file) return null;
   const jarum = JSON.stringify(k).slice(1, -1).split(" ")[0];   // potongan pertama kutipan dalam bentuk JSON (penyaring cepat)
-  let fd;
-  try { fd = fs.openSync(file, "r"); } catch { return null; }
-  const calon = new Map();   // tool_use_id → waktu jawaban yang memuat kutipan, menunggu bukti nama alat
+  let teks;
   try {
-    let pos = fs.fstatSync(fd).size, ekor = Buffer.alloc(0), dibaca = 0;
-    while (pos > 0 && dibaca < maks) {
-      const n = Math.min(potongan, pos);
-      pos -= n; dibaca += n;
-      const b = Buffer.alloc(n);
-      fs.readSync(fd, b, 0, n, pos);
-      const blok = Buffer.concat([b, ekor]);
-      let awal = 0;
-      if (pos > 0) { const i = blok.indexOf(10); if (i < 0) { ekor = blok; continue; } ekor = blok.subarray(0, i); awal = i + 1; }
-      const ls = blok.subarray(awal).toString("utf8").split("\n");
-      for (let i = ls.length - 1; i >= 0; i--) {
-        const l = ls[i];
-        if (!l) continue;
-        const sebutCalon = calon.size && [...calon.keys()].some((id) => l.includes(id));
-        if (!sebutCalon && !l.includes(jarum)) continue;
-        let x; try { x = JSON.parse(l); } catch { continue; }
-        const waktu = Date.parse(x.timestamp ?? "");
-        if (x.type === "assistant" && calon.size) {
-          for (const blk of Array.isArray(x.message?.content) ? x.message.content : []) {
-            if (blk?.type === "tool_use" && calon.has(blk.id)) {
-              if (blk.name === "AskUserQuestion") return calon.get(blk.id);
-              calon.delete(blk.id);
-            }
-          }
-          continue;
-        }
-        if (x.type !== "user") continue;
-        // lebih tua dari jendela: berhenti — kecuali masih mencari tool_use jawaban AskUserQuestion yang sudah ketemu
-        if (!(waktu >= sejakMs)) { if (waktu < sejakMs && !calon.size) return null; continue; }
-        // pesan/jawaban UTUH sama dengan kutipan (bukan sekadar memuatnya: "jangan gabung & kirim" ≠ "gabung & kirim")
-        if (ketikanPengguna(x) && rapat(teksPesanPengguna(x).replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, "")) === k) return new Date(waktu).toISOString();
-        const jawaban = x.toolUseResult?.answers;
-        const hasil = Array.isArray(x.message?.content) ? x.message.content.find((b) => b?.type === "tool_result") : null;
-        if (hasil && jawaban && typeof jawaban === "object" && Array.isArray(x.toolUseResult?.questions)
-          && Object.values(jawaban).some((v) => rapat(v) === k)) calon.set(hasil.tool_use_id, new Date(waktu).toISOString());
+    const fd = fs.openSync(file, "r");
+    try {
+      const ukuran = fs.fstatSync(fd).size, n = Math.min(ukuran, maks), b = Buffer.alloc(n);
+      fs.readSync(fd, b, 0, n, ukuran - n);
+      teks = b.toString("utf8");
+      if (n < ukuran) teks = teks.slice(teks.indexOf("\n") + 1);
+    } finally { fs.closeSync(fd); }
+  } catch { return null; }
+  const ls = teks.split("\n");
+  const urai = (l) => { try { return JSON.parse(l); } catch { return null; } };
+  for (let i = ls.length - 1; i >= 0; i--) {
+    if (!ls[i].includes(jarum)) continue;
+    const x = urai(ls[i]);
+    if (x?.type !== "user") continue;
+    const waktu = Date.parse(x.timestamp ?? "");
+    if (waktu < sejakMs) return null;                            // lebih tua dari jendela: berhenti
+    if (!(waktu <= sampaiMs)) continue;
+    const iso = new Date(waktu).toISOString();
+    // pesan UTUH sama dengan kutipan (bukan sekadar memuatnya: "jangan gabung & kirim" ≠ "gabung & kirim")
+    if (ketikanPengguna(x) && rapat(teksPesanPengguna(x).replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, "")) === k) {
+      let kt = k;
+      for (let j = i - 1, n = 0; j >= 0 && n < 400; j--) {
+        if (!ls[j].includes('"assistant"') && !ls[j].includes('"user"')) continue;
+        const y = urai(ls[j]); n++;
+        if (!y) continue;
+        if (y.type === "user" && ketikanPengguna(y)) break;       // giliran sebelumnya
+        if (y.type === "assistant") kt = `${teksAsisten(y)}\n${kt}`;
       }
+      if (konteks(kt)) return iso;
+      continue;
     }
-    return null;
-  } catch { return null; } finally { fs.closeSync(fd); }
+    const jawaban = x.toolUseResult?.answers;
+    const hasil = Array.isArray(x.message?.content) ? x.message.content.find((b) => b?.type === "tool_result") : null;
+    if (!hasil || !jawaban || typeof jawaban !== "object" || !Array.isArray(x.toolUseResult?.questions)) continue;
+    const tanya = Object.entries(jawaban).filter(([, v]) => rapat(v) === k).map(([q]) => q);
+    if (!tanya.length) continue;
+    // tool_use yang dijawab harus AskUserQuestion (hasil Bash/MCP yang berbentuk sama tidak dihitung)
+    let nama = null;
+    for (let j = i - 1; j >= 0 && nama === null; j--) {
+      if (!ls[j].includes(hasil.tool_use_id)) continue;
+      const y = urai(ls[j]);
+      for (const b of y?.type === "assistant" && Array.isArray(y.message?.content) ? y.message.content : []) if (b?.type === "tool_use" && b.id === hasil.tool_use_id) nama = b.name;
+    }
+    if (nama === "AskUserQuestion" && konteks(`${tanya.join("\n")}\n${k}`)) return iso;
+  }
+  return null;
 }
 
 // ---------- git ----------
@@ -123,8 +137,35 @@ export function daftarWorktree(dir) {
   if (!r.ok) return null;
   return r.out.split("\n\n").map((b) => ({ path: b.match(/^worktree (.+)$/m)?.[1] ?? null, branch: b.match(/^branch (.+)$/m)?.[1] ?? null })).filter((w) => w.path);
 }
-/** URL push origin efektif (insteadOf/pushInsteadOf diterapkan git). */
-export const urlPushOrigin = (dir) => { const r = git(dir, ["remote", "get-url", "--push", "origin"]); return r.ok ? r.out.trim() : null; };
+/** URL push origin efektif (insteadOf/pushInsteadOf diterapkan git). Lebih dari satu URL push → null (push ke semua URL). */
+export const urlPushOrigin = (dir) => { const r = git(dir, ["remote", "get-url", "--push", "--all", "origin"]); const u = r.ok ? r.out.trim().split("\n").filter(Boolean) : []; return u.length === 1 ? u[0] : null; };
+/** sha cabang di origin saat ini (bukan ref pelacak lokal yang bisa diubah agent). */
+const shaOrigin = (dir, cb) => { const r = git(dir, ["ls-remote", "--heads", "origin", `refs/heads/${cb}`], { timeout: 15000 }); const m = r.ok ? r.out.match(/^([0-9a-f]{40,64})\s+refs\/heads\//m) : null; return m ? m[1] : null; };
+/** Konfigurasi repo (lokal/worktree) yang membuat git menjalankan program lain atau mengubah tujuan/arti push & gabung —
+ *  izin tidak berlaku selama ada (padanan persisten `git -c …`). core.hooksPath hanya boleh path relatif di dalam repo
+ *  (hook-nya diperiksa terpisah). */
+const CONFIG_RAWAN = /^(include\.|includeif\.|core\.(sshcommand|fsmonitor|gitproxy|askpass|editor|pager|alternaterefscommand)$|filter\.|merge\.[^.]+\.driver$|diff\.[^.]+\.(command|textconv)$|remote\.origin\.(push|mirror|receivepack|uploadpack|proxy|vcs|pushurl)$|push\.|gpg\.|credential\.|url\.|submodule\.|uploadpack\.|protocol\.)/;
+export function configRawan(dir) {
+  const r = git(dir, ["config", "--list", "--show-scope"]);
+  if (!r.ok) return "konfigurasi repo tidak terbaca";
+  for (const l of r.out.split("\n")) {
+    const m = l.match(/^(local|worktree)\t([^=]+)=(.*)$/);
+    if (!m) continue;
+    const k = m[2].toLowerCase();
+    if (k === "core.hookspath") { if (path.isAbsolute(m[3]) || m[3].startsWith("~") || m[3].split(/[\\/]/).includes("..")) return `core.hooksPath di luar repo (${m[3]})`; continue; }
+    if (CONFIG_RAWAN.test(k)) return `konfigurasi repo ${k} (dapat menjalankan program lain atau mengubah tujuan)`;
+  }
+  return null;
+}
+const HOOK_AKSI = { gabung: ["pre-merge-commit", "prepare-commit-msg", "commit-msg", "post-merge", "post-commit", "reference-transaction"],
+  push: ["pre-push", "reference-transaction"], bersihkan: ["reference-transaction", "post-checkout"] };
+/** Hook git yang akan berjalan untuk aksi ini (folder hook efektif, juga core.hooksPath) → nama hook pertama, atau null. */
+export function hookAktif(dir, jenis) {
+  const r = git(dir, ["rev-parse", "--path-format=absolute", "--git-path", "hooks"]);
+  if (!r.ok) return "folder hook tidak terbaca";
+  const d = r.out.trim();
+  return (HOOK_AKSI[jenis] ?? []).find((h) => { try { return fs.statSync(path.join(d, h)).isFile(); } catch { return false; } }) ?? null;
+}
 /** Cabang bawaan repo: origin/HEAD, selain itu cabang checkout utama. */
 export function cabangBawaan(akar) {
   const r = git(akar, ["symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"]);
@@ -157,8 +198,10 @@ export function calonGit(args, basis) {
   }
   if (sub === "merge") {
     if (!opsi.every((o) => /^(--no-ff|--ff|--ff-only|--no-edit|-q|--quiet|--log|--no-log|--stat|--no-stat|-n|-m|--message|-m.+|--message=.*)$/.test(o))) return null;
-    const m = pos.length === 1 ? pos[0].match(RE_CABANG_TUGAS) : null;
-    if (!m || m[2]) return null;   // hanya cabang tugas itu sendiri, bukan cabang anggota (rudis/<ID>-se1)
+    // hanya ref penuh refs/heads/rudis/<ID>: nama pendek bisa ambigu (tag/ref lain bernama sama didahulukan git), dan bukan
+    // cabang anggota (rudis/<ID>-se1)
+    const m = pos.length === 1 && pos[0].startsWith("refs/heads/") ? pos[0].match(RE_CABANG_TUGAS) : null;
+    if (!m || m[2]) return null;
     return { jenis: "gabung", dir, id: m[1], ref: `refs/heads/rudis/${m[1]}` };
   }
   if (sub === "push") {
@@ -191,8 +234,9 @@ const BERKAS_RAHASIA = /(^|\/)(\.env(\.(?!(example|contoh|sample|template|dist|d
 /** Temuan rahasia di commit `rentang` (mis. origin/main..main) — nama pola & berkas saja, nilai tidak pernah dikembalikan.
  *  Gagal membaca (rentang terlalu besar, git galat) → [{ galat }] (pemanggil menganggapnya tidak lulus). */
 export function pindaiRahasia(dir, rentang) {
-  const nama = git(dir, ["log", "--no-renames", "--diff-filter=AM", "--name-only", "--format=", rentang], { maxBuffer: 64 << 20 });
-  const isi = git(dir, ["log", "-p", "--no-color", "--no-ext-diff", "--no-textconv", "--format=commit %H", rentang], { maxBuffer: 256 << 20, timeout: 20000 });
+    // -m: commit gabung juga ditampilkan isinya (terhadap tiap induk) — rahasia yang hanya ada di resolusi gabung ikut terpindai
+  const nama = git(dir, ["log", "-m", "--no-renames", "--diff-filter=AM", "--name-only", "--format=", rentang], { maxBuffer: 64 << 20 });
+  const isi = git(dir, ["log", "-m", "-p", "--no-color", "--no-ext-diff", "--no-textconv", "--format=commit %H", rentang], { maxBuffer: 256 << 20, timeout: 20000 });
   if (!nama.ok || !isi.ok) return [{ galat: `isi commit ${rentang} tidak terbaca` }];
   const temuan = [];
   for (const f of new Set(nama.out.split("\n").filter(Boolean))) if (BERKAS_RAHASIA.test(f)) temuan.push({ berkas: f, pola: "berkas rahasia" });
@@ -252,6 +296,8 @@ export function periksaIzin(c, o) {
       if (!sama(info.toplevel, info.akar)) return "gabung hanya di checkout utama";
       if (cabangSekarang(info.akar) !== iz.cabang) return `checkout utama tidak di cabang ${iz.cabang}`;
       if (!adaRef(info.akar, c.ref)) return `${c.ref} tidak ada`;
+      const rawan = configRawan(info.akar) ?? (hookAktif(info.akar, "gabung") && `hook ${hookAktif(info.akar, "gabung")} akan berjalan`);
+      if (rawan) return rawan;
       const st = git(info.akar, ["status", "--porcelain", "--untracked-files=no"]);
       if (!st.ok || st.out.trim()) return "checkout utama punya perubahan yang belum di-commit";
       const d = git(info.akar, ["diff", "--name-only", "--no-renames", `refs/heads/${iz.cabang}...${c.ref}`]);
@@ -270,10 +316,14 @@ export function periksaIzin(c, o) {
       const okRef = [cb, "HEAD", `HEAD:${cb}`, `${cb}:${cb}`, `refs/heads/${cb}`, `refs/heads/${cb}:refs/heads/${cb}`, `HEAD:refs/heads/${cb}`];
       if (!okRef.includes(c.refspec)) return `refspec ${c.refspec} di luar izin (hanya ${cb})`;
       const url = urlPushOrigin(info.akar);
-      if (!url || url !== iz.origin) return "URL push origin berbeda dari saat izin ditulis";
-      if (!adaRef(info.akar, `refs/remotes/origin/${cb}`)) return `refs/remotes/origin/${cb} tidak ada — dasar pemindaian tidak diketahui`;
-      if (!tergabung(info.akar, `refs/remotes/origin/${cb}`, cb)) return "push bukan maju-cepat dari origin (butuh force)";
-      const t = pindaiRahasia(info.akar, `refs/remotes/origin/${cb}..refs/heads/${cb}`);
+      if (!url || url !== iz.origin) return "URL push origin berbeda dari saat izin ditulis (atau lebih dari satu URL push)";
+      const rawan = configRawan(info.akar) ?? (hookAktif(info.akar, "push") && `hook ${hookAktif(info.akar, "push")} akan berjalan`);
+      if (rawan) return rawan;
+      // dasar = sha cabang di origin SEKARANG (ls-remote), bukan refs/remotes lokal yang bisa digeser tanpa prompt
+      const dasar = shaOrigin(info.akar, cb);
+      if (!dasar || !adaRef(info.akar, dasar)) return `cabang ${cb} di origin tidak terbaca atau belum ada di lokal — dasar pemindaian tidak diketahui`;
+      if (!tergabung(info.akar, dasar, cb)) return "push bukan maju-cepat dari origin (butuh force)";
+      const t = pindaiRahasia(info.akar, `${dasar}..refs/heads/${cb}`);
       if (t.length) return `pemindai rahasia: ${t.slice(0, 3).map((x) => x.galat ?? `${x.pola} di ${x.berkas}`).join("; ")}`;
       if (o.root && sama(info.akar, nyata(o.root)) && o.bersih && !o.bersih(info.akar)) return "bin/bersih.mjs menemukan sisa pemakaian di berkas produk RudisOne";
       return null;
@@ -281,6 +331,8 @@ export function periksaIzin(c, o) {
     // bersihkan
     const wts = daftarWorktree(info.akar);
     if (!wts) return "daftar worktree tidak terbaca";
+    const rawanB = configRawan(info.akar) ?? (hookAktif(info.akar, "bersihkan") && `hook ${hookAktif(info.akar, "bersihkan")} akan berjalan`);
+    if (rawanB) return rawanB;
     if (c.sub === "worktree") {
       const w = wts.slice(1).find((x) => sama(nyata(x.path) ?? x.path, nyata(c.path) ?? c.path));
       if (!w) return "path bukan worktree tambahan repo ini";
@@ -305,7 +357,12 @@ export function periksaIzin(c, o) {
     const sebab = syaratGit(iz);
     if (sebab) { alasan = sebab; continue; }
     if (c.jenis === "bersihkan" && !(c.ids ?? []).every((x) => idCakup(id, x))) { alasan = "cabang milik tugas lain"; continue; }
-    if (!buktiKetikan(o.transkrip, iz.kutip, { sejakMs: kini - IZIN_MAKS_JAM * JAM })) { alasan = `kesepakatan "${iz.kutip}" tidak ditemukan sebagai ketikan pengguna di percakapan ini dalam ${IZIN_MAKS_JAM} jam`; continue; }
+    // bukti terikat ke saat izin ditulis (≤ 6 jam sebelum, ≤ 10 menit sesudah) dan ke konteks aksinya (pertanyaan COO atau
+    // kutipan menyebut gabung/kirim/…) — jawaban umum atas hal lain tidak menjadi izin
+    const dibuat = Date.parse(iz.dibuat);
+    const bukti = buktiKetikan(o.transkrip, iz.kutip, { sejakMs: Math.max(kini - IZIN_MAKS_JAM * JAM, dibuat - 6 * JAM), sampaiMs: dibuat + 10 * 60e3,
+      konteks: (t) => KATA_AKSI[c.jenis].test(t) });
+    if (!bukti) { alasan = `kesepakatan "${iz.kutip}" tidak ditemukan sebagai pesan/jawaban utuh pengguna tentang "${c.jenis}" di percakapan ini (≤ 6 jam sebelum izin ditulis)`; continue; }
     return { ok: true, id, aksi: c.jenis };
   }
   return { ok: false, alasan };
