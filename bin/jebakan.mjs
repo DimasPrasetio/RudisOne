@@ -14,6 +14,7 @@
 // Exit: 0 bersih · 1 ada peringatan · 2 ada galat (format salah, rahasia) atau argumen salah.
 import crypto from "node:crypto";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -86,10 +87,18 @@ export function periksaJebakan(teks, { sekarang = null } = {}) {
 export function akarUtama(folder) {
   const r = spawnSync("git", ["-C", folder, "rev-parse", "--path-format=absolute", "--git-common-dir"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
   const gd = r.status === 0 ? r.stdout.trim() : "";
-  return gd && path.basename(gd) === ".git" ? path.dirname(gd) : path.resolve(folder);
+  if (gd && path.basename(gd) === ".git") return path.dirname(gd);
+  try { return fs.realpathSync.native(path.resolve(folder)); } catch { return path.resolve(folder); }   // bukan git: folder fisik
 }
 
-const samaRepo = (a, b) => { const n = (p) => { let x = path.resolve(p); try { x = fs.realpathSync(x); } catch { /* belum ada */ } return process.platform === "win32" ? x.toLowerCase() : x; }; return n(a) === n(b); };
+/** Bentuk baku path repo untuk dibandingkan & disidik: `~` dijabarkan, path fisik (realpath.native: ejaan huruf asli di disk,
+ *  tautan diikuti), huruf kecil di Windows & macOS (FS bawaan keduanya tidak membedakan huruf besar-kecil). */
+export function bakuRepo(p) {
+  let x = path.resolve(String(p).replace(/^~(?=[\\/]|$)/, os.homedir()));
+  try { x = fs.realpathSync.native(x); } catch { /* belum ada: path teks */ }
+  return process.platform === "win32" || process.platform === "darwin" ? x.toLowerCase() : x;
+}
+const samaRepo = (a, b) => bakuRepo(a) === bakuRepo(b);
 /** Berkas per device untuk checkout utama `utama`: <nama>.md, kecuali berkas itu terikat (`repo:`) ke repo lain bernama sama
  *  → <nama>-<sidik8 path>.md. Berkas tanpa `repo:` dianggap milik repo ini (baca memperingatkan agar barisnya ditambahkan). */
 export function berkasDevice(utama, root = ROOT()) {
@@ -97,9 +106,8 @@ export function berkasDevice(utama, root = ROOT()) {
   const biasa = path.join(dir, `${nama}.md`);
   let terikat = null;
   try { terikat = uraiJebakan(fs.readFileSync(biasa, "utf8")).repo; } catch { return biasa; }
-  if (!terikat || samaRepo(terikat.replace(/^~(?=\/|$)/, process.env.HOME ?? ""), utama)) return biasa;
-  const n = process.platform === "win32" ? path.resolve(utama).toLowerCase() : path.resolve(utama);
-  return path.join(dir, `${nama}-${crypto.createHash("sha256").update(n).digest("hex").slice(0, 8)}.md`);
+  if (!terikat || samaRepo(terikat, utama)) return biasa;
+  return path.join(dir, `${nama}-${crypto.createHash("sha256").update(bakuRepo(utama)).digest("hex").slice(0, 8)}.md`);
 }
 
 /** Letak daftar jebakan proyek → { jenis: repo|device|bibit, path, repo, device, ada, alasan }. */

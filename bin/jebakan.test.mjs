@@ -95,6 +95,19 @@ test("letakJebakan dari worktree: kartu cadangan handoff/kartu/<checkout utama>.
   assert.notEqual(lain, biasa);
   assert.match(path.basename(lain), /^api-[0-9a-f]{8}\.md$/);
   assert.equal(letakJebakan(b1, o).ada, false);
+  // repo: ditulis dengan huruf lain (macOS/Windows), lewat tautan, atau ~ → tetap berkas sendiri; sidik sama lewat tautan
+  if (process.platform !== "linux") {
+    fs.writeFileSync(biasa, `# Jebakan api\nrepo: ${a1.toUpperCase()}\n${butir("2026-11-10", 1)}\n`);
+    assert.equal(letakJebakan(a1, o).device, biasa, "huruf besar-kecil berbeda = repo yang sama");
+  }
+  fs.writeFileSync(biasa, `# Jebakan api\nrepo: ${a1}\n${butir("2026-11-10", 1)}\n`);
+  let tautan = true;
+  try { fs.symlinkSync(b1, path.join(tmp, "api-tautan"), "junction"); } catch { tautan = false; }
+  if (tautan) assert.equal(letakJebakan(path.join(tmp, "api-tautan"), o).device, lain, "sidik dari path fisik");
+  if (a1.startsWith(os.homedir() + path.sep)) {
+    fs.writeFileSync(biasa, `# Jebakan api\nrepo: ~/${path.relative(os.homedir(), a1)}\n${butir("2026-11-10", 1)}\n`);
+    assert.equal(letakJebakan(a1, o).device, biasa, "~ dijabarkan dengan os.homedir()");
+  }
   // tanpa repo: dianggap milik repo yang membaca; baca memperingatkan agar baris repo: ditambahkan
   fs.writeFileSync(biasa, `# Jebakan api\n${butir("2026-11-10", 1)}\n`);
   assert.equal(letakJebakan(b1, o).device, biasa);
