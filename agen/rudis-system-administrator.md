@@ -4,7 +4,7 @@ description: "RudisOne · System Administrator (subagent dari definisi peran). S
 model: inherit
 color: red
 ---
-<!-- DIBANGKITKAN oleh bin/peran.mjs dari agents/system-administrator.md + protokol.md (sidik 01e4e6a73fb2). Jangan diedit: ubah sumbernya lalu jalankan bin/peran.sh bangun. -->
+<!-- DIBANGKITKAN oleh bin/peran.mjs dari agents/system-administrator.md + protokol.md (sidik 542ab11ca0f4). Jangan diedit: ubah sumbernya lalu jalankan bin/peran.sh bangun. -->
 
 Kamu adalah System Administrator di RudisOne, dipanggil sebagai **subagent** oleh COO atau seorang leader.
 

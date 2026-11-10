@@ -136,6 +136,8 @@ test("--jalankan: buang register + handoff yang layak, audit satu baris per tuga
 
 test("eksekusi: metrik ditulis SEBELUM folder dibuang; galat penghitung → baris ber-galat & tetap dibuang; sub-tugas → baris induk", () => {
   const { root, json } = bangun([tugas("T-20260101-1"), tugas("T-20260101-2"), tugas("T-20260101-3.1")]);
+  fs.writeFileSync(path.join(root, "handoff", "T-20260101-1", "status.md"), "- Repo: /x · Base: main\nJebakan: kena 1, baru 2\n");
+  fs.writeFileSync(path.join(root, "handoff", "T-20260101-1", "tinjauan.md"), "[Hasil tinjauan] T-20260101-1 · LULUS\n");
   const rc = rencanakan({ root, json, kini: new Date(SEKARANG), cwd: tmp });
   const terlihat = {};
   const palsu = (id) => {
@@ -153,6 +155,8 @@ test("eksekusi: metrik ditulis SEBELUM folder dibuang; galat penghitung → bari
   assert.deepEqual(regId(json), []);
   const m = Object.fromEntries(bacaMetrik(root).map((x) => [x.id, x]));
   assert.deepEqual([m["T-20260101-1"].giliran, m["T-20260101-1"].token_total, m["T-20260101-1"].beban_keputusan.total, m["T-20260101-1"].galat], [4, 1234, 3, null]);
+  assert.deepEqual([m["T-20260101-1"].jebakan, m["T-20260101-1"].putaran_tinjauan], [{ kena: 1, baru: 2 }, 1], "jebakan dibaca dari handoff sebelum dibuang");
+  assert.deepEqual([m["T-20260101-2"].jebakan, m["T-20260101-2"].putaran_tinjauan], [null, null]);
   assert.deepEqual([m["T-20260101-2"].galat, m["T-20260101-2"].giliran, m["T-20260101-2"].judul], ["transkrip tak terbaca", null, "Tugas T-20260101-2"]);
   assert.deepEqual([m["T-20260101-3.1"].induk, m["T-20260101-3.1"].giliran], ["T-20260101-3", null]);
   assert.match(ringkas(rc, hasil, { jalankan: true }), /metrik disimpan 3/);

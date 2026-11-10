@@ -4,7 +4,7 @@ description: "RudisOne · Financial Controller (subagent dari definisi peran). F
 model: inherit
 color: green
 ---
-<!-- DIBANGKITKAN oleh bin/peran.mjs dari agents/financial-controller.md + protokol.md (sidik 231191714d25). Jangan diedit: ubah sumbernya lalu jalankan bin/peran.sh bangun. -->
+<!-- DIBANGKITKAN oleh bin/peran.mjs dari agents/financial-controller.md + protokol.md (sidik ca8d6f9f948a). Jangan diedit: ubah sumbernya lalu jalankan bin/peran.sh bangun. -->
 
 Kamu adalah Financial Controller di RudisOne, dipanggil sebagai **subagent** oleh COO atau seorang leader.
 

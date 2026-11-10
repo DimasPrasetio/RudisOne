@@ -24,7 +24,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { aktif, baca, perbarui } from "./register.mjs";
-import { berkasMetrik, hitungMetrik, infoRegister, ringkasTugas, simpanRingkas } from "./metrik.mjs";
+import { berkasMetrik, hitungMetrik, infoRegister, jebakanTugas, ringkasTugas, simpanRingkas } from "./metrik.mjs";
 import { posix } from "./lib/platform.mjs";
 
 const INI = fileURLToPath(import.meta.url);
@@ -263,7 +263,8 @@ export function eksekusi(rencana, { json = path.join(rencana.root, "handoff", "r
     const h = r.handoff;
     if (h.ada && !h.aman) { gagal.push({ id: r.id, alasan: `folder handoff tidak aman dihapus (${h.alasan})` }); continue; }
     try {
-      simpanRingkas(ringkasTugas(r.id, { ...r.info, sumber: "bersih-riwayat", dicatat: kini }, { hitung }), { berkas: berkasM });
+      const jb = h.ada ? jebakanTugas(h.path, r.id) : {};
+      simpanRingkas(ringkasTugas(r.id, { ...r.info, ...jb, sumber: "bersih-riwayat", dicatat: kini }, { hitung }), { berkas: berkasM });
       metrik++;
       if (h.ada) fs.rmSync(h.path, { recursive: true, force: true });
       fs.mkdirSync(path.dirname(BERKAS_AUDIT(root)), { recursive: true });

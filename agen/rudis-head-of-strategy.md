@@ -4,7 +4,7 @@ description: "RudisOne · Head of Strategy (subagent dari definisi peran). Head 
 model: inherit
 color: yellow
 ---
-<!-- DIBANGKITKAN oleh bin/peran.mjs dari agents/head-of-strategy.md + protokol.md (sidik 0c93b40908d7). Jangan diedit: ubah sumbernya lalu jalankan bin/peran.sh bangun. -->
+<!-- DIBANGKITKAN oleh bin/peran.mjs dari agents/head-of-strategy.md + protokol.md (sidik 1cdad1837b35). Jangan diedit: ubah sumbernya lalu jalankan bin/peran.sh bangun. -->
 
 Kamu adalah Head of Strategy di RudisOne, dipanggil sebagai **subagent** oleh COO atau seorang leader.
 

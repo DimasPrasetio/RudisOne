@@ -17,7 +17,7 @@ const g = (cwd, ...a) => execFileSync("git", a, { cwd, encoding: "utf8", stdio: 
 let nomor = 0;
 after(() => fs.rmSync(tmp, { recursive: true, force: true }));
 
-const STATUS = (repo, base = "main") => `# Status ${ID}\nRepo: ${repo}\nBase: ${base}\n\n## Selesai\n- gerbang\n\n## Sisa\n- tidak ada\n\n## Langkah berikutnya\n- lapor COO\n`;
+const STATUS = (repo, base = "main") => `# Status ${ID}\nRepo: ${repo}\nBase: ${base}\nJebakan: kena 0, baru 0\n\n## Selesai\n- gerbang\n\n## Sisa\n- tidak ada\n\n## Langkah berikutnya\n- lapor COO\n`;
 const TINJAUAN = (sha, hasil = "LULUS", id = ID) => `# Tinjauan\n[Hasil tinjauan] ${id} · ${hasil}\nsha: ${sha.slice(0, 12)}\n`;
 
 /** Fixture baru: repo (main) + worktree rudis/<ID> dengan 1 commit + handoff/<ID>/{status,tinjauan}.md. */
@@ -68,7 +68,11 @@ test("status tanpa \"sisa\" → exit 2 dengan cara memperbaiki", () => {
   const r = jalan(f);
   assert.equal(r.kode, 2);
   assert.match(r.out, /- status: status\.md belum memuat kata "sisa" — lengkapi /);
-  assert.deepEqual(periksaStatus("Repo: `/x`\n- **Base:** main\nSELESAI, Sisa, Langkah Berikutnya").kurang, []);
+  assert.deepEqual(periksaStatus("Repo: `/x`\n- **Base:** main\n- **Jebakan:** kena 1, baru 2\nSELESAI, Sisa, Langkah Berikutnya").kurang, []);
+  // Jebakan: wajib dua angka (0 bila tidak ada); kata "jebakan" di tempat lain tidak dihitung
+  for (const salah of ["", "Jebakan: ada\n", "Jebakan: kena 1\n", "Catatan: jebakan kena 1, baru 0\n"])
+    assert.ok(periksaStatus(`Repo: /x\nBase: main\n${salah}selesai sisa langkah berikutnya`).kurang.some((k) => k.includes("Jebakan")), JSON.stringify(salah));
+  assert.deepEqual(periksaStatus("- Repo: /x · Base: main · Jebakan: kena 0, baru 0\nselesai sisa langkah berikutnya").kurang, []);
   assert.equal(periksaStatus("- **Repo:** `/a b/c`").repo, "/a b/c");
   const sebaris = periksaStatus("- Pemilik: Tech Lead · Repo: /x/proyek · Base: main\r\n");
   assert.equal(sebaris.repo, "/x/proyek"); assert.equal(sebaris.base, "main");

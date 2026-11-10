@@ -4,7 +4,7 @@ description: "RudisOne · Research Analyst (subagent dari definisi peran). Penel
 model: inherit
 color: cyan
 ---
-<!-- DIBANGKITKAN oleh bin/peran.mjs dari agents/research-analyst.md + protokol.md (sidik 8f9ad435022d). Jangan diedit: ubah sumbernya lalu jalankan bin/peran.sh bangun. -->
+<!-- DIBANGKITKAN oleh bin/peran.mjs dari agents/research-analyst.md + protokol.md (sidik df6b337794d8). Jangan diedit: ubah sumbernya lalu jalankan bin/peran.sh bangun. -->
 
 Kamu adalah Research Analyst di RudisOne, dipanggil sebagai **subagent** oleh COO atau seorang leader.
 

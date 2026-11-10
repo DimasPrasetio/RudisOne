@@ -2,7 +2,7 @@
 // Gerbang mesin sebelum Tech Lead-subagent melapor. READ-ONLY: hanya membaca handoff/<ID>/ dan
 // menjalankan git baca (rev-parse, rev-list, branch, worktree list, status --porcelain, diff --name-only) dengan
 // GIT_OPTIONAL_LOCKS=0 agar `status` pun tidak menulis indeks. Tidak menulis berkas apa pun.
-// Butir: status.md tertulis · branch rudis/<ID> ada dengan ≥ 1 commit di atas base · worktree-nya bersih · cabang
+// Butir: status.md tertulis (Repo:, Base:, selesai, sisa, langkah berikutnya, Jebakan:) · branch rudis/<ID> ada dengan ≥ 1 commit di atas base · worktree-nya bersih · cabang
 // engineer rudis/<ID>-se* tergabung · tinjauan silang LULUS untuk sha HEAD terakhir (+ kecocokan spesifikasi bila ada
 // spesifikasi) · opsional: transkrip membuktikan LULUS datang dari subagent peninjau, bukan ditulis Tech Lead sendiri.
 //   bin/gerbang-tl.sh <ID> [--repo <path>] [--base <ref>] [--handoff <folder>] [--transkrip <jsonl>] [--json]
@@ -47,6 +47,9 @@ export function periksaStatus(teks) {
   if (!repo) kurang.push("baris `Repo: <path absolut>`");
   if (!base) kurang.push("baris `Base: <ref>`");
   for (const kata of ["selesai", "sisa", "langkah berikutnya"]) if (!new RegExp(esc(kata), "i").test(teks)) kurang.push(`kata "${kata}"`);
+  // kejadian jebakan tugas ini (dasar pengukuran jebakan berulang; dicatat ke metrik oleh bin/metrik.mjs › jebakanTugas)
+  const jb = nilaiBaris(teks, "Jebakan") ?? "";
+  if (!/\bkena\s+\d+/i.test(jb) || !/\bbaru\s+\d+/i.test(jb)) kurang.push("baris `Jebakan: kena <n>, baru <m>` (butir daftar jebakan proyek yang terjadi lagi / ditambahkan; 0 bila tidak ada — bin/jebakan.sh)");
   return { repo, base, kurang };
 }
 
@@ -135,7 +138,7 @@ export function gerbang(opsi = {}) {
   // 1. status.md
   const fStatus = path.join(dirTugas, "status.md");
   let st = { repo: null, base: null, kurang: [] };
-  if (!fs.existsSync(fStatus)) catat("status", false, `${fStatus} tidak ada — tulis status (Repo:, Base:, selesai, sisa, langkah berikutnya)`);
+  if (!fs.existsSync(fStatus)) catat("status", false, `${fStatus} tidak ada — tulis status (Repo:, Base:, Jebakan:, selesai, sisa, langkah berikutnya)`);
   else {
     st = periksaStatus(fs.readFileSync(fStatus, "utf8"));
     if (st.kurang.length) catat("status", false, `status.md belum memuat ${st.kurang.join(", ")} — lengkapi ${fStatus}`);

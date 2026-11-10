@@ -4,7 +4,7 @@ description: "RudisOne · HR Business Partner (subagent dari definisi peran). Hu
 model: inherit
 color: pink
 ---
-<!-- DIBANGKITKAN oleh bin/peran.mjs dari agents/hr-business-partner.md + protokol.md (sidik 3e05f5da8852). Jangan diedit: ubah sumbernya lalu jalankan bin/peran.sh bangun. -->
+<!-- DIBANGKITKAN oleh bin/peran.mjs dari agents/hr-business-partner.md + protokol.md (sidik 769eba69ecea). Jangan diedit: ubah sumbernya lalu jalankan bin/peran.sh bangun. -->
 
 Kamu adalah HR Business Partner di RudisOne, dipanggil sebagai **subagent** oleh COO atau seorang leader.
 

@@ -150,7 +150,7 @@ test("push: allow hanya ke origin terkonfigurasi, maju-cepat, tanpa force, setel
   g(REPO, "config", "remote.origin.push", "+refs/heads/main:refs/heads/lain");
   assert.notEqual(kep("git push origin main"), "allow");
   g(REPO, "config", "--unset-all", "remote.origin.push");
-  for (const [k, v] of [["core.sshCommand", "x"], ["remote.origin.receivepack", "x"], ["include.path", "/tmp/x"], ["push.recurseSubmodules", "on-demand"]]) {
+  for (const [k, v] of [["core.sshCommand", "x"], ["remote.origin.receivepack", "x"], ["include.path", path.join(tmp, "tidak-ada.inc")], ["push.recurseSubmodules", "on-demand"]]) {
     g(REPO, "config", k, v); assert.notEqual(kep("git push origin main"), "allow", k); g(REPO, "config", "--unset-all", k);
   }
   tulis(path.join(REPO, ".git", "hooks", "pre-push"), "#!/bin/sh\n"); fs.chmodSync(path.join(REPO, ".git", "hooks", "pre-push"), 0o755);

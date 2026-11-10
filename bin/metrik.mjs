@@ -17,7 +17,9 @@
 //   angka (null bila galat/sub-tugas): sesi_terlibat, subagent, giliran, panggilan_api, token_total, token_output,
 //   biaya_usd (null bila --tanpa-biaya), rentang_ms, waktu_aktif_ms, waktu_aktif_subagent_ms, pesan_keluar, revisi_m2,
 //   start_session {panggilan, gagal}, beban_keputusan {pertanyaan, prompt_pengguna, prompt_izin, total},
-//   ask_user_question {panggilan, pertanyaan}, prompt_pengguna_coo.
+//   ask_user_question {panggilan, pertanyaan}, prompt_pengguna_coo,
+//   dari handoff/<ID>/ (null bila tak ada; dasar pengukuran jebakan berulang): jebakan {kena, baru} dari baris status.md
+//   `Jebakan: kena N, baru M` (templat/status-tugas.md), putaran_tinjauan = jumlah baris `[Hasil tinjauan] <ID>` di tinjauan.md.
 //
 // Format transkrip yang dipakai (diperiksa pada Claude Code 2.1.x):
 //  - baris {type:"assistant", message:{id, model, usage, content:[satu blok]}, timestamp, isSidechain}: satu pesan API
@@ -35,6 +37,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { agentsCli, folderDesktop, normalAgents, sumberBaca } from "./sesi.mjs";
+import { nilaiBaris } from "./gerbang-tl.mjs";
 
 const HOME = os.homedir();
 const PROJECTS = () => process.env.RUDISONE_METRIK_PROJECTS || path.join(HOME, ".claude", "projects");
@@ -510,7 +513,23 @@ export function ringkasMetrik(h, info = {}) {
     beban_keputusan: b ? { pertanyaan: b.pertanyaan, prompt_pengguna: b.prompt_pengguna, prompt_izin: b.prompt_izin, total: b.total } : null,
     ask_user_question: t ? { panggilan: t.intervensi.ask_user_question.panggilan, pertanyaan: t.intervensi.ask_user_question.pertanyaan } : null,
     prompt_pengguna_coo: t?.intervensi.prompt_pengguna_coo ?? null,
+    jebakan: info.jebakan ?? null, putaran_tinjauan: info.putaran_tinjauan ?? null,
   });
+}
+
+/** Kejadian jebakan & putaran tinjauan satu tugas dari folder handoff/<ID>/ — dibaca sebelum folder itu dibuang.
+ *  status.md `Jebakan: kena N, baru M` (kena = butir daftar jebakan proyek yang terjadi lagi; baru = butir yang ditambahkan);
+ *  tinjauan.md: banyaknya `[Hasil tinjauan] <ID>` (sub-ID tidak ikut). Berkas/baris tak ada → null. */
+export function jebakanTugas(dir, id) {
+  // hanya berkas biasa ≤ 1 MB (tautan ke FIFO/berkas raksasa tidak boleh menggantung bersih-riwayat otomatis)
+  const baca = (n) => { try { const p = path.join(dir, n), s = fs.lstatSync(p); return s.isFile() && s.size <= 1 << 20 ? fs.readFileSync(p, "utf8") : null; } catch { return null; } };
+  const st = baca("status.md");
+  const baris = st == null ? "" : nilaiBaris(st, "Jebakan") ?? "";   // pengurai yang sama dengan gerbang-tl (juga sebaris dengan ·)
+  const kena = baris.match(/\bkena\s+(\d+)/i), baru = baris.match(/\bbaru\s+(\d+)/i);
+  const tj = baca("tinjauan.md");
+  const esc = String(id).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const putaran = tj == null ? null : [...tj.matchAll(new RegExp(`\\[Hasil tinjauan\\]\\s*${esc}(?![\\w.])`, "g"))].length;
+  return { jebakan: kena && baru ? { kena: Number(kena[1]), baru: Number(baru[1]) } : null, putaran_tinjauan: putaran };
 }
 
 /** Baris ringkas untuk ID mana pun tanpa melempar: sub-tugas → baris tanpa angka (induk mencakupnya); galat penghitung →
@@ -582,7 +601,8 @@ function main(argv) {
   const jalan = (atribusi) => hitungMetrik(id, { sejak: opsi.sejak, atribusi, tarif, biaya: opsi.biaya, jenis: opsi.jenis });
   if (opsi.simpan) {
     // sub-tugas: tanpa angka (metrikTugas hanya menerima ID induk; metrik induk sudah mencakup giliran sub-tugasnya)
-    const info = { ...infoRegister(entriRegister(id) ?? {}), ...(opsi.judul != null ? { judul: opsi.judul } : {}), id, sumber: "manual" };
+    const info = { ...infoRegister(entriRegister(id) ?? {}), ...(opsi.judul != null ? { judul: opsi.judul } : {}),
+      ...jebakanTugas(path.join(ROOT(), "handoff", id), id), id, sumber: "manual" };
     const baris = POLA_SUB.test(id) ? ringkasMetrik(null, info) : ringkasMetrik(jalan(opsi.atribusi), info);
     const berkas = simpanRingkas(baris);
     console.log(JSON.stringify(baris));
