@@ -25,16 +25,26 @@ Pilih lewat opsi `mode` atau env `UJI_MODE=cepat|penuh` (PowerShell: `$env:UJI_M
 1. **Salin** `templat/uji-alur-kit/{kit.mjs,periksa.mjs,contoh-uji.mjs}` ke `handoff/<ID>/uji-alur/` (bukan repo proyek).
    Pasang Playwright **sekali** di `handoff/<ID>/` (`npm i playwright && npx playwright install chromium`); repo proyek dan
    RudisOne tidak mendapat dependensi.
-2. **Tulis skrip tipis** `uji.mjs` dari `contoh-uji.mjs`: isi alamat, akun per peran, kata terlarang proyek, lalu satu fungsi
-   per tugas di `alur-tugas.md` (jalur lancar + kasus gagal + layar kosong). Gunakan `snap` di tiap layar penting.
-3. **Debug per tugas, jalankan penuh sekali**: bungkus tiap tugas dengan `s.tugas("nama", fn)` lalu jalankan `UJI_TUGAS=masuk node uji.mjs` (PowerShell: `$env:UJI_TUGAS='masuk'; node uji.mjs`)
+2. **Peta layar dulu, lalu tulis skrip dari peta**: salin `contoh-uji.mjs` → `uji.mjs`, isi bagian KHAS APLIKASI (alamat, akun per peran,
+   kata terlarang proyek), lalu jalankan `UJI_PETA=1 node uji.mjs` (PowerShell: `$env:UJI_PETA='1'; node uji.mjs`). `uji.peta()` login per
+   peran, membuka tiap menu, dan menulis `hasil/peta.md` (+ `peta.json`): judul, tombol, tautan, dan isian (label + id/name/type) per layar.
+   Tulis satu fungsi per tugas di `alur-tugas.md` (jalur lancar + kasus gagal + layar kosong) dengan nama **persis dari peta** — bukan
+   tebakan dari kode sumber; selektor tebakan adalah penyebab utama eksekusi berulang. Peta hanya membuka menu (tombol tidak diketuk);
+   nama di dalam dialog dibaca dari kandidat galat atau tangkapan. Gunakan `snap` di tiap layar penting.
+3. **`node --check uji.mjs` sebelum tiap eksekusi** (salah ketik sintaks tertangkap dalam sedetik, bukan setelah browser dibuka).
+4. **Debug per tugas, jalankan penuh sekali**: bungkus tiap tugas dengan `s.tugas("nama", fn)` lalu jalankan `UJI_TUGAS=masuk node uji.mjs` (PowerShell: `$env:UJI_TUGAS='masuk'; node uji.mjs`)
    (hanya tugas yang namanya memuat kata itu; pisahkan dengan koma) sampai bersih; baru satu `node uji.mjs` penuh. Eksekusi **penuh** aplikasi
    9 tugas (2 peran) × 2 perangkat ≈ 6 mnt — mengulanginya tiap perbaikan skrip adalah penyebab utama uji lambat (mode cepat: ± 2 mnt). Galat skrip tertangkap
-   (`tugas`/`coba`) dan tidak menghentikan uji; langkah GALAT = skrip/selektor salah, bukan temuan aplikasi.
-4. **Isi templat**: `hasil/ringkasan.md` memuat baris matriks dan tabel calon temuan; `hasil/hasil.json` memuat semuanya per
+   (`tugas`/`coba`) dan tidak menghentikan uji; langkah GALAT = skrip/selektor salah, bukan temuan aplikasi. Galat sasaran mencetak **URL + ±5 nama
+   tampak terdekat** (stdout, `ringkasan.md`, `hasil.json` › `galat`) — perbaiki selektor dari situ, lalu **`UJI_TUGAS=@galat node uji.mjs`**
+   menjalankan ulang **hanya tugas yang galat** di `hasil.json` terbaru (eksekusi penuh atau `@galat` sebelumnya; nama persis). Dengan `@galat`
+   (atau opsi `tugasDariAwal: true`, dipakai `contoh-uji.mjs`) tiap tugas mulai dari rute awal sesi — tulis tugas yang berdiri sendiri
+   (menavigasi sendiri), jangan mengandalkan layar terakhir tugas sebelumnya. Tanpa `tugasDariAwal`, `UJI_TUGAS=<kata>` tetap seperti dulu (tugas
+   mulai dari layar terakhir), sehingga hasil uji ulang parsial bisa berbeda dari eksekusi penuh — pakai `tugasDariAwal: true`.
+5. **Isi templat**: `hasil/ringkasan.md` memuat baris matriks dan tabel calon temuan; `hasil/hasil.json` memuat semuanya per
    langkah. Kit hanya MENEMUKAN calon temuan — kamu memutuskan tingkat, mengaitkan kode sumber (A#/G#/K#/R#/N#), usulan, dan
    jenis tindak lanjut; temuan yang tak bisa dirujuk ke aturan/heuristik dibuang.
-5. **Uji ulang** sesudah perbaikan: `UJI_TUGAS=<tugas yang berubah> node uji.mjs` — hasilnya ke `<keluaran>-ulang-<kata>/` (otomatis; `hasil/` dan nomor tangkapan eksekusi penuh tidak tertimpa), nomor tangkapan mulai dari 001 lagi; tugas yang bergantung data tugas lain: sediakan data lewat langkah awalnya (data uji milikmu).
+6. **Uji ulang** sesudah perbaikan: `UJI_TUGAS=<tugas yang berubah> node uji.mjs` — hasilnya ke `<keluaran>-ulang-<kata>/` (otomatis; `hasil/` dan nomor tangkapan eksekusi penuh tidak tertimpa), nomor tangkapan mulai dari 001 lagi; tugas yang bergantung data tugas lain: sediakan data lewat langkah awalnya (data uji milikmu).
 
 ## Pemeriksaan otomatis di setiap `snap`
 | Jenis | Butir templat | Apa yang diperiksa |
@@ -57,12 +67,14 @@ Kasus gagal sengaja: `snap(nama, { gagal: true })` (respons 4xx dianggap diharap
 ## API ringkas
 - `mulaiUji(opsi)` → `uji`. Opsi penting: `baseUrl`, `apiUrl`, `keluaran`, `akun {peran:{email,sandi}}`, `login {path,email,sandi,kirim,next}`,
   `pergiDengan` (`goto` | `spa`), `menu {tautan,pemicuHp}`, `teksTerlarang`, `polaAngka`, `abaikanKonsol`, `responsDiizinkan`,
-  `penghalang` (daftar selektor dialog/overlay), `fotoPenuh` (true | false | null = tanpa tangkapan). `PRESET_RUDIS` mengisi
+  `penghalang` (daftar selektor dialog/overlay), `fotoPenuh` (true | false | null = tanpa tangkapan), `tungguHp` (ms, bawaan 1500: tunggu singkat
+  sebelum menu samping HP dicoba dibuka), `tugasDariAwal` (bawaan false; true = tiap `s.tugas` mulai dari rute awal sesi — selalu berlaku saat `UJI_TUGAS=@galat`). `PRESET_RUDIS` mengisi
   login `?next=`, `pergiDengan: "spa"` (token di memori; `goto` biasa memutus login), dan sidebar shadcn.
+- `await uji.peta({ peran, perangkat, awal, menuMaks })` → `hasil/peta.md` + `peta.json` (bawaan: semua akun, perangkat pertama mode ini) · `await uji.tutup()` (tutup browser tanpa menulis hasil).
 - `uji.perangkatUji` (cepat `["hp"]`, penuh `["hp","komputer"]`) · `uji.cakupan({ tugasUji, tugasSemua })` · `uji.mode`.
 - `uji.sesi(peran, "hp" | "komputer", { awal })` → `s` (sudah login; HP = iPhone 13, komputer = 1440×900).
-- `s.snap(nama, { gagal, kunci })` tangkapan bernomor + pemeriksaan (mode cepat: PNG hanya bila `kunci`/`gagal`/galat; pemeriksaan selalu) · `s.klik(target)` (menutup penghalang atau membuka menu HP
-  bila sasaran tertutup) · `s.menu(nama)` · `s.pergi(alamat)` · `s.isi/isiAngka/isiTanggal(target, nilai)` (mengembalikan nilai yang
+- `s.snap(nama, { gagal, kunci })` tangkapan bernomor + pemeriksaan (mode cepat: PNG hanya bila `kunci`/`gagal`/galat; pemeriksaan selalu) · `s.klik(target)` (menutup penghalang bila sasaran tertutup; HP: menu samping dibuka **hanya** bila sasaran tautan
+  menu/navigasi — ada di nav/sidebar, dari `s.menu`, atau tetap tidak ada di halaman setelah `tungguHp`; sasaran yang hanya belum selesai muncul ditunggu) · `s.menu(nama)` · `s.pergi(alamat)` · `s.isi/isiAngka/isiTanggal(target, nilai)` (mengembalikan nilai yang
   tampil) · `s.pilihOpsi({ pemicu, cari, opsi })` (select asli, dialog pencarian, combobox) · `s.tutupPenghalang()` ·
   `s.tugas(nama, fn)` / `s.coba(nama, fn)` · `s.pesan()` (toast, galat inline, dialog yang tampak; `snap` menyimpannya di `hasil.json` › `pesan`) · `s.lepasPenjaga()` (dialog "Perubahan belum disimpan"; otomatis dipanggil `klik`/`tutupPenghalang`, tombol di opsi `tombolPenjaga`) · `s.catatTemuan({...})` · `s.page` (Playwright mentah bila perlu).
   `target` = selektor CSS, `RegExp` (teks), `{ role, name }`, atau Locator.
@@ -77,6 +89,8 @@ Kasus gagal sengaja: `snap(nama, { gagal: true })` (respons 4xx dianggap diharap
 - `pergi(alamat, { tunggu })`: rute SPA yang dimuat malas butuh tanda termuat (selektor/RegExp) agar tangkapan tidak berisi layar lama.
 - Pemicu `pilihOpsi`/`klik` berupa RegExp dicari sebagai tombol, combobox, tautan, lalu teks; tombol yang namanya dari label (aria) ikut ketemu.
 - Tangkapan `fullPage` menaruh header lengket di tengah gambar HP; pakai `fotoPenuh: false` bila mengganggu.
+- HP: tombol/tautan halaman yang muncul lambat tidak lagi membuka menu samping; bila dugaan "ada di menu samping" salah, menu ditutup lagi
+  sebelum galat dicatat (tangkapan GALAT menunjukkan halaman, bukan menu).
 - Batas tunggu langkah 8 dtk (bukan 30 dtk bawaan Playwright) supaya selektor salah gagal cepat.
 - Tugas berantai lintas peran (admin buat barang → petugas catat → admin batalkan): buka dua sesi sekaligus (`uji.sesi` dua kali) dan beri data uji awalan tetap (mis. "Cepat-"); `UJI_TUGAS` hanya menjalankan tugas yang dipilih, jadi sediakan datanya lewat langkah awal tugas itu atau cari data berawalan itu yang sudah ada.
 - Sunting skrip dengan alat Edit/Write, bukan `node -e`/heredoc di Git Bash: `\s` di regex bisa hilang.

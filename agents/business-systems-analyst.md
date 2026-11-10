@@ -74,10 +74,13 @@ dan user story. Memeriksa aplikasi yang sudah jadi **dari sisi pengguna**, bukan
   eksplisit** ("cepat: N dari M tugas, HP saja") dan daftar *belum terverifikasi* untuk yang tak dicakup (tugas non-inti, komputer, layar kosong, kasus gagal lain; dibangkitkan kit di `ringkasan.md`) — jangan pernah tampak lengkap bila tidak. Tugas inti belum ditandai di `alur-tugas.md` (alur lama/jalur ekspres) → tetapkan dulu sendiri dengan aturan yang sama dan sebut di laporan.
 - **Cara — pakai kit, jangan menulis skrip dari nol** (`~/Documents/Neuron/ai-agent/RudisOne/templat/uji-alur-kit/`; baca `README.md`
   dan `contoh-uji.mjs` dulu): (1) salin `kit.mjs` + `periksa.mjs` ke `handoff/<ID>/uji-alur/` (**bukan** repo proyek; Playwright
-  dipasang sekali di `handoff/<ID>/`); (2) tulis skrip tipis `uji.mjs`: alamat, akun per peran, kata terlarang proyek, satu fungsi per
+  dipasang sekali di `handoff/<ID>/`); (2) isi bagian KHAS APLIKASI `uji.mjs` (alamat, akun per peran, kata terlarang proyek), jalankan
+  **peta layar** `UJI_PETA=1 node uji.mjs` → `hasil/peta.md` (nama tampil judul/tombol/tautan/isian per menu per peran), lalu tulis satu fungsi per
   tugas di `alur-tugas.md` (mode cepat: hanya tugas inti, jalur lancar + kasus gagal utama, `for (const p of uji.perangkatUji)` = HP; mode penuh: semua tugas,
-  layar kosong, HP `iPhone 13` + komputer 1440×900) dibungkus `s.tugas(nama, fn)`, `snap(…, { kunci: true })` di langkah kunci, dan `uji.cakupan({ tugasUji, tugasSemua })`; (3) **debug per tugas** dengan `UJI_TUGAS=<kata>` sampai bersih, baru satu eksekusi penuh — jangan mengulang
-  eksekusi penuh tiap perbaikan skrip; (4) isi templat dari `hasil/ringkasan.md` + `hasil/hasil.json` (matriks, calon temuan, `pesan` per
+  layar kosong, HP `iPhone 13` + komputer 1440×900) dibungkus `s.tugas(nama, fn)`, `snap(…, { kunci: true })` di langkah kunci, dan `uji.cakupan({ tugasUji, tugasSemua })` — selektor memakai nama **persis dari
+  peta**, bukan tebakan dari kode sumber; tiap tugas berdiri sendiri (menavigasi dari rute awal sesi, `tugasDariAwal: true`); (3) `node --check uji.mjs` sebelum tiap eksekusi,
+  lalu **debug per tugas** dengan `UJI_TUGAS=<kata>` sampai bersih, baru satu eksekusi penuh — jangan mengulang eksekusi penuh tiap perbaikan skrip; galat sasaran
+  mencetak URL + ±5 nama tampak terdekat (perbaiki dari situ), dan `UJI_TUGAS=@galat` mengulang **hanya tugas yang galat** di `hasil.json` terbaru; (4) isi templat dari `hasil/ringkasan.md` + `hasil/hasil.json` (matriks, calon temuan, `pesan` per
   langkah). Kit menemukan **calon** temuan otomatis (geser horizontal, target sentuh < 44 px, papan ketik angka, angka berlebih nol
   seperti `999,0000`, teks terlarang, label hilang, galat konsol/respons); kamu menilai, memberi kode sumber, membuang yang tak bisa
   dirujuk, dan menilai sendiri yang butuh pertimbangan (kejelasan pesan, jumlah langkah, istilah, kontras, fokus). Tangkapan layar
@@ -101,7 +104,7 @@ dan user story. Memeriksa aplikasi yang sudah jadi **dari sisi pengguna**, bukan
   resepnya, **kamu** menyalin alur tugas yang relevan dari sana ke `handoff/<ID>/alur-tugas.md` (menyebut sumber pustakanya)
   sebagai awal uji; kode sumber di salinan itu (A#, N#) tetap kode berkas pustaka — tulis di kepala berkas "kode A#/N# merujuk `recipes/alur/<kategori>.md`";
   tanpa alur di pustaka, uji alur dilewati dan laporanmu menyebut "alur belum dicakup uji".
-- **Uji ulang:** setelah perbaikan, uji **hanya** butir temuan itu (jalankan ulang fungsi tugas terkait lewat `UJI_TUGAS`, bukan seluruh skrip); tambahkan putaran di bawah putusan lama. Perbaikan dari
+- **Uji ulang:** setelah perbaikan, uji **hanya** butir temuan itu (jalankan ulang fungsi tugas terkait lewat `UJI_TUGAS=<kata>`, atau `UJI_TUGAS=@galat` untuk tugas yang galat — bukan seluruh skrip); tambahkan putaran di bawah putusan lama. Perbaikan dari
   tinjauan kode yang ikut menyentuh layar atau alur juga mengubah sha: butir alur terkait diuji ulang, dan putusan ditulis
   untuk sha terakhir.
 - **Hasil:** `handoff/<ID>/uji-alur.md` memuat `Putusan: LULUS` atau `PERLU PERBAIKAN`, `sha:` terakhir yang diuji, **mode + cakupan** (mode cepat: "cepat: N dari M tugas, HP saja"; yang tak dicakup di *Belum terverifikasi*), matriks, waktu uji, dan

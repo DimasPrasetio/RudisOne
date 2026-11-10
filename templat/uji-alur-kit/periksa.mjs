@@ -1,6 +1,8 @@
 // Pemeriksaan dasar uji jalan alur yang TIDAK bergantung aplikasi — fungsi murni: masukannya data biasa (cuplikan DOM,
 // daftar respons, daftar konsol), keluarannya daftar temuan. Tanpa Playwright, jadi bisa diuji `node --test`
 // (bin/uji-alur-kit.test.mjs). Pemakaian di browser: kit.mjs (`snap` mengumpulkan cuplikan DOM lalu memanggil `periksaLayar`).
+// Di bagian akhir: bantuan skrip murni yang dipakai kit.mjs (peta layar, kandidat nama saat sasaran gagal, keputusan menu HP,
+// penyaring UJI_TUGAS termasuk `@galat`).
 //
 // Bentuk temuan: { jenis, butir, usulTingkat, ringkas, rincian }
 //   jenis       kunci mesin (geser, target-sentuh, angka-berlebih, teks-terlarang, label-hilang, papan-ketik, konsol, respons, …)
@@ -218,4 +220,179 @@ export function teksCakupan({ mode, tugasUji = [], tugasSemua = [], perangkat = 
   if (mode === "cepat" && !perangkat.includes("komputer")) belum.push("tampilan komputer (1440 px): tidak diuji di mode cepat");
   if (mode === "cepat") belum.push("layar kosong dan kasus gagal selain yang utama: tidak diuji di mode cepat");
   return { pernyataan, belum };
+}
+
+/* ---- Bantuan skrip (murni, diuji): peta layar, kandidat nama saat sasaran gagal, keputusan menu HP, uji ulang tugas galat ---- */
+
+const normalNama = (s) => String(s ?? "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+const kutip = (s) => `"${String(s ?? "").replace(/"/g, "'")}"`;
+
+/** Sumber RegExp → teks yang dicari manusia: `^\s*Simpan barang\s*$` → "Simpan barang". */
+export function teksRegex(src) {
+  return String(src ?? "").replace(/\\[sS][*+?]?|\\b/g, " ").replace(/(?<!\\)[\^$]/g, "")
+    .replace(/\\(.)/g, "$1").replace(/[()[\]{}*+?|]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+/** Deskripsi sasaran (untuk pesan galat) dari target kit: selektor CSS, RegExp, { role, name }, atau Locator. */
+export function deskripsiSasaran(t) {
+  if (t == null) return null;
+  if (typeof t === "string") return t;
+  if (t instanceof RegExp) return String(t);
+  if (t.role) return `getByRole('${t.role}'${t.name != null ? `, { name: ${t.name instanceof RegExp ? String(t.name) : `'${t.name}'`} }` : ""})`;
+  const s = String(t);
+  return s === "[object Object]" ? null : s;
+}
+
+/** Sasaran dari pesan galat Playwright ("waiting for getByRole('button', { name: 'Simpan' })"); null bila bukan galat sasaran. */
+export function sasaranDariGalat(pesan) {
+  const baris = String(pesan ?? "").split("\n").map((b) => b.trim());
+  // hanya baris locator ("waiting for getByRole(…)", "locator(…)"); "element to be visible, enabled…", "navigation …", "event …" dilewati
+  const tunggu = baris.map((b) => b.match(/waiting for ((?:getBy\w+|locator|frameLocator|internal:)\S*.*?)(?: to be \w+)?$/)).filter(Boolean).map((m) => m[1]);
+  if (tunggu.length) return tunggu[tunggu.length - 1].replace(/^-\s*/, "");
+  const kit = String(pesan ?? "").match(/tidak ditemukan[^:]*:\s*(.+)$/m); // galat kit sendiri, mis. pilihOpsi "<select>: X"
+  return kit ? kit[1].trim() : null;
+}
+
+/** Teks inti yang dicari dari deskripsi sasaran: nama peran, hasText, getByText/Label/Placeholder, #id, [name=…], atau RegExp. */
+export function teksSasaran(desk) {
+  if (desk instanceof RegExp) return teksRegex(desk.source);
+  if (desk && typeof desk === "object") return teksSasaran(deskripsiSasaran(desk));
+  const s = String(desk ?? "");
+  const pola = [
+    [/(?:name|hasText):\s*'((?:[^'\\]|\\.)*)'/, (x) => x.replace(/\\(.)/g, "$1")],
+    [/(?:name|hasText):\s*"((?:[^"\\]|\\.)*)"/, (x) => x.replace(/\\(.)/g, "$1")],
+    [/(?:name|hasText):\s*\/((?:[^/\\]|\\.)*)\/[a-z]*/, teksRegex],
+    [/getBy(?:Text|Label|Placeholder|Title|AltText)\(\s*'((?:[^'\\]|\\.)*)'/, (x) => x.replace(/\\(.)/g, "$1")],
+    [/getBy(?:Text|Label|Placeholder|Title|AltText)\(\s*\/((?:[^/\\]|\\.)*)\/[a-z]*/, teksRegex],
+    [/:has-text\(\s*["']((?:[^"'\\]|\\.)*)["']\s*\)/, (x) => x],
+    [/\[(?:name|id|aria-label|placeholder|title)\s*[*^$~|]?=\s*["']?((?:[^"'\]\\]|\\.)*)["']?\s*\]/, (x) => x.replace(/\\(.)/g, "$1")],
+    [/#((?:[\w-]|\\+.)+)/, (x) => x.replace(/\\+(.)/g, "$1")],
+    [/^\/((?:[^/\\]|\\.)*)\/[a-z]*$/, teksRegex],
+    [/^text=(.+)$/, (x) => x],
+  ];
+  for (const [re, f] of pola) { const m = s.match(re); if (m) return f(m[1]).trim(); }
+  return s.trim();
+}
+
+/** Nama yang tampak di layar (dari cuplikan `ambilDom`): tombol, tautan, isian (label → aria → placeholder → name → id), judul. */
+export function daftarNamaDom(dom) {
+  const hasil = [], ada = new Set();
+  const tambah = (jenis, nama, rincian = "", alias = []) => {
+    const n = String(nama ?? "").replace(/\s+/g, " ").trim();
+    if (!n || ada.has(`${jenis}|${n}`)) return;
+    ada.add(`${jenis}|${n}`);
+    const al = [...new Set(alias.filter((a) => a && a !== n))];
+    hasil.push({ jenis, nama: n, ...(rincian ? { rincian } : {}), ...(al.length ? { alias: al } : {}) });
+  };
+  for (const j of dom?.judul ?? []) tambah("judul", j);
+  for (const t of dom?.tombol ?? []) tambah(t.tag === "a" ? "tautan" : "tombol", t.t);
+  for (const i of dom?.inputs ?? []) {
+    if (["hidden"].includes(i.type)) continue;
+    const r = [i.id && `id=${i.id}`, i.name && i.name !== i.id && `name=${i.name}`, i.type && `type=${i.type}`].filter(Boolean).join(", ");
+    tambah("isian", i.label || i.aria || i.ph || i.name || i.id, r, [i.aria, i.ph, i.name, i.id]); // selektor #id/[name] dicocokkan lewat alias
+  }
+  return hasil;
+}
+
+function jarakEdit(a, b) {
+  a = a.slice(0, 60); b = b.slice(0, 60);
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    for (let j = 1; j <= b.length; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    prev = cur;
+  }
+  return prev[b.length];
+}
+/** Kemiripan 0–1 dua nama (tanpa peka huruf/aksen): sama = 1, saling memuat ≥ 0,6, lainnya dari kata bersama & jarak edit (maks. 0,8). */
+export function kemiripanNama(a, b) {
+  const x = normalNama(a), y = normalNama(b);
+  if (!x || !y) return 0;
+  if (x === y) return 1;
+  const [pendek, panjang] = x.length <= y.length ? [x, y] : [y, x];
+  if (panjang.includes(pendek)) return 0.6 + 0.4 * (pendek.length / panjang.length);
+  const kx = new Set(x.split(" ")), ky = new Set(y.split(" "));
+  const sama = [...kx].filter((k) => ky.has(k)).length;
+  const jaccard = sama / new Set([...kx, ...ky]).size;
+  const edit = 1 - jarakEdit(x, y) / Math.max(x.length, y.length);
+  return 0.8 * Math.max(jaccard, edit);
+}
+/** ±n nama tampak yang paling mirip sasaran (urut skor; seri → urutan di layar). Sasaran kosong → n nama pertama. */
+export function kandidatTerdekat(sasaran, daftar, n = 5) {
+  const s = String(sasaran ?? "");
+  return (daftar ?? []).map((d, i) => ({ ...d, skor: Math.round(Math.max(...[d.nama, ...(d.alias ?? [])].map((x) => kemiripanNama(s, x))) * 100) / 100, i }))
+    .sort((p, q) => q.skor - p.skor || p.i - q.i).slice(0, n).map(({ i, alias, ...d }) => d);
+}
+export const formatKandidat = (k) => `${k.jenis} ${kutip(k.nama)}${k.rincian ? ` (${k.rincian})` : ""}`;
+
+/** Baris galat untuk ringkasan.md / stdout: pesan + URL + sasaran + kandidat nama terdekat. */
+export function barisGalat(g) {
+  const tempat = [g.url && `di ${g.url}`, g.sasaran && `sasaran: ${g.sasaran}`].filter(Boolean).join(" · ");
+  return `${g.perangkat}/${g.peran} ${g.nama}: ${g.pesan}${tempat ? ` — ${tempat}` : ""}${g.kandidat?.length ? ` — nama terdekat yang tampak: ${g.kandidat.join(" · ")}` : ""}`;
+}
+
+/**
+ * Klik di HP: kapan menu samping dibuka. "lanjut" = jangan buka menu (sasaran tampak, atau ada di halaman tetapi belum tampak →
+ * tunggu biasa); "tunggu" = tunggu singkat dulu (sasaran belum ada di halaman, belum jelas apakah tautan menu); "buka-menu" =
+ * sasaran memang tautan menu/navigasi (dari `menu()`, ada di dalam nav/sidebar) atau tetap tidak ada setelah tunggu singkat
+ * (kemungkinan di menu samping yang belum dirender).
+ */
+export function langkahMenuHp({ hp = true, tampak = false, dariMenu = false, terpasang = false, diNavigasi = false, sudahTunggu = false } = {}) {
+  if (!hp || tampak) return "lanjut";
+  if (dariMenu || (terpasang && diNavigasi)) return "buka-menu";
+  if (terpasang) return "lanjut";
+  return sudahTunggu ? "buka-menu" : "tunggu";
+}
+
+/** Env UJI_TUGAS → penyaring: kata (cocok sebagian, seperti dulu) + `@galat` (ulang tugas yang galat di hasil.json sebelumnya). */
+export function uraiSaring(env) {
+  const token = String(env ?? "").split(",").map((x) => x.trim().toLowerCase()).filter(Boolean);
+  return { token, kata: token.filter((k) => k !== "@galat"), galat: token.includes("@galat"), persis: new Set(), aktif: token.length > 0 };
+}
+/** Tugas `nama` dijalankan? Tanpa penyaring: ya. Kata: nama memuatnya. `@galat`: nama persis salah satu tugas galat. */
+export function cocokSaring(nama, saring) {
+  if (!saring) return true;
+  const n = String(nama).toLowerCase();
+  return !!saring.persis?.has(n) || (saring.kata ?? []).some((k) => n.includes(k));
+}
+/** Nama tugas yang galat di hasil.json (galat lama tanpa `tugas` → nama langkahnya). */
+export function tugasGalat(hasil) {
+  return [...new Set((hasil?.galat ?? []).map((g) => g.tugas ?? g.nama).filter(Boolean).map((n) => String(n).toLowerCase()))];
+}
+/** hasil.json terbaru dari kandidat [{ berkas, mtimeMs }] (eksekusi penuh vs uji ulang @galat sebelumnya); null bila tak ada. */
+export function pilihHasilTerbaru(kandidat) {
+  return [...(kandidat ?? [])].filter((k) => k && k.mtimeMs != null).sort((a, b) => b.mtimeMs - a.mtimeMs)[0]?.berkas ?? null;
+}
+
+/** Ringkas satu layar untuk peta: judul, tombol, tautan (tanpa tautan menu), isian (+ id/name/type). */
+export function ringkasLayar(dom, { abaikanTautan = [] } = {}) {
+  const abai = new Set(abaikanTautan.map((x) => normalNama(x)));
+  const nama = daftarNamaDom(dom);
+  const ambil = (j) => nama.filter((n) => n.jenis === j);
+  return {
+    url: dom?.url ?? "",
+    judul: ambil("judul").map((n) => n.nama).slice(0, 10),
+    tombol: ambil("tombol").map((n) => n.nama).slice(0, 40),
+    tautan: ambil("tautan").filter((n) => !abai.has(normalNama(n.nama))).map((n) => n.nama).slice(0, 40),
+    isian: ambil("isian").map((n) => ({ nama: n.nama, rincian: n.rincian ?? "" })).slice(0, 40),
+  };
+}
+/** peta.md dari hasil `uji.peta()`: per peran → menu → nama tampil (dasar menulis selektor, bukan tebakan dari kode). */
+export function petaMarkdown(peta) {
+  const daftar = (xs) => (xs?.length ? xs.map(kutip).join(", ") : "—");
+  const md = [`# Peta layar — ${peta?.baseUrl ?? ""} (perangkat ${peta?.perangkat ?? "?"})`, "",
+    `Dibuat \`uji.peta()\` ${peta?.dibuat ?? ""}. Tulis selektor dari nama di sini, persis seperti tampil (mis. \`{ role: "button", name: "Simpan" }\`,`,
+    "`s.menu(\"Stok\")`), bukan tebakan dari kode sumber. Peta hanya membuka menu; tombol yang membuka dialog/form tidak diketuk (bisa",
+    "mengubah data) — nama di dalam dialog dibaca dari kandidat galat atau tangkapan.", ""];
+  for (const p of peta?.peran ?? []) {
+    md.push(`## Peran: ${p.peran}`, "", `Menu: ${p.menu?.length ? p.menu.map(kutip).join(" · ") : "(tidak ada tautan menu yang tampak)"}`, "");
+    if (p.galat) md.push(`GALAT: ${p.galat}`, "");
+    for (const l of p.layar ?? []) {
+      md.push(`### ${l.menu}${l.url ? ` — \`${l.url}\`` : ""}`);
+      if (l.galat) { md.push(`- GALAT: ${l.galat}`, ""); continue; }
+      md.push(`- Judul: ${daftar(l.judul)}`, `- Tombol: ${daftar(l.tombol)}`, `- Tautan: ${daftar(l.tautan)}`,
+        `- Isian: ${l.isian?.length ? l.isian.map((i) => `${kutip(i.nama)}${i.rincian ? ` (${i.rincian})` : ""}`).join(", ") : "—"}`, "");
+    }
+  }
+  return md.join("\n");
 }
