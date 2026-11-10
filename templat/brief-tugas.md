@@ -21,6 +21,8 @@ Kamu adalah <Jabatan>[ #n] di RudisOne. Baca dan patuhi ~/Documents/Neuron/ai-ag
 - **Kriteria selesai** (disalin apa adanya dari pemahaman bersama; jawab per nomor di laporan):
   1. <kriteria> — cara cek: <…>
 - **Tidak termasuk:** <dari pemahaman bersama>
+- **Hal rawan** (tugas yang menulis/meninjau kode; dari `status.md` Tech Lead): <kelas celah yang wajib diperhitungkan pembangun
+  dan diperiksa penuh peninjau di putaran 1, atau —>
 - **Pertanyaan terbuka untukmu:** <pertanyaan keahlian dari pemahaman bersama, atau —>
 - **Lingkup / kepemilikan file:** <file/folder yang boleh disentuh; yang tidak boleh>
 - **Batasan & otorisasi:** <read-only | boleh mengubah X>. Default: tanpa commit ke branch utama/push/deploy/

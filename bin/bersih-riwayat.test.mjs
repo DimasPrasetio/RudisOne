@@ -7,9 +7,10 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { kandidat, terlindung, waktuTutup, rencanakan } from "./bersih-riwayat.mjs";
+import { kandidat, terlindung, waktuTutup, rencanakan, eksekusi, ringkas } from "./bersih-riwayat.mjs";
 import { samaPath } from "./lib/lokasi.mjs";
 
+delete process.env.RUDISONE_METRIK_SIMPAN;   // uji in-process memakai <root>/handoff/metrik.jsonl
 const SKRIP = path.join(path.dirname(fileURLToPath(import.meta.url)), "bersih-riwayat.mjs");
 const tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "bersih-riwayat-")));
 const SEKARANG = "2026-02-20T12:00:00.000Z";
@@ -51,8 +52,12 @@ function cabang(root, nama, { merged = false, wt = null } = {}) {
   if (merged) sh(root, "merge", "-q", "--no-ff", "-m", `merge ${nama}`, b);
   return { branch: b, dir };
 }
+// transkrip & metadata Desktop kosong: penghitung metrik bawaan tidak membaca ~/.claude device ini
+const METRIK_KOSONG = { RUDISONE_METRIK_PROJECTS: fs.mkdtempSync(path.join(tmp, "projects-")), RUDISONE_METRIK_DESKTOP: fs.mkdtempSync(path.join(tmp, "desktop-")),
+  RUDISONE_METRIK_SIMPAN: "", RUDISONE_AUDIT: "" };
 const jalankan = (root, json, args = [], env = {}) => spawnSync(process.execPath, [SKRIP, ...args], { cwd: tmp, encoding: "utf8",
-  env: { ...process.env, RUDISONE_ROOT: root, RUDISONE_REGISTER_JSON: json, RUDISONE_REGISTER_MD: json.replace(/json$/, "md"), RUDISONE_SEKARANG: SEKARANG, ...env } });
+  env: { ...process.env, ...METRIK_KOSONG, RUDISONE_ROOT: root, RUDISONE_REGISTER_JSON: json, RUDISONE_REGISTER_MD: json.replace(/json$/, "md"), RUDISONE_SEKARANG: SEKARANG, ...env } });
+const bacaMetrik = (root) => { try { return fs.readFileSync(path.join(root, "handoff", "metrik.jsonl"), "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l)); } catch { return null; } };
 const regId = (json) => JSON.parse(fs.readFileSync(json, "utf8")).tugas.map((t) => t.id);
 const cabangAda = (root, b) => spawnSync("git", ["-C", root, "rev-parse", "--verify", "--quiet", `refs/heads/${b}`]).status === 0;
 
@@ -88,6 +93,8 @@ test("dry-run (bawaan) tidak mengubah apa pun; ringkasan satu baris", () => {
   assert.equal(fs.readFileSync(json, "utf8"), sebelum);
   assert.ok(fs.existsSync(path.join(root, "handoff", "T-20260101-1")));
   assert.ok(!fs.existsSync(path.join(root, "handoff", "bersih-riwayat.jsonl")));
+  assert.equal(bacaMetrik(root), null, "dry-run tidak menulis metrik.jsonl");
+  assert.doesNotMatch(r.stdout, /metrik disimpan/);
 });
 
 test("--jalankan: buang register + handoff yang layak, audit satu baris per tugas, aktif/baru utuh; idempoten", () => {
@@ -112,11 +119,55 @@ test("--jalankan: buang register + handoff yang layak, audit satu baris per tuga
   assert.equal(audit[0].handoff_byte, 1000);
   assert.ok(audit[0].tanggal && audit[0].selesai_pada === "2026-02-10");
   assert.ok(fs.readFileSync(json.replace(/json$/, "md"), "utf8").includes("T-20260101-2"), "register MD dibangkitkan ulang");
+  // metrik: satu baris ringkas per tugas yang dibuang (penghitung bawaan, transkrip kosong → angka 0), info dari register
+  assert.match(r.stdout, /metrik disimpan 2/);
+  const m = bacaMetrik(root);
+  assert.deepEqual(m.map((x) => x.id), ["T-20260101-1", "T-20260101-3"]);
+  assert.deepEqual([m[1].sumber, m[1].judul, m[1].status, m[1].divisi, m[1].selesai_pada, m[1].dicatat, m[1].galat, m[1].sesi_terlibat, m[1].giliran],
+    ["bersih-riwayat", "Tugas T-20260101-3", "dibatalkan", "Engineering", "2026-02-10", SEKARANG, null, 0, 0]);
+  assert.equal(m[0].v, 1);
   // idempoten
   const r2 = jalankan(root, json, ["--jalankan"]);
   assert.equal(r2.status, 0);
   assert.match(r2.stdout, /tidak ada tugas selesai\/dibatalkan > 24 jam/);
   assert.equal(fs.readFileSync(path.join(root, "handoff", "bersih-riwayat.jsonl"), "utf8").trim().split("\n").length, 2);
+  assert.equal(bacaMetrik(root).length, 2);
+});
+
+test("eksekusi: metrik ditulis SEBELUM folder dibuang; galat penghitung → baris ber-galat & tetap dibuang; sub-tugas → baris induk", () => {
+  const { root, json } = bangun([tugas("T-20260101-1"), tugas("T-20260101-2"), tugas("T-20260101-3.1")]);
+  const rc = rencanakan({ root, json, kini: new Date(SEKARANG), cwd: tmp });
+  const terlihat = {};
+  const palsu = (id) => {
+    terlihat[id] = fs.existsSync(path.join(root, "handoff", id, "laporan.md"));
+    if (id === "T-20260101-2") throw new Error("transkrip tak terbaca");
+    return { id, atribusi: "dasar", total: { sesi_terlibat: 1, subagent: 0, giliran: 4, panggilan_api: 9, token: { total: 1234, output: 56 }, biaya_usd_perkiraan: 0.5,
+      rentang_ms: 1000, waktu_aktif_ms: 800, waktu_aktif_subagent_ms: 0, pesan: { keluar: 2 }, revisi: { total_m2: 0 }, start_session: { panggilan: 0, gagal: 0 },
+      intervensi: { ask_user_question: { panggilan: 1, pertanyaan: 2 }, prompt_pengguna_coo: 1 }, beban_keputusan: { pertanyaan: 2, prompt_pengguna: 1, prompt_izin: 0, total: 3 } } };
+  };
+  const hasil = eksekusi(rc, { json, md: json.replace(/json$/, "md"), hitungMetrik: palsu });
+  assert.deepEqual(terlihat, { "T-20260101-1": true, "T-20260101-2": true }, "penghitung dipanggil saat folder masih ada; sub-tugas tidak dihitung");
+  assert.deepEqual(hasil.selesai, ["T-20260101-1", "T-20260101-2", "T-20260101-3.1"]);
+  assert.equal(hasil.metrik, 3);
+  for (const id of hasil.selesai) assert.ok(!fs.existsSync(path.join(root, "handoff", id)), id);
+  assert.deepEqual(regId(json), []);
+  const m = Object.fromEntries(bacaMetrik(root).map((x) => [x.id, x]));
+  assert.deepEqual([m["T-20260101-1"].giliran, m["T-20260101-1"].token_total, m["T-20260101-1"].beban_keputusan.total, m["T-20260101-1"].galat], [4, 1234, 3, null]);
+  assert.deepEqual([m["T-20260101-2"].galat, m["T-20260101-2"].giliran, m["T-20260101-2"].judul], ["transkrip tak terbaca", null, "Tugas T-20260101-2"]);
+  assert.deepEqual([m["T-20260101-3.1"].induk, m["T-20260101-3.1"].giliran], ["T-20260101-3", null]);
+  assert.match(ringkas(rc, hasil, { jalankan: true }), /metrik disimpan 3/);
+});
+
+test("eksekusi: metrik gagal DITULIS → tugas gagal, folder & entri register dibiarkan", () => {
+  const { root, json } = bangun([tugas("T-20260101-1")]);
+  const rc = rencanakan({ root, json, kini: new Date(SEKARANG), cwd: tmp });
+  const bukanBerkas = fs.mkdtempSync(path.join(tmp, "dir-metrik-"));            // append ke folder → EISDIR
+  const hasil = eksekusi(rc, { json, md: json.replace(/json$/, "md"), hitungMetrik: () => null, berkasMetrik: bukanBerkas });
+  assert.deepEqual(hasil.selesai, []);
+  assert.equal(hasil.gagal[0].id, "T-20260101-1");
+  assert.equal(hasil.metrik, 0);
+  assert.ok(fs.existsSync(path.join(root, "handoff", "T-20260101-1", "laporan.md")));
+  assert.deepEqual(regId(json), ["T-20260101-1"]);
 });
 
 test("git: hanya branch ter-merge + worktree bersih diusulkan; semua lainnya ditahan; tidak ada yang dihapus oleh skrip", () => {
@@ -201,6 +252,7 @@ test("keamanan folder handoff: symlink tidak diikuti dan tidak dihapus; entri re
   assert.ok(fs.existsSync(path.join(luar, "penting.txt")));
   assert.deepEqual(regId(json), ["T-20260101-1"]);
   assert.ok(!fs.existsSync(path.join(root, "handoff", "T-20260101-2")));
+  assert.deepEqual(bacaMetrik(root).map((x) => x.id), ["T-20260101-2"], "folder tidak aman → tanpa baris metrik");
 });
 
 test("folder handoff tanpa entri register tidak disentuh; pemakaian salah → exit 3; --jalankan + --usulan-git ditolak", () => {

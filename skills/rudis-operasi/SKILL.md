@@ -55,7 +55,8 @@ memakainya; jabatan lain selalu ditanya, walau sekadar membaca.
 ## 5. Jejak audit
 Setiap aksi jenjang 2–3 yang dijalankan, setiap `rilis-cek`, setiap SELECT data production (`baca-data`, dengan jumlah
 baris) dan setiap perubahan berkas terlindung tercatat di `handoff/audit/<YYYY-MM>.jsonl` (waktu, jabatan, ID tugas,
-aksi; rahasia disamarkan). Lihat: `bin/kebijakan.sh audit`. Jenjang 1 lainnya tidak diaudit. Saat memverifikasi aksi
+aksi; rahasia disamarkan). ID tugas diambil dari pesan masuk ber-ID terakhir di transkrip sesi (`[Tugas dari …] T-…`,
+`[Revisi] T-…`), atau bila tidak ada dari branch tugas folder kerja (`rudis/<ID>[-…]`); tak diketahui → kosong. Lihat: `bin/kebijakan.sh audit`. Jenjang 1 lainnya tidak diaudit. Saat memverifikasi aksi
 ubah, COO mencocokkannya dengan audit.
 - Audit hanya ditulis hook. Tiap baris berantai hash dengan baris sebelumnya: `bin/kebijakan.sh audit --verifikasi`
   (exit 1 = ada suntingan/sisipan/hapusan di tengah). Batasnya: rantai tanpa kunci — memotong ekor, menghapus berkas, atau

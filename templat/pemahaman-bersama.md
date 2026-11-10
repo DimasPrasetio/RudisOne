@@ -24,6 +24,11 @@ Diperbarui: YYYY-MM-DD HH:MM
 <!-- Satu baris, diisi COO saat menyelaraskan: skill yang ada cukup / kurang karena <…>. find-skills hanya bila "kurang" atau pengguna mengoreksi. -->
 Kemampuan: skill yang ada cukup | kurang karena <kemampuan yang belum ada>
 
+## Arah terbuka
+<!-- Tugas platform/pustaka/riset/aplikasi ukuran sedang ke atas; diisi COO dari `bin/arah-terbuka.sh <folder> [--kata <standar>]`:
+     keputusan arah yang masih terbuka untuk folder/standar yang sama. Ada → satu pertanyaan: tunda, atau jalan dengan asumsi. -->
+Arah terbuka: tidak ada | <keputusan terbuka + sumber> → tunda sampai diputuskan | jalan dengan asumsi <…> (pengguna)
+
 ## Lingkup
 - **Termasuk:** <…>
 - **Tidak termasuk (sengaja):** <…>

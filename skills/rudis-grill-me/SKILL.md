@@ -41,7 +41,10 @@ pengguna* yang menjadi pertanyaan.
 5. **Preferensi** — gaya, bahasa, format hasil, tingkat detail laporan.
 6. **Risiko & aksi berisiko** — apa yang terjadi bila salah; apakah ada deploy, push, perubahan production,
    pesan keluar yang diharapkan (kutip permintaannya persis bila ada).
-7. **Keterkaitan** — tugas lain yang sedang berjalan, keputusan lama yang relevan.
+7. **Keterkaitan** — tugas lain yang sedang berjalan, keputusan lama yang relevan, dan **keputusan arah yang masih
+   terbuka** untuk folder/standar yang sama (tugas berukuran sedang ke atas; di RudisOne: `bin/arah-terbuka.sh`). Membangun
+   di atas arah yang belum diputuskan berisiko dibatalkan; bila ada, tanyakan sekali: tunda sampai diputuskan, atau jalan
+   dengan asumsi yang dicatat.
 
 Urutkan pertanyaan dari **hulu ke hilir**: keputusan yang mengubah cabang lain ditanyakan lebih dulu, dan jawaban
 yang menutup beberapa cabang sekaligus diutamakan.

@@ -53,7 +53,8 @@ Object.assign(process.env, {
   RUDISONE_SETTINGS_USER: path.join(tmp, "claude", "settings.json"),
   RUDISONE_SERVER: KONFIG,
 });
-const { putuskan, catatSesudah, muatKebijakan, pisahSegmen, kata, samarkan, bacaAudit, statusPasang } = await import("./kebijakan.mjs");
+const modul = await import("./kebijakan.mjs");
+const { putuskan, catatSesudah, muatKebijakan, pisahSegmen, kata, samarkan, bacaAudit, statusPasang } = modul;
 const K = muatKebijakan();
 
 const SA = path.join(ROOT, "ruang", "system-administrator");
@@ -257,6 +258,69 @@ test("audit: deploy & DNS tercatat dengan ID tugas, rahasia disamarkan", () => {
   catatSesudah({ ...bash(SA, "ssh vps-uji uptime"), hook_event_name: "PostToolUse", tool_response: { stdout: "up" } }, K);
   assert.equal(bacaAudit().length, jumlah);                                      // baca tidak diaudit
 });
+
+test("audit: ID tugas dari brief lama di transkrip panjang dan dari branch tugas folder kerja", () => {
+  const { tugasTerakhir, tugasDariCabang } = modul;
+  // brief di awal, lalu > 1 MB keluaran alat tanpa ID: dulu hanya ekor 512 KB dibaca → ID hilang
+  const isi = "x".repeat(4000);
+  const pengisi = Array.from({ length: 300 }, (_, i) => ({ type: "user", message: { content: [{ type: "tool_result", content: `${isi}${i}` }] } }));
+  const t = transkrip("audit-panjang", [{ type: "user", cwd: COO, message: { content: "<cross-session-message from=\"x\">\n[Tugas dari COO] T-20260101-5 · uji\n</cross-session-message>" } },
+    ...pengisi, { type: "user", message: { content: "[Revisi] T-20260101-6 · ulang" } }, ...pengisi]);
+  assert.ok(fs.statSync(t).size > 2 * 524288);
+  assert.equal(tugasTerakhir(t), "T-20260101-6");                                  // pesan ber-ID TERAKHIR yang menang
+  assert.equal(tugasTerakhir(t, { potongan: 4096 }), "T-20260101-6");               // potongan kecil: baris terpotong disambung
+  const t1 = transkrip("audit-panjang-1", [{ type: "user", message: { content: "[Tugas dari COO] T-20260101-5 · ✓ unicode" } }, ...pengisi]);
+  assert.equal(tugasTerakhir(t1, { potongan: 4093 }), "T-20260101-5");
+  assert.equal(tugasTerakhir(t1, { maks: 524288 }), null);                          // batas baca dihormati
+  assert.equal(tugasTerakhir(path.join(tmp, "tidak-ada.jsonl")), null);
+  // ketikan pengguna tanpa ID yang lebih baru memutus: ID laporan lama tidak dibawa ke permintaan baru (sesi COO)
+  const lapor = { type: "user", origin: { kind: "peer" }, message: { content: "<cross-session-message from=\"tl\">\n[Laporan divisi Engineering] T-20260101-5 · x\n</cross-session-message>" } };
+  const ketik = { type: "user", origin: { kind: "human" }, message: { content: "tolong gabungkan hasil tugas baru" } };
+  assert.equal(tugasTerakhir(transkrip("audit-putus", [lapor, ...pengisi, ketik, ...pengisi])), null);
+  assert.equal(tugasTerakhir(transkrip("audit-putus-lama", [lapor, ...pengisi, { type: "user", message: { content: "lanjut" } }])), null);   // format lama tanpa origin
+  // bukan ketikan pengguna → tidak memutus: notifikasi, pesan lintas sesi tanpa ID, ekspansi skill, pengingat sistem saja
+  const bukan = [{ type: "user", origin: { kind: "task-notification" }, message: { content: "<task-notification>selesai</task-notification>" } },
+    { type: "user", message: { content: "<cross-session-message from=\"x\">halo</cross-session-message>" } },
+    { type: "user", isMeta: true, message: { content: "isi skill" } },
+    { type: "user", message: { content: [{ type: "text", text: "<system-reminder>pengingat</system-reminder>" }] } }];
+  assert.equal(tugasTerakhir(transkrip("audit-tak-putus", [lapor, ...pengisi, ...bukan])), "T-20260101-5");
+  // branch: worktree (berkas .git → gitdir) dan repo biasa; subfolder ikut; branch lain / HEAD terlepas → null
+  const utama = path.join(tmp, "repo-cabang");
+  const wt = path.join(ROOT, ".claude", "worktrees", "r2-lead-rudisone-uji");
+  const gd = path.join(utama, ".git", "worktrees", "r2");
+  fs.mkdirSync(gd, { recursive: true }); fs.mkdirSync(path.join(wt, "bin"), { recursive: true });
+  fs.writeFileSync(path.join(wt, ".git"), `gitdir: ${gd}\n`);
+  fs.writeFileSync(path.join(gd, "HEAD"), "ref: refs/heads/rudis/T-20260101-7-se1\n");
+  fs.writeFileSync(path.join(utama, ".git", "HEAD"), "ref: refs/heads/main\n");
+  assert.equal(tugasDariCabang(path.join(wt, "bin")), "T-20260101-7");
+  assert.equal(tugasDariCabang(utama), null);
+  fs.writeFileSync(path.join(gd, "HEAD"), "ref: refs/heads/rudis/T-20260101-7.2\n");
+  assert.equal(tugasDariCabang(wt), "T-20260101-7.2");
+  fs.writeFileSync(path.join(gd, "HEAD"), "0123456789abcdef0123456789abcdef01234567\n");
+  assert.equal(tugasDariCabang(wt), null);
+  fs.writeFileSync(path.join(gd, "HEAD"), "ref: refs/heads/rudis/T-20260101-7\n");
+  // catatan audit: branch tugas folder kerja didahulukan (brief tugas lain yang antre tidak mengambil alih); tanpa branch → transkrip
+  const tanpa = transkrip("audit-cabang", [{ type: "user", cwd: wt, message: { content: "lanjutkan" } }]);
+  catatSesudah({ ...bash(wt, "git push origin rudis/T-20260101-7", { transcript_path: tanpa }), hook_event_name: "PostToolUse", tool_response: { stdout: "" } }, K);
+  assert.equal(bacaAudit().at(-1).tugas, "T-20260101-7");
+  const ber = transkrip("audit-cabang-2", [{ type: "user", cwd: wt, message: { content: "[Tugas dari COO] T-20260101-8 · lain" } }]);
+  catatSesudah({ ...bash(wt, "git push origin rudis/T-20260101-7", { transcript_path: ber }), hook_event_name: "PostToolUse", tool_response: { stdout: "" } }, K);
+  assert.equal(bacaAudit().at(-1).tugas, "T-20260101-7");
+  catatSesudah({ ...bash(COO, "git push origin main", { transcript_path: ber }), hook_event_name: "PostToolUse", tool_response: { stdout: "" } }, K);
+  assert.equal(bacaAudit().at(-1).tugas, "T-20260101-8");
+  // sesi yang dimulai di luar worktree agent (COO, checkout pengguna di branch rudis/…): transkrip dulu, branch cadangan
+  const proyek = path.join(tmp, "proyek-coo");
+  fs.mkdirSync(path.join(proyek, ".git"), { recursive: true });
+  fs.writeFileSync(path.join(proyek, ".git", "HEAD"), "ref: refs/heads/rudis/T-20260101-9\n");
+  const segar = transkrip("audit-coo-cabang", [{ type: "user", cwd: proyek, origin: { kind: "human" }, message: { content: "/rudisone" } },
+    { type: "user", origin: { kind: "peer" }, message: { content: "<cross-session-message from=\"tl\">\n[Laporan divisi Engineering] T-20260101-10 · x\n</cross-session-message>" } }]);
+  assert.equal(modul.tugasAudit({ cwd: proyek, transcript_path: segar }), "T-20260101-10");
+  const polos = transkrip("audit-coo-cabang-2", [{ type: "user", cwd: proyek, origin: { kind: "human" }, message: { content: "/rudisone" } }]);
+  assert.equal(modul.tugasAudit({ cwd: proyek, transcript_path: polos }), "T-20260101-9");
+  // sesi worktree yang cd ke checkout lain tetap membaca branch folder kerjanya saat itu
+  assert.equal(modul.tugasAudit({ cwd: proyek, transcript_path: tanpa }), "T-20260101-9");
+});
+
 
 test("hook CLI: keluaran JSON PreToolUse dan gagal terbuka", () => {
   const jalankan = (stdin) => execFileSync(process.execPath, [path.join(SINI, "kebijakan.mjs"), "hook"], { input: stdin, env: process.env }).toString();

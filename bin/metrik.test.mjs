@@ -195,3 +195,87 @@ test("X14 beban keputusan: pertanyaan + prompt pengguna + prompt izin dari audit
   assert.deepEqual([b.pertanyaan, b.prompt_pengguna, b.prompt_izin, b.total, b.anggaran, b.dalam_anggaran], [2, 1, 2, 5, 3, false]);
   assert.equal(bebanKeputusan("T-20261030-9", {}, { dirAudit: path.join(dir, "tidak-ada") }).total, 0);
 });
+
+// ---------- ringkasan awet (handoff/metrik.jsonl) ----------
+const KOLOM_RINGKAS = ["v", "id", "dicatat", "sumber", "atribusi", "galat", "judul", "status", "folder", "divisi", "fase", "dibuat", "selesai_pada",
+  "sesi_terlibat", "subagent", "giliran", "panggilan_api", "token_total", "token_output", "biaya_usd", "rentang_ms", "waktu_aktif_ms",
+  "waktu_aktif_subagent_ms", "pesan_keluar", "revisi_m2", "start_session", "beban_keputusan", "ask_user_question", "prompt_pengguna_coo"];
+const auditKosong = fs.mkdtempSync(path.join(os.tmpdir(), "metrik-audit-kosong-"));
+const infoReg = { judul: "Rapikan skrip deploy", status: "selesai", folder: "/x/proyek", divisi: "Engineering", fase: "—", dibuat: "2026-10-29T08:00:00.000Z", selesai_pada: "2026-10-29" };
+
+test("ringkasMetrik: kolom tetap, angka dari total, tanpa teks bebas (isi pesan, judul sesi, cwd)", async () => {
+  const { hitungMetrik, ringkasMetrik } = await import("./metrik.mjs");
+  const h = hitungMetrik("T-20261029-1", { dirAudit: auditKosong });
+  const b = ringkasMetrik(h, { ...infoReg, sumber: "bersih-riwayat", dicatat: "2026-11-01T00:00:00.000Z", kolom_asing: "dibuang" });
+  assert.deepEqual(Object.keys(b), KOLOM_RINGKAS);
+  assert.deepEqual([b.v, b.id, b.dicatat, b.sumber, b.atribusi, b.galat], [1, "T-20261029-1", "2026-11-01T00:00:00.000Z", "bersih-riwayat", "dasar", null]);
+  assert.deepEqual([b.judul, b.status, b.folder, b.selesai_pada], [infoReg.judul, "selesai", "/x/proyek", "2026-10-29"]);
+  const t = h.total;
+  assert.deepEqual([b.sesi_terlibat, b.subagent, b.giliran, b.panggilan_api, b.token_total, b.token_output],
+    [2, 1, t.giliran, t.panggilan_api, t.token.total, t.token.output]);
+  assert.equal(b.biaya_usd, t.biaya_usd_perkiraan);
+  assert.deepEqual([b.pesan_keluar, b.revisi_m2, b.prompt_pengguna_coo], [3, 1, 1]);
+  assert.deepEqual(b.beban_keputusan, { pertanyaan: 0, prompt_pengguna: 1, prompt_izin: 0, total: 1 });
+  assert.deepEqual(b.ask_user_question, { panggilan: 0, pertanyaan: 0 });
+  assert.deepEqual(b.start_session, { panggilan: 0, gagal: 0 });
+  assert.ok(b.waktu_aktif_ms > 0 && b.rentang_ms > 0 && b.waktu_aktif_subagent_ms >= 0);
+  const s = JSON.stringify(b);
+  for (const bebas of ["Rapikan skrip\\n", "isi brief", "Tech Lead · contoh", "COO RudisOne", "sesi-coo", "sesi-tl", "Revisi", "cari file", "dibuang"]) assert.ok(!s.includes(bebas), bebas);
+  // tanpa info & tanpa biaya: kolom register null, biaya null; kolom tetap sama
+  const k = ringkasMetrik(metrikTugas("T-20261029-1", { biaya: false }));
+  assert.deepEqual(Object.keys(k), KOLOM_RINGKAS);
+  assert.deepEqual([k.judul, k.status, k.dibuat, k.biaya_usd, k.beban_keputusan, k.sumber], [null, null, null, null, null, "manual"]);
+});
+
+test("ringkasTugas: sub-tugas tanpa angka (lihat induk); galat penghitung → baris ber-galat, tidak melempar", async () => {
+  const { ringkasTugas } = await import("./metrik.mjs");
+  let dipanggil = 0;
+  const sub = ringkasTugas("T-20261029-1.2", infoReg, { hitung: () => { dipanggil++; throw new Error("tak boleh"); } });
+  assert.equal(dipanggil, 0);
+  assert.deepEqual([sub.id, sub.induk, sub.catatan, sub.galat, sub.giliran, sub.beban_keputusan, sub.judul],
+    ["T-20261029-1.2", "T-20261029-1", "sub-tugas — lihat induk", null, null, null, infoReg.judul]);
+  const g = ringkasTugas("T-20261029-1", infoReg, { hitung: () => { throw new Error(`EACCES: transkrip tak terbaca\n${"rinci ".repeat(100)}`); } });
+  assert.deepEqual(Object.keys(g), KOLOM_RINGKAS);
+  assert.equal(g.galat, "EACCES: transkrip tak terbaca");
+  assert.deepEqual([g.sesi_terlibat, g.token_total, g.biaya_usd, g.start_session], [null, null, null, null]);
+  assert.equal(g.status, "selesai");
+});
+
+test("simpanRingkas: append — dua baris → dua baris JSON; berkas bawaan lewat RUDISONE_METRIK_SIMPAN", async () => {
+  const { simpanRingkas, berkasMetrik } = await import("./metrik.mjs");
+  const f = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "metrik-simpan-")), "sub", "metrik.jsonl");
+  simpanRingkas({ v: 1, id: "T-20260101-1" }, { berkas: f });
+  simpanRingkas({ v: 1, id: "T-20260101-1", giliran: 2 }, { berkas: f });
+  const baris = fs.readFileSync(f, "utf8").trim().split("\n").map((l) => JSON.parse(l));
+  assert.deepEqual(baris, [{ v: 1, id: "T-20260101-1" }, { v: 1, id: "T-20260101-1", giliran: 2 }]);
+  const lama = process.env.RUDISONE_METRIK_SIMPAN;
+  delete process.env.RUDISONE_METRIK_SIMPAN;
+  try {
+    assert.equal(berkasMetrik("/akar"), path.join("/akar", "handoff", "metrik.jsonl"));
+    process.env.RUDISONE_METRIK_SIMPAN = f;
+    assert.equal(berkasMetrik("/akar"), f);
+  } finally { if (lama === undefined) delete process.env.RUDISONE_METRIK_SIMPAN; else process.env.RUDISONE_METRIK_SIMPAN = lama; }
+});
+
+test("CLI --simpan: cetak baris ringkas + append (info dari register, --judul menimpa); sub-tugas; keduanya ditolak", () => {
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), "metrik-cli-simpan-"));
+  const simpan = path.join(d, "metrik.jsonl");
+  const reg = path.join(d, "register-tugas.json");
+  fs.writeFileSync(reg, JSON.stringify({ versi: 1, tugas: [{ id: "T-20261029-1", ...infoReg, pemilik: "Tech Lead" }, { id: "T-20261029-1.2", judul: "Sub", status: "selesai" }] }));
+  const env = { ...process.env, RUDISONE_METRIK_SIMPAN: simpan, RUDISONE_REGISTER_JSON: reg, RUDISONE_AUDIT: auditKosong };
+  const jalan = (...a) => execFileSync(process.execPath, [path.join(SINI, "metrik.mjs"), "tugas", ...a], { env, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+  const out = JSON.parse(jalan("T-20261029-1", "--simpan", "--json").trim());
+  assert.deepEqual(Object.keys(out), KOLOM_RINGKAS);
+  assert.deepEqual([out.id, out.sumber, out.judul, out.status, out.sesi_terlibat, out.pesan_keluar], ["T-20261029-1", "manual", infoReg.judul, "selesai", 2, 3]);
+  assert.ok(out.biaya_usd > 0);
+  jalan("T-20261029-1", "--simpan", "--judul", "Judul manual");
+  jalan("T-20261029-1.2", "--simpan");
+  const isi = fs.readFileSync(simpan, "utf8").trim().split("\n").map((l) => JSON.parse(l));
+  assert.equal(isi.length, 3);
+  assert.deepEqual(isi[0], out);
+  assert.equal(isi[1].judul, "Judul manual");
+  assert.equal(isi[1].status, "selesai");
+  assert.deepEqual([isi[2].id, isi[2].induk, isi[2].judul, isi[2].giliran], ["T-20261029-1.2", "T-20261029-1", "Sub", null]);
+  assert.throws(() => jalan("T-20261029-1", "--simpan", "--atribusi", "keduanya"), (e) => e.status === 2);
+  assert.equal(fs.readFileSync(simpan, "utf8").trim().split("\n").length, 3);
+});

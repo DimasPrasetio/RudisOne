@@ -1727,7 +1727,7 @@ export function samarkan(s) { let t = String(s); for (const r of RAHASIA) t = t.
 /** Penolakan baca .env tercatat di audit (jenjang 3, tanpa nilai; ringkasan disamarkan). */
 export function catatTolakEnv(input, p) {
   const rec = { waktu: new Date().toISOString(), sesi: input.session_id ?? null, jabatan: p.sesi?.jabatan ?? null,
-    ...(p.sesi?.subagent ? { subagent: input.agent_type, induk: p.sesi.induk } : {}), tugas: tugasTerakhir(transkripInduk(input.transcript_path)),
+    ...(p.sesi?.subagent ? { subagent: input.agent_type, induk: p.sesi.induk } : {}), tugas: tugasAudit(input),
     cwd: input.cwd ?? null, alat: input.tool_name, ringkasan: samarkan(p.ringkasan ?? ""),
     jenis: "baca-rahasia-ditolak", jenjang: 3, kemampuan: null, aksi: `baca ${p.env.berkas}`.slice(0, 200), sebab: p.env.sebab };
   try { tambahAudit(rec); } catch { /* audit opsional — penolakan tetap berlaku */ }
@@ -1789,21 +1789,88 @@ export function bacaAudit(bulan = 2) {
   }
   return out;
 }
+/** Ketikan pengguna sendiri (bukan pesan lintas sesi, notifikasi, hand-back subagent, ekspansi skill, atau hasil alat). */
+function ketikanPengguna(baris) {
+  if (baris?.type !== "user" || baris.isMeta) return false;
+  const c = baris.message?.content;
+  if (Array.isArray(c) && c.some((b) => b?.type === "tool_result")) return false;
+  const k = baris.origin?.kind;
+  if (k && k !== "human") return false;
+  const t = teksPesanPengguna(baris).replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, "").trim();
+  return !!t && !/<cross-session-message\b|<task-notification\b|The session "[^"]*" you started/.test(t);
+}
 /** ID tugas dari pesan masuk sesi itu (brief "[Tugas dari …] T-…", [Revisi], dst.), bukan dari teks yang ditulis agent
- *  atau isi berkas — di sesi COO yang membahas banyak tugas hasilnya sering kosong, dan kosong lebih jujur daripada salah. */
-function tugasTerakhir(transcript) {
+ *  atau isi berkas — kosong lebih jujur daripada salah. Transkrip dibaca MUNDUR per potongan (maks. `maks` byte; sesi
+ *  panjang menaruh brief-nya jauh sebelum ekor 512 KB) sampai pesan ber-ID terakhir — tetapi berhenti dengan null di
+ *  ketikan pengguna tanpa ID yang lebih baru: permintaan baru pengguna (mis. di sesi COO yang membahas banyak tugas)
+ *  memulai konteks baru, jadi ID laporan lama tidak dibawa ke aksi sesudahnya. */
+export function tugasTerakhir(transcript, { maks = 64 << 20, potongan = 524288 } = {}) {
+  let fd;
+  try { fd = fs.openSync(transcript, "r"); } catch { return null; }
   try {
-    const st = fs.statSync(transcript), n = Math.min(st.size, 524288), fd = fs.openSync(transcript, "r"), b = Buffer.alloc(n);
-    fs.readSync(fd, b, 0, n, st.size - n); fs.closeSync(fd);
-    let id = null;
-    for (const l of b.toString("utf8").split("\n")) {
-      if (!l.includes('"user"')) continue;
-      let baris; try { baris = JSON.parse(l); } catch { continue; }
-      const m = teksPesanPengguna(baris).match(/^\s*\[[^\]]{1,80}\]\s*(T-\d{8}-\d+(?:\.\d+)?)/m);
-      if (m) id = m[1];
+    let pos = fs.fstatSync(fd).size, ekor = Buffer.alloc(0), dibaca = 0;
+    while (pos > 0 && dibaca < maks) {
+      const n = Math.min(potongan, pos);
+      pos -= n; dibaca += n;
+      const b = Buffer.alloc(n);
+      fs.readSync(fd, b, 0, n, pos);
+      const blok = Buffer.concat([b, ekor]);
+      let awal = 0;
+      if (pos > 0) {                                     // baris pertama blok mungkin terpotong → disambung potongan berikutnya
+        const i = blok.indexOf(10);
+        if (i < 0) { ekor = blok; continue; }
+        ekor = blok.subarray(0, i);
+        awal = i + 1;
+      }
+      const ls = blok.subarray(awal).toString("utf8").split("\n");
+      for (let i = ls.length - 1; i >= 0; i--) {
+        if (!ls[i].includes('"user"')) continue;
+        let baris; try { baris = JSON.parse(ls[i]); } catch { continue; }
+        const m = teksPesanPengguna(baris).match(/^\s*\[[^\]]{1,80}\]\s*(T-\d{8}-\d+(?:\.\d+)?)/m);
+        if (m) return m[1];
+        if (ketikanPengguna(baris)) return null;
+      }
     }
-    return id;
+    return null;
+  } catch { return null; } finally { fs.closeSync(fd); }
+}
+
+/** ID tugas dari branch folder kerja saat itu: `rudis/<ID>` atau `rudis/<ID>-…` (worktree Tech Lead/SE). Dibaca langsung
+ *  dari HEAD git (tanpa proses git); folder di luar repo, HEAD terlepas, atau branch lain → null. */
+export function tugasDariCabang(cwd) {
+  if (!cwd) return null;
+  try {
+    let d = path.resolve(rumah(cwd));
+    for (let i = 0; i < 64; i++) {
+      const g = path.join(d, ".git");
+      let st = null; try { st = fs.statSync(g); } catch { /* naik */ }
+      if (st) {
+        let gitdir = g;
+        if (st.isFile()) {
+          const m = fs.readFileSync(g, "utf8").match(/^gitdir:\s*(.+?)\s*$/m);
+          if (!m) return null;
+          gitdir = path.resolve(d, m[1]);
+        }
+        const head = fs.readFileSync(path.join(gitdir, "HEAD"), "utf8");
+        return head.match(/^ref: refs\/heads\/rudis\/(T-\d{8}-\d+(?:\.\d+)?)(?:-\S*)?\s*$/)?.[1] ?? null;
+      }
+      const atas = path.dirname(d);
+      if (atas === d) return null;
+      d = atas;
+    }
+    return null;
   } catch { return null; }
+}
+
+/** ID tugas untuk catatan audit. Sesi/subagent yang DIMULAI di worktree agent (`.claude/worktrees/…`, folder awal dari kepala
+ *  transkripnya — tidak ikut `cd`): branch tugas folder kerja dulu (pekerjaan yang sedang diubah, juga saat brief tugas lain
+ *  sudah antre), lalu transkrip. Sesi lain (COO, checkout pengguna yang kebetulan di branch rudis/…): pesan masuk ber-ID di
+ *  transkrip dulu, branch hanya cadangan. */
+export function tugasAudit(input) {
+  const awal = input?.transcript_path ? kepalaTranskrip(input.transcript_path).cwd : null;
+  const dariTranskrip = () => tugasTerakhir(transkripInduk(input?.transcript_path));
+  if (awal && /[\\/]\.claude[\\/]worktrees[\\/][^\\/]+/.test(String(awal))) return tugasDariCabang(input?.cwd) ?? dariTranskrip();
+  return dariTranskrip() ?? tugasDariCabang(input?.cwd);
 }
 
 // ---------- keputusan ----------
@@ -1911,7 +1978,7 @@ export function catatSesudah(input, K) {
   }
   if (!rekam.length) return null;
   const dasar = { waktu: new Date().toISOString(), sesi: input.session_id ?? null, jabatan: sesi.jabatan,
-    ...(sesi.subagent ? { subagent: input.agent_type, induk: sesi.induk } : {}), tugas: tugasTerakhir(transkripInduk(input.transcript_path)),
+    ...(sesi.subagent ? { subagent: input.agent_type, induk: sesi.induk } : {}), tugas: tugasAudit(input),
     cwd: input.cwd ?? null, alat: input.tool_name, ringkasan: samarkan(ringkasan) };
   fs.mkdirSync(DIR_AUDIT, { recursive: true });
   for (const r of rekam) tambahAudit({ ...dasar, ...r });
