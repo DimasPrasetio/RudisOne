@@ -160,3 +160,189 @@ test("teksCakupan: uji ulang parsial (UJI_TUGAS) menyatakan dirinya dan memasukk
   assert.match(c.pernyataan, /cepat: 1 dari 2 tugas.*UJI ULANG PARSIAL .UJI_TUGAS=masuk./);
   assert.ok(c.belum.some((b) => /uji ulang parsial.*keluar/.test(b)));
 });
+
+/* ---- T-20261110-3: peta layar, galat bermakna, klik HP, ulang yang galat ---- */
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { teksRegex, deskripsiSasaran, sasaranDariGalat, teksSasaran, daftarNamaDom, kemiripanNama, kandidatTerdekat, formatKandidat, barisGalat,
+  langkahMenuHp, uraiSaring, cocokSaring, tugasGalat, pilihHasilTerbaru, ringkasLayar, petaMarkdown } from "../templat/uji-alur-kit/periksa.mjs";
+import { Uji, Sesi } from "../templat/uji-alur-kit/kit.mjs";
+
+const DOM_FORM = {
+  url: "/stock/in", judul: ["Barang masuk"],
+  tombol: [{ tag: "a", t: "Stok" }, { tag: "a", t: "Riwayat" }, { tag: "button", t: "Simpan dokumen" }, { tag: "button", t: "Batal" }, { tag: "button", t: "Tambah baris" }, { tag: "button", t: "Simpan dokumen" }],
+  inputs: [{ type: "text", id: "field-lines.0.qty", name: "lines.0.qty", label: "Jumlah" }, { type: "search", name: "q", ph: "Cari barang" }, { type: "hidden", id: "csrf" }],
+};
+
+test("peta: ringkasLayar memilah judul/tombol/tautan/isian (tautan menu tidak diulang); petaMarkdown memuat peran, menu, nama tampil", () => {
+  const l = ringkasLayar(DOM_FORM, { abaikanTautan: ["Stok"] });
+  assert.deepEqual(l.judul, ["Barang masuk"]);
+  assert.deepEqual(l.tombol, ["Simpan dokumen", "Batal", "Tambah baris"], "duplikat dibuang");
+  assert.deepEqual(l.tautan, ["Riwayat"], "tautan menu tidak diulang per layar");
+  assert.deepEqual(l.isian.map((i) => i.nama), ["Jumlah", "Cari barang"], "label → placeholder; isian tersembunyi tidak ikut");
+  assert.match(l.isian[0].rincian, /id=field-lines\.0\.qty, name=lines\.0\.qty, type=text/);
+  const md = petaMarkdown({ baseUrl: "http://localhost:5173", perangkat: "hp", dibuat: "2026-11-10T00:00:00Z", peran: [
+    { peran: "petugas", menu: ["Stok", "Riwayat"], layar: [{ menu: "Stok", ...l }, { menu: "Riwayat", galat: "Timeout 8000ms" }] },
+    { peran: "admin", galat: "login 'admin' tidak meninggalkan /login", menu: [], layar: [] }] });
+  assert.match(md, /^# Peta layar — http:\/\/localhost:5173 \(perangkat hp\)/);
+  assert.match(md, /## Peran: petugas\n\nMenu: "Stok" · "Riwayat"/);
+  assert.match(md, /### Stok — `\/stock\/in`\n- Judul: "Barang masuk"\n- Tombol: "Simpan dokumen", "Batal", "Tambah baris"\n- Tautan: "Riwayat"\n- Isian: "Jumlah" \(id=field-lines\.0\.qty/);
+  assert.match(md, /### Riwayat\n- GALAT: Timeout 8000ms/);
+  assert.match(md, /## Peran: admin[\s\S]*GALAT: login 'admin'/);
+  assert.match(md, /bukan tebakan dari kode sumber/);
+  assert.match(petaMarkdown({ peran: [{ peran: "x", menu: [], layar: [] }] }), /tidak ada tautan menu yang tampak/);
+});
+
+test("galat: sasaran dibaca dari pesan Playwright / target kit; teks intinya diekstrak", () => {
+  const m1 = "locator.click: Timeout 8000ms exceeded.\nCall log:\n  - waiting for getByRole('button', { name: /^Simpan$/ }).or(getByRole('combobox', { name: /^Simpan$/ })).first() to be visible";
+  assert.equal(sasaranDariGalat(m1), "getByRole('button', { name: /^Simpan$/ }).or(getByRole('combobox', { name: /^Simpan$/ })).first()");
+  assert.equal(teksSasaran(sasaranDariGalat(m1)), "Simpan");
+  const m2 = "locator.waitFor: Timeout 8000ms exceeded.\nCall log:\n  - waiting for locator('a[data-sidebar=menu-button]').filter({ hasText: /^\\s*Stok barang\\s*$/ }).first() to be visible";
+  assert.equal(teksSasaran(sasaranDariGalat(m2)), "Stok barang");
+  assert.equal(teksSasaran("locator('#field-lines\\\\.0\\\\.qty').first()"), "field-lines.0.qty", "escape CSS ganda");
+  assert.equal(teksSasaran("#field-lines\\.0\\.qty"), "field-lines.0.qty");
+  assert.equal(teksSasaran("input[name=\"lines.0.qty\"]"), "lines.0.qty");
+  assert.equal(teksSasaran("getByLabel('Jumlah barang')"), "Jumlah barang");
+  assert.equal(teksSasaran("getByText(/Barang masuk/i)"), "Barang masuk");
+  assert.equal(teksSasaran("button:has-text(\"Simpan\")"), "Simpan");
+  assert.equal(teksSasaran(/Pilih\s+barang/), "Pilih barang");
+  assert.equal(teksSasaran({ role: "link", name: "Barang masuk" }), "Barang masuk");
+  assert.equal(teksRegex("^\\s*Simpan \\(draf\\)\\s*$"), "Simpan draf");
+  assert.equal(sasaranDariGalat("opsi tidak ditemukan di <select>: Kabel"), "Kabel");
+  assert.equal(sasaranDariGalat("stok tidak berubah setelah simpan"), null, "galat pemeriksaan skrip: bukan galat sasaran");
+  assert.equal(deskripsiSasaran({ role: "button", name: /Simpan/ }), "getByRole('button', { name: /Simpan/ })");
+  assert.equal(deskripsiSasaran({ role: "link", name: "Stok" }), "getByRole('link', { name: 'Stok' })");
+  assert.equal(deskripsiSasaran(/Pilih/), "/Pilih/");
+  assert.equal(deskripsiSasaran("#x"), "#x");
+  assert.equal(deskripsiSasaran({}), null);
+  assert.equal(deskripsiSasaran({ toString: () => "locator('#y')" }), "locator('#y')", "Locator Playwright → toString");
+});
+
+test("galat: ±5 kandidat nama tampak terdekat (label, id/name isian, tanpa peka huruf/aksen), baris galat memuat URL + kandidat", () => {
+  const daftar = daftarNamaDom(DOM_FORM);
+  const k = kandidatTerdekat("Simpan", daftar);
+  assert.equal(k.length, 5, "±5 kandidat");
+  assert.equal(k[0].nama, "Simpan dokumen");
+  assert.equal(formatKandidat(k[0]), 'tombol "Simpan dokumen"');
+  assert.equal(kandidatTerdekat("field-lines.0.qty", daftar, 1)[0].nama, "Jumlah", "selektor #id cocok lewat alias isian");
+  assert.equal(kandidatTerdekat("lines.0.qty", daftar, 1)[0].nama, "Jumlah", "selektor [name] cocok lewat alias");
+  assert.equal(kandidatTerdekat("Riwyat", daftar, 1)[0].nama, "Riwayat", "salah ketik");
+  assert.equal(kandidatTerdekat("cari BARANG", daftar, 1)[0].nama, "Cari barang");
+  assert.ok(kemiripanNama("Barang Masuk", "barang masuk") === 1 && kemiripanNama("Pengaturan", "pengaturan ") === 1);
+  assert.ok(kemiripanNama("Simpan", "Simpan dokumen") > kemiripanNama("Simpan", "Batal"));
+  assert.equal(kemiripanNama("", "x"), 0);
+  assert.equal(kandidatTerdekat("apa saja", [], 5).length, 0);
+  assert.ok(!("alias" in k[0]) && !("i" in k[0]), "keluaran bersih");
+  const b = barisGalat({ nama: "barang-masuk", peran: "petugas", perangkat: "hp", pesan: "locator.click: Timeout 8000ms exceeded.", url: "/stock/in",
+    sasaran: "getByRole('button', { name: /^Simpan$/ })", kandidat: [k[0], { jenis: "tombol", nama: "Batal" }].map(formatKandidat) });
+  assert.equal(b, "hp/petugas barang-masuk: locator.click: Timeout 8000ms exceeded. — di /stock/in · sasaran: getByRole('button', { name: /^Simpan$/ }) — nama terdekat yang tampak: tombol \"Simpan dokumen\" · tombol \"Batal\"");
+  assert.equal(barisGalat({ nama: "x", peran: "a", perangkat: "hp", pesan: "boom" }), "hp/a x: boom", "galat lama (tanpa url/kandidat) tetap terbaca");
+});
+
+test("klik HP: menu samping dibuka hanya untuk tautan menu/navigasi; sasaran yang belum selesai muncul ditunggu, tidak membuka menu", () => {
+  assert.equal(langkahMenuHp({ hp: false }), "lanjut", "komputer: tak pernah membuka menu");
+  assert.equal(langkahMenuHp({ tampak: true, dariMenu: true }), "lanjut", "sudah tampak: langsung klik");
+  assert.equal(langkahMenuHp({ dariMenu: true }), "buka-menu", "menu(nama): pasti tautan menu samping");
+  assert.equal(langkahMenuHp({ terpasang: true, diNavigasi: true }), "buka-menu", "ada di nav/sidebar yang tersembunyi");
+  assert.equal(langkahMenuHp({ terpasang: true, diNavigasi: false }), "lanjut", "ada di halaman, belum tampak (animasi/muat): tunggu biasa, JANGAN buka menu");
+  assert.equal(langkahMenuHp({ terpasang: false }), "tunggu", "belum ada di halaman: tunggu singkat dulu");
+  assert.equal(langkahMenuHp({ terpasang: true, diNavigasi: false, sudahTunggu: true }), "lanjut", "muncul selama tunggu singkat: tidak membuka menu");
+  assert.equal(langkahMenuHp({ terpasang: false, sudahTunggu: true }), "buka-menu", "tetap tidak ada: mungkin di menu samping yang belum dirender");
+});
+
+test("UJI_TUGAS: kata lama tetap cocok sebagian; @galat cocok persis; tugasGalat & hasil terbaru", () => {
+  assert.equal(uraiSaring("").aktif, false);
+  assert.equal(cocokSaring("apa saja", null), true, "tanpa penyaring: semua jalan");
+  const s = uraiSaring(" Masuk , keluar ");
+  assert.deepEqual([s.kata, s.galat], [["masuk", "keluar"], false]);
+  assert.ok(cocokSaring("barang-masuk", s) && cocokSaring("Barang-Keluar-gagal", s) && !cocokSaring("riwayat", s), "perilaku lama: nama memuat kata");
+  const g = uraiSaring("@galat");
+  assert.deepEqual([g.kata, g.galat, g.token], [[], true, ["@galat"]]);
+  g.persis = new Set(tugasGalat({ galat: [{ nama: "barang-masuk-gagal", tugas: "barang-masuk-gagal" }, { nama: "cek-stok", tugas: "barang-masuk" }, { nama: "lama" }] }));
+  assert.deepEqual([...g.persis], ["barang-masuk-gagal", "barang-masuk", "lama"], "langkah coba di dalam tugas → nama tugasnya; galat lama tanpa `tugas` → namanya");
+  assert.ok(cocokSaring("barang-masuk", g) && cocokSaring("Barang-Masuk-gagal", g) && !cocokSaring("barang-masuk-lagi", g) && !cocokSaring("riwayat", g), "@galat: persis, bukan sebagian");
+  assert.deepEqual(tugasGalat({}), []);
+  assert.equal(pilihHasilTerbaru([{ berkas: "hasil/hasil.json", mtimeMs: 10 }, { berkas: "hasil-ulang-galat/hasil.json", mtimeMs: 20 }]), "hasil-ulang-galat/hasil.json");
+  assert.equal(pilihHasilTerbaru([]), null);
+});
+
+/* Uji + Sesi tanpa Playwright: halaman tiruan secukupnya untuk tugas/coba/keAwal. */
+function halamanTiruan(url = "http://localhost:5173/stock") {
+  const h = { _url: url, pergi: [], setDefaultTimeout() {}, on() {}, url: () => h._url,
+    evaluate: async (fn, arg) => (fn.name === "adaPenghalang" ? false : fn.name === "ambilDom" ? { ...DOM_FORM, url: new URL(h._url).pathname } : typeof arg === "string" && arg.startsWith("/") ? (h.pergi.push(arg), (h._url = "http://localhost:5173" + arg), undefined) : []),
+    goto: async (u) => { h.pergi.push(u); h._url = u; }, waitForLoadState: async () => {}, waitForTimeout: async () => {}, waitForFunction: async () => {},
+    screenshot: async () => {}, viewportSize: () => ({ width: 390, height: 844 }), keyboard: { press: async () => {} },
+    locator: () => ({ filter: () => ({ last: () => ({ isVisible: async () => false }) }), first: () => ({ waitFor: async () => {} }) }),
+  };
+  return h;
+}
+async function ujiDengan(env, berkasHasil, fn) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "uji-alur-kit-"));
+  const lama = process.env.UJI_TUGAS, log = console.log;
+  try {
+    for (const [rel, isi] of Object.entries(berkasHasil)) { fs.mkdirSync(path.dirname(path.join(dir, rel)), { recursive: true }); fs.writeFileSync(path.join(dir, rel), JSON.stringify(isi)); }
+    if (env == null) delete process.env.UJI_TUGAS; else process.env.UJI_TUGAS = env;
+    console.log = () => {};
+    const opsi = { mode: "cepat", baseUrl: "http://localhost:5173", keluaran: path.join(dir, "hasil"), akun: {}, perangkat: { hp: "iPhone 13" },
+      menu: { tautan: "nav a", pemicuHp: "button" }, penghalang: ["[role=dialog]"], tombolPenjaga: [], jeda: 0, waktuHabis: 1000, waktuMuat: 1000, tungguHp: 10,
+      pergiDengan: "spa", fotoPenuh: null, teksTerlarang: [], abaikanKonsol: [], responsDiizinkan: [] };
+    return await fn(() => new Uji(opsi), dir);
+  } finally {
+    console.log = log;
+    if (lama == null) delete process.env.UJI_TUGAS; else process.env.UJI_TUGAS = lama;
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+const jalankanTugas = async (uji, page, nama) => {
+  const s = new Sesi(uji, "petugas", "hp", page);
+  s.awal = "/stock";
+  const jalan = [];
+  for (const n of nama) await s.tugas(n, async () => { jalan.push(n); if (n === "rusak") throw new Error("locator.click: Timeout 1000ms exceeded.\nCall log:\n  - waiting for getByRole('button', { name: 'Simpn' })"); });
+  return jalan;
+};
+
+test("UJI_TUGAS=@galat: hanya tugas galat di hasil.json terbaru, tiap tugas mulai dari rute awal; galat mencatat tugas + kandidat", async () => {
+  const hasilPenuh = { galat: [{ nama: "barang-masuk-gagal", tugas: "barang-masuk-gagal" }, { nama: "rusak", tugas: "rusak" }] };
+  await ujiDengan("@galat", { "hasil/hasil.json": hasilPenuh }, async (buat, dir) => {
+    const uji = buat();
+    assert.equal(uji.opsi.keluaran, path.join(dir, "hasil-ulang-galat"), "keluaran sendiri, hasil penuh tidak tertimpa");
+    assert.equal(uji.saring.sumberGalat, path.join(dir, "hasil", "hasil.json"));
+    const page = halamanTiruan("http://localhost:5173/stock/in"); // tugas sebelumnya berakhir di layar lain
+    const jalan = await jalankanTugas(uji, page, ["barang-masuk", "barang-masuk-gagal", "riwayat", "rusak"]);
+    assert.deepEqual(jalan, ["barang-masuk-gagal", "rusak"], "hanya yang galat, nama persis");
+    assert.deepEqual(page.pergi, ["/stock"], "kembali ke rute awal sekali (sesudahnya sudah di sana)");
+    assert.equal(uji.galat.length, 1);
+    const g = uji.galat[0];
+    assert.equal(g.tugas, "rusak");
+    assert.equal(g.url, "/stock");
+    assert.equal(g.sasaran, "getByRole('button', { name: 'Simpn' })");
+    assert.equal(g.kandidat[0], 'tombol "Simpan dokumen"');
+    uji.cakupan({ tugasUji: ["barang-masuk", "riwayat", "rusak"], tugasSemua: ["barang-masuk", "riwayat", "rusak"] });
+    assert.deepEqual(uji.cakupanEfektif().tugasUji, ["barang-masuk", "rusak"], "tugas yang sub-tugas gagalnya diulang ikut tercakup");
+    assert.match(uji.cakupanEfektif().parsial, /^@galat → barang-masuk-gagal, rusak$/);
+  });
+  // uji ulang @galat kedua: membaca hasil ulang @galat sebelumnya bila lebih baru (yang sudah beres tidak diulang)
+  await ujiDengan("@galat", { "hasil/hasil.json": hasilPenuh, "hasil-ulang-galat/hasil.json": { galat: [{ nama: "rusak", tugas: "rusak" }] } }, async (buat, dir) => {
+    const baru = path.join(dir, "hasil-ulang-galat", "hasil.json"), t = new Date(Date.now() + 5000);
+    fs.utimesSync(baru, t, t);
+    const uji = buat();
+    assert.deepEqual([...uji.saring.persis], ["rusak"]);
+  });
+  await ujiDengan("@galat", {}, async (buat) => assert.throws(buat, /belum ada hasil\.json/));
+});
+
+test("perilaku lama tetap bawaan: tanpa UJI_TUGAS semua tugas jalan, tanpa kembali ke rute awal; kata UJI_TUGAS = cocok sebagian", async () => {
+  await ujiDengan(null, {}, async (buat, dir) => {
+    const uji = buat();
+    assert.equal(uji.opsi.keluaran, path.join(dir, "hasil"));
+    const page = halamanTiruan("http://localhost:5173/stock/in");
+    assert.deepEqual(await jalankanTugas(uji, page, ["a", "b"]), ["a", "b"]);
+    assert.deepEqual(page.pergi, [], "tanpa tugasDariAwal/UJI_TUGAS: tidak berpindah rute");
+  });
+  await ujiDengan("masuk", {}, async (buat, dir) => {
+    const uji = buat();
+    assert.equal(uji.opsi.keluaran, path.join(dir, "hasil-ulang-masuk"), "nama folder uji ulang sama seperti dulu");
+    assert.deepEqual(await jalankanTugas(uji, halamanTiruan(), ["barang-masuk", "barang-masuk-gagal", "keluar"]), ["barang-masuk", "barang-masuk-gagal"]);
+  });
+});

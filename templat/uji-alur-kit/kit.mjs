@@ -7,7 +7,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
-import { periksaLayar, kelompokkanTemuan, tabelTemuan, barisMatriks, AMBANG_SENTUH, tentukanMode, perangkatUntukMode, perluTangkapan, teksCakupan } from "./periksa.mjs";
+import { periksaLayar, kelompokkanTemuan, tabelTemuan, barisMatriks, AMBANG_SENTUH, tentukanMode, perangkatUntukMode, perluTangkapan, teksCakupan,
+  deskripsiSasaran, sasaranDariGalat, teksSasaran, daftarNamaDom, kandidatTerdekat, formatKandidat, barisGalat, langkahMenuHp,
+  uraiSaring, cocokSaring, tugasGalat, pilihHasilTerbaru, ringkasLayar, petaMarkdown } from "./periksa.mjs";
 
 /** Bawaan aplikasi monorepo Rudis (app-shell shadcn: sidebar, dialog radix, login `?next=`, token di memori → navigasi lewat SPA). */
 export const PRESET_RUDIS = {
@@ -36,6 +38,8 @@ const BAWAAN = {
   abaikanKonsol: [/favicon/i, /Failed to load resource/i], // 4xx/5xx sudah dicek terpisah lewat respons
   responsDiizinkan: [], // RegExp terhadap "METODE /jalur STATUS", mis. /GET \/auth\/me 401/
   tombolPenjaga: [/^(Tinggalkan|Buang perubahan|Buang|Keluar tanpa menyimpan|Discard|Leave)/i], // dialog "Perubahan belum disimpan"
+  tungguHp: 1500, // HP: sasaran yang belum ada di halaman ditunggu sesingkat ini sebelum menu samping dicoba dibuka
+  tugasDariAwal: false, // true = tiap s.tugas mulai dari rute awal sesi (selalu berlaku saat UJI_TUGAS diisi, termasuk @galat)
   waktuHabis: 8000, // per aksi; login/goto memakai waktuMuat
   waktuMuat: 30000,
   jeda: 250,
@@ -70,8 +74,9 @@ function ambilDom() {
   });
   const lebar = [...document.body.querySelectorAll("*")].filter((e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.right > vw + 1 && getComputedStyle(e).position !== "fixed"; })
     .slice(0, 5).map((e) => ({ tag: e.tagName.toLowerCase(), t: teksEl(e).slice(0, 30), w: Math.round(e.getBoundingClientRect().width) }));
+  const judul = [...document.querySelectorAll("h1,h2,h3,[role=heading]")].filter(tampak).map(teksEl).filter(Boolean).slice(0, 10);
   return {
-    url: location.pathname + location.search, scrollW: document.documentElement.scrollWidth, innerW: vw, tombol, inputs, pelanggarLebar: lebar,
+    url: location.pathname + location.search, scrollW: document.documentElement.scrollWidth, innerW: vw, tombol, inputs, pelanggarLebar: lebar, judul,
     teks: document.body.innerText.slice(0, 30000),
     nilaiIsian: inputs.filter((i) => !["password", "checkbox", "radio", "file", "hidden"].includes(i.type) && i.val).map((i) => i.val),
     placeholders: inputs.map((i) => i.ph).filter(Boolean),
@@ -91,6 +96,15 @@ function adaPenghalang(selektor) {
     const r = e.getBoundingClientRect(), st = getComputedStyle(e);
     return r.width > 0 && r.height > 0 && st.visibility !== "hidden" && st.display !== "none" && r.right > 0 && r.left < vw && e.getAttribute("data-state") !== "closed";
   });
+}
+
+function ambilMenu(selektor) {
+  const vw = window.innerWidth;
+  const tampak = (e) => { const r = e.getBoundingClientRect(), st = getComputedStyle(e); return r.width > 0 && r.height > 0 && st.visibility !== "hidden" && st.display !== "none" && r.right > 0 && r.left < vw; };
+  return [...new Set([...document.querySelectorAll(selektor)].filter(tampak).map((e) => String(e.textContent ?? "").replace(/\s+/g, " ").trim()).filter(Boolean))];
+}
+function diNavigasi(e, selTautan) {
+  return !!(e.closest("nav,aside,[role=navigation],[data-sidebar]") || (selTautan && e.matches(selTautan)));
 }
 
 async function muatPlaywright() {
@@ -118,6 +132,7 @@ class Sesi {
   }
 
   lokasi(t) {
+    this._sasaranTerakhir = t; // untuk pesan galat (kandidat nama terdekat) bila Playwright tidak menyebut sasarannya
     if (typeof t === "string") return this.page.locator(t);
     if (t instanceof RegExp) return this.page.getByRole("button", { name: t }).or(this.page.getByRole("combobox", { name: t })).or(this.page.getByRole("link", { name: t })).or(this.page.getByText(t));
     if (t && t.role) return this.page.getByRole(t.role, { name: t.name, exact: t.exact });
@@ -190,18 +205,39 @@ class Sesi {
     const p = this.page.locator(this.uji.opsi.menu.pemicuHp).first();
     if (await p.isVisible().catch(() => false)) { await p.click(); await this.page.waitForTimeout(700); }
   }
+  /** Sasaran (Locator .first()) sudah ada di DOM? Bila ya: di dalam navigasi (nav/aside/sidebar/tautan menu)? */
+  async infoSasaran(l) {
+    if (!(await l.count().catch(() => 0))) return { terpasang: false, diNavigasi: false };
+    return { terpasang: true, diNavigasi: await l.evaluate(diNavigasi, this.uji.opsi.menu.tautan).catch(() => false) };
+  }
+  /** HP, sasaran belum tampak: buka menu samping hanya bila sasaran memang tautan menu/navigasi (keputusan: periksa.mjs › langkahMenuHp).
+   *  Sasaran yang hanya belum selesai muncul ditunggu singkat (`tungguHp`) dan tidak membuka menu. */
+  async siapkanSasaranHp(l, { menu = false } = {}) {
+    let sudahTunggu = false;
+    for (let i = 0; i < 3; i++) {
+      const tampak = await l.isVisible().catch(() => false);
+      const k = langkahMenuHp({ hp: true, tampak, dariMenu: menu, ...(tampak ? {} : await this.infoSasaran(l)), sudahTunggu });
+      if (k === "tunggu") { await l.waitFor({ state: "visible", timeout: this.uji.opsi.tungguHp }).catch(() => {}); sudahTunggu = true; continue; }
+      if (k === "buka-menu") {
+        await this.bukaMenuHp();
+        // dugaan "ada di menu samping" salah (sasaran tetap tak muncul): tutup lagi agar halaman, galat, dan tangkapan tidak tertutup menu
+        if (!menu && !(await l.waitFor({ state: "visible", timeout: 1500 }).then(() => true, () => false))) await this.tutupPenghalang();
+      }
+      return;
+    }
+  }
 
-  /** Klik yang menutup penghalang lebih dulu bila sasaran tertutup/di luar layar (HP: membuka menu samping). */
-  async klik(target, { tunggu = true } = {}) {
+  /** Klik yang menutup penghalang lebih dulu bila sasaran tertutup/di luar layar (HP: membuka menu samping bila sasaran tautan menu/navigasi).
+   *  `menu: true` = sasaran pasti tautan menu samping (dipakai `menu()`). */
+  async klik(target, { tunggu = true, menu = false } = {}) {
     const l = this.lokasi(target).first();
-    // HP: tautan menu ada di lembar samping yang belum terpasang/tampak → buka menu dulu (jangan menunggu 'visible' lebih dulu)
-    if (this.hp && !(await l.isVisible().catch(() => false))) await this.bukaMenuHp();
+    if (this.hp) await this.siapkanSasaranHp(l, { menu });
     await l.waitFor({ state: "visible" });
     for (let i = 0; i < 3; i++) {
       await l.scrollIntoViewIfNeeded().catch(() => {});
       const sebab = await l.evaluate(tesTerhalang);
       if (!sebab) break;
-      if (sebab === "luar-layar" && this.hp) await this.bukaMenuHp(); else await this.tutupPenghalang();
+      if (sebab === "luar-layar" && this.hp && (menu || (await this.infoSasaran(l)).diNavigasi)) await this.bukaMenuHp(); else await this.tutupPenghalang();
     }
     await l.click();
     await this.lepasPenjaga(); // klik yang memicu "Perubahan belum disimpan": tinggalkan (kasus uji yang memeriksanya memakai page langsung)
@@ -210,7 +246,7 @@ class Sesi {
   /** Ketuk tautan menu samping (HP: membuka menu bila perlu; mencatat temuan bila menu tetap terbuka menutupi halaman). */
   async menu(nama) {
     const tautan = this.page.locator(this.uji.opsi.menu.tautan).filter({ hasText: new RegExp(`^\\s*${esc(nama)}\\s*$`) }).first();
-    await this.klik(tautan, { tunggu: false });
+    await this.klik(tautan, { tunggu: false, menu: true });
     await this.tenang();
     if (this.hp) await this.page.waitForTimeout(700); // animasi tutup lembar samping
     if (this.hp && (await this.adaPenghalang())) {
@@ -250,21 +286,55 @@ class Sesi {
 
   /**
    * Jalankan satu tugas alur (fungsi `fn(s)`) dengan penangkap galat. Bila env UJI_TUGAS="masuk,keluar" diisi, hanya tugas yang namanya
-   * memuat salah satu kata itu yang dijalankan — uji ulang sebatas butir yang berubah tanpa mengulang semuanya.
+   * memuat salah satu kata itu yang dijalankan — uji ulang sebatas butir yang berubah tanpa mengulang semuanya. `UJI_TUGAS=@galat` =
+   * hanya tugas yang galat di hasil.json sebelumnya (nama persis). Saat UJI_TUGAS diisi (atau opsi `tugasDariAwal`), tiap tugas mulai dari
+   * rute awal sesi agar galat/keadaan tugas lain tidak merembet.
    */
   async tugas(nama, fn) {
-    const f = this.uji.saring;
-    if (f && !f.some((k) => nama.toLowerCase().includes(k))) return undefined;
-    return this.coba(nama, fn);
+    if (this.uji.saring && !cocokSaring(nama, this.uji.saring)) return undefined;
+    const dariAwal = !!(this.uji.saring || this.uji.opsi.tugasDariAwal);
+    this._tugasAktif = nama;
+    try {
+      return await this.coba(nama, async (s) => { if (dariAwal) await s.keAwal(); return fn(s); });
+    } finally { this._tugasAktif = null; }
   }
-  /** Jalankan langkah yang mungkin gagal tanpa menghentikan seluruh uji: galat dicatat sebagai langkah GALAT + tangkapan. */
+  /** Kembali ke rute awal sesi (`uji.sesi(…, { awal })`): tutup penghalang, lalu pergi bila belum di sana. */
+  async keAwal() {
+    await this.tutupPenghalang();
+    let di = "";
+    try { const u = new URL(this.page.url()); di = u.pathname + u.search; } catch { /* about:blank */ }
+    if (di !== this.awal) await this.pergi(this.awal);
+  }
+  /** URL + sasaran + ±5 nama tampak terdekat untuk galat "sasaran tidak ditemukan" (bukan galat lain, mis. pemeriksaan skrip). */
+  async diagnosaGalat(e) {
+    const pesan = String(e?.message ?? e);
+    let url = this.page.url();
+    try { const u = new URL(url); url = u.pathname + u.search; } catch { /* biarkan apa adanya */ }
+    const sasaran = sasaranDariGalat(pesan) ?? (/Timeout|waiting for|tidak ditemukan|not found|strict mode/i.test(pesan) ? deskripsiSasaran(this._sasaranTerakhir) : null);
+    if (!sasaran) return { url };
+    const dom = await this.page.evaluate(ambilDom).catch(() => null);
+    const kandidat = dom ? kandidatTerdekat(teksSasaran(sasaran), daftarNamaDom(dom), 5).map(formatKandidat) : [];
+    return { url, sasaran: sasaran.slice(0, 160), kandidat };
+  }
+  /** Jalankan langkah yang mungkin gagal tanpa menghentikan seluruh uji: galat dicatat sebagai langkah GALAT + tangkapan.
+   *  Galat sasaran (selektor salah/belum muncul) mencetak URL + ±5 nama tampak terdekat ke stdout dan hasil.json › galat. */
   async coba(nama, fn) {
     try { return await fn(this); } catch (e) {
-      this.uji.galat.push({ nama, peran: this.peran, perangkat: this.perangkat, pesan: String(e.message).split("\n")[0].slice(0, 200) });
-      await this.snap(`GALAT-${nama}`, { galat: String(e.message).split("\n")[0].slice(0, 200) }).catch(() => {});
+      const pesan = String(e.message).split("\n")[0].slice(0, 200);
+      const g = { nama, tugas: this._tugasAktif ?? nama, peran: this.peran, perangkat: this.perangkat, pesan, ...(await this.diagnosaGalat(e).catch(() => ({}))) };
+      this.uji.galat.push(g);
+      console.log(`GALAT ${barisGalat(g)}`);
+      await this.snap(`GALAT-${nama}`, { galat: pesan }).catch(() => {});
       await this.tutupPenghalang().catch(() => {});
       return undefined;
     }
+  }
+  /** Nama tautan menu yang tampak (HP: menu samping dibuka lalu ditutup lagi). Dipakai `uji.peta()`. */
+  async namaMenu() {
+    if (this.hp) await this.bukaMenuHp();
+    const nama = await this.page.evaluate(ambilMenu, this.uji.opsi.menu.tautan).catch(() => []);
+    if (this.hp) await this.tutupPenghalang();
+    return nama;
   }
 
   /** Tangkapan bernomor + pemeriksaan dasar. `gagal: true` = kasus gagal sengaja dipicu (respons 4xx dianggap diharapkan; 5xx tetap temuan).
@@ -296,13 +366,25 @@ class Sesi {
 
 class Uji {
   constructor(opsi) {
-    const saring = (process.env.UJI_TUGAS ?? "").split(",").map((x) => x.trim().toLowerCase()).filter(Boolean);
+    const saring = uraiSaring(process.env.UJI_TUGAS);
     this.mode = tentukanMode(opsi.mode, process.env.UJI_MODE);
-    Object.assign(this, { opsi, saring: saring.length ? saring : null, no: 0, langkah: [], tugas: [], fakta: {}, galat: [], sesiAktif: [], mulai: Date.now() });
+    Object.assign(this, { opsi, saring: saring.aktif ? saring : null, no: 0, langkah: [], tugas: [], fakta: {}, galat: [], sesiAktif: [], mulai: Date.now() });
+    const dasar = opsi.keluaran.replace(/[\\/]+$/, "");
     // uji ulang parsial (UJI_TUGAS) tidak boleh menimpa hasil/tangkapan eksekusi penuh: keluaran sendiri
-    if (this.saring) opsi.keluaran = `${opsi.keluaran.replace(/[\\/]+$/, "")}-ulang-${this.saring.join("-").replace(/[^a-z0-9-]+/g, "").slice(0, 30)}`;
+    if (this.saring) opsi.keluaran = `${dasar}-ulang-${saring.token.join("-").replace(/[^a-z0-9-]+/g, "").slice(0, 30)}`;
+    if (saring.galat) this.muatTugasGalat([dasar, opsi.keluaran]);
     this.dirFoto = path.resolve(opsi.keluaran, "tangkapan");
     fs.mkdirSync(this.dirFoto, { recursive: true });
+  }
+  /** UJI_TUGAS=@galat: tugas galat dari hasil.json terbaru di antara eksekusi penuh dan uji ulang @galat sebelumnya. */
+  muatTugasGalat(folder) {
+    const kandidat = folder.map((d) => path.resolve(d, "hasil.json")).filter((f) => fs.existsSync(f)).map((berkas) => ({ berkas, mtimeMs: fs.statSync(berkas).mtimeMs }));
+    const berkas = pilihHasilTerbaru(kandidat);
+    if (!berkas) throw new Error(`UJI_TUGAS=@galat: belum ada hasil.json di ${path.resolve(folder[0])} — jalankan eksekusi biasa dulu (node uji.mjs)`);
+    const nama = tugasGalat(JSON.parse(fs.readFileSync(berkas, "utf8")));
+    this.saring.persis = new Set(nama);
+    this.saring.sumberGalat = berkas;
+    console.log(`UJI_TUGAS=@galat: ${nama.length ? nama.join(", ") : "tidak ada tugas galat"} (dari ${berkas})`);
   }
   /** Perangkat yang diuji menurut mode: cepat = ["hp"], penuh = ["hp", "komputer"]. Pakai di perulangan skrip: `for (const p of uji.perangkatUji)`. */
   get perangkatUji() { return perangkatUntukMode(this.mode, Object.keys(this.opsi.perangkat)); }
@@ -312,7 +394,11 @@ class Uji {
   cakupanEfektif() {
     const c = this.cakupanDinyatakan ?? {};
     if (!this.saring || !c.tugasUji) return c;
-    return { ...c, tugasUji: c.tugasUji.filter((n) => this.saring.some((k) => String(n).toLowerCase().includes(k))), parsial: process.env.UJI_TUGAS };
+    // @galat: tugas "x" tercakup bila x sendiri atau sub-tugasnya ("x-gagal") galat dan diulang
+    const persis = [...(this.saring.persis ?? [])];
+    const kena = (n) => { const x = String(n).toLowerCase(); return cocokSaring(n, this.saring) || persis.some((p) => p.startsWith(`${x}-`)); };
+    const parsial = process.env.UJI_TUGAS + (this.saring.galat ? ` → ${persis.join(", ") || "tidak ada tugas galat"}` : "");
+    return { ...c, tugasUji: c.tugasUji.filter(kena), parsial };
   }
   /** Sesi baru (konteks browser sendiri) untuk satu peran di satu perangkat, sudah masuk bila `masuk` ≠ false. */
   async sesi(peran, perangkat, { masuk = true, awal = "/" } = {}) {
@@ -320,6 +406,7 @@ class Uji {
     if (!cfg) throw new Error(`perangkat '${perangkat}' tidak dikenal (hp | komputer)`);
     const ctx = await this.browser.newContext(typeof cfg === "string" ? { ...this.devices[cfg] } : { viewport: cfg });
     const s = new Sesi(this, peran, perangkat, await ctx.newPage());
+    s.awal = awal;
     this.sesiAktif.push(s);
     if (masuk) await s.masuk(awal);
     return s;
@@ -329,6 +416,45 @@ class Uji {
     this.tugas.push({ peran, tugas, perangkat, status, catatan, foto, kasusGagal, layarKosong });
   }
   catatFakta(kunci, nilai) { this.fakta[kunci] = nilai; }
+
+  /**
+   * Peta layar SEBELUM menulis tugas: login per peran, buka tiap menu, tulis `<keluaran>/peta.md` (+ peta.json) berisi nama tampil
+   * judul, tombol, tautan, dan isian (label + id/name/type) per layar. Skrip ditulis dari nama di peta, bukan ditebak dari kode.
+   * Hanya membuka menu — tombol tidak diketuk (bisa mengubah data). Opsi: peran (bawaan semua akun), perangkat (bawaan perangkat
+   * pertama mode ini: cepat = HP), awal (rute setelah login), menuMaks.
+   */
+  async peta({ peran, perangkat, awal = "/", menuMaks = 40 } = {}) {
+    const dev = perangkat ?? this.perangkatUji[0];
+    const peta = { baseUrl: this.opsi.baseUrl, perangkat: dev, dibuat: new Date().toISOString(), peran: [] };
+    const pesan = (e) => String(e?.message ?? e).split("\n")[0].slice(0, 200);
+    for (const p of peran ?? Object.keys(this.opsi.akun)) {
+      const catatan = { peran: p, awal, menu: [], layar: [] };
+      peta.peran.push(catatan);
+      let s;
+      try { s = await this.sesi(p, dev, { awal }); } catch (e) { catatan.galat = pesan(e); continue; }
+      try {
+        catatan.menu = await s.namaMenu();
+        catatan.layar.push({ menu: "(layar awal setelah masuk)", ...ringkasLayar(await s.page.evaluate(ambilDom), { abaikanTautan: catatan.menu }) });
+        for (const nama of catatan.menu.slice(0, menuMaks)) {
+          try {
+            await s.menu(nama);
+            catatan.layar.push({ menu: nama, ...ringkasLayar(await s.page.evaluate(ambilDom), { abaikanTautan: catatan.menu }) });
+          } catch (e) { catatan.layar.push({ menu: nama, galat: pesan(e) }); await s.tutupPenghalang().catch(() => {}); }
+        }
+      } finally {
+        await s.page.context().close().catch(() => {});
+        this.sesiAktif = this.sesiAktif.filter((x) => x !== s); // sesi peta bukan bagian uji (kasus gagal, temuan)
+      }
+    }
+    const dir = path.resolve(this.opsi.keluaran);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, "peta.json"), JSON.stringify(peta, null, 1));
+    fs.writeFileSync(path.join(dir, "peta.md"), petaMarkdown(peta));
+    console.log(`peta: ${path.join(dir, "peta.md")} (${peta.peran.length} peran, ${peta.peran.reduce((n, x) => n + x.layar.length, 0)} layar)`);
+    return peta;
+  }
+  /** Tutup browser tanpa menulis hasil (mis. sesudah `peta()`). `selesai()` sudah menutupnya. */
+  async tutup() { await this.browser?.close().catch(() => {}); }
 
   /** Tulis hasil.json + ringkasan.md di folder keluaran, tutup browser. */
   async selesai() {
@@ -342,10 +468,10 @@ class Uji {
     const md = [`# Ringkasan uji otomatis (kit) — mode ${this.mode.toUpperCase()}`, "", `**Cakupan — ${cakupan.pernyataan}**`, "", `Mulai ${meta.mulai} · selesai ${meta.selesai} · ${meta.durasiDetik} dtk eksekusi kit · ${meta.langkah} tangkapan · ${meta.galatLangkah} langkah galat`, "",
       "## Matriks (isi dari hasilTugas)", this.tugas.length ? barisMatriks(this.tugas) : "(belum ada hasilTugas)", "",
       "## Calon temuan (usul kit; BSA menentukan tingkat, kode sumber, usulan)", kelompok.length ? tabelTemuan(kelompok) : "(tidak ada temuan otomatis)", "",
-      "## Langkah galat (skrip gagal, bukan temuan aplikasi)", this.galat.length ? this.galat.map((g) => `- ${g.perangkat}/${g.peran} ${g.nama}: ${g.pesan}`).join("\n") : "(tidak ada)", "",
+      "## Langkah galat (skrip gagal, bukan temuan aplikasi)", this.galat.length ? this.galat.map((g) => `- ${barisGalat(g)}`).join("\n") : "(tidak ada)", "",
       "## Belum terverifikasi (di luar cakupan mode ini — salin ke templat)", cakupan.belum.length ? cakupan.belum.map((b) => `- ${b}`).join("\n") : "(tidak ada)", ""].join("\n");
     fs.writeFileSync(path.resolve(this.opsi.keluaran, "ringkasan.md"), md);
-    await this.browser.close().catch(() => {});
+    await this.tutup();
     console.log(JSON.stringify({ ...meta, temuanPerJenis: perJenis }));
     return { meta, kelompok };
   }
@@ -361,3 +487,4 @@ export async function mulaiUji(pilihan = {}) {
   return uji;
 }
 export { periksaLayar, kelompokkanTemuan, tabelTemuan, barisMatriks } from "./periksa.mjs";
+export { Uji, Sesi }; // untuk tes (bin/uji-alur-kit.test.mjs) — skrip uji memakai mulaiUji
