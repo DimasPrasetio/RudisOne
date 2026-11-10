@@ -4,7 +4,7 @@
 // sebelum melapor (agents/tech-lead.md › Alur tugas). Berkas ini hanya membaca dan memeriksa; menulis dengan Edit/Write.
 //   bin/jebakan.sh [baca] <folder> [--json]   letak + isi + peringatan (basi, ukuran, usulan pemeriksaan otomatis)
 //   bin/jebakan.sh letak <folder> [--json]    hanya letak: repo | komputer ini | bibit (menunggu dipindah ke repo)
-//   bin/jebakan.sh cek <berkas>… [--json]     periksa format & ukuran
+//   bin/jebakan.sh cek <berkas>… [--json]     periksa format & ukuran (hanya berkas daftar jebakan, berkas biasa ≤ 1 MB)
 // Letak (satu daftar per proyek):
 //   repo proyek  <folder>/.rudisone/jebakan.md — proyek standar Rudis (ikut ke rekan lewat git), di samping kartu proyek
 //   komputer ini <RudisOne>/catatan/jebakan/<nama-repo>.md — proyek lama/klien/stack lain (per device, tidak di-commit); baris
@@ -130,16 +130,28 @@ export function letakJebakan(folder, { root = ROOT() } = {}) {
 
 const TAMPIL = { repo: "repo proyek", device: "komputer ini", bibit: "bibit di komputer ini" };
 
-/** Isi daftar hanya bila berkas biasa (bukan tautan) yang secara fisik ada di dalam `induk` — perkakas ini berjalan tanpa
- *  prompt dan mencetak isi, jadi tautan ke berkas lain (mis. .env) tidak pernah diikuti. → teks, atau null + alasan. */
+/** Batas ukuran berkas yang dibaca (daftar sah ≤ BATAS.byte; sisanya ruang untuk daftar yang kebesaran). */
+export const MAKS_BACA = 1 << 20;
+/** Isi daftar hanya bila berkas biasa (bukan tautan, FIFO, perangkat) ≤ MAKS_BACA yang secara fisik ada di dalam `induk` —
+ *  perkakas ini berjalan tanpa prompt dan mencetak isi/temuan, jadi tidak pernah membaca berkas lain. → teks, atau null + alasan. */
 export function bacaAman(p, induk) {
   try {
-    if (!fs.lstatSync(p).isFile()) return { teks: null, alasan: "bukan berkas biasa (tautan/folder) — tidak dibaca" };
+    const st = fs.lstatSync(p);
+    if (!st.isFile()) return { teks: null, alasan: "bukan berkas biasa (tautan/folder/perangkat) — tidak dibaca" };
+    if (st.size > MAKS_BACA) return { teks: null, alasan: `lebih dari ${MAKS_BACA} byte — tidak dibaca` };
     const asli = fs.realpathSync(p), dasar = fs.realpathSync(induk);
     if (!asli.startsWith(dasar + path.sep)) return { teks: null, alasan: "di luar folder asalnya — tidak dibaca" };
     return { teks: fs.readFileSync(asli, "utf8"), alasan: null };
   } catch (e) { return { teks: null, alasan: `tidak terbaca (${e.code ?? e.message})` }; }
 }
+
+/** Path yang boleh diperiksa `cek`: berkas daftar jebakan saja — nama `jebakan.md`, atau *.md di folder `.rudisone/` atau
+ *  `catatan/jebakan/`. Berkas lain (kunci SSH, kredensial) tidak dibaca sama sekali: temuan per baris pun membocorkan bentuknya. */
+export const berkasDaftar = (f) => {
+  const p = path.resolve(f), dir = path.dirname(p);
+  return path.basename(p) === "jebakan.md" || (p.endsWith(".md") && (path.basename(dir) === ".rudisone"
+    || (path.basename(dir) === "jebakan" && path.basename(path.dirname(dir)) === "catatan")));
+};
 
 /** Teks `baca`: letak, isi, lalu temuan. */
 export function formatBaca(l, temuan, isi) {
@@ -164,9 +176,10 @@ export function main(argv, { keluar = (s) => process.stdout.write(`${s}\n`), gal
   if (perintah === "cek") {
     const semua = [];
     for (const f of arg) {
-      let teks;
-      try { teks = fs.readFileSync(f, "utf8"); } catch (e) { semua.push({ berkas: f, tingkat: "galat", kode: "jebakan-baca", baris: 0, pesan: `tidak terbaca (${e.code ?? e.message})` }); continue; }
-      for (const t of periksaJebakan(teks, { sekarang })) semua.push({ berkas: f, ...t });
+      if (!berkasDaftar(f)) { semua.push({ berkas: f, tingkat: "galat", kode: "jebakan-baca", baris: 0, pesan: "bukan berkas daftar jebakan (jebakan.md, .rudisone/*.md, catatan/jebakan/*.md) — tidak dibaca" }); continue; }
+      const b = bacaAman(f, path.dirname(path.resolve(f)));
+      if (b.teks === null) { semua.push({ berkas: f, tingkat: "galat", kode: "jebakan-baca", baris: 0, pesan: b.alasan }); continue; }
+      for (const t of periksaJebakan(b.teks, { sekarang })) semua.push({ berkas: f, ...t });
     }
     keluar(json ? JSON.stringify(semua) : semua.length ? semua.map((t) => `${t.berkas}${t.baris ? `:${t.baris}` : ""} [${t.tingkat}] ${t.kode}: ${t.pesan}`).join("\n") : `jebakan: ${arg.length} berkas bersih`);
     return kodeKeluar(semua);

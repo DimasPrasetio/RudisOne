@@ -1,5 +1,5 @@
 // Uji daftar jebakan per proyek: node --test bin/
-import { test } from "node:test";
+import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
@@ -11,6 +11,9 @@ import { periksaBerkas } from "./bersih.mjs";
 
 const SINI = path.dirname(fileURLToPath(import.meta.url));
 const tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "jebakan-")));
+after(() => fs.rmSync(tmp, { recursive: true, force: true }));
+// folder uji tidak boleh terbaca sebagai bagian repo git di atas os.tmpdir() (mis. "lain" → device)
+process.env.GIT_CEILING_DIRECTORIES = tmp;
 const ROOT = path.join(tmp, "RudisOne");
 fs.mkdirSync(path.join(ROOT, "catatan", "jebakan"), { recursive: true });
 const GIT_ENV = { ...process.env, GIT_AUTHOR_NAME: "Uji", GIT_AUTHOR_EMAIL: "uji@contoh", GIT_COMMITTER_NAME: "Uji", GIT_COMMITTER_EMAIL: "uji@contoh",
@@ -120,6 +123,30 @@ test("letakJebakan dari worktree: kartu cadangan handoff/kartu/<checkout utama>.
   assert.deepEqual(periksaBerkas("sub/.rudisone/jebakan.md", `${butir("2026-11-10", 1)}\n`).map((x) => x.jenis), ["tanggal-riwayat"]);
 });
 
+test("cek hanya membaca berkas daftar jebakan biasa ≤ 1 MB: kunci SSH, kredensial AWS, /dev/zero, tautan, berkas raksasa ditolak tanpa isi/bentuk", (t) => {
+  const kunci = proyek(path.join("rumah", ".ssh"), { "id_rsa": "-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXk\n-----END OPENSSH PRIVATE KEY-----\n" });
+  const aws = proyek(path.join("rumah", ".aws"), { "credentials": "[default]\naws_access_key_id = AKIAABCDEFGHIJKLMNOP\ntoken = rahasiarahasiarahasia\n" });
+  const io = () => { const out = [], err = []; return { out, err, opsi: { keluar: (s) => out.push(s), galat: (s) => err.push(s) } }; };
+  const sasaran = [path.join(kunci, "id_rsa"), path.join(aws, "credentials")];
+  if (process.platform !== "win32") sasaran.push("/dev/zero");
+  for (const f of sasaran) {
+    const x = io();
+    assert.equal(main(["cek", f, "--json"], x.opsi), 2, f);
+    const h = JSON.parse(x.out[0]);
+    assert.deepEqual(h.map((y) => [y.kode, y.baris]), [["jebakan-baca", 0]], f);
+    assert.ok(!/rahasia|private key|kunci AWS|byte/i.test(h[0].pesan), h[0].pesan);
+  }
+  // nama sah tetapi tautan / perangkat / raksasa → tetap ditolak
+  const d = proyek("cek-aman", { ".rudisone/kartu-proyek.md": "x" });
+  const raksasa = path.join(d, ".rudisone", "jebakan.md");
+  fs.writeFileSync(raksasa, daftar(butir("2026-11-10", 1, `${"x".repeat((1 << 20) + 1)} → b`)));
+  let x = io(); assert.equal(main(["cek", raksasa], x.opsi), 2); assert.match(x.out[0], /lebih dari 1048576 byte/);
+  fs.rmSync(raksasa);
+  try { fs.symlinkSync(path.join(kunci, "id_rsa"), raksasa); } catch { t.diagnostic("symlink tidak tersedia"); return; }
+  x = io(); assert.equal(main(["cek", raksasa], x.opsi), 2); assert.match(x.out[0], /bukan berkas biasa/);
+  assert.ok(!/private key/i.test(x.out[0]));
+});
+
 test("CLI: baca/letak/cek, exit 0/1/2, argumen salah → 2; jebakan.sh membungkus mjs", () => {
   const io = () => { const out = [], err = []; return { out, err, opsi: { keluar: (s) => out.push(s), galat: (s) => err.push(s), sekarang: new Date("2026-11-10T00:00:00Z") } }; };
   process.env.RUDISONE_ROOT = ROOT;
@@ -132,10 +159,11 @@ test("CLI: baca/letak/cek, exit 0/1/2, argumen salah → 2; jebakan.sh membungku
     x = io(); assert.equal(main(["letak", p, "--json"], x.opsi), 0); assert.equal(JSON.parse(x.out[0]).jenis, "repo");
     const kosong = proyek("cli-kosong");
     x = io(); assert.equal(main(["baca", kosong], x.opsi), 0); assert.match(x.out[0], /Belum ada daftar/);
-    const basi = path.join(tmp, "basi.md"); fs.writeFileSync(basi, daftar(butir("2025-01-01", 1)));
-    const salah = path.join(tmp, "salah.md"); fs.writeFileSync(salah, daftar("- 2026-11-10 tanpa format"));
+    const kat = path.join(tmp, "cli-catatan", "catatan", "jebakan"); fs.mkdirSync(kat, { recursive: true });
+    const basi = path.join(kat, "basi.md"); fs.writeFileSync(basi, daftar(butir("2025-01-01", 1)));
+    const salah = path.join(kat, "salah.md"); fs.writeFileSync(salah, daftar("- 2026-11-10 tanpa format"));
     x = io(); assert.equal(main(["cek", basi], x.opsi), 1);
-    x = io(); assert.equal(main(["cek", basi, salah, path.join(tmp, "tidak-ada.md")], x.opsi), 2);
+    x = io(); assert.equal(main(["cek", basi, salah, path.join(kat, "tidak-ada.md")], x.opsi), 2);
     assert.equal(x.out[0].split("\n").length, 3);
     for (const a of [[], ["cek"], ["baca", p, p], ["--salah", p], [path.join(tmp, "tidak-ada")]]) { x = io(); assert.equal(main(a, x.opsi), 2, JSON.stringify(a)); }
   } finally { delete process.env.RUDISONE_ROOT; }

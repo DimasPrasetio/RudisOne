@@ -156,7 +156,8 @@ Jalur cadangan COO saat sesi Tech Lead tidak bisa dibentuk (`agents/coo.md` › 
    hasilnya datang. Jangan mengirim kabar kemajuan ke COO; pesan wajib protokol (laporan akhir, `[Terhambat]`,
    `[Eskalasi]`, keputusan pengguna, `[Antre]`/`[Diparkir]`, jawaban konsultasi, `[Hasil tinjauan]` untuk tim lain) tetap dikirim.
 7. **Jebakan** — **sebelum putaran tinjauan terakhir** (commit sesudah LULUS membuat tinjauan basi di gerbang), perbarui daftar
-   jebakan proyek di branch tugas (per device: langsung di berkasnya; ikut ditinjau sebagai bagian diff): jebakan
+   jebakan proyek di branch tugas (ikut ditinjau sebagai bagian diff; daftar per device tidak ada di diff → tulis perubahannya
+   di `status.md` dan laporan): jebakan
    lama yang **kena lagi** → naikkan `kena` dan tanggalnya; kegagalan baru yang bisa terulang di proyek ini (temuan tinjauan,
    tes gagal, salah tebak, penolakan pengaman) → butir baru; pelajaran yang berlaku di semua proyek → `catatan/tech-lead.md`.
    Tulis `Jebakan: kena <n>, baru <m>` di `status.md` (diperiksa `bin/gerbang-tl.sh`, dicatat ke metrik). **Naik jadi

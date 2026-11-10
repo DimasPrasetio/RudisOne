@@ -3,7 +3,7 @@
 // variabel, glob, blok/pipa ke sh, git -c/alias, --env-file) dan bentuk yang hanya menyebut/aman.
 // Tinjauan menemukan bentuk baru → tambah barisnya di sini (jebakan terulang ≥ 2 kali → pemeriksaan otomatis).
 // Celah/salah tangkap yang belum diperbaiki ditandai `todo` agar terlihat tanpa menggagalkan suite. node --test bin/
-import { test } from "node:test";
+import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
@@ -13,6 +13,7 @@ import { fileURLToPath } from "node:url";
 
 const SINI = path.dirname(fileURLToPath(import.meta.url));
 const tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "kebijakan-bentuk-")));
+after(() => fs.rmSync(tmp, { recursive: true, force: true }));
 const ROOT = path.join(tmp, "RudisOne");
 const REGISTER = path.join(tmp, "register-tugas.json");
 const KONFIG = path.join(tmp, "server.json");
