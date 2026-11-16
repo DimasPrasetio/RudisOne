@@ -152,9 +152,12 @@ peran lain dipanggil sebagai subagent `rudis-<id-peran>`.
 - **Sinyal langsung (hook, `bin/kantor-kejadian.mjs` → `handoff/.kantor/<sesi>[~<subagent>].json`, server › `gabungKejadian`):**
   *izin* (PermissionRequest, Notification `permission_prompt`) dan *tanya* (PreToolUse `AskUserQuestion`, elicitation) →
   **Menunggu Anda** ("Menunggu izin Anda" / "Menunggu jawaban Anda") sampai hasil alat yang ditunggu tercatat (alat dicocokkan
-  lewat id, atau lewat nama alat untuk PermissionRequest yang tidak membawa id), ada pesan masuk baru, atau model melangkah dari
-  pesan lain; izin yang tidak diikuti pemberitahuan ±6 dtk di sesi yang terbukti mengirim pemberitahuan tertunda dianggap sudah
-  dijawab (hilang ±8,5 dtk setelah jendela muncul); batas umur 4 jam; izin subagent hilang saat sesi induknya keluar; *selesai* (Stop, StopFailure, SubagentStop) dan *keluar* (SessionEnd) → giliran
+  lewat id, atau lewat nama alat untuk PermissionRequest yang tidak membawa id — hanya alat dari pesan model pemiliknya), ada pesan
+  masuk baru, atau model melangkah dari pesan lain; izin yang tidak diikuti pemberitahuan ±6 dtk di sesi yang terbukti mengirim
+  pemberitahuan tertunda (sesi Desktop selalu; sesi lain setelah sekali terbukti di induk atau subagent mana pun) dianggap sudah
+  dijawab (hilang ±8,5 dtk setelah jendela muncul); pemberitahuan yang datang sesudah jawaban = jendela lain masih terbuka;
+  Notification tanpa id subagent dicatat pada jendela subagent yang terbuka; batas umur 4 jam; izin subagent hilang saat sesi
+  induknya keluar (waktu keluar diingat walau sesi dilanjutkan); *selesai* (Stop, StopFailure, SubagentStop) dan *keluar* (SessionEnd) → giliran
   berakhir tepat pada waktu kejadian. Sesi yang terbukti mengirim *selesai* tidak lagi ditebak dari jeda waktu (berpikir lama
   tetap Berpikir; jaring pengaman 20 menit). Subagent yang menunggu: kursi perannya (atau sesi pemanggil, untuk asisten biasa)
   Menunggu Anda, dan "Perlu perhatian" menyebut percakapan pemanggil yang harus dibuka. Batas: Claude Code tidak memberi kabar

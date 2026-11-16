@@ -83,6 +83,38 @@ test("izin tanpa pemberitahuan ±6 dtk di sesi yang terbukti mengirim pemberitah
   assert.equal(g(s, { ...kej, bt: null }, 1000 + 60e3).status, "menunggu");  // belum terbukti → tidak disimpulkan
   assert.equal(g(s, { ...kej, bt: null }, 1000 + 5 * 3600e3), ST);           // batas umur (proses mati tanpa SessionEnd)
 });
+test("izin (nama alat): alat bernama sama di pesan model BERIKUTNYA bukan yang ditunggu — langkah itu menjawab izinnya", () => {
+  const s = sesiKosong();
+  s.alatInfo.set("b1", { nama: "Bash", ts: 990, msg: "m1" });
+  const kej = { k: "izin", t: 1000, u: null, a: "Bash", n: null, bt: null };
+  s.hasilAlat.set("b1", 3000); s.lastHasil = 3000;                          // diizinkan, perintah singkat selesai
+  s.alatInfo.set("b2", { nama: "Bash", ts: 5000, msg: "m2" }); s.asistenTerakhir = { ts: 5000, msg: "m2" };   // Bash berikutnya (≤ t+10 dtk), lama
+  assert.equal(g(s, kej), ST);
+  // alat dijalankan sebelum pesannya tertulis: pemilik = pesan PERTAMA sesudah kejadian, pesan sesudahnya tidak ikut
+  const s2 = sesiKosong();
+  s2.alatInfo.set("c1", { nama: "Bash", ts: 1200, msg: "m1" }); s2.alatInfo.set("c2", { nama: "Bash", ts: 6000, msg: "m2" });
+  s2.asistenTerakhir = { ts: 1200, msg: "m1" };
+  assert.equal(g(s2, kej).status, "menunggu");
+  s2.hasilAlat.set("c1", 4000); s2.asistenTerakhir = { ts: 6000, msg: "m2" };
+  assert.equal(g(s2, kej), ST);
+});
+test("izin: pemberitahuan SESUDAH jawaban = jendela lain (alat paralel) masih terbuka; hilang setelah ada hasil/langkah sesudahnya", () => {
+  const s = sesiKosong();
+  s.alatInfo.set("w1", { nama: "WebFetch", ts: 990, msg: "m1" }); s.alatInfo.set("m1x", { nama: "mcp__srv__baca", ts: 990, msg: "m1" });
+  const kej = { k: "izin", t: 1000, u: null, a: "mcp__srv__baca", n: 7000, bt: 7000 };   // izin WebFetch tertimpa di berkas
+  s.hasilAlat.set("m1x", 3000); s.lastHasil = 3000;
+  assert.equal(g(s, kej, 30e3).status, "menunggu");
+  s.hasilAlat.set("w1", 9000); s.lastHasil = 9000;                         // jendela WebFetch dijawab
+  assert.equal(g(s, kej, 30e3), ST);
+});
+test("bukti pemberitahuan tertunda berlaku untuk seluruh sesi (opsi.bt; 0 = sesi Desktop)", () => {
+  const s = sesiKosong(); s.alatInfo.set("b1", { nama: "Bash", ts: 990, msg: "m1" });
+  const kej = { k: "izin", t: 1000, u: null, a: "Bash", n: null, bt: null };
+  assert.equal(gabungKejadian(ST, s, kej, 10e3).st.status, "menunggu");               // berkas sendiri belum terbukti
+  assert.equal(gabungKejadian(ST, s, kej, 10e3, { bt: 0 }).st, ST);                   // sesi Desktop
+  assert.equal(gabungKejadian(ST, s, kej, 10e3, { bt: 50e3 }).st, ST);                // terbukti di subagent/induk, kapan pun
+  assert.equal(gabungKejadian(ST, s, kej, 10e3, { bt: null }).st.status, "menunggu"); // belum terbukti di mana pun
+});
 test("tanya (id alat) & Notification saja; pesan masuk baru menjawab semuanya", () => {
   const s = sesiKosong(); s.alatInfo.set("q1", { nama: "AskUserQuestion", ts: 990, msg: "m1" });
   assert.equal(g(s, { k: "tanya", t: 1000, u: "q1" }).label, "Menunggu jawaban Anda");
@@ -199,6 +231,21 @@ test("izin subagent tidak lagi menunggu setelah sesi induknya keluar", () => {
   assert.equal(agen(keadaan(), "Business Systems Analyst · Tim 1").status, "menunggu");
   kejadian("s-tl.json", { k: "keluar", t: now - 30e3 });
   assert.notEqual(agen(keadaan(), "Business Systems Analyst · Tim 1").status, "menunggu");
+});
+test("izin subagent diberikan cepat: bukti tunda dari berkas induknya berlaku; sesi induk dilanjutkan sesudah keluar tidak menghidupkan izin lama", () => {
+  tulisTranskrip("s-ra", [...kepala("COO", "coo"), { type: "system", cwd: ROOT }, prompt(120e3, "/rudisone riset"),
+    pakai(100e3, "t-ag3", "Agent", "m-ag3", { description: "Riset harga" })]);
+  const dir = path.join(proj, "s-ra", "subagents"); fs.mkdirSync(dir, { recursive: true });
+  tulisTranskrip("agent-d4", [{ ...prompt(90e3, "Kamu adalah Research Analyst di RudisOne …"), isSidechain: true },
+    { ...pakai(30e3, "t-ra", "Bash", "m-ra"), isSidechain: true }], dir);
+  fs.writeFileSync(path.join(dir, "agent-d4.meta.json"), JSON.stringify({ agentType: "rudis-research-analyst", description: "Riset harga" }));
+  kejadian("s-ra~d4.json", { k: "izin", t: now - 29e3, a: "Bash" });
+  assert.equal(agen(keadaan(), "Research Analyst").status, "menunggu");          // sesi belum terbukti
+  kejadian("s-ra.json", { k: "selesai", t: now - 200e3, s: now - 200e3, bt: now - 300e3 });   // induk pernah terbukti
+  assert.notEqual(agen(keadaan(), "Research Analyst").status, "menunggu");
+  // keluar lalu dilanjutkan: x tetap menandai izin subagent sebelum keluar sebagai mati
+  kejadian("s-ra.json", { k: "selesai", t: now - 5e3, s: now - 5e3, x: now - 20e3 });
+  assert.notEqual(agen(keadaan(), "Research Analyst").status, "menunggu");
 });
 test("berkas kejadian aneh diabaikan: nama di luar pola, terlalu besar, bukan berkas biasa, isi rusak", () => {
   tulisTranskrip("s-hr", [...kepala("HR Business Partner", "hr-business-partner"), prompt(60e3, "kebijakan cuti"), teksModel(50e3)]);
