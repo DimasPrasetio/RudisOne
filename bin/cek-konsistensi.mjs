@@ -440,6 +440,11 @@ export function cekDevice(root = ROOT) {
     try { execFileSync(process.execPath, [path.join(root, "bin", `${s}.mjs`), "cek"], { stdio: "ignore" }); }
     catch { catat("peringatan", `hook-${s}`, `${nama} belum terpasang atau belum mutakhir (bin/${s}.sh cek) — pemilik menjalankan installer: ${root}/install.sh`); }
   }
+  // sinyal langsung Kantor (bin/kantor-kejadian.mjs): kalimat awam — dibaca pemilik, bukan hanya agent
+  if (fs.existsSync(path.join(root, "bin", "kantor-kejadian.mjs"))) {
+    try { execFileSync(process.execPath, [path.join(root, "bin", "kantor-kejadian.mjs"), "cek"], { stdio: "ignore" }); }
+    catch { catat("peringatan", "hook-kantor", `Kantor belum menerima sinyal langsung dari Claude, jadi "Menunggu Anda" dan "Selesai" masih diperkirakan — jalankan pemasang RudisOne sekali lagi: ${root}/install.sh (rincian: bin/kantor-kejadian.sh cek)`); }
+  }
   // D4 TEAM.md vs sesi hidup
   const team = path.join(root, "TEAM.md");
   if (!fs.existsSync(team)) catat("peringatan", "team", "TEAM.md belum ada (ditulis COO pada /rudisone)");

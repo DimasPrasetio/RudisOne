@@ -1,7 +1,7 @@
 // Kantor RudisOne — halaman pemantauan: data dari server (SSE /events), panel samping, dan denah 3D (adegan.mjs).
 // Perilaku orang mengikuti status & pesan (DESAIN.md › Cerita gerak); jalur dihitung di grid lantai (denah.mjs).
 import { CHIEF, DIVISI, WARNA_LOUNGE, KURSI, NOMOR_TIM, PINTU, TIM, URUT, atasanDari, bangunGrid, cariJalur, hadapMeja, kursiTim, pusat, selBebas } from "./denah.mjs";
-import { barisTersembunyi, berkasMeja, pembantuTugas, waktuSelesai, faseDariParam, faseWaktu, jamWIB, keadaanTampil, keteranganSiap, kursiPemilik, papanDivisi, papanTugas, statusTugas, teksSelesai } from "./jejak.mjs";
+import { barisTersembunyi, berkasMeja, pembantuTugas, waktuSelesai, faseDariParam, faseWaktu, jamWIB, keadaanTampil, keteranganSiap, kursiPemilik, papanDivisi, papanTugas, perluBunyi, statusTugas, teksSelesai } from "./jejak.mjs";
 import { KUNCI_SIMPAN_LABEL, MODE_LABEL, isiPapanZona, modeLabelDari, tampilanOrang, tingkatRincian, tulisanZona, ucapanTampil } from "./label.mjs";
 import { pasangLayarPenuh } from "./layarpenuh.mjs";
 import { DAFTAR_SINGKATAN, STATUS, durasi, kalimatWaktuTahap, kataStatusTugas, kelompokAktivitas, kerjaAktivitas, pimpinan, rincianAman, ringkasan, singkatan, tahapTugas } from "./istilah.mjs";
@@ -14,6 +14,8 @@ const LABEL_STATUS = Object.fromEntries(Object.entries(STATUS).map(([k, v]) => [
 /** Kalimat kerja orang (huruf besar di awal) dari label status server: "Membaca 1 berkas" → "Membaca berkas". */
 const kalimatKerja = (ag) => { const k = kerjaAktivitas(ag); return k[0].toUpperCase() + k.slice(1); };
 const besar = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
+/** Yang ditunggu dari Anda, dari label server: izin (hook PermissionRequest) · keputusan (metadata Desktop) · jawaban. */
+const apaDitunggu = (ag) => (/izin/i.test(ag?.label ?? "") ? "izin" : /keputusan/i.test(ag?.label ?? "") ? "keputusan" : "jawaban");
 /** Keadaan peran dari server (aktif · siaga · katalog · absen); server lama/mode demo tanpa `mode` → diturunkan dari status. */
 const modeDari = (ag) => ag.mode ?? (!ag.present ? "absen" : ag.status === "santai" ? "siaga" : "aktif");
 const PARAM = new URLSearchParams(location.search);
@@ -680,8 +682,11 @@ function renderRingkasan(s, keadaan) {
   const r = ringkasan(keadaan, s.tugas ?? [], s.selesaiHariIni ?? [], statusTugas);
   const isi = (id, nilai, ket) => { const el = document.getElementById(id); el.querySelector(".nilai").textContent = nilai; el.querySelector(".ket").textContent = ket; return el; };
   const daftar = (xs) => xs.slice(0, 3).map((n) => TIM[n].pendek).join(", ") + (xs.length > 3 ? ` +${xs.length - 3}` : "");
-  isi("angka-menunggu", r.menunggu.length, r.menunggu.length === 1 ? `${TIM[r.menunggu[0]].pendek} menunggu jawaban Anda`
-    : r.menunggu.length ? `${daftar(r.menunggu)} menunggu jawaban Anda` : "Tidak ada yang menunggu Anda").classList.toggle("ada", r.menunggu.length > 0);
+  // izin / jawaban bila semua yang menunggu sama jenisnya, selain itu "menunggu Anda"
+  const jenis = new Set(r.menunggu.map((n) => apaDitunggu(s.agents.find((a) => a.name === n))));
+  const ditunggu = jenis.size === 1 ? `${[...jenis][0]} ` : "";
+  isi("angka-menunggu", r.menunggu.length, r.menunggu.length === 1 ? `${TIM[r.menunggu[0]].pendek} menunggu ${ditunggu}Anda`
+    : r.menunggu.length ? `${daftar(r.menunggu)} menunggu ${ditunggu}Anda` : "Tidak ada yang menunggu Anda").classList.toggle("ada", r.menunggu.length > 0);
   isi("angka-bekerja", r.bekerja.length, r.bekerja.length ? daftar(r.bekerja) : "Tidak ada yang bekerja");
   isi("angka-tugas", r.tugas.semua, r.tugas.semua ? [r.tugas.berjalan && `${r.tugas.berjalan} dikerjakan`, r.tugas.lain && `${r.tugas.lain} lainnya`].filter(Boolean).join(" · ") : "Belum ada tugas");
   const akhir = (s.selesaiHariIni ?? [])[0];
@@ -752,7 +757,7 @@ function render(s, ulang = false) {
     li.querySelector(".simbol").className = `simbol ${st}`;
     li.querySelector(".simbol").textContent = SIMBOL[st];
     li.querySelector(".keadaan").innerHTML = kerja || st === "menunggu"
-      ? `<b>${esc(st === "menunggu" ? "Menunggu jawaban Anda" : kalimatKerja(ag))}</b>${dari ? ` <span class="bantu-dari">· dipanggil <abbr title="${esc(dari)}">${esc(TIM[dari]?.pendek ?? dari)}</abbr></span>` : ""}${jumlahAsisten ? ` · ${jumlahAsisten} asisten` : ""}`
+      ? `<b>${esc(st === "menunggu" ? `Menunggu ${apaDitunggu(ag)} Anda` : kalimatKerja(ag))}</b>${dari ? ` <span class="bantu-dari">· dipanggil <abbr title="${esc(dari)}">${esc(TIM[dari]?.pendek ?? dari)}</abbr></span>` : ""}${jumlahAsisten ? ` · ${jumlahAsisten} asisten` : ""}`
       : st === "selesai" ? `<b>${esc(teksSelesai(ag.selesai.ts, now))}</b>`
       : `Siap dipanggil`;
     li.title = st === "siap" ? keteranganSiap(ag) : "";
@@ -770,9 +775,11 @@ function render(s, ulang = false) {
   terapkanAsisten(s.asisten);
   sorotTugasDariTautan(s);
   elPerhatian.hidden = perhatian.length === 0;
+  // percakapan yang dibuka = sesi pemanggil bila yang menunggu subagent
   document.getElementById("daftar-perhatian").innerHTML = perhatian.map((a) =>
-    `<li><i class="simbol menunggu" aria-hidden="true">!</i><b>${esc(a.name)} menunggu jawaban Anda</b>
-     <span class="cara">Buka percakapan “${esc(a.sessions[0]?.title ?? a.name)}” di Claude untuk menjawab.</span></li>`).join("");
+    `<li><i class="simbol menunggu" aria-hidden="true">!</i><b>${esc(a.name)} menunggu ${apaDitunggu(a)} Anda</b>
+     <span class="cara">Buka percakapan “${esc(a.sessions[0]?.bukaDi ?? a.sessions[0]?.title ?? a.name)}” di Claude untuk menjawab.</span></li>`).join("");
+  if (!ulang) beriTahu(keadaan);
   renderAktivitas(s);
   if (dipilih) isiRincian();
   if (SENTUH) isiKartu(SENTUH);
@@ -848,6 +855,61 @@ tombolJeda.addEventListener("click", () => {
   try { localStorage.setItem("kantor-jeda", HEMAT_GERAK ? "1" : "0"); } catch { /* abaikan */ }
 });
 matchMedia("(prefers-reduced-motion: reduce)").addEventListener("change", (e) => { if (e.matches && !HEMAT_GERAK) { HEMAT_GERAK = true; aturJeda(); } });
+
+// ================= bunyi pemberitahuan (DESAIN.md › Bunyi pemberitahuan; logika: jejak.mjs › perluBunyi) =================
+// Mati bawaan; pilihan diingat peramban ini. Satu bunyi pendek (dua nada lembut, ±0,3 dtk, Web Audio — tanpa berkas, tanpa
+// internet) saat ada yang BARU menunggu Anda; tidak berulang selama orang itu masih menunggu. Peramban hanya mengizinkan
+// bunyi setelah halaman disentuh/diklik: tombol ini sendiri membuka kuncinya; bila pilihan "nyala" diingat dari kunjungan
+// lalu, ketukan pertama di halaman membukanya dan tombol menyebut "ketuk sekali" sampai saat itu.
+const tombolSuara = document.getElementById("suara");
+let SUARA = false;
+try { SUARA = localStorage.getItem("kantor-suara") === "1"; } catch { /* penyimpanan tidak tersedia */ }
+let audio = null, menungguSebelum = null;
+const bunyiTerakhir = new Map();
+function konteksAudio() {
+  if (!audio) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+    try { audio = new AC(); } catch { return null; }
+    audio.addEventListener?.("statechange", aturSuara);   // terbuka/terkunci → teks tombol ikut
+  }
+  if (audio.state === "suspended") audio.resume().then(aturSuara, () => {});
+  return audio;
+}
+function bunyikan() {
+  const ac = konteksAudio();
+  if (!ac || ac.state !== "running") return;
+  const t0 = ac.currentTime + 0.02;
+  for (const [i, f] of [[0, 660], [1, 880]]) {
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type = "sine"; o.frequency.value = f;
+    const t = t0 + i * 0.14;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.18, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.13);
+    o.connect(g).connect(ac.destination); o.start(t); o.stop(t + 0.15);
+  }
+}
+function aturSuara() {
+  const terkunci = SUARA && audio?.state !== "running";
+  tombolSuara.setAttribute("aria-pressed", String(SUARA));
+  tombolSuara.querySelector(".teks").textContent = SUARA ? (terkunci ? "Bunyi nyala · ketuk sekali" : "Bunyi nyala") : "Bunyi mati";
+  tombolSuara.title = SUARA ? (terkunci ? "Peramban baru mengizinkan bunyi setelah halaman diketuk atau diklik sekali" : "Bunyi singkat saat ada yang baru menunggu Anda. Klik untuk mematikan")
+    : "Nyalakan bunyi singkat saat ada yang baru menunggu Anda";
+}
+tombolSuara.addEventListener("click", () => {
+  SUARA = !SUARA;
+  try { localStorage.setItem("kantor-suara", SUARA ? "1" : "0"); } catch { /* abaikan */ }
+  if (SUARA) { konteksAudio(); setTimeout(bunyikan, 60); }   // bunyi contoh: menandai bunyi terdengar di perangkat ini
+  aturSuara();
+});
+// pilihan "nyala" yang diingat: ketukan/klik/tombol pertama di halaman membuka kunci bunyi peramban
+for (const jenis of ["pointerdown", "keydown"]) document.addEventListener(jenis, () => { if (SUARA) { konteksAudio(); aturSuara(); } }, { capture: true, passive: true });
+/** Dipanggil setiap data baru dari server: berbunyi sekali bila ada yang baru menunggu Anda (jejak.mjs › perluBunyi). */
+function beriTahu(keadaan) {
+  const kini = new Set(Object.entries(keadaan).filter(([, st]) => st === "menunggu").map(([n]) => n));
+  if (perluBunyi(menungguSebelum, kini, bunyiTerakhir) && SUARA) bunyikan();
+  menungguSebelum = kini;
+}
+aturSuara();
 
 // ================= layar penuh (DESAIN.md › Layar penuh; logika: layarpenuh.mjs) =================
 // Wadah = kartu denah (panggung + kontrol), jadi kamera, Label, Jeda gerak, dan ? ikut tampil. ?uji-tanpa-layar-penuh = paksa cadangan.

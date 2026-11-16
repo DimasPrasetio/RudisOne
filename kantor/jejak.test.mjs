@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { URUT } from "./app/denah.mjs";
-import { BARU_SELESAI_MS, barisTersembunyi, berkasMeja, faseDariParam, faseWaktu, jamWIB, keadaanTampil, keteranganSiap, kursiPemilik, papanDivisi, papanTugas, teksSelesai } from "./app/jejak.mjs";
+import { BARU_SELESAI_MS, barisTersembunyi, berkasMeja, faseDariParam, faseWaktu, jamWIB, keadaanTampil, keteranganSiap, kursiPemilik, papanDivisi, papanTugas, perluBunyi, JEDA_BUNYI_MS, teksSelesai } from "./app/jejak.mjs";
 
 const KINI = Date.parse("2026-01-01T07:00:00Z");
 
@@ -105,4 +105,16 @@ test("panel Tim ringkas: hanya 'siap' yang disembunyikan; orang yang mulai beker
     assert.ok(!barisTersembunyi(corp, { ...siapSemua, "Research Analyst": st }).has("Research Analyst"), st);
   assert.equal(barisTersembunyi(corp, siapSemua, { buka: true }).size, 0, "divisi dibuka");
   assert.ok(!barisTersembunyi(corp, siapSemua, { dipilih: "HR Business Partner" }).has("HR Business Partner"), "dipilih dari denah");
+});
+
+test("bunyi: sekali saat ada yang BARU menunggu Anda; tidak saat halaman dibuka, tidak berulang, tidak berkedip dua kali", () => {
+  const ingat = new Map(), S = (...n) => new Set(n);
+  assert.equal(perluBunyi(null, S("COO"), ingat, KINI), false);                       // halaman baru dibuka: bukan hal baru
+  assert.equal(perluBunyi(S("COO"), S("COO"), ingat, KINI + 1e3), false);             // masih menunggu: tidak berulang
+  assert.equal(perluBunyi(S("COO"), S("COO", "Tech Lead · Tim 1"), ingat, KINI + 2e3), true);
+  assert.equal(perluBunyi(S(), S("Research Analyst", "Financial Controller"), ingat, KINI + 3e3), true);   // dua sekaligus = satu bunyi
+  // status sempat berkedip (menunggu → lain → menunggu) dalam 60 dtk: tidak berbunyi lagi; sesudahnya episode baru berbunyi
+  assert.equal(perluBunyi(S(), S("Tech Lead · Tim 1"), ingat, KINI + 10e3), false);
+  assert.equal(perluBunyi(S(), S("Tech Lead · Tim 1"), ingat, KINI + 2e3 + JEDA_BUNYI_MS + 1), true);
+  assert.equal(perluBunyi(S("COO"), S(), ingat, KINI + 99e3), false);                 // tidak ada yang menunggu: diam
 });

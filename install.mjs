@@ -2,8 +2,10 @@
 // device dan berkas per device yang belum ada (TEAM.md, catatan/<id-peran>.md dari templat — tidak pernah menimpa),
 // memeriksa prasyarat, menautkan skill & subagent ke ~/.claude, dan MEMASANG/MEMPERBARUI OTOMATIS di settings pengguna
 // tanpa bertanya: hook kebijakan akses + penjaga
-// .env (PreToolUse/PostToolUse/PostToolUseFailure), aturan permissions.deny Read .env*, dan hook pemuat ulang inti
-// (SessionStart). Entri & aturan milik sistem lain tidak disentuh; settings hanya ditulis bila berubah, cadangan dulu.
+// .env (PreToolUse/PostToolUse/PostToolUseFailure), aturan permissions.deny Read .env*, hook pemuat ulang inti
+// (SessionStart), dan hook sinyal Kantor (PermissionRequest/Notification/Stop/StopFailure/SubagentStop/SessionEnd +
+// PreToolUse AskUserQuestion; async, hanya mencatat kejadian — bin/kantor-kejadian.mjs). Entri & aturan milik sistem lain
+// tidak disentuh; settings hanya ditulis bila berubah, cadangan dulu.
 // Pengganti install.sh — install.sh / install.cmd hanya memanggil berkas ini.
 // Pemakaian: node install.mjs [--tanpa-perkakas] [--tanpa-hook] [--tanpa-unduh]
 //   --tanpa-perkakas : lewati bin/perkakas.sh siapkan (mis. saat menguji installer dari worktree atau HOME sementara)
@@ -131,7 +133,7 @@ if (taut && fs.existsSync(dirSkill)) {
   }
 }
 
-for (const s of ["server-cek", "rilis-cek", "env-kunci", "gerbang-tl", "pasca-deploy", "perkakas", "kebijakan", "konfig", "register", "peran", "inti", "cek-konsistensi", "sesi"]) {
+for (const s of ["server-cek", "rilis-cek", "env-kunci", "gerbang-tl", "pasca-deploy", "perkakas", "kebijakan", "konfig", "register", "peran", "inti", "kantor-kejadian", "cek-konsistensi", "sesi"]) {
   const f = path.join(BIN, `${s}.sh`);
   let bisa = fs.existsSync(f);
   if (bisa && process.platform !== "win32") { try { fs.accessSync(f, fs.constants.X_OK); } catch { bisa = false; } }
@@ -156,11 +158,14 @@ else if (!taut) info("hook & aturan izin tidak dipasang dari lokasi ini (bukan l
 else {
   pasangHook("kebijakan.mjs", "kebijakan akses + penjaga .env (hook & permissions.deny)");
   pasangHook("inti.mjs", "hook pemuat ulang inti (SessionStart)");
+  pasangHook("kantor-kejadian.mjs", "sinyal langsung Kantor (menunggu/selesai)");
 }
 if (node("kebijakan.mjs", ["cek"]).status === 0) pass("kebijakan akses RudisOne terpasang & mutakhir (hook + aturan .env)");
 else fail(`kebijakan akses RudisOne belum terpasang/mutakhir — jalankan ulang: ${path.join(ROOT, "install.sh")} (lihat: node ${path.join(BIN, "kebijakan.mjs")} cek)`);
 if (node("inti.mjs", ["cek"]).status === 0) pass("hook pemuat ulang inti RudisOne terpasang (SessionStart)");
 else fail(`hook pemuat ulang inti belum terpasang — jalankan ulang: ${path.join(ROOT, "install.sh")}`);
+if (node("kantor-kejadian.mjs", ["cek"]).status === 0) pass("sinyal langsung Kantor terpasang (status menunggu/selesai pasti)");
+else fail(`sinyal langsung Kantor belum terpasang — Kantor masih memperkirakan status; jalankan ulang: ${path.join(ROOT, "install.sh")}`);
 // Perkakas resmi SDLC (skill rudis-sdlc): skill rudis-monorepo + pustaka rudis-modules (+ RUDIS SDD) — pasang/perbarui.
 if (TANPA_PERKAKAS) info("perkakas resmi SDLC dilewati (--tanpa-perkakas)");
 else if (bisaJalan("git")) {

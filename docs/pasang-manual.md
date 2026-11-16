@@ -82,7 +82,10 @@ Windows 10/11, tanpa WSL:
      kecuali berkas terlindung) — uji satu panggilan: `bin/kebijakan.sh uji '<json>'`, status: `bin/kebijakan.sh cek`;
    - aturan `permissions.deny` `Read(//**/.env…)` — membaca isi `.env` ditolak tanpa prompt di semua sesi (contoh
      `.env.example` tidak); cek kunci tanpa nilai: `bin/env-kunci.sh`;
-   - pemuat ulang inti setelah kompaksi (SessionStart, `bin/inti.sh`).
+   - pemuat ulang inti setelah kompaksi (SessionStart, `bin/inti.sh`);
+   - sinyal langsung ke Kantor (PermissionRequest, Notification izin/pertanyaan, PreToolUse `AskUserQuestion`, Stop,
+     StopFailure, SubagentStop, SessionEnd; `async` — Claude tidak menunggunya; hanya jenis kejadian, waktu, dan id sesi ke
+     `handoff/.kantor/`) — status: `bin/kantor-kejadian.sh cek`, kejadian terakhir: `bin/kantor-kejadian.sh status`.
    `--tanpa-hook` melewati pemasangan ini.
 4. Server tidak ditanam di repo. Saat tugas server pertama, COO menanyakan alias ssh (entri `Host` di
    `~/.ssh/config` beserta kuncinya kamu siapkan sendiri), playbook server bila ada, MCP DNS, dan domain, lalu

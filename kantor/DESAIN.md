@@ -26,9 +26,11 @@ Berkas ini memuat prinsip, denah, cerita gerak, kamera, dan token yang berlaku �
    host web, ID tugas) — tidak pernah isi berkas, pesan, prompt, keluaran, perintah terminal, atau nama alat internal.
    Jenis pesan diambil dari tag `[…]` di awal pesan saja; ID tugas dari baris berawalan (`[Tugas dari COO] T-…`).
 5. **Tenang:** lantai & perabot netral; warna kuat hanya untuk status dan identitas peran; tidak ada merah kecuali galat.
-6. **Gerak aman:** `prefers-reduced-motion` dan tombol **Jeda gerak** membuat semuanya statis (WCAG 2.2.2, 2.3.3) —
+6. **Bunyi hanya bila diminta:** bawaan senyap; tombol Bunyi menyalakan satu bunyi singkat per orang yang baru menunggu Anda
+   (› Bunyi pemberitahuan). Tidak ada bunyi lain.
+7. **Gerak aman:** `prefers-reduced-motion` dan tombol **Jeda gerak** membuat semuanya statis (WCAG 2.2.2, 2.3.3) —
    orang berpindah seketika, kamera tanpa transisi, dan denah hanya digambar ulang saat datanya berubah.
-7. **Lokal:** halaman tidak memuat apa pun dari internet (pustaka & huruf disalin; server mengirim CSP `'self'`).
+8. **Lokal:** halaman tidak memuat apa pun dari internet (pustaka & huruf disalin; server mengirim CSP `'self'`).
 
 ## Temuan riset → keputusan
 | Temuan (sumber) | Keputusan |
@@ -146,6 +148,27 @@ peran lain dipanggil sebagai subagent `rudis-<id-peran>`.
   selain itu *Siap dipanggil* – (siaga, katalog, dan absen). Tim tanpa proyek: meja kosong & redup.
 - **`selesai` di /state** (server): `{ ts }` bila pekerjaan nyata kursi itu berakhir < 10 menit lalu — sesi berstatus santai
   yang langkah terakhirnya ≤ 15 menit setelah pemakaian alat terakhir, atau subagent peran yang selesai; `null` saat bekerja.
+  Dengan sinyal hook, `ts` = waktu kejadian Stop/SubagentStop itu sendiri.
+- **Sinyal langsung (hook, `bin/kantor-kejadian.mjs` → `handoff/.kantor/<sesi>[~<subagent>].json`, server › `gabungKejadian`):**
+  *izin* (PermissionRequest, Notification `permission_prompt`) dan *tanya* (PreToolUse `AskUserQuestion`, elicitation) →
+  **Menunggu Anda** ("Menunggu izin Anda" / "Menunggu jawaban Anda") sampai hasil alat yang ditunggu tercatat (alat dicocokkan
+  lewat id, atau lewat nama alat untuk PermissionRequest yang tidak membawa id — hanya alat dari pesan model pemiliknya), ada pesan
+  masuk baru, atau model melangkah dari pesan lain; izin yang tidak diikuti pemberitahuan ±6 dtk di sesi yang terbukti mengirim
+  pemberitahuan tertunda (sesi Desktop selalu; sesi lain setelah sekali terbukti di induk atau subagent mana pun) dianggap sudah
+  dijawab (hilang ±8,5 dtk setelah jendela muncul); pemberitahuan yang datang sesudah jawaban = jendela lain masih terbuka;
+  Notification tanpa id subagent dicatat pada jendela (induk/subagent, termasuk pertanyaan AskUserQuestion) yang muncul 5–9 dtk
+  sebelumnya, selain itu di induk (digabung hanya dengan jendela induk ≤ 9 dtk sebelumnya; lebih lambat = jendela baru tanpa nama
+  alat, dan jendela izin/tanya sebelumnya disimpan (`p`) lalu dinilai dengan aturan alatnya sendiri) yang dijawab oleh langkah induk
+  atau subagent mana pun sesudahnya; alat dari sebelum pesan masuk terakhir bukan pemilik izin; batas umur 4 jam; izin subagent hilang saat sesi
+  induknya keluar (waktu keluar diingat walau sesi dilanjutkan); *selesai* (Stop, StopFailure, SubagentStop) dan *keluar* (SessionEnd) → giliran
+  berakhir tepat pada waktu kejadian. Sesi yang terbukti mengirim *selesai* tidak lagi ditebak dari jeda waktu (berpikir lama
+  tetap Berpikir; jaring pengaman 20 menit). Subagent yang menunggu: kursi perannya (atau sesi pemanggil, untuk asisten biasa)
+  Menunggu Anda, dan "Perlu perhatian" menyebut percakapan pemanggil yang harus dibuka. Batas: Claude Code tidak memberi kabar
+  saat izin *diberikan* — bila jendela izin terbuka > 6 dtk lalu diizinkan untuk perintah yang lama berjalan, tanda bertahan sampai
+  perintah itu selesai (perintah singkat: seketika); jendela tanpa PermissionRequest (konfirmasi keamanan, mode rencana) baru
+  tampil ±6 dtk kemudian lewat pemberitahuannya; terminal (TUI) mengirim pemberitahuan 6 dtk sesudah interaksi terakhir, jadi
+  tanda bisa berkedip saat pengguna mengetik di jendela izin. Tanpa berkas kejadian:
+  perilaku lama dari transkrip.
 - **`selesaiHariIni` di /state** (server): tugas register berstatus selesai yang ditutup hari ini (tanggal lokal) — hanya
   ID, judul, pemilik, waktu tutup; kolom bukti tidak pernah dikirim.
 - **Subagent peran duduk di kursinya** (`agentType` `rudis-<id-peran>`, atau pembuka "Kamu adalah <Jabatan> …"); subagent
@@ -219,6 +242,19 @@ Denah bersih: tidak ada label yang menutupi orang atau meja kecuali "Menunggu An
   mati selainnya; cincin lantai amber hanya untuk "menunggu Anda".
 - Ukuran teks: label menunggu 11,5 px, nama 10 px (500, halo warna permukaan), kartu 13/12/11 px, gelembung 11 px.
 
+## Bunyi pemberitahuan
+Tombol **Bunyi mati / Bunyi nyala** di kepala halaman (sebelah status koneksi; `aria-pressed`, ikon speaker bersilang/bergelombang
++ teks, jadi tidak bergantung warna). Bawaan **mati**; pilihan disimpan di peramban (`localStorage` `kantor-suara`).
+- **Kapan berbunyi** (`jejak.mjs` › `perluBunyi`, diuji `kantor/jejak.test.mjs`): sekali saat ada nama yang *baru* masuk
+  "Menunggu Anda" (tidak menunggu di data sebelumnya); beberapa sekaligus = satu bunyi; orang yang sama paling sering sekali per
+  60 detik (status yang sempat berkedip tidak berbunyi dua kali); membuka halaman tidak berbunyi untuk yang sudah menunggu.
+- **Bunyinya:** dua nada sinus lembut (660 → 880 Hz, ±0,3 dtk, volume rendah) dari Web Audio — tanpa berkas, tanpa internet.
+  Menyalakan tombol memperdengarkan satu bunyi contoh (sekaligus membuka izin bunyi peramban).
+- **Izin bunyi peramban:** peramban hanya mengizinkan bunyi setelah halaman disentuh/diklik. Bila "nyala" diingat dari kunjungan
+  lalu, tombol bertuliskan "Bunyi nyala · ketuk sekali" sampai ketukan/klik pertama di halaman.
+- **HP & hemat gerak:** bunyi bukan gerak — tidak terpengaruh Jeda gerak; tombol tanpa animasi, target sentuh ≥ 40 px di layar
+  sentuh; mode senyap HP bisa membisukan bunyi (disebut di "Tentang halaman ini"). Status tetap terbaca tanpa bunyi (Prinsip 1).
+
 ## Panel di luar denah
 Bagian HTML di sekitar denah menjawab pertanyaan yang sama dengan denah, dalam teks: **ada yang menunggu saya? apa yang
 sedang berjalan?** Umum → rinci, maks. dua tingkat (kalimat → "rincian"). Logika teks murni di `kantor/app/istilah.mjs`
@@ -253,10 +289,10 @@ Tata letak (laptop ≥ 1180 px; kolom samping 372 px):
 ±1000 px: satu kolom; Tugas & Tim berdampingan di bawah denah. HP (< 760 px): satu kolom; "Menunggu Anda" selebar layar,
 tiga angka lain sebaris (angka di atas, nama di bawah, tanpa kalimat); linimasa label 68 px.
 
-- **Ringkasan atas:** Menunggu Anda (kalimat "BSA T1 menunggu jawaban Anda", tautan ke Perlu perhatian) · Sedang bekerja
+- **Ringkasan atas:** Menunggu Anda (kalimat "BSA T1 menunggu jawaban Anda" / "… menunggu izin Anda"; campuran → "menunggu Anda", tautan ke Perlu perhatian) · Sedang bekerja
   (= Bekerja + Berpikir, singkatan ≤ 3 + "+n") · Tugas berjalan (semua tugas register yang belum selesai; "n dikerjakan · n
-  lainnya") · Selesai hari ini ("Terakhir: <judul>"). Status koneksi = pil di kanan atas kepala.
-- **Perlu perhatian Anda:** pita selebar halaman tepat di bawah ringkasan: "<Jabatan> menunggu jawaban Anda" + "Buka
+  lainnya") · Selesai hari ini ("Terakhir: <judul>"). Status koneksi = pil di kanan atas kepala, tombol Bunyi di sebelahnya.
+- **Perlu perhatian Anda:** pita selebar halaman tepat di bawah ringkasan: "<Jabatan> menunggu izin/jawaban Anda" + "Buka
   percakapan “<judul>” di Claude untuk menjawab."
 - **Kartu tugas:** status kata biasa + "Segera", ID · proyek (folder `ruang/<peran>` bukan proyek), judul, tahap (Fase register →
   `istilah.mjs` › `TAHAP`, 5 segmen; tugas tanpa tahap tidak menampilkannya), pemilik (+ status bila langkah terakhirnya

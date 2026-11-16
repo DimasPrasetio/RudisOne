@@ -265,9 +265,12 @@ test("install.mjs di HOME sementara: peran, subagent & skill tertaut; konsisten 
     assert.match(r.stdout, /hook pre-commit repo dilewati — repo bukan di lokasi rumah/);
     assert.equal(hooksPath(), hooksAwal, "core.hooksPath repo tidak boleh diubah install dari luar lokasi rumah");
     if (salin === "1") assert.match(r.stdout, /tertaut \(salinan/);
+    // sinyal langsung Kantor (hook kejadian) ikut terpasang otomatis
+    assert.match(r.stdout, /\[ok\]\s+sinyal langsung Kantor terpasang/);
     // pemasangan ulang idempoten
     const r2 = node(path.join(REPO, "install.mjs"), ["--tanpa-perkakas", "--tanpa-unduh"], env);
     assert.match(r2.stdout, /sudah mutakhir/);
+    assert.match(r2.stdout, /\[ok\]\s+sinyal langsung Kantor \(menunggu\/selesai\) sudah mutakhir/);
     // pemeriksa konsistensi paham semua jenis tautan: tidak ada peringatan skill/subagent terpasang
     const c = node(path.join(SINI, "cek-konsistensi.mjs"), [], env);
     assert.doesNotMatch(c.stdout, /\[peringatan\] (skill|subagent)-terpasang/, c.stdout);

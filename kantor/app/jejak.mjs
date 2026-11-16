@@ -137,3 +137,19 @@ export function faseDariParam(nilai) {
   const menit = m[2] === undefined ? 0 : v.includes(":") ? Number(m[2]) / 60 : Number(`0.${m[2]}`);
   return faseWaktu(Number(m[1]) + menit);
 }
+
+// ---------------- bunyi pemberitahuan (DESAIN.md › Bunyi pemberitahuan) ----------------
+/** Jeda minimum antar-bunyi untuk orang yang sama: status yang sempat berkedip (menunggu → lain → menunggu) tidak berbunyi
+ *  dua kali. */
+export const JEDA_BUNYI_MS = 60e3;
+/**
+ * Apakah perlu berbunyi: ada nama di `kini` (yang sedang menunggu Anda) yang tidak ada di `sebelum` dan belum berbunyi
+ * untuknya dalam JEDA_BUNYI_MS. `sebelum` null = keadaan pertama sejak halaman dibuka (tidak berbunyi: bukan hal baru).
+ * Banyak orang baru sekaligus → satu bunyi. `ingat` (Map nama → waktu bunyi) diperbarui untuk nama yang baru.
+ */
+export function perluBunyi(sebelum, kini, ingat, now = Date.now()) {
+  if (!sebelum) return false;
+  const baru = [...kini].filter((n) => !sebelum.has(n) && !(now - (ingat.get(n) ?? -Infinity) < JEDA_BUNYI_MS));
+  for (const n of baru) ingat.set(n, now);
+  return baru.length > 0;
+}

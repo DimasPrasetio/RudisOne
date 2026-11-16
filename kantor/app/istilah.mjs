@@ -97,6 +97,7 @@ const KERJA_AKTIVITAS = [
   [/^Membaca halaman web$/, (n) => (n > 1 ? `membaca ${n} halaman web` : "membaca halaman web")],
   [/^Memeriksa di browser$/, (n) => (n > 1 ? `memeriksa tampilan di peramban (${n} langkah)` : "memeriksa tampilan di peramban")],
   [/^Menunggu (jawaban|keputusan) Anda$/, () => "menunggu jawaban Anda"],
+  [/^Menunggu izin Anda$/, () => "menunggu izin Anda"],
   [/^Membuka panduan$/, () => "membuka panduan kerja"],
   [/^Mendelegasikan subagent$/, (n) => (n > 1 ? `menugaskan ${n} asisten` : "menugaskan asisten")],
   [/^Memanggil agent$/, () => "membuka ruang kerja baru"],
