@@ -91,9 +91,12 @@ export function uraiIsi(teks) {
   return { k: j.k, t: j.t, u: typeof j.u === "string" && ID_AMAN.test(j.u) ? j.u : null,
     a: typeof j.a === "string" && NAMA_ALAT.test(j.a) ? j.a : null, n: angka(j.n), s: angka(j.s), x: angka(j.x), bt: angka(j.bt) };
 }
-/** Pemberitahuan (Notification) yang datang < 10 menit setelah izin/tanya yang sama jenisnya = jendela yang sama: dicatat
- *  sebagai tanda "jendela ini masih terbuka ±6 dtk kemudian", tidak menimpa id/nama alat dan waktunya. */
+/** Pemberitahuan (Notification) yang datang < 10 menit setelah izin/tanya yang cocok jenisnya = jendela yang sama: dicatat
+ *  sebagai tanda "jendela ini masih terbuka ±6 dtk kemudian", tidak menimpa jenis, id/nama alat, dan waktunya. */
 const SATU_JENDELA_MS = 10 * 60e3;
+/** Claude Code 2.1.317 memasang pengatur waktu pemberitahuan izin (6 dtk) bersamaan dengan hook PermissionRequest: pemberitahuan
+ *  yang jatuh di rentang ini sesudah sebuah jendela adalah pemberitahuan jendela itu (dan bukti sesi mengirim pemberitahuan tertunda). */
+const TUNDA_MIN_MS = 5000, TUNDA_MAKS_MS = 9000;
 
 /** Tulis kejadian ke berkas sesinya (atomik: berkas sementara lalu ganti nama). `s` mengingat "selesai" terakhir: bukti
  *  bahwa sesi ini memang mengirim sinyal selesai (Kantor lalu berhenti menebak dari jeda waktu); `bt` mengingat bahwa sesi
@@ -102,10 +105,15 @@ const SATU_JENDELA_MS = 10 * 60e3;
 const bacaKejadian = (f) => {
   try { const st = fs.lstatSync(f); return st.isFile() && st.size <= 4096 ? uraiIsi(fs.readFileSync(f, "utf8")) : null; } catch { return null; }
 };
-const jendelaTerbuka = (lama, e) => !!lama && lama.k === e.k && e.t - lama.t >= 0 && e.t - lama.t < SATU_JENDELA_MS;
+/** Jenis cocok: sama, atau pemberitahuan izin untuk pertanyaan (AskUserQuestion juga melewati pemeriksaan izin — 2.1.317). */
+const jenisCocok = (lama, e) => lama.k === e.k || (e.k === "izin" && lama.k === "tanya" && lama.a === "AskUserQuestion");
+const jendelaTerbuka = (lama, e) => !!lama && jenisCocok(lama, e) && e.t - lama.t >= 0 && e.t - lama.t < SATU_JENDELA_MS;
+const tepatTunda = (lama, e) => e.t - lama.t >= TUNDA_MIN_MS && e.t - lama.t <= TUNDA_MAKS_MS;
 /** Berkas tujuan kejadian. Notification Claude Code 2.1.317 tidak membawa agent_id walau jendelanya milik subagent → pemberitahuan
- *  tanpa id subagent dicatat pada jendela izin/tanya sejenis yang masih terbuka di sesi itu (induk atau subagentnya): yang belum
- *  punya pemberitahuan didahulukan, lalu yang terbaru. Tidak ada → berkas sesi (izin baru: PermissionRequest-nya tak tercatat). */
+ *  tanpa id subagent dicatat pada jendela yang cocok di sesi itu (induk atau subagentnya) yang belum punya pemberitahuan dan
+ *  muncul ±6 dtk sebelumnya (paling dekat ke 6 dtk). Tidak ada → berkas sesi: digabung dengan jendela induk yang masih terbuka,
+ *  atau dicatat sebagai izin baru (jendela tanpa PermissionRequest, mis. konfirmasi keamanan; Kantor menganggapnya dijawab
+ *  begitu sesi atau subagentnya melangkah lagi). */
 export function berkasTujuan(e, folder = FOLDER_KEJADIAN) {
   const sendiri = namaBerkas(e.sesi, e.agen);
   if (!e.notif || e.agen) return sendiri;
@@ -115,9 +123,9 @@ export function berkasTujuan(e, folder = FOLDER_KEJADIAN) {
   for (const n of nama) {
     if (!n.startsWith(e.sesi) || uraiNama(n)?.sesi !== e.sesi) continue;
     const isi = bacaKejadian(path.join(folder, n));
-    if (!jendelaTerbuka(isi, e)) continue;
-    const skor = (isi.n == null ? 1e15 : 0) + isi.t;
-    if (!pilih || skor > pilih.skor) pilih = { n, skor };
+    if (!jendelaTerbuka(isi, e) || isi.n != null || !tepatTunda(isi, e)) continue;
+    const jarak = Math.abs(e.t - isi.t - 6000);
+    if (!pilih || jarak < pilih.jarak) pilih = { n, jarak };
   }
   return pilih?.n ?? sendiri;
 }
@@ -129,7 +137,7 @@ export function catatKejadian(e, folder = FOLDER_KEJADIAN) {
   const s = e.k === "selesai" ? e.t : lama?.s ?? null;
   const x = e.k === "keluar" ? e.t : lama?.x ?? null;
   const jendelaSama = e.notif && jendelaTerbuka(lama, e);
-  const bt = jendelaSama && e.k === "izin" && e.t - lama.t >= 5000 ? e.t : lama?.bt ?? null;
+  const bt = jendelaSama && e.k === "izin" && tepatTunda(lama, e) ? e.t : lama?.bt ?? null;
   const dasar = jendelaSama ? { k: lama.k, t: lama.t, u: lama.u, a: lama.a } : { k: e.k, t: e.t, u: e.u, a: e.a };
   const n = e.notif ? e.t : null;
   const isi = JSON.stringify({ k: dasar.k, t: dasar.t, ...(dasar.u ? { u: dasar.u } : {}), ...(dasar.a ? { a: dasar.a } : {}),

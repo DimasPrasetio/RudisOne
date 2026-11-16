@@ -107,6 +107,22 @@ test("izin: pemberitahuan SESUDAH jawaban = jendela lain (alat paralel) masih te
   s.hasilAlat.set("w1", 9000); s.lastHasil = 9000;                         // jendela WebFetch dijawab
   assert.equal(g(s, kej, 30e3), ST);
 });
+test("izin (nama alat): alat yatim bernama sama dari pesan model lama bukan pemiliknya", () => {
+  const s = sesiKosong();
+  s.alatInfo.set("yatim", { nama: "Bash", ts: 100, msg: "m0" });           // tanpa hasil (proses mati / sesi dilanjutkan)
+  s.alatInfo.set("r1", { nama: "Read", ts: 500, msg: "m1" }); s.hasilAlat.set("r1", 600);
+  s.alatInfo.set("b1", { nama: "Bash", ts: 1300, msg: "m2" }); s.asistenTerakhir = { ts: 1300, msg: "m2" };   // tertulis sesudah kejadian
+  const kej = { k: "izin", t: 1000, u: null, a: "Bash", n: null, bt: null };
+  assert.equal(g(s, kej).status, "menunggu");
+  s.hasilAlat.set("b1", 4000); s.lastHasil = 4000;
+  assert.equal(g(s, kej), ST);
+});
+test("jendela yang hanya dikenal dari pemberitahuan (tanpa id & nama): langkah subagent sesi ini sesudahnya menjawabnya", () => {
+  const s = sesiKosong();
+  const kej = { k: "izin", t: 1000, u: null, a: null, n: 1000, bt: null };
+  assert.equal(gabungKejadian(ST, s, kej, 60e3, { lain: 900 }).st.status, "menunggu");
+  assert.equal(gabungKejadian(ST, s, kej, 60e3, { lain: 2000 }).st, ST);
+});
 test("bukti pemberitahuan tertunda berlaku untuk seluruh sesi (opsi.bt; 0 = sesi Desktop)", () => {
   const s = sesiKosong(); s.alatInfo.set("b1", { nama: "Bash", ts: 990, msg: "m1" });
   const kej = { k: "izin", t: 1000, u: null, a: "Bash", n: null, bt: null };
@@ -246,6 +262,17 @@ test("izin subagent diberikan cepat: bukti tunda dari berkas induknya berlaku; s
   // keluar lalu dilanjutkan: x tetap menandai izin subagent sebelum keluar sebagai mati
   kejadian("s-ra.json", { k: "selesai", t: now - 5e3, s: now - 5e3, x: now - 20e3 });
   assert.notEqual(agen(keadaan(), "Research Analyst").status, "menunggu");
+});
+test("jendela tanpa PermissionRequest (hanya pemberitahuan, tercatat di induk) selagi subagent berjalan: hilang begitu subagent melangkah lagi", () => {
+  tulisTranskrip("s-hos", [...kepala("Head of Strategy", "head-of-strategy"), prompt(120e3, "kelayakan"),
+    pakai(100e3, "t-ag5", "Agent", "m-ag5", { description: "Kelayakan" })]);
+  const dir = path.join(proj, "s-hos", "subagents"); fs.mkdirSync(dir, { recursive: true });
+  tulisTranskrip("agent-e5", [{ ...prompt(90e3, "cari data"), isSidechain: true }, { ...pakai(40e3, "t-e5", "Edit", "m-e5"), isSidechain: true }], dir);
+  fs.writeFileSync(path.join(dir, "agent-e5.meta.json"), JSON.stringify({ agentType: "general-purpose", description: "Cari data" }));
+  kejadian("s-hos.json", { k: "izin", t: now - 30e3, n: now - 30e3 });
+  assert.equal(agen(keadaan(), "Head of Strategy").status, "menunggu");
+  tambahBaris("agent-e5", [{ ...hasil(20e3, "t-e5"), isSidechain: true }], dir);
+  assert.notEqual(agen(keadaan(), "Head of Strategy").status, "menunggu");
 });
 test("berkas kejadian aneh diabaikan: nama di luar pola, terlalu besar, bukan berkas biasa, isi rusak", () => {
   tulisTranskrip("s-hr", [...kepala("HR Business Partner", "hr-business-partner"), prompt(60e3, "kebijakan cuti"), teksModel(50e3)]);

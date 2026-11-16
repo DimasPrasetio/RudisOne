@@ -19,7 +19,8 @@ Brief desain & sumber risetnya: `kantor/DESAIN.md`.
   begitu langkah yang ditunggu selesai berjalan, dijawab, atau ditolak; izin yang diberikan dalam 6 detik hilang ±8 detik setelah
   muncul walau perintahnya masih berjalan — di sesi Claude Desktop selalu, di sesi terminal setelah sesi itu sekali membiarkan
   jendela izin terbuka > 6 detik; sebelum itu tanda bertahan sampai perintahnya selesai, karena Claude tidak memberi kabar saat
-  izin diberikan). Hook berjalan di latar (Claude tidak menunggunya), hanya
+  izin diberikan. Konfirmasi khusus yang tidak lewat pemeriksaan izin biasa — mis. konfirmasi keamanan atau mode rencana — baru
+  tampil ±6 detik setelah muncul. Di terminal, tanda bisa hilang sesaat lalu muncul lagi bila Anda sedang mengetik di jendela izin). Hook berjalan di latar (Claude tidak menunggunya), hanya
   mencatat jenis kejadian, waktu, dan id sesi ke `handoff/.kantor/`, dan diam bila gagal. Belum dipasang / Kantor mati → Kantor
   memperkirakan status dari transkrip seperti sebelumnya; `bin/cek-konsistensi.sh` mengingatkan untuk menjalankan pemasang.
   Periksa: `bin/kantor-kejadian.sh status` (kejadian terakhir) dan http://127.0.0.1:7421/health (baris "sinyal langsung").

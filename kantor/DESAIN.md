@@ -156,13 +156,16 @@ peran lain dipanggil sebagai subagent `rudis-<id-peran>`.
   masuk baru, atau model melangkah dari pesan lain; izin yang tidak diikuti pemberitahuan ±6 dtk di sesi yang terbukti mengirim
   pemberitahuan tertunda (sesi Desktop selalu; sesi lain setelah sekali terbukti di induk atau subagent mana pun) dianggap sudah
   dijawab (hilang ±8,5 dtk setelah jendela muncul); pemberitahuan yang datang sesudah jawaban = jendela lain masih terbuka;
-  Notification tanpa id subagent dicatat pada jendela subagent yang terbuka; batas umur 4 jam; izin subagent hilang saat sesi
+  Notification tanpa id subagent dicatat pada jendela (induk/subagent, termasuk pertanyaan AskUserQuestion) yang muncul 5–9 dtk
+  sebelumnya, selain itu di induk sebagai jendela yang dijawab oleh langkah induk atau subagent mana pun sesudahnya; batas umur 4 jam; izin subagent hilang saat sesi
   induknya keluar (waktu keluar diingat walau sesi dilanjutkan); *selesai* (Stop, StopFailure, SubagentStop) dan *keluar* (SessionEnd) → giliran
   berakhir tepat pada waktu kejadian. Sesi yang terbukti mengirim *selesai* tidak lagi ditebak dari jeda waktu (berpikir lama
   tetap Berpikir; jaring pengaman 20 menit). Subagent yang menunggu: kursi perannya (atau sesi pemanggil, untuk asisten biasa)
   Menunggu Anda, dan "Perlu perhatian" menyebut percakapan pemanggil yang harus dibuka. Batas: Claude Code tidak memberi kabar
   saat izin *diberikan* — bila jendela izin terbuka > 6 dtk lalu diizinkan untuk perintah yang lama berjalan, tanda bertahan sampai
-  perintah itu selesai (perintah singkat: seketika). Tanpa berkas kejadian:
+  perintah itu selesai (perintah singkat: seketika); jendela tanpa PermissionRequest (konfirmasi keamanan, mode rencana) baru
+  tampil ±6 dtk kemudian lewat pemberitahuannya; terminal (TUI) mengirim pemberitahuan 6 dtk sesudah interaksi terakhir, jadi
+  tanda bisa berkedip saat pengguna mengetik di jendela izin. Tanpa berkas kejadian:
   perilaku lama dari transkrip.
 - **`selesaiHariIni` di /state** (server): tugas register berstatus selesai yang ditutup hari ini (tanggal lokal) — hanya
   ID, judul, pemilik, waktu tutup; kolom bukti tidak pernah dikirim.
