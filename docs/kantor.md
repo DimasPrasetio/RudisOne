@@ -14,7 +14,15 @@ Brief desain & sumber risetnya: `kantor/DESAIN.md`.
 - Buka: `~/Documents/Neuron/ai-agent/RudisOne/bin/kantor.sh` (menyalakan server lokal di http://127.0.0.1:7421 lalu membuka browser;
   server yang menjalankan kode lama otomatis dimulai ulang). Matikan: `bin/kantor.sh berhenti`. Coba tampilan dengan data contoh: `bin/kantor.sh demo`.
 - Dari sesi COO: minta "buka kantor" — tampil di panel browser Claude Desktop (`.claude/launch.json`).
-- Data dibaca dari transkrip sesi Claude di device ini (`~/.claude/projects`) dan metadata sesi Claude
+- **Menunggu Anda & Selesai seketika:** pemasang (`install.sh`) memasang hook sinyal Kantor (`bin/kantor-kejadian.sh`) —
+  Claude memberi tahu langsung saat meminta izin, bertanya, atau selesai; Kantor menampilkannya ≤ 2 detik (tanda menunggu hilang
+  begitu langkah yang ditunggu berjalan selesai, dijawab, atau ditolak). Hook berjalan di latar (Claude tidak menunggunya), hanya
+  mencatat jenis kejadian, waktu, dan id sesi ke `handoff/.kantor/`, dan diam bila gagal. Belum dipasang / Kantor mati → Kantor
+  memperkirakan status dari transkrip seperti sebelumnya; `bin/cek-konsistensi.sh` mengingatkan untuk menjalankan pemasang.
+  Periksa: `bin/kantor-kejadian.sh status` (kejadian terakhir) dan http://127.0.0.1:7421/health (baris "sinyal langsung").
+- **Bunyi:** tombol **Bunyi mati / Bunyi nyala** di kepala halaman — bunyi singkat sekali setiap ada yang *baru* menunggu Anda;
+  bawaan mati, pilihan diingat peramban ini (peramban baru mengizinkan bunyi setelah halaman diketuk/diklik sekali).
+- Data dibaca dari transkrip sesi Claude di device ini (`~/.claude/projects`), kejadian hook (`handoff/.kantor/`), dan metadata sesi Claude
   Desktop — hanya sesi RudisOne (folder repo ini, worktree `r<n>-…`, `/rudisone`, atau pembuka "… di RudisOne"); server hanya listen di 127.0.0.1, menolak permintaan dengan header `Host` selain
   127.0.0.1/localhost (perlindungan DNS rebinding), dan hanya meneruskan metadata aktivitas (nama alat, deskripsi
   perintah, nama file) — bukan isi file, pesan, atau output.

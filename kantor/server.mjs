@@ -1,6 +1,8 @@
 // Kantor RudisOne — server status lokal (Node ≥18, tanpa dependensi).
 // Membaca transkrip sesi Claude Code (~/.claude/projects/*/*.jsonl) secara inkremental, mengenali sesi
 // milik RudisOne, menurunkan status tiap agent, lalu menyiarkannya ke halaman lewat Server-Sent Events.
+// Sinyal langsung dari hook Claude Code (bin/kantor-kejadian.mjs → handoff/.kantor/) membuat "Menunggu Anda" dan
+// "Selesai" pasti & seketika; tanpa sinyal itu status tetap diturunkan dari transkrip seperti dulu (cadangan).
 // Hanya listen di 127.0.0.1. Yang dikirim ke halaman hanya metadata aktivitas (nama alat, deskripsi
 // perintah, nama file/host) — tidak pernah isi file, isi pesan, atau output perintah.
 import crypto from "node:crypto";
@@ -12,6 +14,7 @@ import { fileURLToPath } from "node:url";
 import { bacaKonfig } from "../bin/konfig.mjs";
 import { agentsCli, folderDesktop, normalAgents, sumberBaca } from "../bin/sesi.mjs";
 import { diDalamPath } from "../bin/lib/lokasi.mjs";
+import { statusPasang as hookKejadianTerpasang, uraiIsi, uraiNama } from "../bin/kantor-kejadian.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const HOME = os.homedir();
@@ -22,6 +25,8 @@ const TEAM_MD = process.env.RUDISONE_KANTOR_TEAM_MD || path.join(ROOT, "TEAM.md"
 const REGISTER = process.env.RUDISONE_KANTOR_REGISTER || path.join(ROOT, "handoff", "register-tugas.md");
 /** Sumber kebenaran register (bin/register.sh); bila belum ada, Kantor membaca register-tugas.md lama. */
 const REGISTER_JSON = process.env.RUDISONE_KANTOR_REGISTER_JSON || path.join(ROOT, "handoff", "register-tugas.json");
+/** Kejadian dari hook Claude Code (bin/kantor-kejadian.mjs): satu berkas kecil per sesi / subagent. */
+const KEJADIAN = process.env.RUDISONE_KANTOR_KEJADIAN || path.join(ROOT, "handoff", ".kantor");
 /** Argumen `--<nama>=<nilai>` dari baris perintah server. bin/kantor.mjs di Windows menyalakan server lewat WMI (di luar
  *  job object proses Claude), yang tidak mewariskan env — port dan berkas log karena itu juga lewat argumen. */
 const argumen = (nama) => process.argv.slice(2).find((a) => a.startsWith(`--${nama}=`))?.slice(nama.length + 3) || null;
@@ -346,8 +351,16 @@ const files = new Map();
 
 function newFileState() {
   return { offset: 0, partial: "", agentSetting: null, title: null, firstPrompt: null, cwd: null, rudisone: false,
-    lastTs: 0, lastKind: null, pending: new Map(), events: [], sidechain: 0 };
+    lastTs: 0, lastKind: null, pending: new Map(), events: [], sidechain: 0,
+    // penanda untuk mencocokkan kejadian hook (gabungKejadian): hasil alat per id, pesan model pemilik tiap alat,
+    // langkah model terakhir, pesan masuk terakhir (bukan hasil alat), hasil alat terakhir
+    hasilAlat: new Map(), pesanAlat: new Map(), asistenTerakhir: { ts: 0, msg: null }, lastPrompt: 0, lastHasil: 0 };
 }
+/** Peta id → nilai dibatasi (sesi panjang tidak menumpuk memori): yang tertua dibuang. */
+const BATAS_PETA = 400;
+const simpanBatas = (peta, k, v) => { peta.delete(k); peta.set(k, v); if (peta.size > BATAS_PETA) peta.delete(peta.keys().next().value); };
+/** Pesan yang ditulis Claude Code saat pengguna menghentikan giliran (Esc) — giliran berakhir tanpa kejadian "selesai". */
+const RE_DIHENTIKAN = /^\s*\[Request interrupted by user/;
 
 /** ID tugas (`T-YYYYMMDD-n`, sub-tugas `.k`). */
 const RE_ID_TUGAS = /\bT-\d{8}-\d+(?:\.\d+)*\b/;
@@ -380,12 +393,15 @@ function ingestLine(s, line) {
       if (ts) s.lastTs = Math.max(s.lastTs, ts);
       const c = o.message?.content;
       if (Array.isArray(c) && c.some((b) => b?.type === "tool_result")) {
-        for (const b of c) if (b?.type === "tool_result") s.pending.delete(b.tool_use_id);
+        for (const b of c) if (b?.type === "tool_result") { s.pending.delete(b.tool_use_id); simpanBatas(s.hasilAlat, b.tool_use_id, ts); }
+        if (ts) s.lastHasil = Math.max(s.lastHasil, ts);
         s.lastKind = "pikir";
         return;
       }
       const text = textOf(c);
       if (!text) return;
+      if (ts && !o.isMeta) s.lastPrompt = Math.max(s.lastPrompt, ts);
+      if (RE_DIHENTIKAN.test(text)) { s.lastKind = "henti"; return; }
       if (!s.firstPrompt) s.firstPrompt = text.slice(0, 400);
       // tugas yang sedang dikerjakan sesi ini = ID di awal pesan masuk terakhir (brief, [Revisi], [Info dari COO] …)
       const isi = textTanpaPembungkus(text);
@@ -403,11 +419,14 @@ function ingestLine(s, line) {
       if (ts) s.lastTs = Math.max(s.lastTs, ts);
       const c = o.message?.content;
       if (!Array.isArray(c)) return;
+      const msg = typeof o.message?.id === "string" ? o.message.id : null;
+      if (ts) s.asistenTerakhir = { ts: Math.max(s.asistenTerakhir.ts, ts), msg };
       let tool = false;
       for (const b of c) {
         if (b?.type !== "tool_use") continue;
         tool = true;
         s.pending.set(b.id, { name: b.name, input: b.input ?? {}, ts });
+        simpanBatas(s.pesanAlat, b.id, msg);
         if (b.name === "Skill" && b.input?.skill === "rudisone") s.rudisone = s.coo = true;
         s.events.push({ ts, kind: "alat", name: b.name, input: b.input ?? {}, tugas: s.tugasKini ?? null });
       }
@@ -479,6 +498,33 @@ function scanAsisten(dirSesi, induk, now) {
     } catch { /* meta belum ada */ }
     try { readFileIncremental(file, s); } catch { /* sedang ditulis */ }
   }
+}
+
+// ---------- kejadian hook (sinyal langsung Claude Code, bin/kantor-kejadian.mjs) ----------
+/** "<sesi>" / "<sesi>~<subagent>" → { k, t, u, s }. Berkas lebih tua dari 48 jam diabaikan; Kantor tidak menulis apa pun. */
+let kejadian = new Map();
+const kejadianCache = new Map();   // nama berkas → { mtimeMs, size, isi }
+let kejadianTerbaca = null;        // null = folder belum ada · true · false (tidak terbaca)
+export function muatKejadian(now = Date.now(), folder = KEJADIAN) {
+  let nama;
+  try { nama = fs.readdirSync(folder); kejadianTerbaca = true; } catch (e) { kejadianTerbaca = e.code === "ENOENT" ? null : false; kejadian = new Map(); return kejadian; }
+  const next = new Map();
+  for (const n of nama) {
+    const id = uraiNama(n);
+    if (!id) continue;
+    const f = path.join(folder, n);
+    try {
+      const st = fs.lstatSync(f);
+      if (!st.isFile() || st.size > 4096 || now - st.mtimeMs > RECENT_FILE_MS) continue;   // berkas biasa yang kecil saja
+      let c = kejadianCache.get(n);
+      if (!c || c.mtimeMs !== st.mtimeMs || c.size !== st.size) { c = { mtimeMs: st.mtimeMs, size: st.size, isi: uraiIsi(fs.readFileSync(f, "utf8")) }; kejadianCache.set(n, c); }
+      if (c.isi) next.set(id.agen ? `${id.sesi}~${id.agen}` : id.sesi, c.isi);
+    } catch { /* sedang diganti */ }
+  }
+  const ada = new Set(nama);
+  for (const n of kejadianCache.keys()) if (!ada.has(n)) kejadianCache.delete(n);
+  kejadian = next;
+  return kejadian;
 }
 
 // ---------- register tugas (papan "Tugas berjalan") ----------
@@ -603,15 +649,45 @@ function agentOf(s) {
 
 const RANK = { menunggu: 4, bekerja: 3, berpikir: 2, santai: 1 };
 
-function sessionStatus(s, now) {
+/** Status dari transkrip. `sinyalSelesai` = sesi ini terbukti mengirim kejadian "selesai" lewat hook: giliran dianggap
+ *  berakhir hanya oleh kejadian itu (gabungKejadian), bukan oleh jeda waktu — berpikir lama tidak lagi tampil santai. */
+function sessionStatus(s, now, sinyalSelesai = false) {
   const pend = [...s.pending.values()].filter((p) => now - p.ts < TOOL_STALE_MS).sort((a, b) => b.ts - a.ts);
   if (pend.length) {
     const d = describeTool(pend[0].name, pend[0].input, resolveAgent);
     return { status: d.waiting ? "menunggu" : "bekerja", ...d, since: pend[0].ts };
   }
-  if ((s.lastKind === "pikir" || s.lastKind === "tugas") && now - s.lastTs < THINK_MS)
+  const batasPikir = sinyalSelesai ? TOOL_STALE_MS : THINK_MS;   // TOOL_STALE_MS = jaring pengaman bila sinyal hilang
+  if ((s.lastKind === "pikir" || s.lastKind === "tugas") && now - s.lastTs < batasPikir)
     return { status: "berpikir", label: s.lastKind === "tugas" ? "Menerima tugas" : "Berpikir", detail: "", icon: "pikir", since: s.lastTs };
+  // teks model tanpa alat bisa muncul di tengah giliran; dengan sinyal hook, akhir giliran = kejadian "selesai"
+  if (sinyalSelesai && s.lastKind === "selesai" && now - s.lastTs < TOOL_STALE_MS)
+    return { status: "berpikir", label: "Berpikir", detail: "", icon: "pikir", since: s.lastTs };
   return { status: "santai", label: "Santai", detail: "", icon: "santai", since: s.lastTs };
+}
+
+/**
+ * Status transkrip `st` + kejadian hook terakhir `kej` ({ k, t, u, s }) untuk sesi/subagent `s` → { st, selesai }.
+ * - `izin`/`tanya`: "Menunggu Anda" sampai dijawab — hasil alat `u` tercatat, pesan masuk baru, atau langkah model dari pesan
+ *   lain (model hanya melangkah lagi setelah semua alatnya selesai). Tanpa `u` (Notification): hasil alat apa pun sesudahnya.
+ * - `selesai`/`keluar`: giliran berakhir pada `kej.t` (selesai = waktu itu), kecuali ada pesan masuk / langkah model sesudahnya.
+ * Langkah model dari pesan yang sama dengan alat yang ditunggu tidak menjawab apa pun (alat bisa dijalankan sebelum seluruh
+ * pesannya tertulis di transkrip).
+ */
+export function gabungKejadian(st, s, kej) {
+  if (!kej) return { st, selesai: null };
+  const promptBaru = s.lastPrompt > kej.t;
+  const asisten = s.asistenTerakhir ?? { ts: 0, msg: null };
+  if (kej.k === "izin" || kej.k === "tanya") {
+    const pesanAlat = kej.u ? s.pesanAlat?.get(kej.u) : undefined;
+    const langkahBaru = asisten.ts > kej.t && (!kej.u || !pesanAlat || asisten.msg !== pesanAlat);
+    const dijawab = promptBaru || langkahBaru || (kej.u ? s.hasilAlat?.has(kej.u) : s.lastHasil > kej.t);
+    if (dijawab) return { st, selesai: null };
+    return { st: { status: "menunggu", label: kej.k === "izin" ? "Menunggu izin Anda" : "Menunggu jawaban Anda", detail: "", icon: "tunggu",
+      since: kej.t, waiting: true }, selesai: null };
+  }
+  if (promptBaru || asisten.ts > kej.t) return { st, selesai: null };   // giliran baru sesudah selesai/keluar
+  return { st: { status: "santai", label: "Santai", detail: "", icon: "santai", since: kej.t }, selesai: kej.t };
 }
 
 /** Tipe agent subagent peran: `rudis-<id-peran>` (boleh berawalan plugin, mis. `rudisone:rudis-software-engineer`). */
@@ -657,6 +733,7 @@ function kursiSubagent(peran, induk, s, terisi) {
 export function buildState(now = Date.now()) {
   loadTeam();
   loadDesktop(now);
+  muatKejadian(now);
   const byAgent = new Map(KURSI.map((a) => [a, []]));
   const timeline = new Map(KURSI.map((a) => [a, Array.from({ length: TIMELINE_MIN }, () => ({ n: 0, icon: null }))]));
   const feed = [];
@@ -720,44 +797,61 @@ export function buildState(now = Date.now()) {
   const tandaiSelesai = (kursi, ts) => {
     if (ts && now - ts < BARU_SELESAI_MS && ts > (selesaiKursi.get(kursi) ?? 0)) selesaiKursi.set(kursi, ts);
   };
+  /** Giliran kerja yang memakai alat lalu berhenti (bukan sekadar menerima pesan) → baru selesai pada `ts`. */
+  const selesaiKerja = (s, kursi, ts) => {
+    const alat = s.events.findLast((e) => e.kind === "alat");
+    if (alat && ts - alat.ts < 15 * 60e3) tandaiSelesai(kursi, ts);
+  };
+  /** cli sesi → entri sesinya di byAgent (asisten yang menunggu menandai sesi pemanggilnya). */
+  const entriSesi = new Map();
   for (const { s, d, title, agent } of dikenal) {
-    if (d?.archived || now - s.lastTs > IN_OFFICE_MS) continue; // diarsipkan / sudah lama
-    let st = sessionStatus(s, now);
-    // giliran kerja yang memakai alat lalu berhenti (bukan sekadar menerima pesan) → baru selesai pada langkah terakhirnya
-    if (st.status === "santai") {
-      const alat = s.events.findLast((e) => e.kind === "alat");
-      if (alat && s.lastTs - alat.ts < 15 * 60e3) tandaiSelesai(agent, s.lastTs);
-    }
+    const kej = kejadian.get(s.cli) ?? null;
+    if (d?.archived || now - Math.max(s.lastTs, kej?.t ?? 0) > IN_OFFICE_MS) continue; // diarsipkan / sudah lama
+    const g = gabungKejadian(sessionStatus(s, now, !!kej?.s), s, kej);
+    let st = g.st;
+    if (g.selesai) selesaiKerja(s, agent, g.selesai);                  // pasti: kejadian "selesai" dari hook
+    else if (st.status === "santai") selesaiKerja(s, agent, s.lastTs); // cadangan: tebakan dari transkrip
     if (d?.awaiting && st.status !== "menunggu") // sesi berhenti menunggu keputusan pengguna (mis. izin)
       st = { status: "menunggu", label: "Menunggu keputusan Anda", detail: d.perintah ?? "", icon: "tunggu", since: s.lastTs };
-    byAgent.get(agent)?.push({ title, cwd: s.cwd?.replace(HOME, "~") ?? "", lastTs: s.lastTs, ...st });
+    const entri = { title, cwd: s.cwd?.replace(HOME, "~") ?? "", lastTs: s.lastTs, ...st };
+    entriSesi.set(s.cli, entri);
+    byAgent.get(agent)?.push(entri);
     catat(s, agent);
   }
   // Lintasan 3: subagent sesi RudisOne. Subagent peran (tipe `rudis-<id-peran>`) duduk dan bekerja di kursi peran itu
   // (penanda "subagent dari <pemanggil>"); subagent lain tampil sebagai asisten di kursi pemanggilnya.
   const cliKeKursi = new Map(dikenal.map(({ s, agent }) => [s.cli, agent]));
+  const cliKeJudul = new Map(dikenal.map(({ s, title }) => [s.cli, title]));
   const asisten = [];
   const subagen = [...files.values()].filter((s) => s.asisten).sort((a, b) => (a.mulai ?? a.lastTs) - (b.mulai ?? b.lastTs));
   for (const s of subagen) {
     const induk = cliKeKursi.get(s.asisten.induk);
     if (!induk) continue;
-    const selesai = !!s.asisten.meta.finished;
+    // kejadian hook subagent: SubagentStop → selesai pasti; izin/tanya di subagent → menunggu (dijawab di jendela induknya)
+    const g = gabungKejadian(sessionStatus(s, now), s, kejadian.get(`${s.asisten.induk}~${s.asisten.id}`) ?? null);
+    const selesai = !!s.asisten.meta.finished || !!g.selesai;
+    const tsSelesai = g.selesai ?? s.lastTs;
+    const menunggu = g.st.status === "menunggu";
+    const bukaDi = cliKeJudul.get(s.asisten.induk) ?? null;
     const deskripsi = clip(s.asisten.meta.description ?? "", 50);
     const peran = peranSubagent(s);
     if (peran) {
-      const berjalan = !selesai && now - s.lastTs <= TOOL_STALE_MS;
+      const berjalan = !selesai && (menunggu || now - s.lastTs <= TOOL_STALE_MS);
       // kursi saat berjalan diingat: setelah selesai, "baru selesai" & log tetap di kursi yang sama (mis. SE #2 bila #1 terisi)
       const kursi = berjalan ? (s.kursiTerakhir = kursiSubagent(peran, induk, s, byAgent)) : s.kursiTerakhir ?? kursiSubagent(peran, induk, s, null);
       catat(s, kursi);                       // linimasa & log tetap tercatat setelah subagent selesai
-      if (!berjalan) { if (selesai) tandaiSelesai(kursi, s.lastTs); continue; }   // selesai → kursi kembali ke katalog
-      let st = sessionStatus(s, now);
+      if (!berjalan) { if (selesai) tandaiSelesai(kursi, tsSelesai); continue; }   // selesai → kursi kembali ke katalog
+      let st = g.st;
       if (st.status === "santai") st = { status: "berpikir", label: "Berpikir", detail: "", icon: "pikir", since: s.lastTs };  // subagent berjalan = bekerja
       byAgent.get(kursi)?.push({ title: deskripsi || "Tugas tanpa judul", cwd: s.cwd?.replace(HOME, "~") ?? "", lastTs: s.lastTs, ...st,
-        subagent: { dari: induk, id: s.asisten.id, deskripsi } });
+        subagent: { dari: induk, id: s.asisten.id, deskripsi }, bukaDi });
       continue;
     }
-    if (selesai ? now - s.lastTs > 90e3 : now - s.lastTs > TOOL_STALE_MS) continue;
-    const st = sessionStatus(s, now);
+    // asisten biasa yang menunggu izin/jawaban: sesi pemanggilnya ikut "Menunggu Anda" (jendela itulah yang dibuka)
+    const e = entriSesi.get(s.asisten.induk);
+    if (menunggu && !selesai && e && e.status !== "menunggu") Object.assign(e, { status: "menunggu", label: g.st.label, detail: "", icon: "tunggu", since: g.st.since });
+    if (selesai ? now - tsSelesai > 90e3 : !menunggu && now - s.lastTs > TOOL_STALE_MS) continue;
+    const st = g.st;
     asisten.push({ id: s.asisten.id, induk, status: selesai ? "selesai" : "aktif", jenis: s.asisten.meta.agentType ?? "",
       deskripsi, label: st.label, icon: st.icon, mulai: s.mulai ?? s.lastTs });
   }
@@ -813,6 +907,13 @@ export function sumberData() {
     const isi = muatTugas();
     return { terbaca: tugasCache.kunci.startsWith(`${f}|`), ket: `${isi.length} tugas aktif — ${f}` };
   });
+  periksa("sinyal langsung (hook)", () => {
+    let pasang = null; try { pasang = hookKejadianTerpasang(); } catch { /* settings tidak terbaca */ }
+    const terakhir = Math.max(0, ...[...kejadian.values()].map((e) => e.t));
+    const ket = `${pasang === null ? "settings tidak terbaca" : pasang ? "hook terpasang" : "hook BELUM terpasang — jalankan pemasang sekali lagi"}`
+      + ` · ${kejadian.size} sesi/subagent ≤48 jam${terakhir ? `, terakhir ${new Date(terakhir).toISOString()}` : ""} — ${KEJADIAN}`;
+    return { terbaca: kejadianTerbaca !== false && pasang !== false, ket: kejadianTerbaca === false ? `folder tidak terbaca — ${KEJADIAN}` : ket };
+  });
   const sumber = sumberBaca();
   if (sumber.includes("desktop")) periksa("sesi Desktop", () => {
     const ada = fs.existsSync(DESKTOP_SESSIONS);
@@ -851,6 +952,21 @@ function tick() {
   lastJson = json;
   const payload = `data: ${JSON.stringify(state)}\n\n`;
   for (const res of clients) { try { res.write(payload); } catch (e) { clients.delete(res); catatGalat("kirim SSE", e); } }
+}
+
+/** Kejadian hook ditulis → perbarui segera (tanpa menunggu siklus 1,5 dtk). fs.watch tidak ada/gagal (mis. folder jaringan,
+ *  WSL di /mnt/c) → siklus biasa tetap jalan. Folder belum ada (hook belum pernah jalan) → dicoba lagi tiap 15 dtk. */
+let pengawas = null, tickTertunda = null;
+function awasiKejadian() {
+  const coba = () => {
+    if (pengawas) return;
+    try {
+      pengawas = fs.watch(KEJADIAN, () => { if (!tickTertunda) tickTertunda = setTimeout(() => { tickTertunda = null; tick(); }, 60); });
+      pengawas.on("error", () => { try { pengawas.close(); } catch { /* sudah tertutup */ } pengawas = null; });
+    } catch { pengawas = null; }
+  };
+  coba();
+  setInterval(coba, 15e3).unref();
 }
 
 /** `--log=<berkas>`: keluaran server ditambahkan ke berkas itu (dipakai bila server dinyalakan tanpa stdio, mis. WMI). */
@@ -918,6 +1034,7 @@ function serve() {
   process.on("unhandledRejection", (e) => catatGalat("promise", e));
   try { scan(); } catch (e) { catatGalat("pindai awal", e); }
   setInterval(tick, 1500);
+  awasiKejadian();
   setInterval(() => { for (const res of clients) { try { res.write(": ping\n\n"); } catch { clients.delete(res); } } }, 20000);
 }
 

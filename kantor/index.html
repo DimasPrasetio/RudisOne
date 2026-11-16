@@ -61,6 +61,14 @@
   .koneksi .titik { width: 8px; height: 8px; border-radius: 50%; background: var(--bekerja); flex: none; }
   .koneksi.basi { border-style: dashed; } .koneksi.basi .titik { background: var(--menunggu); }
   .koneksi.putus { color: var(--galat); border-color: color-mix(in srgb, var(--galat) 50%, var(--garis)); } .koneksi.putus .titik { background: var(--galat); }
+  /* tombol bunyi pemberitahuan: ikon speaker (silang saat mati, gelombang saat nyala) + teks; tanpa animasi */
+  .tombol.suara { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 4px 12px 4px 10px; background: var(--permukaan); }
+  .tombol.suara svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  .tombol.suara .badan { fill: currentColor; }
+  .tombol.suara .gelombang { display: none; } .tombol.suara[aria-pressed="true"] .gelombang { display: inline; } .tombol.suara[aria-pressed="true"] .silang { display: none; }
+  .tombol.suara[aria-pressed="true"] { border-color: var(--menunggu); background: color-mix(in srgb, var(--menunggu) 13%, var(--permukaan)); color: var(--menunggu-teks); font-weight: 600; }
+  .tombol.suara:focus-visible { outline: 2px solid var(--berpikir); outline-offset: 2px; }
+  @media (pointer: coarse) { .tombol.suara { min-height: 40px; } }
 
   /* ---------- ringkasan angka ---------- */
   .ringkas { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; padding-bottom: 14px; }
@@ -358,6 +366,11 @@
   <h1>Kantor RudisOne</h1>
   <span class="jam" id="jam"></span>
   <span class="koneksi" id="koneksi" role="status"><span class="titik" aria-hidden="true"></span><span id="koneksi-teks">Menghubungkan…</span></span>
+  <!-- bunyi pemberitahuan: mati bawaan, pilihan diingat peramban ini; berbunyi sekali saat ada yang BARU menunggu Anda -->
+  <button type="button" class="tombol suara" id="suara" aria-pressed="false" title="Bunyi singkat saat ada yang baru menunggu Anda">
+    <svg viewBox="0 0 16 16" aria-hidden="true"><path class="badan" d="M2.5 6h2.2L8 3.2v9.6L4.7 10H2.5z"/><path class="gelombang" d="M10.4 5.6a3.2 3.2 0 0 1 0 4.8M12.2 3.9a5.6 5.6 0 0 1 0 8.2"/><path class="silang" d="M10.6 6.2l3.6 3.6M14.2 6.2l-3.6 3.6"/></svg>
+    <span class="teks">Bunyi mati</span>
+  </button>
 </header>
 
 <section class="ringkas lebar" aria-labelledby="judul-ringkas">
@@ -474,6 +487,8 @@
       <div>
         <ul>
           <li>Data dibaca dari percakapan Claude di laptop ini dan tidak dikirim ke mana pun; halaman ini tidak memuat apa pun dari internet.</li>
+          <li><b>Menunggu Anda</b> dan <b>Baru selesai</b> datang langsung dari Claude saat itu terjadi (setelah pemasang RudisOne dijalankan); tanpa itu Kantor memperkirakannya dari percakapan.</li>
+          <li>Tombol <b>Bunyi</b> memperdengarkan bunyi singkat sekali setiap ada yang baru menunggu Anda. Bawaannya mati; pilihan Anda diingat peramban ini. Bila HP dalam mode senyap, bunyi bisa tidak terdengar.</li>
           <li>Semua jabatan selalu ada di mejanya. <b>Bekerja</b> hanya tampil bila pekerjaannya benar-benar berjalan, <b>Baru selesai</b> selama 10 menit sesudahnya, selain itu <b>Siap dipanggil</b> (sesekali beristirahat di lounge).</li>
           <li>COO dan Tech Lead proyek aktif selalu punya ruang kerja; IT Operations dibuka saat ada tugas server, insiden, atau penerapan; jabatan lain dipanggil saat dibutuhkan, lalu bekerja di kursinya.</li>
           <li>Gerak di denah menggambarkan kejadian nyata: pimpinan memanggil dari mejanya, anggota datang menerima tugas, laporan dibawa ke atasan.</li>
