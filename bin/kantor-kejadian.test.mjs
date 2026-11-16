@@ -121,6 +121,20 @@ test("pemberitahuan tanpa id subagent (Notification 2.1.317) → jendela izin su
   catatKejadian({ sesi: "p4", agen: null, k: "izin", t: 320e3, u: null, a: null, notif: true }, dir);
   assert.equal(baca("p4~c.json").n, null);
   assert.deepEqual(baca("p4.json"), { k: "izin", t: 320e3, u: null, a: null, n: 320e3, s: null, x: null, bt: null });
+  // pemberitahuan > 9 dtk sesudah jendela induk (izin atau pertanyaan yang sudah dijawab) = jendela lain: izin baru tanpa id/nama
+  // alat (dijawab oleh langkah sesi/subagent mana pun sesudahnya), s & bt tetap
+  catatKejadian({ sesi: "p5", agen: null, k: "selesai", t: 10e3, u: null }, dir);
+  catatKejadian({ sesi: "p5", agen: null, k: "izin", t: 20e3, u: null, a: "Bash" }, dir);
+  catatKejadian({ sesi: "p5", agen: null, k: "izin", t: 26e3, u: null, a: null, notif: true }, dir);
+  catatKejadian({ sesi: "p5", agen: null, k: "izin", t: 200e3, u: null, a: null, notif: true }, dir);
+  assert.deepEqual(baca("p5.json"), { k: "izin", t: 200e3, u: null, a: null, n: 200e3, s: 10e3, x: null, bt: 26e3 });
+  catatKejadian({ sesi: "p6", agen: null, k: "tanya", t: 30e3, u: "toolu_t", a: "AskUserQuestion" }, dir);
+  catatKejadian({ sesi: "p6", agen: null, k: "izin", t: 210e3, u: null, a: null, notif: true }, dir);
+  assert.equal(baca("p6.json").k, "izin"); assert.equal(baca("p6.json").u, null);
+  // pemberitahuan seketika (terminal) tetap milik jendela yang baru muncul
+  catatKejadian({ sesi: "p7", agen: null, k: "izin", t: 40e3, u: null, a: "Edit" }, dir);
+  catatKejadian({ sesi: "p7", agen: null, k: "izin", t: 40.3e3, u: null, a: null, notif: true }, dir);
+  assert.equal(baca("p7.json").a, "Edit"); assert.equal(baca("p7.json").bt, null);
   // pemberitahuan yang membawa id subagent tetap ke berkasnya sendiri
   catatKejadian({ sesi: "p1", agen: "a3", k: "tanya", t: 2001e3, u: null, a: null, notif: true }, dir);
   assert.equal(baca("p1~a3.json").k, "tanya");

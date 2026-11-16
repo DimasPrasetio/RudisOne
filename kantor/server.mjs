@@ -703,12 +703,14 @@ export function gabungKejadian(st, s, kej, now = Date.now(), opsi = {}) {
     if (kej.u) alat = [kej.u];
     else if (kej.a) {
       // alat bernama itu yang belum selesai saat kejadian (yang hasilnya sudah ada SEBELUM jendela izin bukan yang ditanyakan)
-      const calon = [...info].filter(([id, x]) => x.nama === kej.a && x.ts <= kej.t + SELISIH_ALAT_MS && x.ts >= kej.t - TOOL_STALE_MS
+      // alat dari sebelum pesan masuk terakhir (giliran lalu, mis. yatim karena proses mati) bukan milik jendela giliran ini
+      const awal = Math.max(kej.t - TOOL_STALE_MS, s.lastPrompt ?? 0);
+      const calon = [...info].filter(([id, x]) => x.nama === kej.a && x.ts <= kej.t + SELISIH_ALAT_MS && x.ts >= awal
         && !(s.hasilAlat?.get(id) <= kej.t));
       // pesan pemilik hanya pesan model TERAKHIR yang alatnya tertulis ≤ waktu kejadian: alat bernama sama tanpa hasil dari pesan
       // yang lebih tua (yatim: proses mati / sesi dilanjutkan) bukan yang ditunggu — model melangkah hanya setelah alatnya selesai
       let akhir = null;
-      for (const [, x] of info) if (x.ts <= kej.t && (!akhir || x.ts >= akhir.ts)) akhir = x;
+      for (const [, x] of info) if (x.ts <= kej.t && x.ts >= awal && (!akhir || x.ts >= akhir.ts)) akhir = x;
       const sebelum = calon.filter(([, x]) => x.ts <= kej.t && (akhir?.msg ? x.msg === akhir.msg : x.ts === akhir?.ts));
       const pemilik = sebelum.length ? sebelum.reduce((a, b) => (b[1].ts >= a[1].ts ? b : a))
         : calon.filter(([, x]) => x.ts > kej.t).reduce((a, b) => (!a || b[1].ts < a[1].ts ? b : a), null);

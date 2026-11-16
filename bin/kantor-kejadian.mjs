@@ -91,11 +91,10 @@ export function uraiIsi(teks) {
   return { k: j.k, t: j.t, u: typeof j.u === "string" && ID_AMAN.test(j.u) ? j.u : null,
     a: typeof j.a === "string" && NAMA_ALAT.test(j.a) ? j.a : null, n: angka(j.n), s: angka(j.s), x: angka(j.x), bt: angka(j.bt) };
 }
-/** Pemberitahuan (Notification) yang datang < 10 menit setelah izin/tanya yang cocok jenisnya = jendela yang sama: dicatat
- *  sebagai tanda "jendela ini masih terbuka ±6 dtk kemudian", tidak menimpa jenis, id/nama alat, dan waktunya. */
-const SATU_JENDELA_MS = 10 * 60e3;
 /** Claude Code 2.1.317 memasang pengatur waktu pemberitahuan izin (6 dtk) bersamaan dengan hook PermissionRequest: pemberitahuan
- *  yang jatuh di rentang ini sesudah sebuah jendela adalah pemberitahuan jendela itu (dan bukti sesi mengirim pemberitahuan tertunda). */
+ *  yang jatuh ≤ TUNDA_MAKS_MS sesudah izin/tanya yang cocok jenisnya = jendela yang sama (dicatat sebagai tanda "jendela ini masih
+ *  terbuka", tanpa menimpa jenis, id/nama alat, dan waktunya); yang jatuh di TUNDA_MIN_MS–TUNDA_MAKS_MS juga bukti sesi mengirim
+ *  pemberitahuan tertunda. Lebih lambat dari itu = jendela lain (mis. tanpa PermissionRequest) → dicatat sebagai jendela baru. */
 const TUNDA_MIN_MS = 5000, TUNDA_MAKS_MS = 9000;
 
 /** Tulis kejadian ke berkas sesinya (atomik: berkas sementara lalu ganti nama). `s` mengingat "selesai" terakhir: bukti
@@ -107,13 +106,13 @@ const bacaKejadian = (f) => {
 };
 /** Jenis cocok: sama, atau pemberitahuan izin untuk pertanyaan (AskUserQuestion juga melewati pemeriksaan izin — 2.1.317). */
 const jenisCocok = (lama, e) => lama.k === e.k || (e.k === "izin" && lama.k === "tanya" && lama.a === "AskUserQuestion");
-const jendelaTerbuka = (lama, e) => !!lama && jenisCocok(lama, e) && e.t - lama.t >= 0 && e.t - lama.t < SATU_JENDELA_MS;
+const jendelaTerbuka = (lama, e) => !!lama && jenisCocok(lama, e) && e.t - lama.t >= 0 && e.t - lama.t <= TUNDA_MAKS_MS;
 const tepatTunda = (lama, e) => e.t - lama.t >= TUNDA_MIN_MS && e.t - lama.t <= TUNDA_MAKS_MS;
 /** Berkas tujuan kejadian. Notification Claude Code 2.1.317 tidak membawa agent_id walau jendelanya milik subagent → pemberitahuan
  *  tanpa id subagent dicatat pada jendela yang cocok di sesi itu (induk atau subagentnya) yang belum punya pemberitahuan dan
- *  muncul ±6 dtk sebelumnya (paling dekat ke 6 dtk). Tidak ada → berkas sesi: digabung dengan jendela induk yang masih terbuka,
- *  atau dicatat sebagai izin baru (jendela tanpa PermissionRequest, mis. konfirmasi keamanan; Kantor menganggapnya dijawab
- *  begitu sesi atau subagentnya melangkah lagi). */
+ *  muncul 5–9 dtk sebelumnya (paling dekat ke 6 dtk). Tidak ada → berkas sesi: digabung dengan jendela induk yang muncul ≤ 9 dtk
+ *  sebelumnya, atau dicatat sebagai izin baru tanpa id/nama alat (jendela tanpa PermissionRequest, mis. konfirmasi keamanan;
+ *  Kantor menganggapnya dijawab begitu sesi atau subagentnya melangkah lagi). */
 export function berkasTujuan(e, folder = FOLDER_KEJADIAN) {
   const sendiri = namaBerkas(e.sesi, e.agen);
   if (!e.notif || e.agen) return sendiri;

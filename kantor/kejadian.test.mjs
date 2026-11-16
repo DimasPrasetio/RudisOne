@@ -117,6 +117,16 @@ test("izin (nama alat): alat yatim bernama sama dari pesan model lama bukan pemi
   s.hasilAlat.set("b1", 4000); s.lastHasil = 4000;
   assert.equal(g(s, kej), ST);
 });
+test("izin (nama alat): alat yatim di pesan model TERAKHIR giliran lalu (sebelum pesan masuk terakhir) bukan pemiliknya", () => {
+  const s = sesiKosong();
+  s.alatInfo.set("yatim", { nama: "Bash", ts: 100, msg: "m0" });           // proses mati sebelum hasilnya tertulis
+  s.lastPrompt = 500;                                                       // sesi dilanjutkan: pesan masuk baru
+  s.alatInfo.set("b1", { nama: "Bash", ts: 1300, msg: "m1" }); s.asistenTerakhir = { ts: 1300, msg: "m1" };   // tertulis sesudah kejadian
+  const kej = { k: "izin", t: 1000, u: null, a: "Bash", n: null, bt: null };
+  assert.equal(g(s, kej).status, "menunggu");
+  s.hasilAlat.set("b1", 4000); s.lastHasil = 4000;
+  assert.equal(g(s, kej), ST);
+});
 test("jendela yang hanya dikenal dari pemberitahuan (tanpa id & nama): langkah subagent sesi ini sesudahnya menjawabnya", () => {
   const s = sesiKosong();
   const kej = { k: "izin", t: 1000, u: null, a: null, n: 1000, bt: null };
