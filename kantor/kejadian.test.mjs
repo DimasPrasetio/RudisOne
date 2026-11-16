@@ -28,6 +28,7 @@ const ENV = {
 fs.writeFileSync(ENV.RUDISONE_SESI, JSON.stringify({ backend: "desktop" }));
 Object.assign(process.env, ENV);
 const { buildState, gabungKejadian, scan } = await import("./server.mjs");
+const { catatKejadian, uraiIsi } = await import("../bin/kantor-kejadian.mjs");
 
 const now = Date.now();
 const iso = (msAgo) => new Date(now - msAgo).toISOString();
@@ -132,6 +133,30 @@ test("jendela yang hanya dikenal dari pemberitahuan (tanpa id & nama): langkah s
   const kej = { k: "izin", t: 1000, u: null, a: null, n: 1000, bt: null };
   assert.equal(gabungKejadian(ST, s, kej, 60e3, { lain: 900 }).st.status, "menunggu");
   assert.equal(gabungKejadian(ST, s, kej, 60e3, { lain: 2000 }).st, ST);
+});
+test("pemberitahuan > 9 dtk sesudah jendela induk yang MASIH TERBUKA: jendela itu tetap menunggu sampai alatnya sendiri dijawab (langkah subagent tidak menjawabnya)", () => {
+  const dir = fs.mkdtempSync(path.join(tmp, "p5-"));
+  const s = sesiKosong();
+  s.alatInfo.set("b1", { nama: "Bash", ts: 9900, msg: "m1" }); s.asistenTerakhir = { ts: 9900, msg: "m1" };   // izin Bash induk belum dijawab
+  // Desktop: izin induk t=10 dtk (pemberitahuan 16 dtk), lalu konfirmasi khusus di subagent latar t=40 (pemberitahuan 46 dtk, tanpa id)
+  catatKejadian({ sesi: "r", agen: null, k: "izin", t: 10e3, u: null, a: "Bash" }, dir);
+  catatKejadian({ sesi: "r", agen: null, k: "izin", t: 16e3, u: null, a: null, notif: true }, dir);
+  catatKejadian({ sesi: "r", agen: null, k: "izin", t: 46e3, u: null, a: null, notif: true }, dir);
+  const kej = uraiIsi(fs.readFileSync(path.join(dir, "r.json"), "utf8"));
+  const h = gabungKejadian(ST, s, kej, 70e3, { bt: 0, lain: 60e3 });          // subagent sudah melangkah (konfirmasinya dijawab)
+  assert.equal(h.st.status, "menunggu"); assert.equal(h.st.label, "Menunggu izin Anda"); assert.equal(h.st.since, 10e3);
+  s.hasilAlat.set("b1", 75e3); s.lastHasil = 75e3; s.asistenTerakhir = { ts: 76e3, msg: "m2" };   // izin Bash dijawab
+  assert.equal(gabungKejadian(ST, s, kej, 80e3, { bt: 0, lain: 60e3 }).st, ST);
+  // terminal: pemberitahuan induk 11 dtk sesudah jendelanya (6 dtk sesudah interaksi terakhir) + subagent latar melangkah
+  const s2 = sesiKosong();
+  s2.alatInfo.set("b1", { nama: "Bash", ts: 9900, msg: "m1" }); s2.asistenTerakhir = { ts: 9900, msg: "m1" };
+  catatKejadian({ sesi: "q", agen: null, k: "izin", t: 10e3, u: null, a: "Bash" }, dir);
+  catatKejadian({ sesi: "q", agen: null, k: "izin", t: 21e3, u: null, a: null, notif: true }, dir);
+  const kej2 = uraiIsi(fs.readFileSync(path.join(dir, "q.json"), "utf8"));
+  assert.equal(gabungKejadian(ST, s2, kej2, 70e3, { bt: null, lain: 60e3 }).st.status, "menunggu");
+  // jendela sebelumnya yang sudah dijawab (hasil alatnya ada) tidak menahan apa pun
+  s2.hasilAlat.set("b1", 12e3); s2.lastHasil = 12e3;
+  assert.equal(gabungKejadian(ST, s2, kej2, 70e3, { bt: null, lain: 60e3 }).st, ST);
 });
 test("bukti pemberitahuan tertunda berlaku untuk seluruh sesi (opsi.bt; 0 = sesi Desktop)", () => {
   const s = sesiKosong(); s.alatInfo.set("b1", { nama: "Bash", ts: 990, msg: "m1" });

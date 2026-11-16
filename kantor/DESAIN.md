@@ -158,7 +158,8 @@ peran lain dipanggil sebagai subagent `rudis-<id-peran>`.
   dijawab (hilang ±8,5 dtk setelah jendela muncul); pemberitahuan yang datang sesudah jawaban = jendela lain masih terbuka;
   Notification tanpa id subagent dicatat pada jendela (induk/subagent, termasuk pertanyaan AskUserQuestion) yang muncul 5–9 dtk
   sebelumnya, selain itu di induk (digabung hanya dengan jendela induk ≤ 9 dtk sebelumnya; lebih lambat = jendela baru tanpa nama
-  alat) yang dijawab oleh langkah induk atau subagent mana pun sesudahnya; alat dari sebelum pesan masuk terakhir bukan pemilik izin; batas umur 4 jam; izin subagent hilang saat sesi
+  alat, dan jendela izin/tanya sebelumnya disimpan (`p`) lalu dinilai dengan aturan alatnya sendiri) yang dijawab oleh langkah induk
+  atau subagent mana pun sesudahnya; alat dari sebelum pesan masuk terakhir bukan pemilik izin; batas umur 4 jam; izin subagent hilang saat sesi
   induknya keluar (waktu keluar diingat walau sesi dilanjutkan); *selesai* (Stop, StopFailure, SubagentStop) dan *keluar* (SessionEnd) → giliran
   berakhir tepat pada waktu kejadian. Sesi yang terbukti mengirim *selesai* tidak lagi ditebak dari jeda waktu (berpikir lama
   tetap Berpikir; jaring pengaman 20 menit). Subagent yang menunggu: kursi perannya (atau sesi pemanggil, untuk asisten biasa)

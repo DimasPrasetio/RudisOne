@@ -731,7 +731,9 @@ export function gabungKejadian(st, s, kej, now = Date.now(), opsi = {}) {
     if (dijawab && kej.n > tJawab && !(s.lastHasil > kej.n || asisten.ts > kej.n)) dijawab = false;
     const bt = "bt" in opsi ? opsi.bt : kej.bt;
     const cepat = kej.k === "izin" && !(kej.n >= kej.t) && Number.isFinite(bt) && now - kej.t > JEDA_PEMBERITAHUAN_MS;
-    if (promptBaru || dijawab || cepat || now - kej.t > BATAS_TUNGGU_MS) return { st, selesai: null };
+    if (promptBaru || dijawab || cepat || now - kej.t > BATAS_TUNGGU_MS)
+      // jendela sebelumnya yang tersimpan (p) dinilai dengan aturan alatnya sendiri (tanpa langkah subagent sebagai jawaban)
+      return kej.p ? gabungKejadian(st, s, kej.p, now, { bt: opsi.bt }) : { st, selesai: null };
     return { st: { status: "menunggu", label: kej.k === "izin" ? "Menunggu izin Anda" : "Menunggu jawaban Anda", detail: "", icon: "tunggu",
       since: kej.t, waiting: true }, selesai: null };
   }

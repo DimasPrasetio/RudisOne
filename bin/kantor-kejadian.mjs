@@ -84,13 +84,18 @@ const angka = (x) => (Number.isFinite(x) ? x : null);
 /** Isi berkas kejadian → { k, t, u, a, n, s, x, bt } tervalidasi, atau null. u = id pemanggilan alat · a = nama alat ·
  *  n = waktu pemberitahuan izin untuk jendela ini · s = waktu "selesai" terakhir · x = waktu "keluar" (SessionEnd) terakhir ·
  *  bt = waktu terakhir sesi ini terbukti mengirim pemberitahuan izin yang TERTUNDA (≥ 5 dtk setelah jendelanya muncul,
- *  perilaku Claude Code 2.1.317). */
+ *  perilaku Claude Code 2.1.317) · p = jendela izin/tanya sebelumnya { k, t, u, a, n } yang mungkin masih terbuka saat
+ *  pemberitahuan jendela lain tercatat (Kantor menilainya dengan aturan alatnya sendiri), atau null. */
 export function uraiIsi(teks) {
   let j; try { j = JSON.parse(teks); } catch { return null; }
   if (!j || !["izin", "tanya", "selesai", "keluar"].includes(j.k) || !Number.isFinite(j.t)) return null;
-  return { k: j.k, t: j.t, u: typeof j.u === "string" && ID_AMAN.test(j.u) ? j.u : null,
-    a: typeof j.a === "string" && NAMA_ALAT.test(j.a) ? j.a : null, n: angka(j.n), s: angka(j.s), x: angka(j.x), bt: angka(j.bt) };
+  const p = j.p && typeof j.p === "object" && ["izin", "tanya"].includes(j.p.k) && Number.isFinite(j.p.t) ? jendela(j.p) : null;
+  return { ...jendela(j), s: angka(j.s), x: angka(j.x), bt: angka(j.bt), p };
 }
+/** Bagian "jendela" sebuah rekaman: jenis, waktu, id/nama alat, waktu pemberitahuan — tervalidasi. */
+const jendela = (j) => ({ k: j.k, t: j.t, u: typeof j.u === "string" && ID_AMAN.test(j.u) ? j.u : null,
+  a: typeof j.a === "string" && NAMA_ALAT.test(j.a) ? j.a : null, n: angka(j.n) });
+const tanpaKosong = (o) => Object.fromEntries(Object.entries(o).filter(([, v]) => v != null));
 /** Claude Code 2.1.317 memasang pengatur waktu pemberitahuan izin (6 dtk) bersamaan dengan hook PermissionRequest: pemberitahuan
  *  yang jatuh ≤ TUNDA_MAKS_MS sesudah izin/tanya yang cocok jenisnya = jendela yang sama (dicatat sebagai tanda "jendela ini masih
  *  terbuka", tanpa menimpa jenis, id/nama alat, dan waktunya); yang jatuh di TUNDA_MIN_MS–TUNDA_MAKS_MS juga bukti sesi mengirim
@@ -139,8 +144,12 @@ export function catatKejadian(e, folder = FOLDER_KEJADIAN) {
   const bt = jendelaSama && e.k === "izin" && tepatTunda(lama, e) ? e.t : lama?.bt ?? null;
   const dasar = jendelaSama ? { k: lama.k, t: lama.t, u: lama.u, a: lama.a } : { k: e.k, t: e.t, u: e.u, a: e.a };
   const n = e.notif ? e.t : null;
+  // pemberitahuan jendela lain sementara jendela izin/tanya sebelumnya mungkin masih terbuka: jendela itu disimpan (p), bukan
+  // ditimpa — yang ber-id/nama alat didahulukan agar tetap bisa dinilai dari transkrip
+  const lamaJendela = lama && ["izin", "tanya"].includes(lama.k) ? { k: lama.k, t: lama.t, u: lama.u, a: lama.a, n: lama.n } : null;
+  const p = jendelaSama ? lama.p : e.notif && lamaJendela ? (lama.u || lama.a || !lama.p ? lamaJendela : lama.p) : null;
   const isi = JSON.stringify({ k: dasar.k, t: dasar.t, ...(dasar.u ? { u: dasar.u } : {}), ...(dasar.a ? { a: dasar.a } : {}),
-    ...(n ? { n } : {}), ...(s ? { s } : {}), ...(x ? { x } : {}), ...(bt ? { bt } : {}) });
+    ...(n ? { n } : {}), ...(s ? { s } : {}), ...(x ? { x } : {}), ...(bt ? { bt } : {}), ...(p ? { p: tanpaKosong(p) } : {}) });
   const sementara = `${f}.${process.pid}.tmp`;
   fs.writeFileSync(sementara, isi);
   try { fs.renameSync(sementara, f); } catch (err) { fs.rmSync(sementara, { force: true }); throw err; }

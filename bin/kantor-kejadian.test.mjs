@@ -65,17 +65,17 @@ test("hook menulis hanya metadata (jenis, waktu, id) — tanpa isi pesan, perint
 test("berkas kejadian: atomik, mengingat waktu 'selesai' terakhir, nama & isi tervalidasi", () => {
   catatKejadian({ sesi: "s2", agen: null, k: "selesai", t: 100, u: null }, KEJ);
   catatKejadian({ sesi: "s2", agen: null, k: "izin", t: 200, u: "toolu_x" }, KEJ);
-  assert.deepEqual(uraiIsi(fs.readFileSync(path.join(KEJ, "s2.json"), "utf8")), { k: "izin", t: 200, u: "toolu_x", a: null, n: null, s: 100, x: null, bt: null });
+  assert.deepEqual(uraiIsi(fs.readFileSync(path.join(KEJ, "s2.json"), "utf8")), { k: "izin", t: 200, u: "toolu_x", a: null, n: null, s: 100, x: null, bt: null, p: null });
   // pemberitahuan izin ±6 dtk kemudian = jendela yang sama: waktu & alat tetap, ditandai masih terbuka (n), sesi terbukti mengirim pemberitahuan tertunda (bt)
   catatKejadian({ sesi: "s3", agen: null, k: "izin", t: 1000, u: null, a: "Bash" }, KEJ);
   catatKejadian({ sesi: "s3", agen: null, k: "izin", t: 7000, u: null, a: null, notif: true }, KEJ);
-  assert.deepEqual(uraiIsi(fs.readFileSync(path.join(KEJ, "s3.json"), "utf8")), { k: "izin", t: 1000, u: null, a: "Bash", n: 7000, s: null, x: null, bt: 7000 });
+  assert.deepEqual(uraiIsi(fs.readFileSync(path.join(KEJ, "s3.json"), "utf8")), { k: "izin", t: 1000, u: null, a: "Bash", n: 7000, s: null, x: null, bt: 7000, p: null });
   // izin berikutnya: jendela baru (n hilang), bukti sesi (bt) tetap
   catatKejadian({ sesi: "s3", agen: null, k: "izin", t: 20000, u: null, a: "Edit" }, KEJ);
-  assert.deepEqual(uraiIsi(fs.readFileSync(path.join(KEJ, "s3.json"), "utf8")), { k: "izin", t: 20000, u: null, a: "Edit", n: null, s: null, x: null, bt: 7000 });
+  assert.deepEqual(uraiIsi(fs.readFileSync(path.join(KEJ, "s3.json"), "utf8")), { k: "izin", t: 20000, u: null, a: "Edit", n: null, s: null, x: null, bt: 7000, p: null });
   // pemberitahuan tanpa izin sebelumnya (mis. PermissionRequest tidak terkirim) tetap tercatat sebagai izin, bukan bukti tunda
   catatKejadian({ sesi: "s4", agen: null, k: "izin", t: 5000, u: null, a: null, notif: true }, KEJ);
-  assert.deepEqual(uraiIsi(fs.readFileSync(path.join(KEJ, "s4.json"), "utf8")), { k: "izin", t: 5000, u: null, a: null, n: 5000, s: null, x: null, bt: null });
+  assert.deepEqual(uraiIsi(fs.readFileSync(path.join(KEJ, "s4.json"), "utf8")), { k: "izin", t: 5000, u: null, a: null, n: 5000, s: null, x: null, bt: null, p: null });
   // pemberitahuan seketika (< 5 dtk setelah jendelanya) tidak pernah menjadi bukti tunda
   catatKejadian({ sesi: "s5", agen: null, k: "izin", t: 1000, u: null, a: "Bash" }, KEJ);
   catatKejadian({ sesi: "s5", agen: null, k: "izin", t: 1200, u: null, a: null, notif: true }, KEJ);
@@ -92,7 +92,7 @@ test("pemberitahuan tanpa id subagent (Notification 2.1.317) → jendela izin su
   catatKejadian({ sesi: "p1", agen: null, k: "selesai", t: 1000, u: null }, dir);                 // induk: giliran lalu selesai
   catatKejadian({ sesi: "p1", agen: "a1", k: "izin", t: 700e3, u: null, a: "Bash" }, dir);        // subagent minta izin
   catatKejadian({ sesi: "p1", agen: null, k: "izin", t: 706e3, u: null, a: null, notif: true }, dir);
-  assert.deepEqual(baca("p1~a1.json"), { k: "izin", t: 700e3, u: null, a: "Bash", n: 706e3, s: null, x: null, bt: 706e3 });
+  assert.deepEqual(baca("p1~a1.json"), { k: "izin", t: 700e3, u: null, a: "Bash", n: 706e3, s: null, x: null, bt: 706e3, p: null });
   assert.equal(baca("p1.json").k, "selesai");                                                     // induk tidak disentuh
   // dua jendela terbuka: yang belum punya pemberitahuan didahulukan, lalu yang terbaru; sesi lain tidak pernah dipilih
   catatKejadian({ sesi: "p1", agen: "a2", k: "izin", t: 701e3, u: null, a: "Edit" }, dir);
@@ -102,11 +102,11 @@ test("pemberitahuan tanpa id subagent (Notification 2.1.317) → jendela izin su
   assert.equal(baca("p10~z.json").n, null);
   // tidak ada jendela terbuka (> 10 menit) → izin baru di berkas sesi, seperti sebelumnya
   catatKejadian({ sesi: "p1", agen: null, k: "izin", t: 2000e3, u: null, a: null, notif: true }, dir);
-  assert.deepEqual(baca("p1.json"), { k: "izin", t: 2000e3, u: null, a: null, n: 2000e3, s: 1000, x: null, bt: null });
+  assert.deepEqual(baca("p1.json"), { k: "izin", t: 2000e3, u: null, a: null, n: 2000e3, s: 1000, x: null, bt: null, p: null });
   // pertanyaan (AskUserQuestion) juga memicu pemberitahuan izin 6 dtk kemudian: dicatat pada jendela tanya itu, jenisnya tetap
   catatKejadian({ sesi: "p2", agen: "q", k: "tanya", t: 50e3, u: "toolu_q", a: "AskUserQuestion" }, dir);
   catatKejadian({ sesi: "p2", agen: null, k: "izin", t: 56e3, u: null, a: null, notif: true }, dir);
-  assert.deepEqual(baca("p2~q.json"), { k: "tanya", t: 50e3, u: "toolu_q", a: "AskUserQuestion", n: 56e3, s: null, x: null, bt: 56e3 });   // pengatur waktu yang sama → bukti tunda juga
+  assert.deepEqual(baca("p2~q.json"), { k: "tanya", t: 50e3, u: "toolu_q", a: "AskUserQuestion", n: 56e3, s: null, x: null, bt: 56e3, p: null });   // pengatur waktu yang sama → bukti tunda juga
   assert.equal(fs.existsSync(path.join(dir, "p2.json")), false);
   catatKejadian({ sesi: "p2", agen: null, k: "tanya", t: 60e3, u: "toolu_r", a: "AskUserQuestion" }, dir);   // di induk
   catatKejadian({ sesi: "p2", agen: null, k: "izin", t: 66e3, u: null, a: null, notif: true }, dir);
@@ -120,14 +120,15 @@ test("pemberitahuan tanpa id subagent (Notification 2.1.317) → jendela izin su
   catatKejadian({ sesi: "p4", agen: "c", k: "izin", t: 200e3, u: null, a: "Bash" }, dir);
   catatKejadian({ sesi: "p4", agen: null, k: "izin", t: 320e3, u: null, a: null, notif: true }, dir);
   assert.equal(baca("p4~c.json").n, null);
-  assert.deepEqual(baca("p4.json"), { k: "izin", t: 320e3, u: null, a: null, n: 320e3, s: null, x: null, bt: null });
+  assert.deepEqual(baca("p4.json"), { k: "izin", t: 320e3, u: null, a: null, n: 320e3, s: null, x: null, bt: null, p: null });
   // pemberitahuan > 9 dtk sesudah jendela induk (izin atau pertanyaan yang sudah dijawab) = jendela lain: izin baru tanpa id/nama
   // alat (dijawab oleh langkah sesi/subagent mana pun sesudahnya), s & bt tetap
   catatKejadian({ sesi: "p5", agen: null, k: "selesai", t: 10e3, u: null }, dir);
   catatKejadian({ sesi: "p5", agen: null, k: "izin", t: 20e3, u: null, a: "Bash" }, dir);
   catatKejadian({ sesi: "p5", agen: null, k: "izin", t: 26e3, u: null, a: null, notif: true }, dir);
   catatKejadian({ sesi: "p5", agen: null, k: "izin", t: 200e3, u: null, a: null, notif: true }, dir);
-  assert.deepEqual(baca("p5.json"), { k: "izin", t: 200e3, u: null, a: null, n: 200e3, s: 10e3, x: null, bt: 26e3 });
+  assert.deepEqual(baca("p5.json"), { k: "izin", t: 200e3, u: null, a: null, n: 200e3, s: 10e3, x: null, bt: 26e3,
+    p: { k: "izin", t: 20e3, u: null, a: "Bash", n: 26e3 } });   // jendela Bash induk yang mungkin masih terbuka disimpan, bukan ditimpa
   catatKejadian({ sesi: "p6", agen: null, k: "tanya", t: 30e3, u: "toolu_t", a: "AskUserQuestion" }, dir);
   catatKejadian({ sesi: "p6", agen: null, k: "izin", t: 210e3, u: null, a: null, notif: true }, dir);
   assert.equal(baca("p6.json").k, "izin"); assert.equal(baca("p6.json").u, null);
@@ -144,7 +145,7 @@ test("waktu 'keluar' terakhir (x) diingat walau sesi dilanjutkan sesudahnya", ()
   const dir = path.join(tmp, "keluar"); fs.mkdirSync(dir);
   catatKejadian({ sesi: "q1", agen: null, k: "keluar", t: 5000, u: null }, dir);
   catatKejadian({ sesi: "q1", agen: null, k: "selesai", t: 9000, u: null }, dir);
-  assert.deepEqual(uraiIsi(fs.readFileSync(path.join(dir, "q1.json"), "utf8")), { k: "selesai", t: 9000, u: null, a: null, n: null, s: 9000, x: 5000, bt: null });
+  assert.deepEqual(uraiIsi(fs.readFileSync(path.join(dir, "q1.json"), "utf8")), { k: "selesai", t: 9000, u: null, a: null, n: null, s: 9000, x: 5000, bt: null, p: null });
 });
 
 test("pembersihan: hanya berkas kejadian lama berpola kita; berkas lain di folder tidak disentuh", () => {
