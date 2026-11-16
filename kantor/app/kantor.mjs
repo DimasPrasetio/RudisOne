@@ -682,8 +682,11 @@ function renderRingkasan(s, keadaan) {
   const r = ringkasan(keadaan, s.tugas ?? [], s.selesaiHariIni ?? [], statusTugas);
   const isi = (id, nilai, ket) => { const el = document.getElementById(id); el.querySelector(".nilai").textContent = nilai; el.querySelector(".ket").textContent = ket; return el; };
   const daftar = (xs) => xs.slice(0, 3).map((n) => TIM[n].pendek).join(", ") + (xs.length > 3 ? ` +${xs.length - 3}` : "");
-  isi("angka-menunggu", r.menunggu.length, r.menunggu.length === 1 ? `${TIM[r.menunggu[0]].pendek} menunggu jawaban Anda`
-    : r.menunggu.length ? `${daftar(r.menunggu)} menunggu jawaban Anda` : "Tidak ada yang menunggu Anda").classList.toggle("ada", r.menunggu.length > 0);
+  // izin / jawaban bila semua yang menunggu sama jenisnya, selain itu "menunggu Anda"
+  const jenis = new Set(r.menunggu.map((n) => apaDitunggu(s.agents.find((a) => a.name === n))));
+  const ditunggu = jenis.size === 1 ? `${[...jenis][0]} ` : "";
+  isi("angka-menunggu", r.menunggu.length, r.menunggu.length === 1 ? `${TIM[r.menunggu[0]].pendek} menunggu ${ditunggu}Anda`
+    : r.menunggu.length ? `${daftar(r.menunggu)} menunggu ${ditunggu}Anda` : "Tidak ada yang menunggu Anda").classList.toggle("ada", r.menunggu.length > 0);
   isi("angka-bekerja", r.bekerja.length, r.bekerja.length ? daftar(r.bekerja) : "Tidak ada yang bekerja");
   isi("angka-tugas", r.tugas.semua, r.tugas.semua ? [r.tugas.berjalan && `${r.tugas.berjalan} dikerjakan`, r.tugas.lain && `${r.tugas.lain} lainnya`].filter(Boolean).join(" · ") : "Belum ada tugas");
   const akhir = (s.selesaiHariIni ?? [])[0];
@@ -864,7 +867,12 @@ try { SUARA = localStorage.getItem("kantor-suara") === "1"; } catch { /* penyimp
 let audio = null, menungguSebelum = null;
 const bunyiTerakhir = new Map();
 function konteksAudio() {
-  if (!audio) { const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return null; try { audio = new AC(); } catch { return null; } }
+  if (!audio) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+    try { audio = new AC(); } catch { return null; }
+    audio.addEventListener?.("statechange", aturSuara);   // terbuka/terkunci → teks tombol ikut
+  }
   if (audio.state === "suspended") audio.resume().then(aturSuara, () => {});
   return audio;
 }
@@ -894,7 +902,7 @@ tombolSuara.addEventListener("click", () => {
   aturSuara();
 });
 // pilihan "nyala" yang diingat: ketukan/klik/tombol pertama di halaman membuka kunci bunyi peramban
-for (const jenis of ["pointerdown", "keydown"]) document.addEventListener(jenis, () => { if (SUARA) konteksAudio(); }, { capture: true, passive: true });
+for (const jenis of ["pointerdown", "keydown"]) document.addEventListener(jenis, () => { if (SUARA) { konteksAudio(); aturSuara(); } }, { capture: true, passive: true });
 /** Dipanggil setiap data baru dari server: berbunyi sekali bila ada yang baru menunggu Anda (jejak.mjs › perluBunyi). */
 function beriTahu(keadaan) {
   const kini = new Set(Object.entries(keadaan).filter(([, st]) => st === "menunggu").map(([n]) => n));

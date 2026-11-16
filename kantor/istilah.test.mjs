@@ -228,3 +228,8 @@ test("status 'Baru selesai' ditulis satu cara di semua tempat (label STATUS + wa
   assert.ok(terlarang("Selesai baru saja").length && terlarang("Selesai 4 mnt lalu").length);
   assert.deepEqual(terlarang("Baru selesai · 4 mnt lalu"), []);
 });
+
+test("label sinyal hook 'Menunggu izin Anda' punya kalimat awam sendiri (bukan 'memakai alat kerja')", () => {
+  assert.equal(kerjaAktivitas({ label: "Menunggu izin Anda" }), "menunggu izin Anda");
+  assert.equal(kerjaAktivitas({ label: "Menunggu jawaban Anda" }), "menunggu jawaban Anda");
+});

@@ -278,10 +278,10 @@ Tata letak (laptop ≥ 1180 px; kolom samping 372 px):
 ±1000 px: satu kolom; Tugas & Tim berdampingan di bawah denah. HP (< 760 px): satu kolom; "Menunggu Anda" selebar layar,
 tiga angka lain sebaris (angka di atas, nama di bawah, tanpa kalimat); linimasa label 68 px.
 
-- **Ringkasan atas:** Menunggu Anda (kalimat "BSA T1 menunggu jawaban Anda", tautan ke Perlu perhatian) · Sedang bekerja
+- **Ringkasan atas:** Menunggu Anda (kalimat "BSA T1 menunggu jawaban Anda" / "… menunggu izin Anda"; campuran → "menunggu Anda", tautan ke Perlu perhatian) · Sedang bekerja
   (= Bekerja + Berpikir, singkatan ≤ 3 + "+n") · Tugas berjalan (semua tugas register yang belum selesai; "n dikerjakan · n
-  lainnya") · Selesai hari ini ("Terakhir: <judul>"). Status koneksi = pil di kanan atas kepala.
-- **Perlu perhatian Anda:** pita selebar halaman tepat di bawah ringkasan: "<Jabatan> menunggu jawaban Anda" + "Buka
+  lainnya") · Selesai hari ini ("Terakhir: <judul>"). Status koneksi = pil di kanan atas kepala, tombol Bunyi di sebelahnya.
+- **Perlu perhatian Anda:** pita selebar halaman tepat di bawah ringkasan: "<Jabatan> menunggu izin/jawaban Anda" + "Buka
   percakapan “<judul>” di Claude untuk menjawab."
 - **Kartu tugas:** status kata biasa + "Segera", ID · proyek (folder `ruang/<peran>` bukan proyek), judul, tahap (Fase register →
   `istilah.mjs` › `TAHAP`, 5 segmen; tugas tanpa tahap tidak menampilkannya), pemilik (+ status bila langkah terakhirnya
