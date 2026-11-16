@@ -44,38 +44,61 @@ const agen = (s, nama) => s.agents.find((a) => a.name === nama);
 const keadaan = () => { scan(); return buildState(); };
 
 // ---------- fungsi murni gabungKejadian ----------
-const sesiKosong = () => ({ lastPrompt: 0, lastHasil: 0, asistenTerakhir: { ts: 0, msg: null }, hasilAlat: new Map(), pesanAlat: new Map() });
+// Bentuk kejadian sesuai Claude Code 2.1.317: PermissionRequest TIDAK membawa tool_use_id (hanya nama alat `a`);
+// PreToolUse AskUserQuestion membawa id `u`; Notification tidak membawa keduanya.
+const sesiKosong = () => ({ lastPrompt: 0, lastHasil: 0, asistenTerakhir: { ts: 0, msg: null }, hasilAlat: new Map(), alatInfo: new Map() });
 const ST = { status: "bekerja", label: "Menjalankan perintah", detail: "", icon: "terminal", since: 0 };
+const KINI = 50_000;
+const g = (s, kej, kini = KINI) => gabungKejadian(ST, s, kej, kini).st;
 
-test("izin: menunggu sampai hasil alat itu tercatat; hasil alat lain (paralel) dan baris model dari pesan yang sama tidak menjawab", () => {
-  const s = sesiKosong(); s.pesanAlat.set("u1", "m1");
-  const kej = { k: "izin", t: 1000, u: "u1", s: null };
-  assert.equal(gabungKejadian(ST, s, kej).st.status, "menunggu");
-  assert.equal(gabungKejadian(ST, s, kej).st.label, "Menunggu izin Anda");
-  s.hasilAlat.set("u2", 1500); s.lastHasil = 1500;                          // alat lain yang berjalan bersamaan selesai
-  assert.equal(gabungKejadian(ST, s, kej).st.status, "menunggu");
+test("izin (nama alat saja): menunggu sampai alat bernama itu selesai; blok lanjutan pesan yang sama & alat paralel lain tidak menjawab", () => {
+  const s = sesiKosong();
+  s.alatInfo.set("b-lama", { nama: "Bash", ts: 100, msg: "m0" }); s.hasilAlat.set("b-lama", 200);   // Bash sebelumnya, sudah selesai
+  s.alatInfo.set("b1", { nama: "Bash", ts: 990, msg: "m1" });
+  const kej = { k: "izin", t: 1000, u: null, a: "Bash", n: null, bt: null };
+  assert.equal(g(s, kej).status, "menunggu");
+  assert.equal(g(s, kej).label, "Menunggu izin Anda");
+  s.alatInfo.set("w1", { nama: "WebSearch", ts: 991, msg: "m1" }); s.hasilAlat.set("w1", 1500); s.lastHasil = 1500;   // paralel, beda alat
+  assert.equal(g(s, kej).status, "menunggu");
   s.asistenTerakhir = { ts: 1200, msg: "m1" };                              // blok berikut dari pesan model yang sama
-  assert.equal(gabungKejadian(ST, s, kej).st.status, "menunggu");
-  s.hasilAlat.set("u1", 2000);                                              // dijawab (diizinkan & selesai, atau ditolak)
-  assert.deepEqual(gabungKejadian(ST, s, kej), { st: ST, selesai: null });
+  assert.equal(g(s, kej).status, "menunggu");
+  s.hasilAlat.set("b1", 2000);                                              // dijawab (diizinkan & selesai, atau ditolak)
+  assert.deepEqual(gabungKejadian(ST, s, kej, KINI), { st: ST, selesai: null });
 });
-test("izin: langkah model dari pesan baru atau pesan masuk baru = sudah dijawab; Notification tanpa id alat → hasil alat apa pun", () => {
-  const s = sesiKosong(); s.pesanAlat.set("u1", "m1");
-  assert.equal(gabungKejadian(ST, { ...s, asistenTerakhir: { ts: 1100, msg: "m2" } }, { k: "izin", t: 1000, u: "u1" }).st, ST);
-  assert.equal(gabungKejadian(ST, { ...s, lastPrompt: 1100 }, { k: "tanya", t: 1000, u: "u1" }).st, ST);
-  assert.equal(gabungKejadian(ST, { ...s, lastPrompt: 900 }, { k: "tanya", t: 1000, u: "u1" }).st.label, "Menunggu jawaban Anda");
-  assert.equal(gabungKejadian(ST, { ...s, lastHasil: 900 }, { k: "izin", t: 1000, u: null }).st.status, "menunggu");
-  assert.equal(gabungKejadian(ST, { ...s, lastHasil: 1100 }, { k: "izin", t: 1000, u: null }).st, ST);
+test("izin: alat belum terbaca dari transkrip (dijalankan sebelum pesannya tertulis) tetap menunggu; baris pesannya menyusul", () => {
+  const s = sesiKosong();
+  const kej = { k: "izin", t: 1000, u: null, a: "Bash", n: null, bt: null };
+  assert.equal(g(s, kej).status, "menunggu");
+  s.alatInfo.set("b1", { nama: "Bash", ts: 1050, msg: "m1" }); s.asistenTerakhir = { ts: 1050, msg: "m1" };
+  assert.equal(g(s, kej).status, "menunggu");
+  s.asistenTerakhir = { ts: 1300, msg: "m2" };                              // model melangkah dari pesan baru → sudah dijawab
+  assert.equal(g(s, kej), ST);
+});
+test("izin tanpa pemberitahuan ±6 dtk di sesi yang terbukti mengirim pemberitahuan = jendelanya sudah ditutup (izin diberikan)", () => {
+  const s = sesiKosong(); s.alatInfo.set("b1", { nama: "Bash", ts: 990, msg: "m1" });   // perintah panjang masih berjalan
+  const kej = { k: "izin", t: 1000, u: null, a: "Bash", n: null, bt: 500 };
+  assert.equal(g(s, kej, 1000 + 8000).status, "menunggu");                  // belum lewat 6 dtk + kelonggaran
+  assert.equal(g(s, kej, 1000 + 9000), ST);                                 // tak ada pemberitahuan → sudah dijawab
+  assert.equal(g(s, { ...kej, n: 7000, bt: 7000 }, 1000 + 60e3).status, "menunggu");   // pemberitahuan datang → masih terbuka
+  assert.equal(g(s, { ...kej, bt: null }, 1000 + 60e3).status, "menunggu");  // belum terbukti → tidak disimpulkan
+  assert.equal(g(s, { ...kej, bt: null }, 1000 + 5 * 3600e3), ST);           // batas umur (proses mati tanpa SessionEnd)
+});
+test("tanya (id alat) & Notification saja; pesan masuk baru menjawab semuanya", () => {
+  const s = sesiKosong(); s.alatInfo.set("q1", { nama: "AskUserQuestion", ts: 990, msg: "m1" });
+  assert.equal(g(s, { k: "tanya", t: 1000, u: "q1" }).label, "Menunggu jawaban Anda");
+  assert.equal(g({ ...s, lastPrompt: 1100 }, { k: "tanya", t: 1000, u: "q1" }), ST);
+  assert.equal(g({ ...s, lastHasil: 900 }, { k: "izin", t: 1000 }).status, "menunggu");
+  assert.equal(g({ ...s, lastHasil: 1100 }, { k: "izin", t: 1000 }), ST);
 });
 test("selesai/keluar: santai dengan waktu selesai = waktu kejadian; giliran baru sesudahnya mengalahkan", () => {
   const s = sesiKosong(); s.asistenTerakhir = { ts: 900, msg: "m1" };
   for (const k of ["selesai", "keluar"]) {
-    const g = gabungKejadian(ST, s, { k, t: 1000 });
-    assert.equal(g.st.status, "santai"); assert.equal(g.selesai, 1000);
+    const h = gabungKejadian(ST, s, { k, t: 1000 }, KINI);
+    assert.equal(h.st.status, "santai"); assert.equal(h.selesai, 1000);
   }
-  assert.deepEqual(gabungKejadian(ST, { ...s, lastPrompt: 1200 }, { k: "selesai", t: 1000 }), { st: ST, selesai: null });
-  assert.deepEqual(gabungKejadian(ST, { ...s, asistenTerakhir: { ts: 1200, msg: "m2" } }, { k: "selesai", t: 1000 }), { st: ST, selesai: null });
-  assert.deepEqual(gabungKejadian(ST, s, null), { st: ST, selesai: null });
+  assert.deepEqual(gabungKejadian(ST, { ...s, lastPrompt: 1200 }, { k: "selesai", t: 1000 }, KINI), { st: ST, selesai: null });
+  assert.deepEqual(gabungKejadian(ST, { ...s, asistenTerakhir: { ts: 1200, msg: "m2" } }, { k: "selesai", t: 1000 }, KINI), { st: ST, selesai: null });
+  assert.deepEqual(gabungKejadian(ST, s, null, KINI), { st: ST, selesai: null });
 });
 
 // ---------- dari berkas kejadian sampai /state ----------
@@ -83,7 +106,7 @@ test("sesi meminta izin → 'Menunggu Anda' dengan waktu kejadian; tanda hilang 
   tulisTranskrip("s-sa", [...kepala("System Administrator", "system-administrator"), prompt(60e3, "cek server"),
     pakai(20e3, "t-ssh", "Bash", "m-ssh", { command: "ssh vps 'uptime'", description: "Cek uptime" })]);
   const t = now - 19e3;
-  kejadian("s-sa.json", { k: "izin", t, u: "t-ssh" });
+  kejadian("s-sa.json", { k: "izin", t, a: "Bash" });
   let a = agen(keadaan(), "System Administrator");
   assert.equal(a.status, "menunggu"); assert.equal(a.label, "Menunggu izin Anda"); assert.equal(a.since, t);
   tambahBaris("s-sa", [hasil(1e3, "t-ssh")]);
@@ -136,7 +159,7 @@ test("subagent peran: izin di subagent → kursinya 'Menunggu Anda' + percakapan
   tulisTranskrip("agent-a1", [{ ...prompt(90e3, "Kamu adalah Program Manager di RudisOne …"), isSidechain: true },
     { ...pakai(60e3, "t-pm", "Bash", "m-pm", { command: "gh issue list" }), isSidechain: true }], dir);
   fs.writeFileSync(path.join(dir, "agent-a1.meta.json"), JSON.stringify({ agentType: "rudis-program-manager", description: "Status proyek" }));
-  kejadian("s-coo~a1.json", { k: "izin", t: now - 55e3, u: "t-pm" });
+  kejadian("s-coo~a1.json", { k: "izin", t: now - 55e3, a: "Bash" });
   let s = keadaan(), pm = agen(s, "Program Manager");
   assert.equal(pm.status, "menunggu");
   assert.equal(pm.sessions[0].bukaDi, "COO");
@@ -151,10 +174,31 @@ test("asisten biasa (bukan peran) menunggu izin → sesi pemanggilnya ikut 'Menu
   const dir = path.join(proj, "s-coo", "subagents");
   tulisTranskrip("agent-b2", [{ ...prompt(30e3, "cari berkas"), isSidechain: true }, { ...pakai(20e3, "t-gp", "Bash", "m-gp"), isSidechain: true }], dir);
   fs.writeFileSync(path.join(dir, "agent-b2.meta.json"), JSON.stringify({ agentType: "general-purpose", description: "Cari berkas" }));
-  kejadian("s-coo~b2.json", { k: "izin", t: now - 15e3, u: "t-gp" });
+  kejadian("s-coo~b2.json", { k: "izin", t: now - 15e3, a: "Bash" });
   const coo = agen(keadaan(), "COO");
   assert.equal(coo.status, "menunggu"); assert.equal(coo.label, "Menunggu izin Anda");
   assert.equal(coo.sessions.length, 1);
+});
+test("izin yang diberikan cepat untuk perintah panjang: tanda hilang tanpa menunggu perintahnya selesai (sesi yang terbukti mengirim pemberitahuan)", () => {
+  tulisTranskrip("s-hito", [...kepala("Head of IT Operations", "head-of-it-operations"), prompt(60e3, "cek log"),
+    pakai(20e3, "t-log", "Bash", "m-log", { command: "ssh vps journalctl", description: "Baca log" })]);
+  kejadian("s-hito.json", { k: "izin", t: now - 19e3, a: "Bash", bt: now - 600e3 });   // tanpa pemberitahuan untuk jendela ini
+  const a = agen(keadaan(), "Head of IT Operations");
+  assert.equal(a.status, "bekerja");
+  kejadian("s-hito.json", { k: "izin", t: now - 19e3, a: "Bash", n: now - 13e3, bt: now - 13e3 });   // masih terbuka 6 dtk kemudian
+  assert.equal(agen(keadaan(), "Head of IT Operations").status, "menunggu");
+});
+test("izin subagent tidak lagi menunggu setelah sesi induknya keluar", () => {
+  tulisTranskrip("s-tl", [...kepala("Tech Lead · kasir", "tech-lead"), { type: "system", cwd: "/x/kasir/.claude/worktrees/r1-lead-kasir" },
+    prompt(120e3, "Kamu adalah Tech Lead di RudisOne"), pakai(100e3, "t-ag2", "Agent", "m-ag2", { description: "Analisis" })]);
+  const dir = path.join(proj, "s-tl", "subagents"); fs.mkdirSync(dir, { recursive: true });
+  tulisTranskrip("agent-c3", [{ ...prompt(90e3, "Kamu adalah Business Systems Analyst di RudisOne …"), isSidechain: true },
+    { ...pakai(60e3, "t-bsa", "Bash", "m-bsa"), isSidechain: true }], dir);
+  fs.writeFileSync(path.join(dir, "agent-c3.meta.json"), JSON.stringify({ agentType: "rudis-business-systems-analyst", description: "Analisis" }));
+  kejadian("s-tl~c3.json", { k: "izin", t: now - 55e3, a: "Bash" });
+  assert.equal(agen(keadaan(), "Business Systems Analyst · Tim 1").status, "menunggu");
+  kejadian("s-tl.json", { k: "keluar", t: now - 30e3 });
+  assert.notEqual(agen(keadaan(), "Business Systems Analyst · Tim 1").status, "menunggu");
 });
 test("berkas kejadian aneh diabaikan: nama di luar pola, terlalu besar, bukan berkas biasa, isi rusak", () => {
   tulisTranskrip("s-hr", [...kepala("HR Business Partner", "hr-business-partner"), prompt(60e3, "kebijakan cuti"), teksModel(50e3)]);
@@ -217,21 +261,21 @@ test("ujung ke ujung: hook izin → halaman 'Menunggu Anda' ≤ 2 dtk; dijawab �
   let mulai = 0;
   const menunggu = tunggu(port, (s) => tw(s)?.status === "menunggu", () => mulai);
   mulai = Date.now();
-  assert.equal(await jalankanHook({ hook_event_name: "PermissionRequest", session_id: "s-tw", tool_name: "Write", tool_use_id: "t-tw",
-    tool_input: { file_path: "/x/sop.md", content: "RAHASIA-ISI" } }), 0);
+  assert.equal(await jalankanHook({ hook_event_name: "PermissionRequest", session_id: "s-tw", tool_name: "Write",
+    tool_input: { file_path: "/x/sop.md", content: "RAHASIA-ISI" }, permission_suggestions: [] }), 0);
   const msMenunggu = await menunggu;
   t.diagnostic(`izin → "Menunggu Anda" di halaman: ${msMenunggu} ms`);
   assert.ok(msMenunggu <= 2000, `${msMenunggu} ms`);
 
   const hilang = tunggu(port, (s) => tw(s)?.status !== "menunggu", () => mulai);
   mulai = Date.now();
-  tambahBaris("s-tw", [hasil(0, "t-tw")]);   // pengguna menjawab, alatnya selesai
+  tambahBaris("s-tw", [{ ...hasil(0, "t-tw"), timestamp: new Date().toISOString() }]);   // pengguna menjawab, alatnya selesai
   const msHilang = await hilang;
   t.diagnostic(`dijawab → tanda hilang: ${msHilang} ms`);
   assert.ok(msHilang <= 2000, `${msHilang} ms`);
 
   const selesai = tunggu(port, (s) => tw(s)?.status === "santai" && tw(s)?.selesai, () => mulai);
-  tambahBaris("s-tw", [teksModel(0, "m-tw2")]);
+  tambahBaris("s-tw", [{ ...teksModel(0, "m-tw2"), timestamp: new Date().toISOString() }]);
   mulai = Date.now();
   assert.equal(await jalankanHook({ hook_event_name: "Stop", session_id: "s-tw", stop_hook_active: false, last_assistant_message: "RAHASIA-ISI" }), 0);
   const msSelesai = await selesai;
@@ -241,4 +285,22 @@ test("ujung ke ujung: hook izin → halaman 'Menunggu Anda' ≤ 2 dtk; dijawab �
   assert.ok(!fs.readFileSync(path.join(KEJ, "s-tw.json"), "utf8").includes("RAHASIA"));
   const state = await new Promise((ok) => http.get({ host: "127.0.0.1", port, path: "/state" }, (r) => { let b = ""; r.on("data", (c) => (b += c)); r.on("end", () => ok(b)); }));
   assert.ok(!state.includes("RAHASIA"));
+});
+
+test("ujung ke ujung: izin diberikan cepat (tanpa pemberitahuan 6 dtk) untuk perintah panjang → tanda hilang ±8,5 dtk setelah jendela muncul", async (t) => {
+  tulisTranskrip("s-pgm", [...kepala("Program Manager", "program-manager"), prompt(20e3, "status"),
+    { ...pakai(0, "t-pgm", "Bash", "m-pgm", { command: "npm test" }), timestamp: new Date().toISOString() }]);
+  // sesi ini pernah mengirim pemberitahuan izin (bukti), lalu PermissionRequest baru tanpa pemberitahuan menyusul
+  kejadian("s-pgm.json", { k: "selesai", t: Date.now() - 60e3, s: Date.now() - 60e3, bt: Date.now() - 120e3 });
+  const { port, p } = await nyalakanServer();
+  t.after(() => p.kill());
+  const pm = (s) => s.agents.find((a) => a.name === "Program Manager");
+  let mulai = 0;
+  const menunggu = tunggu(port, (s) => pm(s)?.status === "menunggu", () => mulai);
+  mulai = Date.now();
+  assert.equal(await jalankanHook({ hook_event_name: "PermissionRequest", session_id: "s-pgm", tool_name: "Bash", tool_input: { command: "npm test" } }), 0);
+  t.diagnostic(`izin → "Menunggu Anda": ${await menunggu} ms`);
+  const hilang = await tunggu(port, (s) => pm(s)?.present && pm(s)?.status !== "menunggu", () => mulai, 15000);
+  t.diagnostic(`izin diberikan < 6 dtk, perintah masih berjalan → tanda hilang ${hilang} ms setelah jendela muncul`);
+  assert.ok(hilang >= 6000 && hilang <= 11000, `${hilang} ms`);
 });

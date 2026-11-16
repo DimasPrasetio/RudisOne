@@ -352,9 +352,9 @@ const files = new Map();
 function newFileState() {
   return { offset: 0, partial: "", agentSetting: null, title: null, firstPrompt: null, cwd: null, rudisone: false,
     lastTs: 0, lastKind: null, pending: new Map(), events: [], sidechain: 0,
-    // penanda untuk mencocokkan kejadian hook (gabungKejadian): hasil alat per id, pesan model pemilik tiap alat,
+    // penanda untuk mencocokkan kejadian hook (gabungKejadian): hasil alat per id, nama/waktu/pesan model tiap alat,
     // langkah model terakhir, pesan masuk terakhir (bukan hasil alat), hasil alat terakhir
-    hasilAlat: new Map(), pesanAlat: new Map(), asistenTerakhir: { ts: 0, msg: null }, lastPrompt: 0, lastHasil: 0 };
+    hasilAlat: new Map(), alatInfo: new Map(), asistenTerakhir: { ts: 0, msg: null }, lastPrompt: 0, lastHasil: 0 };
 }
 /** Peta id → nilai dibatasi (sesi panjang tidak menumpuk memori): yang tertua dibuang. */
 const BATAS_PETA = 400;
@@ -426,7 +426,7 @@ function ingestLine(s, line) {
         if (b?.type !== "tool_use") continue;
         tool = true;
         s.pending.set(b.id, { name: b.name, input: b.input ?? {}, ts });
-        simpanBatas(s.pesanAlat, b.id, msg);
+        simpanBatas(s.alatInfo, b.id, { nama: b.name, ts, msg });
         if (b.name === "Skill" && b.input?.skill === "rudisone") s.rudisone = s.coo = true;
         s.events.push({ ts, kind: "alat", name: b.name, input: b.input ?? {}, tugas: s.tugasKini ?? null });
       }
@@ -666,23 +666,42 @@ function sessionStatus(s, now, sinyalSelesai = false) {
   return { status: "santai", label: "Santai", detail: "", icon: "santai", since: s.lastTs };
 }
 
+/** Izin/pertanyaan yang lebih tua dari ini tidak lagi ditampilkan menunggu (proses Claude mati tanpa SessionEnd). */
+export const BATAS_TUNGGU_MS = 4 * 3600e3;
+/** Notification izin datang 6 dtk setelah jendela izin muncul bila belum dijawab (Claude Code 2.1.317) + kelonggaran. */
+export const JEDA_PEMBERITAHUAN_MS = 6000 + 2500;
+/** Alat yang dijalankan sebelum pesan modelnya tertulis bisa bercap waktu sedikit sesudah kejadian izinnya. */
+const SELISIH_ALAT_MS = 10e3;
 /**
- * Status transkrip `st` + kejadian hook terakhir `kej` ({ k, t, u, s }) untuk sesi/subagent `s` → { st, selesai }.
- * - `izin`/`tanya`: "Menunggu Anda" sampai dijawab — hasil alat `u` tercatat, pesan masuk baru, atau langkah model dari pesan
- *   lain (model hanya melangkah lagi setelah semua alatnya selesai). Tanpa `u` (Notification): hasil alat apa pun sesudahnya.
+ * Status transkrip `st` + kejadian hook terakhir `kej` ({ k, t, u, a, n, s, bt }) untuk sesi/subagent `s` → { st, selesai }.
+ * - `izin`/`tanya`: "Menunggu Anda" sampai dijawab. Alat yang ditunggu = id `u` (PreToolUse) atau, bila hanya nama `a`
+ *   (PermissionRequest tidak membawa id), alat bernama itu di transkrip sekitar waktu kejadian. Dijawab bila: semua alat itu
+ *   sudah punya hasil · ada pesan masuk baru · model melangkah dari pesan LAIN (model melangkah lagi hanya setelah semua
+ *   alatnya selesai; blok lanjutan dari pesan yang sama tidak menjawab apa pun) · izin tanpa pemberitahuan ±6 dtk di sesi
+ *   yang terbukti mengirim pemberitahuan tertunda (`bt`): jendelanya sudah ditutup dalam 6 dtk (Claude Code tidak memberi kabar saat
+ *   izin diberikan) · lebih tua dari BATAS_TUNGGU_MS. Tanpa id & nama (Notification saja): hasil alat apa pun sesudahnya.
  * - `selesai`/`keluar`: giliran berakhir pada `kej.t` (selesai = waktu itu), kecuali ada pesan masuk / langkah model sesudahnya.
- * Langkah model dari pesan yang sama dengan alat yang ditunggu tidak menjawab apa pun (alat bisa dijalankan sebelum seluruh
- * pesannya tertulis di transkrip).
  */
-export function gabungKejadian(st, s, kej) {
+export function gabungKejadian(st, s, kej, now = Date.now()) {
   if (!kej) return { st, selesai: null };
   const promptBaru = s.lastPrompt > kej.t;
   const asisten = s.asistenTerakhir ?? { ts: 0, msg: null };
   if (kej.k === "izin" || kej.k === "tanya") {
-    const pesanAlat = kej.u ? s.pesanAlat?.get(kej.u) : undefined;
-    const langkahBaru = asisten.ts > kej.t && (!kej.u || !pesanAlat || asisten.msg !== pesanAlat);
-    const dijawab = promptBaru || langkahBaru || (kej.u ? s.hasilAlat?.has(kej.u) : s.lastHasil > kej.t);
-    if (dijawab) return { st, selesai: null };
+    const info = s.alatInfo ?? new Map();
+    const alat = kej.u ? [kej.u]
+      // alat bernama itu yang belum selesai saat kejadian (yang hasilnya sudah ada SEBELUM jendela izin bukan yang ditanyakan)
+      : kej.a ? [...info].filter(([id, x]) => x.nama === kej.a && x.ts <= kej.t + SELISIH_ALAT_MS && x.ts >= kej.t - TOOL_STALE_MS
+          && !(s.hasilAlat?.get(id) <= kej.t)).map(([id]) => id)
+      : null;
+    let dijawab;
+    if (alat?.length) {
+      const pesan = new Set(alat.map((id) => info.get(id)?.msg).filter(Boolean));
+      dijawab = alat.every((id) => s.hasilAlat?.has(id)) || (asisten.ts > kej.t && !(pesan.size && pesan.has(asisten.msg)));
+    } else if (alat) dijawab = asisten.ts > kej.t + SELISIH_ALAT_MS;   // alatnya belum terbaca dari transkrip
+    else dijawab = s.lastHasil > kej.t || asisten.ts > kej.t;
+    const cepat = kej.k === "izin" && !(kej.n >= kej.t) && Number.isFinite(kej.bt) && kej.bt < kej.t
+      && now - kej.t > JEDA_PEMBERITAHUAN_MS;
+    if (promptBaru || dijawab || cepat || now - kej.t > BATAS_TUNGGU_MS) return { st, selesai: null };
     return { st: { status: "menunggu", label: kej.k === "izin" ? "Menunggu izin Anda" : "Menunggu jawaban Anda", detail: "", icon: "tunggu",
       since: kej.t, waiting: true }, selesai: null };
   }
@@ -807,7 +826,7 @@ export function buildState(now = Date.now()) {
   for (const { s, d, title, agent } of dikenal) {
     const kej = kejadian.get(s.cli) ?? null;
     if (d?.archived || now - Math.max(s.lastTs, kej?.t ?? 0) > IN_OFFICE_MS) continue; // diarsipkan / sudah lama
-    const g = gabungKejadian(sessionStatus(s, now, !!kej?.s), s, kej);
+    const g = gabungKejadian(sessionStatus(s, now, !!kej?.s), s, kej, now);
     let st = g.st;
     if (g.selesai) selesaiKerja(s, agent, g.selesai);                  // pasti: kejadian "selesai" dari hook
     else if (st.status === "santai") selesaiKerja(s, agent, s.lastTs); // cadangan: tebakan dari transkrip
@@ -828,7 +847,10 @@ export function buildState(now = Date.now()) {
     const induk = cliKeKursi.get(s.asisten.induk);
     if (!induk) continue;
     // kejadian hook subagent: SubagentStop → selesai pasti; izin/tanya di subagent → menunggu (dijawab di jendela induknya)
-    const g = gabungKejadian(sessionStatus(s, now), s, kejadian.get(`${s.asisten.induk}~${s.asisten.id}`) ?? null);
+    // izin/tanya subagent tidak lagi menunggu bila sesi induknya sudah keluar sesudahnya (SessionEnd hanya ditulis untuk induk)
+    const kejInduk = kejadian.get(s.asisten.induk), kejSub = kejadian.get(`${s.asisten.induk}~${s.asisten.id}`) ?? null;
+    const indukKeluar = kejInduk?.k === "keluar" && kejSub && ["izin", "tanya"].includes(kejSub.k) && kejInduk.t > kejSub.t;
+    const g = gabungKejadian(sessionStatus(s, now), s, indukKeluar ? null : kejSub, now);
     const selesai = !!s.asisten.meta.finished || !!g.selesai;
     const tsSelesai = g.selesai ?? s.lastTs;
     const menunggu = g.st.status === "menunggu";

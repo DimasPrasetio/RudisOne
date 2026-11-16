@@ -16,7 +16,8 @@ Brief desain & sumber risetnya: `kantor/DESAIN.md`.
 - Dari sesi COO: minta "buka kantor" — tampil di panel browser Claude Desktop (`.claude/launch.json`).
 - **Menunggu Anda & Selesai seketika:** pemasang (`install.sh`) memasang hook sinyal Kantor (`bin/kantor-kejadian.sh`) —
   Claude memberi tahu langsung saat meminta izin, bertanya, atau selesai; Kantor menampilkannya ≤ 2 detik (tanda menunggu hilang
-  begitu langkah yang ditunggu berjalan selesai, dijawab, atau ditolak). Hook berjalan di latar (Claude tidak menunggunya), hanya
+  begitu langkah yang ditunggu selesai berjalan, dijawab, atau ditolak; izin yang diberikan dalam 6 detik hilang ±8 detik setelah
+  muncul walau perintahnya masih berjalan — Claude tidak memberi kabar saat izin diberikan). Hook berjalan di latar (Claude tidak menunggunya), hanya
   mencatat jenis kejadian, waktu, dan id sesi ke `handoff/.kantor/`, dan diam bila gagal. Belum dipasang / Kantor mati → Kantor
   memperkirakan status dari transkrip seperti sebelumnya; `bin/cek-konsistensi.sh` mengingatkan untuk menjalankan pemasang.
   Periksa: `bin/kantor-kejadian.sh status` (kejadian terakhir) dan http://127.0.0.1:7421/health (baris "sinyal langsung").

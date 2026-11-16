@@ -41,26 +41,43 @@ test("kejadian Claude Code → jenis ringkas; kejadian lain dan jenis pemberitah
   assert.equal(kejadianDari(null), null);
   assert.equal(kejadianDari({ ...masukan("Stop"), session_id: "../luar" }), null);    // id yang bukan nama berkas aman
   assert.equal(kejadianDari({ ...masukan("Stop"), session_id: 42 }), null);
-  const e = kejadianDari(masukan("SubagentStop", { agent_id: "../x", tool_use_id: "a b" }), 7);
-  assert.deepEqual(e, { sesi: "sesi-1", agen: null, k: "selesai", t: 7, u: null });
+  const e = kejadianDari(masukan("SubagentStop", { agent_id: "../x", tool_use_id: "a b", tool_name: "a/b" }), 7);
+  assert.deepEqual(e, { sesi: "sesi-1", agen: null, k: "selesai", t: 7, u: null, a: null, notif: false });
+  assert.equal(kejadianDari(masukan("Notification", { notification_type: "permission_prompt", tool_name: "Bash" })).a, null);
+  assert.equal(kejadianDari(masukan("PermissionRequest", { tool_name: "mcp__srv__alat" })).a, "mcp__srv__alat");
 });
 
 test("hook menulis hanya metadata (jenis, waktu, id) — tanpa isi pesan, perintah, path, atau keluaran — dan tidak mencetak apa pun", () => {
-  const r = jalan(["hook"], JSON.stringify(masukan("PermissionRequest", { agent_id: "agen9", tool_name: "Write", tool_use_id: "toolu_9",
+  const r = jalan(["hook"], JSON.stringify(masukan("PermissionRequest", { agent_id: "agen9", tool_name: "Write",
     tool_input: { file_path: `/x/${RAHASIA}.md`, content: RAHASIA }, permission_suggestions: [{ rules: [RAHASIA] }] })));
   assert.equal(r.status, 0); assert.equal(r.stdout, ""); assert.equal(r.stderr, "");
   const f = path.join(KEJ, "sesi-1~agen9.json");
   const teks = fs.readFileSync(f, "utf8");
   assert.ok(!teks.includes(RAHASIA));
-  assert.deepEqual(Object.keys(JSON.parse(teks)).sort(), ["k", "t", "u"]);
-  assert.equal(JSON.parse(teks).u, "toolu_9");
+  // bentuk Claude Code 2.1.317: PermissionRequest tanpa tool_use_id → nama alat (metadata) untuk mencocokkan di transkrip
+  assert.deepEqual(Object.keys(JSON.parse(teks)).sort(), ["a", "k", "t"]);
+  assert.equal(JSON.parse(teks).a, "Write");
   assert.deepEqual(fs.readdirSync(KEJ).filter((n) => n.endsWith(".tmp")), []);   // tanpa sisa berkas sementara
 });
 
 test("berkas kejadian: atomik, mengingat waktu 'selesai' terakhir, nama & isi tervalidasi", () => {
   catatKejadian({ sesi: "s2", agen: null, k: "selesai", t: 100, u: null }, KEJ);
   catatKejadian({ sesi: "s2", agen: null, k: "izin", t: 200, u: "toolu_x" }, KEJ);
-  assert.deepEqual(uraiIsi(fs.readFileSync(path.join(KEJ, "s2.json"), "utf8")), { k: "izin", t: 200, u: "toolu_x", s: 100 });
+  assert.deepEqual(uraiIsi(fs.readFileSync(path.join(KEJ, "s2.json"), "utf8")), { k: "izin", t: 200, u: "toolu_x", a: null, n: null, s: 100, bt: null });
+  // pemberitahuan izin ±6 dtk kemudian = jendela yang sama: waktu & alat tetap, ditandai masih terbuka (n), sesi terbukti mengirim pemberitahuan tertunda (bt)
+  catatKejadian({ sesi: "s3", agen: null, k: "izin", t: 1000, u: null, a: "Bash" }, KEJ);
+  catatKejadian({ sesi: "s3", agen: null, k: "izin", t: 7000, u: null, a: null, notif: true }, KEJ);
+  assert.deepEqual(uraiIsi(fs.readFileSync(path.join(KEJ, "s3.json"), "utf8")), { k: "izin", t: 1000, u: null, a: "Bash", n: 7000, s: null, bt: 7000 });
+  // izin berikutnya: jendela baru (n hilang), bukti sesi (bt) tetap
+  catatKejadian({ sesi: "s3", agen: null, k: "izin", t: 20000, u: null, a: "Edit" }, KEJ);
+  assert.deepEqual(uraiIsi(fs.readFileSync(path.join(KEJ, "s3.json"), "utf8")), { k: "izin", t: 20000, u: null, a: "Edit", n: null, s: null, bt: 7000 });
+  // pemberitahuan tanpa izin sebelumnya (mis. PermissionRequest tidak terkirim) tetap tercatat sebagai izin, bukan bukti tunda
+  catatKejadian({ sesi: "s4", agen: null, k: "izin", t: 5000, u: null, a: null, notif: true }, KEJ);
+  assert.deepEqual(uraiIsi(fs.readFileSync(path.join(KEJ, "s4.json"), "utf8")), { k: "izin", t: 5000, u: null, a: null, n: 5000, s: null, bt: null });
+  // pemberitahuan seketika (< 5 dtk setelah jendelanya) tidak pernah menjadi bukti tunda
+  catatKejadian({ sesi: "s5", agen: null, k: "izin", t: 1000, u: null, a: "Bash" }, KEJ);
+  catatKejadian({ sesi: "s5", agen: null, k: "izin", t: 1200, u: null, a: null, notif: true }, KEJ);
+  assert.equal(uraiIsi(fs.readFileSync(path.join(KEJ, "s5.json"), "utf8")).bt, null);
   assert.deepEqual(uraiNama("s2~a-1.json"), { sesi: "s2", agen: "a-1" });
   for (const n of ["../s2.json", "s2.json.123.tmp", "s 2.json", "s2~.json", ".json"]) assert.equal(uraiNama(n), null, n);
   for (const t of ["{", "null", '{"k":"lain","t":1}', '{"k":"izin","t":"x"}']) assert.equal(uraiIsi(t), null, t);

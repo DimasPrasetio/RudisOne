@@ -42,14 +42,18 @@ export const KEJADIAN_HOOK = {
   SessionEnd: { async: false },
 };
 
+/** Nama alat yang aman disimpan (mis. "Bash", "mcp__srv__alat") — metadata, bukan masukan alat. */
+const NAMA_ALAT = /^[A-Za-z0-9_.:-]{1,128}$/;
 /**
  * Masukan hook Claude Code → kejadian ringkas, atau null bila tidak relevan. Hanya metadata: jenis (`izin` · `tanya` ·
- * `selesai` · `keluar`), waktu, id sesi, id subagent, id pemanggilan alat. Isi pesan, perintah, path, dan keluaran tidak
- * pernah diambil.
+ * `selesai` · `keluar`), waktu, id sesi, id subagent, id pemanggilan alat (PreToolUse), nama alat (PermissionRequest
+ * Claude Code 2.1.317 tidak membawa id pemanggilan — Kantor mencocokkannya lewat nama alat), dan apakah ia pemberitahuan
+ * (`notif`: Notification datang ±6 dtk setelah jendela izin muncul, hanya bila belum dijawab). Isi pesan, perintah, path,
+ * dan keluaran tidak pernah diambil.
  */
 export function kejadianDari(input, t = Date.now()) {
   if (!input || typeof input !== "object") return null;
-  const sesi = input.session_id, agen = input.agent_id, alat = input.tool_use_id;
+  const sesi = input.session_id, agen = input.agent_id, alat = input.tool_use_id, namaAlat = input.tool_name;
   if (typeof sesi !== "string" || !ID_AMAN.test(sesi)) return null;
   let k = null;
   switch (input.hook_event_name) {
@@ -62,7 +66,9 @@ export function kejadianDari(input, t = Date.now()) {
   }
   if (!k) return null;
   return { sesi, agen: typeof agen === "string" && ID_AMAN.test(agen) ? agen : null, k, t,
-    u: typeof alat === "string" && ID_AMAN.test(alat) ? alat : null };
+    u: typeof alat === "string" && ID_AMAN.test(alat) ? alat : null,
+    a: input.hook_event_name !== "Notification" && typeof namaAlat === "string" && NAMA_ALAT.test(namaAlat) ? namaAlat : null,
+    notif: input.hook_event_name === "Notification" };
 }
 
 /** Nama berkas satu sesi (`<sesi>.json`) atau satu subagent di sesi itu (`<sesi>~<subagent>.json`). */
@@ -73,22 +79,36 @@ export function uraiNama(nama) {
   return m ? { sesi: m[1], agen: m[2] ?? null } : null;
 }
 
-/** Isi berkas kejadian → { k, t, u, s } tervalidasi (s = waktu "selesai" terakhir), atau null. */
+const angka = (x) => (Number.isFinite(x) ? x : null);
+/** Isi berkas kejadian → { k, t, u, a, n, s, bt } tervalidasi, atau null. u = id pemanggilan alat · a = nama alat ·
+ *  n = waktu pemberitahuan izin untuk jendela ini · s = waktu "selesai" terakhir · bt = waktu terakhir sesi ini terbukti
+ *  mengirim pemberitahuan izin yang TERTUNDA (≥ 5 dtk setelah jendelanya muncul, perilaku Claude Code 2.1.317). */
 export function uraiIsi(teks) {
   let j; try { j = JSON.parse(teks); } catch { return null; }
   if (!j || !["izin", "tanya", "selesai", "keluar"].includes(j.k) || !Number.isFinite(j.t)) return null;
-  return { k: j.k, t: j.t, u: typeof j.u === "string" && ID_AMAN.test(j.u) ? j.u : null, s: Number.isFinite(j.s) ? j.s : null };
+  return { k: j.k, t: j.t, u: typeof j.u === "string" && ID_AMAN.test(j.u) ? j.u : null,
+    a: typeof j.a === "string" && NAMA_ALAT.test(j.a) ? j.a : null, n: angka(j.n), s: angka(j.s), bt: angka(j.bt) };
 }
+/** Pemberitahuan (Notification) yang datang < 10 menit setelah izin/tanya yang sama jenisnya = jendela yang sama: dicatat
+ *  sebagai tanda "jendela ini masih terbuka ±6 dtk kemudian", tidak menimpa id/nama alat dan waktunya. */
+const SATU_JENDELA_MS = 10 * 60e3;
 
 /** Tulis kejadian ke berkas sesinya (atomik: berkas sementara lalu ganti nama). `s` mengingat "selesai" terakhir: bukti
- *  bahwa sesi ini memang mengirim sinyal selesai (Kantor lalu berhenti menebak dari jeda waktu). */
+ *  bahwa sesi ini memang mengirim sinyal selesai (Kantor lalu berhenti menebak dari jeda waktu); `bt` mengingat bahwa sesi
+ *  ini mengirim pemberitahuan izin yang tertunda ±6 dtk (Kantor lalu boleh menyimpulkan izin yang tak kunjung diberitahukan
+ *  sudah dijawab). Pemberitahuan yang datang seketika (bersamaan dengan jendela) tidak pernah menjadi bukti. */
 export function catatKejadian(e, folder = FOLDER_KEJADIAN) {
   fs.mkdirSync(folder, { recursive: true });
   const f = path.join(folder, namaBerkas(e.sesi, e.agen));
-  let s = null;
-  try { s = uraiIsi(fs.readFileSync(f, "utf8"))?.s ?? null; } catch { /* belum ada */ }
-  if (e.k === "selesai") s = e.t;
-  const isi = JSON.stringify({ k: e.k, t: e.t, ...(e.u ? { u: e.u } : {}), ...(s ? { s } : {}) });
+  let lama = null;
+  try { lama = uraiIsi(fs.readFileSync(f, "utf8")); } catch { /* belum ada */ }
+  const s = e.k === "selesai" ? e.t : lama?.s ?? null;
+  const jendelaSama = e.notif && lama && lama.k === e.k && e.t - lama.t >= 0 && e.t - lama.t < SATU_JENDELA_MS;
+  const bt = jendelaSama && e.k === "izin" && e.t - lama.t >= 5000 ? e.t : lama?.bt ?? null;
+  const dasar = jendelaSama ? { k: lama.k, t: lama.t, u: lama.u, a: lama.a } : { k: e.k, t: e.t, u: e.u, a: e.a };
+  const n = e.notif ? e.t : null;
+  const isi = JSON.stringify({ k: dasar.k, t: dasar.t, ...(dasar.u ? { u: dasar.u } : {}), ...(dasar.a ? { a: dasar.a } : {}),
+    ...(n ? { n } : {}), ...(s ? { s } : {}), ...(bt ? { bt } : {}) });
   const sementara = `${f}.${process.pid}.tmp`;
   fs.writeFileSync(sementara, isi);
   try { fs.renameSync(sementara, f); } catch (err) { fs.rmSync(sementara, { force: true }); throw err; }
